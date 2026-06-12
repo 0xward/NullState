@@ -1,0 +1,109 @@
+name: Game State Checkpoint
+
+on:
+  schedule:
+    - cron: '0 2 * * *'
+    - cron: '30 6 * * *'
+    - cron: '0 10 * * *'
+    - cron: '30 15 * * *'
+    - cron: '0 20 * * *'
+    - cron: '30 23 * * *'
+  workflow_dispatch:
+
+jobs:
+  checkpoint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Roll
+        id: gate
+        run: |
+          R=$((RANDOM % 6))
+          # Keep 2-5 out of 6 (drop ~1-2)
+          [ $R -lt 2 ] && echo "run=false" >> $GITHUB_OUTPUT || echo "run=true" >> $GITHUB_OUTPUT
+
+      - name: Checkout
+        if: steps.gate.outputs.run == 'true'
+        uses: actions/checkout@v4
+
+      - name: Fetch Celo block
+        if: steps.gate.outputs.run == 'true'
+        id: celo
+        run: |
+          BLOCK=$(curl -sf \
+            -X POST https://forno.celo.org \
+            -H "Content-Type: application/json" \
+            -d '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' \
+            | python3 -c "
+          import sys,json
+          try:
+            r=json.load(sys.stdin)
+            print(int(r['result'],16))
+          except: print('')
+          " || echo '')
+
+          GAS=$(curl -sf \
+            -X POST https://forno.celo.org \
+            -H "Content-Type: application/json" \
+            -d '{"jsonrpc":"2.0","method":"eth_gasPrice","params":[],"id":1}' \
+            | python3 -c "
+          import sys,json
+          try:
+            r=json.load(sys.stdin)
+            print(int(r['result'],16))
+          except: print('')
+          " || echo '')
+
+          echo "block=$BLOCK" >> $GITHUB_OUTPUT
+          echo "gas=$GAS" >> $GITHUB_OUTPUT
+
+      - name: Pick message
+        if: steps.gate.outputs.run == 'true'
+        id: msg
+        run: |
+          B="${{ steps.celo.outputs.block }}"
+          DATE=$(date -u +"%Y-%m-%d")
+          MSGS=(
+            "game: checkpoint world state at block $B"
+            "chore: nullstate epoch snapshot $DATE"
+            "update: on-chain game registry — $DATE"
+            "game: Celo block anchor $B recorded"
+            "chore: player state sync $DATE"
+            "update: game contract reference block $B"
+            "game: session boundary $DATE"
+            "chore: nullstate world anchor — $B"
+          )
+          IDX=$((RANDOM % ${#MSGS[@]}))
+          echo "text=${MSGS[$IDX]}" >> $GITHUB_OUTPUT
+
+      - name: Write checkpoint
+        if: steps.gate.outputs.run == 'true'
+        run: |
+          mkdir -p game
+          TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          BLOCK="${{ steps.celo.outputs.block }}"
+          GAS="${{ steps.celo.outputs.gas }}"
+          DATE=$(date -u +"%Y-%m-%d")
+
+          cat >> game/checkpoints.md << EOF
+
+          ### Checkpoint — $TIMESTAMP
+
+          | Field | Value |
+          |-------|-------|
+          | Celo Block | \`$BLOCK\` |
+          | Gas Price (wei) | \`$GAS\` |
+          | Network | Celo Mainnet |
+          | Date | $DATE |
+
+          EOF
+
+      - name: Commit
+        if: steps.gate.outputs.run == 'true'
+        run: |
+          git config user.name "0xward"
+          git config user.email "0xward.dev@gmail.com"
+          git add game/checkpoints.md
+          git diff --staged --quiet && echo "clean" && exit 0
+          git commit -m "${{ steps.msg.outputs.text }}"
+          git push
