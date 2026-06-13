@@ -58,3 +58,13 @@
 | Network | Celo Mainnet |
 | Date | 2026-06-13 |
 
+
+### Checkpoint — 2026-06-13T11:56:35Z
+
+| Field | Value |
+|-------|-------|
+| Celo Block | `69451035` |
+| Gas Price (wei) | `202500000000` |
+| Network | Celo Mainnet |
+| Date | 2026-06-13 |
+
