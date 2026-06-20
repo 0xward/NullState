@@ -663,8 +663,8 @@ body::before {
   .ns-game-root .log{bottom:132px;left:10px;max-width:78vw;font-size:11px;}
   .ns-game-root .floor-banner{top:24%;}
   .ns-game-root .logo{letter-spacing:6px;}
-  .ns-game-root .char-select{gap:10px;}
-  .ns-game-root .char-btn{width:44vw;max-width:160px;}
+  .ns-game-root .char-select{gap:10px;flex-wrap:wrap;}
+  .ns-game-root .char-btn{width:28vw;min-width:96px;max-width:130px;padding:10px 8px;}
   .ns-game-root .hint{display:none;}
 }
 

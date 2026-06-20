@@ -277,11 +277,14 @@ export default function DungeonGame() {
             <div className="subtitle">// THE FORSAKEN DEPTHS</div>
             <p className="lore" id="titleLore" />
             <div className="char-select">
-              <button className="char-btn selected" data-char="male">
-                <div className="char-prev" id="prevMale" /><span>VOID WALKER</span>
+              <button className="char-btn selected" data-char="knight">
+                <div className="char-prev" id="prevKnight" /><span>KNIGHT</span>
               </button>
-              <button className="char-btn" data-char="female">
-                <div className="char-prev" id="prevFemale" /><span>ASH SEEKER</span>
+              <button className="char-btn" data-char="rogue">
+                <div className="char-prev" id="prevRogue" /><span>ROGUE</span>
+              </button>
+              <button className="char-btn" data-char="wizzard">
+                <div className="char-prev" id="prevWizzard" /><span>WIZZARD</span>
               </button>
             </div>
             <button id="startBtn" className="big-btn">DESCEND ▾</button>

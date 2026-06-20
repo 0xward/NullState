@@ -120,13 +120,19 @@ function ensureFloor(depth){
     const e=new Enemy(BOSS_ARCH, d.stairsPx.x, d.stairsPx.y-60, depth, true);
     floor.enemies.push(e); floor.bossAlive=true;
   } else {
+    const ELITE_ARCHS = [ORC_SHAMAN_ARCH, SKEL_MAGE_ARCH, SKEL_WARRIOR_ARCH];
     const eliteChance=Math.min(0.30, 0.12 + depth*0.015);
     let eliteCount=0;
     for(const s of d.spawns){
-      const arch=ARCHETYPES[(Math.random()*Math.min(ARCHETYPES.length, 1+depth))|0]||ARCHETYPES[0];
       const elite = (eliteCount<2) && Math.random()<eliteChance;
-      if(elite) eliteCount++;
-      floor.enemies.push(new Enemy(arch, s.x, s.y, depth, false, elite));
+      if(elite){
+        eliteCount++;
+        const arch = ELITE_ARCHS[(Math.random()*ELITE_ARCHS.length)|0];
+        floor.enemies.push(new Enemy(arch, s.x, s.y, depth, false, true));
+      } else {
+        const arch=ARCHETYPES[(Math.random()*Math.min(ARCHETYPES.length, 1+depth))|0]||ARCHETYPES[0];
+        floor.enemies.push(new Enemy(arch, s.x, s.y, depth, false, false));
+      }
     }
   }
   spawnDecorInto(floor, d);
@@ -151,7 +157,7 @@ function isFloorClearForAdvance(depth){
   const f = G.floors[depth];
   if(!f) return false;
   // "Clear" = every mummy (regular or elite) AND any boss on the floor is dead.
-  return f.enemies.every(e => e.dead || !(e.arch.key==='mummy' || e.isBoss));
+  return f.enemies.every(e => e.dead || !(e.arch.isUndead || e.isBoss));
 }
 
 function descend(toDepth){
@@ -890,8 +896,12 @@ function update(dt){
   maybeOfferUlti(nearest, nd);
   if(G.paused) return;                        // ulti popup opened this frame
   p.update(dt, input, G.dun);
+  if(p.takeSwingFx()) spark(p.x+p.facing*30, p.y-10, '#eafff5', 8, 100);
   hitTest();
-  for(const e of G.enemies) e.update(dt, p, G.dun);
+  for(const e of G.enemies){
+    e.update(dt, p, G.dun);
+    if(e.takeSwingFx()) spark(e.x+e.facing*e.r, e.y-e.r*0.4, e.elite?'#ffd166':'#ff8a7a', 10, 90);
+  }
   // resolve enemy-dealt damage collected in hitTest already; also separation
   G.enemies = G.enemies.filter(e=>!(e.dead && e.deathT<=0));
   // decorations
@@ -1088,7 +1098,7 @@ async function onUltiTx(){
 }
 
 // ---- title / char select ----
-let selectedChar='male';
+let selectedChar='knight';
 // draw a character preview at a CONSISTENT on-screen height by detecting the
 // sprite's alpha bounding box (frame 0) and normalizing — so male & female match.
 function drawPreview(elId, cfg){
@@ -1116,8 +1126,9 @@ function drawPreview(elId, cfg){
   host.style.cssText=`width:${BOX}px;height:${BOX}px;`;
 }
 function paintPreview(){
-  drawPreview('prevMale', HERO.male);
-  drawPreview('prevFemale', HERO.female);
+  drawPreview('prevKnight', HERO.knight);
+  drawPreview('prevRogue', HERO.rogue);
+  drawPreview('prevWizzard', HERO.wizzard);
 }
 function onCharBtn(e){
   const b=e.currentTarget;
