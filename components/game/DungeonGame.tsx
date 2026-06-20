@@ -13,6 +13,16 @@ import { useWallet, CELO_CHAIN_ID } from '@/lib/WalletProvider'
 // whole app uses ONE wallet system (RainbowKit / MiniPay / MetaMask on Celo).
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Cache-busting build tag. Bump NEXT_PUBLIC_BUILD_ID (set automatically by
+// Vercel to the deployment/commit id) so the CDN and the browser always
+// treat the engine files as new after a deploy, instead of reusing a stale
+// cached copy of /game-engine/*.js (these are static public/ files and do
+// NOT get the automatic content-hash that Next.js applies to its own bundles).
+const BUILD_TAG =
+  process.env.NEXT_PUBLIC_BUILD_ID ||
+  process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA ||
+  'dev'
+
 const ENGINE_SCRIPTS = [
   '/game-engine/audio.js',
   '/game-engine/assets.js',
@@ -21,7 +31,7 @@ const ENGINE_SCRIPTS = [
   '/game-engine/props.js',
   '/game-engine/entities.js',
   '/game-engine/game.js',
-]
+].map(src => `${src}?v=${BUILD_TAG}`)
 
 // Load the engine scripts exactly once, in order.
 let enginePromise: Promise<void> | null = null
@@ -208,6 +218,29 @@ export default function DungeonGame() {
 
           <div id="log" className="log" />
 
+          {/* Inventory button sits just under the canvas-drawn minimap
+              (top-right) and toggles the inventory panel. */}
+          <button id="invBtn" className="inv-btn" aria-label="Inventory">🎒</button>
+          <div id="invPanel" className="inv-panel hidden">
+            <div className="inv-panel-head">
+              <span>INVENTORY</span>
+              <button id="invClose" className="inv-close" aria-label="Close">✕</button>
+            </div>
+            <div className="inv-vitals">
+              <div className="inv-vital-row">
+                <span className="bar-label">HP</span>
+                <div className="bar hp"><div id="invHpFill" className="bar-fill" /><span id="invHpText" className="bar-text">100/100</span></div>
+              </div>
+              <div className="inv-vital-row">
+                <span className="bar-label">XP</span>
+                <div className="bar xp"><div id="invXpFill" className="bar-fill" /><span id="invXpText" className="bar-text">0/200</span></div>
+              </div>
+            </div>
+            <div id="invItems" className="inv-items">
+              <div className="inv-empty" id="invEmpty">No items yet — explore the depths.</div>
+            </div>
+          </div>
+
           <div id="touchControls" className="touch hidden">
             <div id="stick" className="stick"><div id="stickNub" className="nub" /></div>
             <button id="atkBtn" className="atk">⚔</button>
@@ -215,6 +248,20 @@ export default function DungeonGame() {
 
           <div className="hint">WASD / Arrows · move&nbsp;&nbsp;·&nbsp;&nbsp;SPACE / J / Click · attack&nbsp;&nbsp;·&nbsp;&nbsp;E · interact</div>
         </div>
+
+        {/* Lift floor-select popup (sibling of #hud, like the other overlays
+            below, so it isn't subject to #hud's pointer-events:none) */}
+        <div id="liftMenu" className="overlay hidden">
+          <div className="lift-inner">
+            <div className="logo" style={{fontSize:'22px'}}>LIFT</div>
+            <div className="subtitle">// SELECT FLOOR</div>
+            <div id="liftFloorList" className="lift-floor-list" />
+            <button id="liftCancel" className="ghost-btn">▾ cancel</button>
+          </div>
+        </div>
+
+        {/* Dark loading transition, used whenever the lift changes floors */}
+        <div id="loadingFade" className="loading-fade hidden" />
 
         {/* Title screen */}
         <div id="title" className="overlay">

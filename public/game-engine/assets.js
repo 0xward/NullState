@@ -11,9 +11,9 @@ const HERO = {
     scale:0.63, foot:0.725,   // contentH 102 -> ~64px
   },
   female: {
-    idle:   { src:'/sprites/hero/female_idle.png',   fw:192, fh:192, frames:6, fps:7 },
-    walk:   { src:'/sprites/hero/female_walk.png',   fw:192, fh:192, frames:6, fps:12 },
-    attack: { src:'/sprites/hero/female_attack.png', fw:192, fh:192, frames:6, fps:16 },
+    idle:   { src:'/sprites/hero/female_idle.png',   fw:144, fh:192, frames:8, fps:7 },
+    walk:   { src:'/sprites/hero/female_walk.png',   fw:144, fh:192, frames:8, fps:12 },
+    attack: { src:'/sprites/hero/female_attack.png', fw:144, fh:192, frames:8, fps:16 },
     scale:0.82, foot:0.688,   // contentH 78 -> ~64px
   },
 };

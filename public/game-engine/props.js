@@ -80,13 +80,23 @@ class Decor {
     }
 
     // Blend with the dark dungeon + convey facing through lighting.
-    // (ctx.filter only affects the shape we draw next, not the background.)
-    let filt='saturate(0.82) brightness(0.92)';
-    if(f==='up')        filt='saturate(0.6) brightness(0.55)';   // back, in wall shadow
-    else if(side)       filt='saturate(0.74) brightness(0.8)';   // turned, partly shaded
-    ctx.filter=filt;
+    // Previously used ctx.filter (saturate/brightness) — that's a software
+    // CSS-style filter pass that's expensive to re-run per decoration per
+    // frame on mobile GPUs. A 'multiply' tint overlay gets a visually close
+    // darken/desaturate look at a fraction of the render cost.
+    let tint = null; // [color, alpha] or null for no tint
+    if(f==='up')        tint = ['#3a4a48', 0.42];   // back, in wall shadow
+    else if(side)       tint = ['#4a5a55', 0.26];   // turned, partly shaded
+    else                tint = ['#5a6a62', 0.12];   // facing camera, slight blend
     this.shape(ctx, f);
-    ctx.filter='none';
+    if(tint){
+      ctx.save();
+      ctx.globalCompositeOperation='multiply';
+      ctx.globalAlpha=tint[1]*a;
+      ctx.fillStyle=tint[0];
+      this.shapeMask(ctx);
+      ctx.restore();
+    }
 
     // hit flash overlay (silhouette)
     if(this.hitFlash>0){

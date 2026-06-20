@@ -502,6 +502,14 @@ body::before {
   background:var(--g-bg); color:#cfeede;
   font-family:'Share Tech Mono',monospace; -webkit-font-smoothing:none;
 }
+/* Mobile browsers (Chrome/Safari) report 100vh as the LARGEST possible
+   viewport (address bar hidden), but on first load the address bar is
+   still visible, so 100vh overshoots the real visible area and anything
+   anchored to the bottom (the touch stick) renders underneath the browser
+   chrome and gets clipped. 100dvh tracks the actual visible viewport. */
+@supports (height: 100dvh){
+  .ns-game-root{ height:100dvh; }
+}
 .ns-game-root *{box-sizing:border-box;margin:0;padding:0;}
 .ns-game-root #app{position:relative;width:100%;height:100%;overflow:hidden;}
 .ns-game-root canvas#game{position:absolute;inset:0;width:100%;height:100%;display:block;
@@ -562,7 +570,9 @@ body::before {
 
 /* ---------- touch ---------- */
 .ns-game-root .touch{position:absolute;inset:0;pointer-events:none;z-index:6;}
-.ns-game-root .stick{position:absolute;left:18px;bottom:26px;width:92px;height:92px;border-radius:50%;
+.ns-game-root .stick{position:absolute;left:18px;
+  bottom:calc(26px + env(safe-area-inset-bottom, 0px));
+  width:92px;height:92px;border-radius:50%;
   border:1px solid rgba(0,255,136,.28);background:rgba(0,0,0,.14);pointer-events:auto;
   opacity:.28;transition:opacity .2s ease;touch-action:none;}
 .ns-game-root .stick.active{opacity:.6;}
@@ -656,4 +666,72 @@ body::before {
   .ns-game-root .char-select{gap:10px;}
   .ns-game-root .char-btn{width:44vw;max-width:160px;}
   .ns-game-root .hint{display:none;}
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   INVENTORY — button + panel. The button sits directly under the
+   canvas-drawn minimap (top-right corner; minimap is drawn at
+   top:78px/size:108px/pad:12px from the canvas itself, see MM in game.js),
+   so its position here is hand-tuned to land just below that, not derived
+   from a shared constant (the minimap is canvas-drawn, this is DOM).
+   ════════════════════════════════════════════════════════════════════════ */
+.ns-game-root .inv-btn{position:absolute;top:200px;right:12px;z-index:7;pointer-events:auto;
+  width:34px;height:34px;border-radius:8px;cursor:pointer;
+  background:rgba(4,8,10,.62);border:1px solid var(--line);color:#cfeede;
+  font-size:16px;line-height:1;display:flex;align-items:center;justify-content:center;
+  transition:.15s;}
+.ns-game-root .inv-btn:hover{border-color:var(--green);background:rgba(0,255,136,.1);}
+
+.ns-game-root .inv-panel{position:absolute;top:200px;right:12px;z-index:8;pointer-events:auto;
+  width:228px;max-height:min(64vh,440px);overflow-y:auto;
+  background:rgba(6,10,13,.92);border:1px solid var(--line);border-radius:10px;
+  box-shadow:0 12px 36px rgba(0,0,0,.55);padding:12px;animation:ns-fadeUp .25s ease;}
+.ns-game-root .inv-panel-head{display:flex;align-items:center;justify-content:space-between;
+  font-family:'Share Tech Mono';letter-spacing:3px;font-size:12px;color:var(--green);
+  border-bottom:1px solid var(--line);padding-bottom:8px;margin-bottom:10px;}
+.ns-game-root .inv-close{background:transparent;border:none;color:#9fc3b4;cursor:pointer;
+  font-size:14px;line-height:1;padding:2px 4px;}
+.ns-game-root .inv-close:hover{color:#eafff5;}
+.ns-game-root .inv-vitals{display:flex;flex-direction:column;gap:6px;margin-bottom:12px;
+  padding-bottom:10px;border-bottom:1px dashed rgba(0,255,136,.18);}
+.ns-game-root .inv-vital-row{display:flex;align-items:center;gap:8px;}
+.ns-game-root .inv-vital-row .bar{flex:1;height:14px;}
+.ns-game-root .inv-items{display:flex;flex-direction:column;gap:6px;}
+.ns-game-root .inv-empty{color:#5c8a78;font-size:11px;letter-spacing:.5px;text-align:center;padding:14px 4px;}
+.ns-game-root .inv-item{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.03);
+  border:1px solid rgba(255,209,102,.25);border-radius:7px;padding:7px 9px;}
+.ns-game-root .inv-item-icon{font-size:15px;color:#ffd166;text-shadow:0 0 8px rgba(255,209,102,.6);}
+.ns-game-root .inv-item-name{flex:1;font-size:12px;color:#eafff5;letter-spacing:.5px;}
+.ns-game-root .inv-item-count{font-size:11px;color:#caa15a;}
+
+/* ════════════════════════════════════════════════════════════════════════
+   LIFT — floor-select popup. Compact variant of the .overlay pattern
+   (modeled on .ulti-inner) rather than a full title-style screen.
+   ════════════════════════════════════════════════════════════════════════ */
+.ns-game-root .lift-inner{max-width:380px;width:100%;animation:ns-fadeUp .3s ease;
+  background:rgba(8,14,18,.85);border:1px solid var(--line);border-radius:12px;
+  padding:26px 22px;box-shadow:0 0 40px rgba(255,70,90,.12);}
+.ns-game-root .lift-floor-list{display:flex;flex-direction:column;gap:8px;margin:18px 0 4px;
+  max-height:46vh;overflow-y:auto;}
+.ns-game-root .lift-floor-btn{width:100%;padding:11px 16px;font-size:14px;letter-spacing:3px;
+  background:linear-gradient(180deg,#2a3a36,#1a2622);color:#eafff5;border:1px solid rgba(0,255,136,.3);
+  box-shadow:none;border-radius:8px;}
+.ns-game-root .lift-floor-btn:hover{transform:translateY(-1px);border-color:var(--green);box-shadow:0 0 18px rgba(0,255,136,.25);}
+.ns-game-root .lift-floor-btn.current{border-color:#ffd166;color:#ffd166;background:linear-gradient(180deg,#3a311a,#221c10);cursor:default;}
+.ns-game-root .lift-floor-btn.current:hover{transform:none;box-shadow:none;}
+.ns-game-root .lift-floor-btn.locked{opacity:.45;cursor:not-allowed;border-color:rgba(255,70,90,.35);color:#c98a92;}
+.ns-game-root .lift-floor-btn.locked:hover{transform:none;box-shadow:none;}
+.ns-game-root .lift-floor-btn:disabled{pointer-events:none;}
+
+/* ════════════════════════════════════════════════════════════════════════
+   LOADING TRANSITION — full dark fade used for every floor change (lift
+   travel, respawn), so the floor-data swap underneath never happens
+   visibly mid-frame.
+   ════════════════════════════════════════════════════════════════════════ */
+.ns-game-root .loading-fade{position:absolute;inset:0;z-index:40;background:#020304;
+  opacity:0;transition:opacity .4s ease;pointer-events:none;}
+
+@media (orientation:portrait){
+  .ns-game-root .inv-btn,.ns-game-root .inv-panel{top:198px;}
+  .ns-game-root .inv-panel{width:min(74vw,240px);}
 }

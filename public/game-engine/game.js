@@ -33,9 +33,11 @@ function resize(){
   cw = cv.clientWidth; ch = cv.clientHeight;
   cv.width = cw*dpr; cv.height = ch*dpr;
   portrait = ch > cw;
-  // explore (far) zoom + combat (near) zoom — camera animates between them
-  zoomFar  = portrait ? clamp(cw/430, 1.15, 2.2) : clamp(Math.min(cw,ch)/620, 0.95, 2.05);
-  zoomNear = zoomFar * 1.5;
+  // explore (far) zoom + combat (near) zoom — camera animates between them.
+  // Lowered floors/multiplier vs. the original (1.15 far / 1.5x near) — those
+  // made characters render far too large on typical phone widths (~360-430px).
+  zoomFar  = portrait ? clamp(cw/520, 0.78, 1.5) : clamp(Math.min(cw,ch)/680, 0.85, 1.6);
+  zoomNear = zoomFar * 1.22; // gentler combat push-in (was 1.5x)
   zoom = clamp(zoom, zoomFar, zoomNear);
 }
 
@@ -81,38 +83,106 @@ function newGame(charKey){
   const p = new Player(charKey, cfg);
   G = { player:p, dun:null, enemies:[], decor:[], particles:[], dmgNums:[],
         depth:0, shake:0, time:0, paused:false, bgIndex:0, bossAlive:false, over:false,
-        ulti:{ cd:0, lowHpArmed:true } };
-  descend();
+        ulti:{ cd:0, lowHpArmed:true },
+        // Per-floor cache: floors[depth] = {dun, enemies, decor, cleared, bossAlive}
+        // so revisiting a floor via the lift shows it exactly as it was left
+        // (dead enemies stay dead, unbroken decor stays lootable).
+        floors:{}, maxDepthReached:0,
+        // Per-run state: the one golden key in this match, where it currently
+        // sits (floor + world pos), whether it's been picked up, and the
+        // floor to respawn on after death.
+        key:{ depth:0, x:0, y:0, taken:false },
+        inventory:{ keys:0 },
+        respawnDepth:1 };
+  placeKeyRandomly();
+  descend(1);
 }
 
-function descend(){
-  G.depth++;
+// Pick a random floor (1-6, an early/mid band so it's findable across a
+// typical run length) and a random spawn-like spot in it for the golden
+// key. Re-rolled whenever the key needs to relocate (run start, or after
+// the player dies before ever picking it up).
+function placeKeyRandomly(depth){
+  const d = depth || (1 + (Math.random()*6|0));
+  G.key.depth = d;
+  G.key._pendingPlacement = true; // resolved into x/y once that floor's dungeon exists
+}
+
+function ensureFloor(depth){
+  if(G.floors[depth]){
+    resolvePendingKeyPlacement(depth, G.floors[depth].dun);
+    return G.floors[depth];
+  }
+  const d = makeDungeon(depth);
+  const floor = { dun:d, enemies:[], decor:[], cleared:false, bossAlive:false, visited:false };
+  const isBoss = depth%5===0;
+  if(isBoss){
+    const e=new Enemy(BOSS_ARCH, d.stairsPx.x, d.stairsPx.y-60, depth, true);
+    floor.enemies.push(e); floor.bossAlive=true;
+  } else {
+    const eliteChance=Math.min(0.30, 0.12 + depth*0.015);
+    let eliteCount=0;
+    for(const s of d.spawns){
+      const arch=ARCHETYPES[(Math.random()*Math.min(ARCHETYPES.length, 1+depth))|0]||ARCHETYPES[0];
+      const elite = (eliteCount<2) && Math.random()<eliteChance;
+      if(elite) eliteCount++;
+      floor.enemies.push(new Enemy(arch, s.x, s.y, depth, false, elite));
+    }
+  }
+  spawnDecorInto(floor, d);
+  resolvePendingKeyPlacement(depth, d);
+  G.floors[depth] = floor;
+  return floor;
+}
+
+// Resolve the golden key's world position once a floor's room layout
+// exists, if this is the floor it's currently assigned to and it hasn't
+// been placed yet (covers both a brand-new floor and a key that relocated
+// onto a floor that was already cached from an earlier visit).
+function resolvePendingKeyPlacement(depth, d){
+  if(!(G.key.depth===depth && G.key._pendingPlacement && !G.key.taken)) return;
+  const room = d.rooms[1 + (Math.random()*Math.max(0,d.rooms.length-2)|0)] || d.rooms[0];
+  G.key.x = (room.cx+0.5+(Math.random()*0.6-0.3))*TILE;
+  G.key.y = (room.cy+0.5+(Math.random()*0.6-0.3))*TILE;
+  G.key._pendingPlacement = false;
+}
+
+function isFloorClearForAdvance(depth){
+  const f = G.floors[depth];
+  if(!f) return false;
+  // "Clear" = every mummy (regular or elite) AND any boss on the floor is dead.
+  return f.enemies.every(e => e.dead || !(e.arch.key==='mummy' || e.isBoss));
+}
+
+function descend(toDepth){
+  const target = toDepth!==undefined ? toDepth : G.depth+1;
+  // snapshot current floor's live state back into the cache before leaving
+  if(G.dun && G.floors[G.depth]){
+    const cur = G.floors[G.depth];
+    cur.enemies = G.enemies; cur.decor = G.decor; cur.bossAlive = G.bossAlive;
+    cur.visited = true;
+  }
+  G.depth = target;
+  G.maxDepthReached = Math.max(G.maxDepthReached, target);
+  const floor = ensureFloor(target);
+  G.dun = floor.dun; G.enemies = floor.enemies; G.decor = floor.decor;
+  G.bossAlive = floor.bossAlive;
+  G.particles=[]; G.dmgNums=[];
+  // Only drop the player at the entrance the FIRST time a floor is visited;
+  // revisiting (lift travel) places them at the lift landing instead so
+  // backtracking doesn't feel like restarting the floor from its far entrance.
+  if(!floor.visited){
+    G.player.x=floor.dun.startPx.x; G.player.y=floor.dun.startPx.y;
+  } else {
+    G.player.x=floor.dun.stairsPx.x; G.player.y=floor.dun.stairsPx.y-TILE*0.6;
+  }
+  floor.visited = true;
   G.player.depth=G.depth;
-  const d = makeDungeon(G.depth);
-  G.dun=d; G.enemies=[]; G.decor=[]; G.particles=[]; G.dmgNums=[];
-  G.player.x=d.startPx.x; G.player.y=d.startPx.y;
   G.bgIndex=(G.depth-1)%backgrounds.length;
   G.ulti.lowHpArmed=true;
   const isBoss = G.depth%5===0;
-  G.bossAlive=false;
-  if(isBoss){
-    const e=new Enemy(BOSS_ARCH, d.stairsPx.x, d.stairsPx.y-60, G.depth, true);
-    G.enemies.push(e); G.bossAlive=true;
-  } else {
-    const eliteChance=Math.min(0.30, 0.12 + G.depth*0.015);
-    let eliteCount=0;
-    for(const s of d.spawns){
-      const arch=ARCHETYPES[(Math.random()*Math.min(ARCHETYPES.length, 1+G.depth))|0]||ARCHETYPES[0];
-      const elite = (eliteCount<2) && Math.random()<eliteChance;
-      if(elite) eliteCount++;
-      G.enemies.push(new Enemy(arch, s.x, s.y, G.depth, false, elite));
-    }
-  }
-  // scatter breakable room decorations across rooms (not start/stairs tiles)
-  spawnDecor(d);
-  // banner + log
   showBanner(`FLOOR ${G.depth}`, isBoss?'⚠ GUARDED':backgrounds[G.bgIndex].split('/').pop().replace('.png','').toUpperCase());
-  if(isBoss){
+  if(isBoss && floor.bossAlive){
     cutscene(Story.bossIntro);
   } else {
     log(Story.floorLine(G.depth),'dm');
@@ -120,7 +190,7 @@ function descend(){
   A.descend();
 }
 
-function spawnDecor(d){
+function spawnDecorInto(floor, d){
   const common=['vase','pot','barrel','crate','cabinet_s'];
   const rare=['wardrobe','chest'];
   const g=d.grid, W=d.W, H=d.H;
@@ -155,10 +225,10 @@ function spawnDecor(d){
     let placed=0;
     for(const c of cand){
       if(placed>=n) break;
-      if(G.decor.some(o=>Math.hypot(o.x-c.px,o.y-c.py)<TILE*0.9)) continue;
+      if(floor.decor.some(o=>Math.hypot(o.x-c.px,o.y-c.py)<TILE*0.9)) continue;
       const t = Math.random()<0.12 ? rare[Math.random()<0.5?0:1]
                                    : common[Math.floor(Math.random()*common.length)];
-      G.decor.push(new Decor(t,c.px,c.py,c.facing));
+      floor.decor.push(new Decor(t,c.px,c.py,c.facing));
       placed++;
     }
   }
@@ -216,9 +286,64 @@ function tryInteract(){
   const d=G.dun, p=G.player;
   const dx=p.x-d.stairsPx.x, dy=p.y-d.stairsPx.y;
   if(Math.hypot(dx,dy)<TILE*0.9){
-    if(G.bossAlive){ log('The way down is sealed. The Gatekeeper bars your path.','combat'); return; }
-    descend();
+    openLiftMenu();
   }
+}
+
+// ---- lift menu ----
+function openLiftMenu(){
+  if(!G||G.over||G.paused) return;
+  G.paused = true;
+  const opts = [];
+  for(let f=1; f<=G.maxDepthReached; f++) opts.push({ floor:f, locked:false });
+  const nextFloor = G.depth+1;
+  if(!opts.find(o=>o.floor===nextFloor)){
+    opts.push({ floor:nextFloor, locked: !isFloorClearForAdvance(G.depth) });
+  }
+  opts.sort((a,b)=>a.floor-b.floor);
+  renderLiftMenu(opts);
+  $('liftMenu').classList.remove('hidden');
+}
+function renderLiftMenu(opts){
+  const host = $('liftFloorList'); if(!host) return;
+  host.innerHTML = '';
+  for(const o of opts){
+    const btn = document.createElement('button');
+    btn.className = 'big-btn lift-floor-btn' + (o.floor===G.depth ? ' current' : '') + (o.locked ? ' locked' : '');
+    btn.disabled = o.locked;
+    btn.textContent = o.locked ? `FLOOR ${o.floor} 🔒` : (o.floor===G.depth ? `FLOOR ${o.floor} (here)` : `FLOOR ${o.floor}`);
+    if(!o.locked && o.floor!==G.depth){
+      btn.addEventListener('click', () => { closeLiftMenu(); travelToFloor(o.floor); });
+    }
+    host.appendChild(btn);
+  }
+}
+function closeLiftMenu(){
+  $('liftMenu').classList.add('hidden');
+  G.paused = false;
+}
+function travelToFloor(depth){
+  if(!G) return;
+  showLoadingTransition(() => descend(depth));
+}
+// Dark loading transition: fade to black, swap floor data underneath while
+// hidden, then fade back in — used for every lift trip so the cached-floor
+// swap never happens visibly mid-frame.
+function showLoadingTransition(onDark){
+  const el = $('loadingFade');
+  if(!el){ onDark(); return; }
+  el.classList.remove('hidden');
+  el.style.opacity = '0';
+  requestAnimationFrame(()=>{
+    el.style.opacity = '1';
+    setTimeout(()=>{
+      onDark();
+      setTimeout(()=>{
+        el.style.opacity = '0';
+        setTimeout(()=> el.classList.add('hidden'), 420);
+      }, 260);
+    }, 420);
+  });
 }
 
 // ---- particles & numbers ----
@@ -307,6 +432,34 @@ function updateCam(){
   cam.y=Math.max(halfH,Math.min(G.dun.pxH-halfH,cam.y));
 }
 
+// ---- nameplates (elite/boss labels) ----
+// Drawn in screen-space AFTER the zoom/camera transform is popped, and
+// clamped to stay inside the canvas, so they never clip off the edge on
+// narrow phone viewports (the old code drew them in world-space, which
+// clipped at the screen edge whenever an elite stood near the camera bound).
+let _nameplateQ = [];
+window.NS_QUEUE_NAMEPLATE = (enemy, worldAboveY) => {
+  _nameplateQ.push({ name: enemy.name, isBoss: enemy.isBoss, wx: enemy.x, wy: worldAboveY });
+};
+function drawNameplates(sx, sy){
+  if(!_nameplateQ.length) return;
+  ctx.save();
+  ctx.font = '11px "Share Tech Mono"';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'bottom';
+  for(const n of _nameplateQ){
+    const sxp = (n.wx-cam.x)*zoom + cw/2 + sx;
+    const syp = (n.wy-cam.y)*zoom + ch/2 + sy;
+    const half = ctx.measureText(n.name).width/2 + 6;
+    const cx = clamp(sxp, half, cw-half);
+    const cy = clamp(syp, 14, ch-6);
+    ctx.fillStyle = n.isBoss ? '#ffb347' : '#ffd166';
+    ctx.fillText(n.name, cx, cy);
+  }
+  ctx.restore();
+  _nameplateQ = [];
+}
+
 // ---- render ----
 function render(){
   ctx.setTransform(dpr,0,0,dpr,0,0);
@@ -323,6 +476,7 @@ function render(){
 
   drawTiles();
   drawStairs();
+  drawGoldenKey();
 
   // entities + decor painter-sorted by y
   const ents=[G.player, ...G.enemies, ...G.decor].sort((a,b)=>a.y-b.y);
@@ -333,8 +487,10 @@ function render(){
 
   ctx.restore();
 
+  drawNameplates(sx, sy);
   drawDarkness(sx,sy);
   drawVignette();
+  drawMinimap();
   if(G.ultiFlash>0){
     const a=Math.min(0.7, G.ultiFlash);
     const g=ctx.createRadialGradient(cw/2,ch/2,0,cw/2,ch/2,Math.max(cw,ch)*0.7);
@@ -343,11 +499,16 @@ function render(){
   }
 }
 
+// Wall block height (px) — gives walls visual volume instead of a thin line,
+// which is also what lets us fade a wall when it would visually cover the
+// player standing behind it (see drawWallFaces below).
+const WALL_H = 30;
+
 function drawTiles(){
   const d=G.dun;
   const x0=Math.max(0,((cam.x-cw/2/zoom)/TILE|0)-1);
   const x1=Math.min(d.W,((cam.x+cw/2/zoom)/TILE|0)+2);
-  const y0=Math.max(0,((cam.y-ch/2/zoom)/TILE|0)-1);
+  const y0=Math.max(0,((cam.y-ch/2/zoom)/TILE|0)-2); // extra row above for tall walls
   const y1=Math.min(d.H,((cam.y+ch/2/zoom)/TILE|0)+2);
   for(let y=y0;y<y1;y++){
     for(let x=x0;x<x1;x++){
@@ -363,30 +524,134 @@ function drawTiles(){
       if(((x*7+y*13)%11)===0){ ctx.fillStyle='rgba(0,255,136,.06)'; ctx.fillRect(px+TILE/2-1,py+TILE/2-1,2,2); }
     }
   }
-  // wall faces (draw void-adjacent edges as raised wall)
-  for(let y=y0;y<y1;y++) for(let x=x0;x<x1;x++){
-    if(d.grid[y][x]!==0) continue;
-    if(d.grid[y+1]&&d.grid[y+1][x]!==0){ // wall above a floor → draw face
-      ctx.fillStyle='#16222e'; ctx.fillRect(x*TILE,(y+1)*TILE-10,TILE,10);
-      ctx.fillStyle='rgba(0,0,0,.5)'; ctx.fillRect(x*TILE,(y+1)*TILE-2,TILE,2);
+  drawWallFaces(x0,x1,y0,y1);
+}
+
+// Tall wall blocks (top + front face) with an occlusion fade: a wall segment
+// that visually sits between the camera and the player (i.e. the player is
+// "behind" it from the top-down view, in the dead zone the tall front face
+// would otherwise paint over) fades to a low alpha so the player sprite
+// stays visible through it — but only dims a little, not full transparency,
+// so the wall is still legible while you're back there.
+function drawWallFaces(x0,x1,y0,y1){
+  const d=G.dun, p=G.player;
+  const playerTileX = p.x/TILE, playerTileY = p.y/TILE;
+  for(let y=y0;y<y1;y++){
+    for(let x=x0;x<x1;x++){
+      if(d.grid[y][x]!==0) continue;
+      if(!(d.grid[y+1] && d.grid[y+1][x]!==0)) continue; // only draw a face where there's a floor tile below this wall
+      const wx=x*TILE, wallTopY=(y+1)*TILE-WALL_H, floorY=(y+1)*TILE;
+
+      // Occlusion test: the wall's front face visually drops down INTO the
+      // floor row directly below it (from wallTopY to floorY, both inside
+      // tile row y+1). If the player is standing in that same floor row,
+      // right against this wall column, the tall face crowds right next to
+      // (and can read as covering) their sprite — so we fade it there.
+      const withinColumn = playerTileX > x-0.2 && playerTileX < x+1.2;
+      const inFrontRow = playerTileY >= y+1 && playerTileY < y+1.65;
+      const fade = (withinColumn && inFrontRow) ? 0.4 : 1;
+
+      ctx.save();
+      ctx.globalAlpha = fade;
+      // front face (vertical drop, shaded darker than the top)
+      const faceGrad = ctx.createLinearGradient(0, wallTopY, 0, floorY);
+      faceGrad.addColorStop(0, '#1c2c38');
+      faceGrad.addColorStop(1, '#0e1820');
+      ctx.fillStyle = faceGrad;
+      ctx.fillRect(wx, wallTopY, TILE, WALL_H);
+      // top edge highlight (catches the "light")
+      ctx.fillStyle = 'rgba(0,255,136,.16)';
+      ctx.fillRect(wx, wallTopY, TILE, 2);
+      // contact shadow where the wall meets the floor
+      ctx.fillStyle = 'rgba(0,0,0,.45)';
+      ctx.fillRect(wx, floorY-2, TILE, 2);
+      ctx.restore();
     }
   }
+}
+
+// ---- golden key (rare, one per match, relocates if you die before grabbing it) ----
+function drawGoldenKey(){
+  if(!G.key || G.key.taken || G.key._pendingPlacement || G.key.depth!==G.depth) return;
+  const { x, y } = G.key;
+  const bob = Math.sin(G.time*3.2)*4;
+  const pulse = 0.5+0.5*Math.sin(G.time*4);
+
+  ctx.save();
+  ctx.translate(x, y);
+
+  // ground glow (warm gold, floor-hugging ellipse like the lift's red one)
+  const g = ctx.createRadialGradient(0,3,0, 0,3,22);
+  g.addColorStop(0, `rgba(255,209,102,${0.30+0.12*pulse})`);
+  g.addColorStop(1, 'rgba(255,180,60,0)');
+  ctx.fillStyle = g;
+  ctx.save(); ctx.scale(1,0.4);
+  ctx.beginPath(); ctx.arc(0,7,22,0,Math.PI*2); ctx.fill();
+  ctx.restore();
+
+  // bobbing key icon
+  ctx.translate(0, bob - 8);
+  ctx.fillStyle = '#ffd166';
+  ctx.beginPath(); ctx.arc(-4,0,5,0,Math.PI*2); ctx.fill();      // bow (ring)
+  ctx.fillStyle = '#caa15a';
+  ctx.beginPath(); ctx.arc(-4,0,2.2,0,Math.PI*2); ctx.fill();    // bow hole
+  ctx.fillStyle = '#ffd166';
+  ctx.fillRect(-1,-1.5,11,3);                                     // shaft
+  ctx.fillRect(5,-1.5,2,5);                                       // tooth 1
+  ctx.fillRect(8,-1.5,2,4);                                       // tooth 2
+  // sparkle
+  ctx.globalAlpha = 0.6+0.4*pulse;
+  ctx.fillStyle = '#fff8e0';
+  ctx.fillRect(-4,-9,1.5,4); ctx.fillRect(-6,-7,4,1.5);
+  ctx.restore();
+  ctx.restore();
 }
 
 function drawStairs(){
   const s=G.dun.stairsPx;
   const pulse=0.5+0.5*Math.sin(G.time*3);
+  const bob=Math.sin(G.time*2.4)*5; // arrow bob amplitude, px
+
   ctx.save();
   ctx.translate(s.x,s.y);
-  const locked=G.bossAlive;
-  const col=locked?'#ff3b5c':'#00ff88';
-  ctx.globalAlpha=0.25+0.25*pulse;
-  ctx.fillStyle=col;
-  ctx.beginPath(); ctx.arc(0,0,30,0,Math.PI*2); ctx.fill();
-  ctx.globalAlpha=1; ctx.strokeStyle=col; ctx.lineWidth=2;
-  ctx.strokeRect(-16,-16,32,32);
-  ctx.fillStyle=col; ctx.font='14px "Share Tech Mono"'; ctx.textAlign='center';
-  ctx.fillText(locked?'✖':'▾',0,5);
+
+  // ---- ground glow circle (faded red, hugs the floor) ----
+  const glowR = 34;
+  const g = ctx.createRadialGradient(0,4,0, 0,4,glowR);
+  g.addColorStop(0, 'rgba(255,70,90,0.22)');
+  g.addColorStop(0.6, 'rgba(255,40,70,0.13)');
+  g.addColorStop(1, 'rgba(255,30,60,0)');
+  ctx.fillStyle = g;
+  ctx.save(); ctx.scale(1,0.42); // flatten into a floor-hugging ellipse
+  ctx.beginPath(); ctx.arc(0,9.5,glowR,0,Math.PI*2); ctx.fill();
+  ctx.restore();
+  // thin ring outline on the glow, breathing with the pulse
+  ctx.globalAlpha = 0.25+0.2*pulse;
+  ctx.strokeStyle = '#ff4a5e'; ctx.lineWidth = 1.5;
+  ctx.save(); ctx.scale(1,0.42);
+  ctx.beginPath(); ctx.arc(0,9.5,glowR*0.86,0,Math.PI*2); ctx.stroke();
+  ctx.restore();
+  ctx.globalAlpha = 1;
+
+  // ---- lift platform (small raised block, top-down) ----
+  ctx.fillStyle = '#1a2430';
+  ctx.fillRect(-19,-14,38,28);
+  ctx.fillStyle = '#26343f';
+  ctx.fillRect(-15,-10,30,20);
+  ctx.fillStyle = 'rgba(0,255,136,.5)';
+  ctx.fillRect(-15,-10,30,2);
+  // diagonal hazard ticks along the platform edge (lift/industrial feel)
+  ctx.strokeStyle = 'rgba(255,200,80,.35)'; ctx.lineWidth=2;
+  for(let i=-12;i<=12;i+=8){ ctx.beginPath(); ctx.moveTo(i,9); ctx.lineTo(i+4,13); ctx.stroke(); }
+
+  // ---- bobbing arrow pointing down at the glow circle ----
+  ctx.translate(0, -34 + bob);
+  ctx.fillStyle = `rgba(255,90,105,${0.55+0.35*pulse})`;
+  ctx.beginPath();
+  ctx.moveTo(0, 10); ctx.lineTo(-8, -4); ctx.lineTo(8, -4); ctx.closePath();
+  ctx.fill();
+  ctx.fillRect(-3, -10, 6, 8);
+
   ctx.restore();
 }
 
@@ -430,6 +695,91 @@ function drawVignette(){
   const g=ctx.createRadialGradient(cw/2,ch/2,Math.min(cw,ch)*0.3,cw/2,ch/2,Math.max(cw,ch)*0.75);
   g.addColorStop(0,'rgba(0,0,0,0)'); g.addColorStop(1,'rgba(0,0,0,0.55)');
   ctx.fillStyle=g; ctx.fillRect(0,0,cw,ch);
+}
+
+// ---- minimap (top-right) ----
+// Shows the room/corridor layout, the player's position + facing, the
+// nearest visible enemies, and the stairs. When the stairs are far outside
+// the minimap's own little view window, a directional arrow at the edge
+// points toward them so the player always has a "which way do I go" cue.
+const MM = { size:108, pad:12, top:78 }; // top clears the HP/XP bars + stat row
+function drawMinimap(){
+  const d = G.dun; if(!d) return;
+  const { size, pad, top } = MM;
+  const mx = cw - pad - size, my = top;
+  const cellPx = size / Math.max(d.W, d.H);
+
+  ctx.save();
+  // panel background
+  ctx.fillStyle = 'rgba(4,8,10,0.62)';
+  ctx.strokeStyle = 'rgba(0,255,136,.32)'; ctx.lineWidth = 1;
+  ctx.fillRect(mx, my, size, size);
+  ctx.strokeRect(mx+0.5, my+0.5, size-1, size-1);
+
+  // clip to panel so nothing draws outside the rounded box
+  ctx.beginPath(); ctx.rect(mx, my, size, size); ctx.clip();
+
+  // explored floor tiles (subtle), only within a radius of the player so it
+  // reads as "fog of war" rather than spoiling the whole floor layout
+  const visR = 11; // tiles
+  const ptx = (G.player.x/TILE)|0, pty=(G.player.y/TILE)|0;
+  ctx.fillStyle = 'rgba(0,255,136,.16)';
+  for(let ty=0; ty<d.H; ty++){
+    for(let tx=0; tx<d.W; tx++){
+      if(d.grid[ty][tx]===0) continue;
+      if(Math.hypot(tx-ptx,ty-pty) > visR) continue;
+      ctx.fillRect(mx+tx*cellPx, my+ty*cellPx, Math.max(1,cellPx), Math.max(1,cellPx));
+    }
+  }
+
+  // lift dot
+  const stx = mx + (d.stairsPx.x/TILE)*cellPx, sty = my + (d.stairsPx.y/TILE)*cellPx;
+  ctx.fillStyle = '#ff4a5e';
+  ctx.beginPath(); ctx.arc(stx, sty, 3, 0, 7); ctx.fill();
+
+  // golden key dot (only if it's on this floor and not yet picked up)
+  if(G.key && !G.key.taken && !G.key._pendingPlacement && G.key.depth===G.depth){
+    const kx = mx + (G.key.x/TILE)*cellPx, ky = my + (G.key.y/TILE)*cellPx;
+    ctx.fillStyle = '#ffd166';
+    ctx.beginPath(); ctx.arc(kx, ky, 3, 0, 7); ctx.fill();
+  }
+
+  // nearby enemy dots
+  ctx.fillStyle = '#ff5d54';
+  for(const e of G.enemies){
+    if(e.dead) continue;
+    if(Math.hypot(e.x/TILE-ptx, e.y/TILE-pty) > visR) continue;
+    const ex = mx + (e.x/TILE)*cellPx, ey = my + (e.y/TILE)*cellPx;
+    ctx.beginPath(); ctx.arc(ex, ey, e.isBoss?3.5:2, 0, 7); ctx.fill();
+  }
+
+  // player dot + facing wedge
+  const px = mx + ptx*cellPx, py = my + pty*cellPx;
+  const ang = G.player.facing>0 ? 0 : Math.PI;
+  ctx.translate(px, py); ctx.rotate(ang);
+  ctx.fillStyle = '#00ff88';
+  ctx.beginPath(); ctx.moveTo(5,0); ctx.lineTo(-4,-3.5); ctx.lineTo(-4,3.5); ctx.closePath(); ctx.fill();
+  ctx.restore();
+
+  // directional arrow to stairs, shown at the panel edge facing their
+  // direction — most useful once you've moved away from the start room
+  ctx.save();
+  const ddx = d.stairsPx.x - G.player.x, ddy = d.stairsPx.y - G.player.y;
+  const ddist = Math.hypot(ddx,ddy);
+  if(ddist > TILE*6){
+    const ang2 = Math.atan2(ddy,ddx);
+    const cx = mx+size/2, cy = my+size/2, r = size/2 - 9;
+    const ax = cx + Math.cos(ang2)*r, ay = cy + Math.sin(ang2)*r;
+    ctx.translate(ax, ay); ctx.rotate(ang2);
+    ctx.fillStyle = '#ffd166';
+    ctx.beginPath(); ctx.moveTo(7,0); ctx.lineTo(-5,-5); ctx.lineTo(-5,5); ctx.closePath(); ctx.fill();
+  }
+  ctx.restore();
+
+  ctx.fillStyle = 'rgba(212,255,232,.5)'; ctx.font = '9px "Share Tech Mono"';
+  ctx.textAlign = 'center';
+  ctx.fillText('FLOOR MAP', mx+size/2, my+size+12);
+  ctx.restore();
 }
 
 // ---- update ----
@@ -480,10 +830,21 @@ function update(dt){
   else if(nd2 > 470) zt = zoomFar;
   else zt = zoomNear + (zoomFar - zoomNear) * ((nd2-210)/260);
   zoom += (zt - zoom) * Math.min(1, dt*3.2);
-  // auto-descend on stepping onto unlocked stairs
-  if(!G.bossAlive){
-    const dx=p.x-G.dun.stairsPx.x, dy=p.y-G.dun.stairsPx.y;
-    if(Math.hypot(dx,dy)<TILE*0.7){ descend(); return; }
+  // lift: standing near it opens the floor-select popup (once per approach,
+  // not every frame, so it doesn't re-open while standing still after closing it)
+  const distToLift = Math.hypot(p.x-G.dun.stairsPx.x, p.y-G.dun.stairsPx.y);
+  if(distToLift < TILE*0.85){
+    if(!G._liftPrompted && !G.paused){ G._liftPrompted=true; openLiftMenu(); }
+  } else { G._liftPrompted = false; }
+  // golden key pickup: walk within range of it on the floor it's currently on
+  if(!G.key.taken && G.key.depth===G.depth && !G.key._pendingPlacement){
+    const dk = Math.hypot(p.x-G.key.x, p.y-G.key.y);
+    if(dk < TILE*0.6){
+      G.key.taken = true; G.inventory.keys += 1;
+      spark(G.key.x, G.key.y-10, '#ffd166', 26, 200);
+      log('⚷ Golden Key found! Stored in your inventory.', 'reward');
+      updateHUD();
+    }
   }
   // ambient dust
   if(Math.random()<0.15){ const a=Math.random()*Math.PI*2,r=60+Math.random()*120;
@@ -510,6 +871,37 @@ function updateHUD(){
   $('xpText').textContent=`${p.xp}/${p.xpForNext()}`;
   $('lvl').textContent=p.level; $('floor').textContent=G.depth;
   $('kills').textContent=p.kills; $('celo').textContent=p.celo.toFixed(2);
+  updateInventoryPanel();
+}
+function updateInventoryPanel(){
+  if(!G) return; const p=G.player;
+  const hpFill=$('invHpFill'), hpText=$('invHpText'), xpFill=$('invXpFill'), xpText=$('invXpText');
+  if(hpFill){ hpFill.style.width=(p.hp/p.maxHp*100)+'%'; }
+  if(hpText){ hpText.textContent=`${Math.ceil(p.hp)}/${p.maxHp}`; }
+  if(xpFill){ xpFill.style.width=(p.xp/p.xpForNext()*100)+'%'; }
+  if(xpText){ xpText.textContent=`${p.xp}/${p.xpForNext()}`; }
+  const items=$('invItems'), empty=$('invEmpty');
+  if(!items) return;
+  const keyCount = G.inventory.keys||0;
+  if(keyCount<=0){
+    if(empty) empty.style.display='';
+    items.querySelectorAll('.inv-item').forEach(n=>n.remove());
+    return;
+  }
+  if(empty) empty.style.display='none';
+  let row = items.querySelector('.inv-item[data-id="goldkey"]');
+  if(!row){
+    row = document.createElement('div');
+    row.className='inv-item'; row.dataset.id='goldkey';
+    row.innerHTML = `<span class="inv-item-icon">⚷</span><span class="inv-item-name">Golden Key</span><span class="inv-item-count"></span>`;
+    items.appendChild(row);
+  }
+  row.querySelector('.inv-item-count').textContent = `×${keyCount}`;
+}
+function onInvToggle(){
+  const panel=$('invPanel');
+  panel.classList.toggle('hidden');
+  if(!panel.classList.contains('hidden')) updateInventoryPanel();
 }
 function log(text,type='dm'){
   const el=document.createElement('div'); el.className='line '+type; el.textContent=text;
@@ -559,9 +951,28 @@ function gameOver(){
 }
 function onRevive(){
   $('death').classList.add('hidden');
-  newGame(selectedChar);
-  cutscene(['You claw your way back from the NULL. The depths reset, but they remember…'], ()=>updateHUD());
-  updateHUD();
+  if(!G){ newGame(selectedChar); updateHUD(); return; }
+  const deathDepth = G.depth;
+  const p = G.player;
+  // Reset vitals only — floor progress, kills already made, decor already
+  // broken, and any key already in the inventory are all preserved.
+  p.hp = p.maxHp;
+  p.iframe = 1.2;
+  G.over = false;
+  // Golden key rule: if it was never picked up, it relocates to a fresh
+  // random floor and that floor's cached placement is cleared so it gets
+  // re-rolled the next time that floor is (re)entered. If it WAS already
+  // picked up, it just stays in the inventory — nothing to do.
+  if(!G.key.taken){
+    const newDepth = 1 + (Math.random()*Math.max(1,G.maxDepthReached)|0);
+    G.key.depth = newDepth;
+    G.key._pendingPlacement = true; // resolved lazily next time that floor is entered/re-entered
+  }
+  showLoadingTransition(() => {
+    descend(deathDepth);
+    cutscene(['You claw your way back from the NULL, gasping on the floor where you fell…'], ()=>updateHUD());
+    updateHUD();
+  });
 }
 
 // ---- ulti button handlers ----
@@ -661,6 +1072,9 @@ function attach(){
   document.querySelectorAll('.ns-game-root .char-btn').forEach(b=>b.addEventListener('click', onCharBtn));
   $('muteBtn').addEventListener('click', onMute);
   $('startBtn').addEventListener('click', onStart);
+  $('invBtn').addEventListener('click', onInvToggle);
+  $('invClose').addEventListener('click', onInvToggle);
+  $('liftCancel').addEventListener('click', closeLiftMenu);
 }
 
 // debug hook (harmless; used for automated testing)

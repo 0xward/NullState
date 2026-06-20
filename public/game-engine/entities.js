@@ -166,6 +166,7 @@ class Enemy {
     if(dx!==0) this.facing=dx>0?1:-1;
 
     const reach=this.r+player.r+14;
+    let chasing=false;
     if(this.attacking){
       this.atkTime+=dt;
       // deal damage mid-swing
@@ -184,6 +185,7 @@ class Enemy {
         if(!dun.isWall(nx,this.y)) this.x=nx;
         if(!dun.isWall(this.x,ny)) this.y=ny;
         this.state='walk';
+        chasing=true;
       }
     }
     // knockback
@@ -193,7 +195,14 @@ class Enemy {
       if(!dun.isWall(this.x,ny)) this.y=ny;
       this.kb.x*=0.82; this.kb.y*=0.82;
     }
-    if(!this.attacking){ this.anim.loop=true; this.anim.set(this.cfg.idle,'idle'); }
+    // Animation state machine: attack swing owns the anim while it plays;
+    // otherwise walk while chasing, idle when neither. The old code only
+    // ever set 'idle' here (it never set 'walk' at all), so enemies always
+    // looked stationary/passive even while actively chasing the player.
+    if(!this.attacking){
+      if(chasing){ this.anim.loop=true; this.anim.set(this.cfg.walk||this.cfg.idle,'walk'); }
+      else { this.anim.loop=true; this.anim.set(this.cfg.idle,'idle'); }
+    }
     this.anim.update(dt);
   }
   takeWantHit(){ const d=this._wantHit; this._wantHit=0; return d; }
@@ -228,9 +237,11 @@ class Enemy {
       const by=this.y-this.r*2.0;
       ctx.fillStyle='rgba(0,0,0,.6)'; ctx.fillRect(this.x-w/2,by,w,5);
       ctx.fillStyle=this.isBoss?'#ff3b5c':(this.elite?'#ffae00':'#ff5d54'); ctx.fillRect(this.x-w/2,by,Math.max(0,hpw),5);
-      if(this.isBoss || this.elite){
-        ctx.fillStyle=this.isBoss?'#ffb347':'#ffd166'; ctx.font='10px "Share Tech Mono"'; ctx.textAlign='center';
-        ctx.fillText(this.name, this.x, by-6);
+      if((this.isBoss || this.elite) && window.NS_QUEUE_NAMEPLATE){
+        // Nameplate is queued and drawn later in screen-space (after the
+        // camera transform is popped) so it can be clamped to stay fully
+        // on-screen instead of clipping off the edge of a narrow viewport.
+        window.NS_QUEUE_NAMEPLATE(this, by-6);
       }
     }
   }
