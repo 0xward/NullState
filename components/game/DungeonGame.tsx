@@ -220,7 +220,14 @@ export default function DungeonGame() {
 
           {/* Inventory button sits just under the canvas-drawn minimap
               (top-right) and toggles the inventory panel. */}
-          <button id="invBtn" className="inv-btn" aria-label="Inventory">🎒</button>
+          <button id="invBtn" className="inv-btn" aria-label="Inventory">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M7 9V7a5 5 0 0 1 10 0v2" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+              <rect x="4" y="9" width="16" height="12" rx="1.5" stroke="currentColor" strokeWidth="1.6"/>
+              <path d="M4 13h16" stroke="currentColor" strokeWidth="1.2" opacity="0.55"/>
+              <rect x="10" y="11.4" width="4" height="3.2" stroke="currentColor" strokeWidth="1.2"/>
+            </svg>
+          </button>
           <div id="invPanel" className="inv-panel hidden">
             <div className="inv-panel-head">
               <span>INVENTORY</span>

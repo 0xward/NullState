@@ -214,6 +214,11 @@ function spawnDecorInto(floor, d){
         const px=(tx+ox)*TILE, py=(ty+oy)*TILE;
         if(Math.hypot(px-d.startPx.x,py-d.startPx.y)<TILE*1.8) continue;
         if(Math.hypot(px-d.stairsPx.x,py-d.stairsPx.y)<TILE*1.8) continue;
+        let nearDoor=false;
+        for(const door of r.doors){
+          if(Math.hypot(px-(door.x+0.5)*TILE, py-(door.y+0.5)*TILE) < TILE*1.4){ nearDoor=true; break; }
+        }
+        if(nearDoor) continue;
         cand.push({px,py,facing});
       }
     }
@@ -320,18 +325,30 @@ function renderLiftMenu(opts){
 }
 function closeLiftMenu(){
   $('liftMenu').classList.add('hidden');
+  // Do NOT unpause here — if the player chose a floor, travelToFloor()
+  // keeps the game paused through the entire dark-transition + descend()
+  // sequence and only unpauses once the new floor is fully loaded and
+  // visible again. Only unpause immediately for an outright cancel (no
+  // floor travel happening at all).
+}
+function onLiftCancel(){
+  $('liftMenu').classList.add('hidden');
   G.paused = false;
 }
 function travelToFloor(depth){
   if(!G) return;
-  showLoadingTransition(() => descend(depth));
+  // Stay paused for the whole transition so the update loop can't keep
+  // simulating the OLD floor while the screen fades — see closeLiftMenu().
+  showLoadingTransition(() => descend(depth), () => { G.paused = false; });
 }
 // Dark loading transition: fade to black, swap floor data underneath while
 // hidden, then fade back in — used for every lift trip so the cached-floor
-// swap never happens visibly mid-frame.
-function showLoadingTransition(onDark){
+// swap never happens visibly mid-frame. onDark runs once the screen is
+// fully black (safe to swap state); onDone runs once it's fully faded back
+// in (safe to resume simulation/input).
+function showLoadingTransition(onDark, onDone){
   const el = $('loadingFade');
-  if(!el){ onDark(); return; }
+  if(!el){ onDark(); if(onDone) onDone(); return; }
   el.classList.remove('hidden');
   el.style.opacity = '0';
   requestAnimationFrame(()=>{
@@ -340,7 +357,7 @@ function showLoadingTransition(onDark){
       onDark();
       setTimeout(()=>{
         el.style.opacity = '0';
-        setTimeout(()=> el.classList.add('hidden'), 420);
+        setTimeout(()=>{ el.classList.add('hidden'); if(onDone) onDone(); }, 420);
       }, 260);
     }, 420);
   });
@@ -478,8 +495,13 @@ function render(){
   drawStairs();
   drawGoldenKey();
 
-  // entities + decor painter-sorted by y
-  const ents=[G.player, ...G.enemies, ...G.decor].sort((a,b)=>a.y-b.y);
+  // entities + decor painter-sorted by y — cull anything sitting in a
+  // room the player hasn't visited yet, so nothing leaks through the
+  // solid-black fog-of-war ahead of actually walking in.
+  const d=G.dun;
+  const ents=[G.player, ...G.enemies, ...G.decor]
+    .filter(e => e===G.player || isTileVisited(d, (e.x/TILE)|0, (e.y/TILE)|0))
+    .sort((a,b)=>a.y-b.y);
   for(const e of ents) e.draw(ctx);
 
   drawParticles();
@@ -510,21 +532,61 @@ function drawTiles(){
   const x1=Math.min(d.W,((cam.x+cw/2/zoom)/TILE|0)+2);
   const y0=Math.max(0,((cam.y-ch/2/zoom)/TILE|0)-2); // extra row above for tall walls
   const y1=Math.min(d.H,((cam.y+ch/2/zoom)/TILE|0)+2);
+
+  // Mark rooms the player is currently standing in (and their connected
+  // corridor cells) as visited, so fog-of-war reveals them permanently.
+  markVisited(d);
+
   for(let y=y0;y<y1;y++){
     for(let x=x0;x<x1;x++){
       const t=d.grid[y][x];
       const px=x*TILE, py=y*TILE;
-      if(t===0){ continue; } // void = unlit
+      if(t===0){ continue; } // void = unlit, nothing to draw
+      if(!isTileVisited(d,x,y)){
+        // Unexplored room: solid black, not even a wall hint, so it reads
+        // as completely unknown until the player walks in through a door.
+        ctx.fillStyle = '#000'; ctx.fillRect(px,py,TILE,TILE);
+        continue;
+      }
+      if(t===3){
+        // door tile: a lighter frame so it visually reads as an opening
+        ctx.fillStyle = '#141f17'; ctx.fillRect(px,py,TILE,TILE);
+        ctx.strokeStyle = 'rgba(0,255,136,.3)'; ctx.lineWidth=2;
+        ctx.strokeRect(px+3,py+3,TILE-6,TILE-6);
+        continue;
+      }
       // floor
       const shade=((x+y)%2===0)?'#0c1620':'#0a121b';
       ctx.fillStyle=shade; ctx.fillRect(px,py,TILE,TILE);
-      // subtle grid edge near walls
-      if(d.grid[y-1]&&d.grid[y-1][x]===0){ ctx.fillStyle='rgba(0,255,136,.05)'; ctx.fillRect(px,py,TILE,4); }
       // faint floor speckle
       if(((x*7+y*13)%11)===0){ ctx.fillStyle='rgba(0,255,136,.06)'; ctx.fillRect(px+TILE/2-1,py+TILE/2-1,2,2); }
     }
   }
   drawWallFaces(x0,x1,y0,y1);
+}
+
+// A room (or the start room) is visited once the player has stood inside
+// it; corridor tiles are considered visited once adjacent to any visited
+// room or once the player has physically stood on them.
+function markVisited(d){
+  const p=G.player;
+  const tx=(p.x/TILE)|0, ty=(p.y/TILE)|0;
+  const room = d.roomAt(tx,ty);
+  if(room && !room.visited) room.visited = true;
+  if(!d._visitedTiles) d._visitedTiles = new Set();
+  d._visitedTiles.add(ty*d.W+tx);
+  // also mark the 8 neighbours so standing in a doorway reveals both sides a touch
+  for(let dy=-1;dy<=1;dy++) for(let dx=-1;dx<=1;dx++){
+    const nx=tx+dx, ny=ty+dy;
+    if(nx>=0&&ny>=0&&nx<d.W&&ny<d.H) d._visitedTiles.add(ny*d.W+nx);
+  }
+}
+function isTileVisited(d,x,y){
+  const room = d.roomAt(x,y);
+  if(room) return room.visited;
+  // corridor / non-room tile: visited if the player has physically been
+  // on or adjacent to it at some point
+  return d._visitedTiles && d._visitedTiles.has(y*d.W+x);
 }
 
 // Tall wall blocks (top + front face) with an occlusion fade: a wall segment
@@ -536,36 +598,46 @@ function drawTiles(){
 function drawWallFaces(x0,x1,y0,y1){
   const d=G.dun, p=G.player;
   const playerTileX = p.x/TILE, playerTileY = p.y/TILE;
+  const visible=(x,y)=> y>=0 && y<d.H && x>=0 && x<d.W && d.grid[y][x]!==0 && isTileVisited(d,x,y);
+
   for(let y=y0;y<y1;y++){
     for(let x=x0;x<x1;x++){
-      if(d.grid[y][x]!==0) continue;
-      if(!(d.grid[y+1] && d.grid[y+1][x]!==0)) continue; // only draw a face where there's a floor tile below this wall
-      const wx=x*TILE, wallTopY=(y+1)*TILE-WALL_H, floorY=(y+1)*TILE;
+      if(d.grid[y][x]!==0) continue; // only wall tiles have faces
+      const wx=x*TILE, wy=y*TILE;
 
-      // Occlusion test: the wall's front face visually drops down INTO the
-      // floor row directly below it (from wallTopY to floorY, both inside
-      // tile row y+1). If the player is standing in that same floor row,
-      // right against this wall column, the tall face crowds right next to
-      // (and can read as covering) their sprite — so we fade it there.
-      const withinColumn = playerTileX > x-0.2 && playerTileX < x+1.2;
-      const inFrontRow = playerTileY >= y+1 && playerTileY < y+1.65;
-      const fade = (withinColumn && inFrontRow) ? 0.4 : 1;
+      // North face: a floor tile sits below this wall row -> tall front
+      // face (this is the one a top-down camera actually needs height on).
+      if(visible(x,y+1)){
+        const wallTopY=(y+1)*TILE-WALL_H, floorY=(y+1)*TILE;
+        const withinColumn = playerTileX > x-0.2 && playerTileX < x+1.2;
+        const inFrontRow = playerTileY >= y+1 && playerTileY < y+1.65;
+        const fade = (withinColumn && inFrontRow) ? 0.4 : 1;
+        ctx.save();
+        ctx.globalAlpha = fade;
+        const faceGrad = ctx.createLinearGradient(0, wallTopY, 0, floorY);
+        faceGrad.addColorStop(0, '#1c2c38');
+        faceGrad.addColorStop(1, '#0e1820');
+        ctx.fillStyle = faceGrad;
+        ctx.fillRect(wx, wallTopY, TILE, WALL_H);
+        ctx.fillStyle = 'rgba(0,255,136,.16)';
+        ctx.fillRect(wx, wallTopY, TILE, 2);
+        ctx.fillStyle = 'rgba(0,0,0,.45)';
+        ctx.fillRect(wx, floorY-2, TILE, 2);
+        ctx.restore();
+        continue; // this edge already reads as a full wall block, skip the thin-cap variants below
+      }
 
-      ctx.save();
-      ctx.globalAlpha = fade;
-      // front face (vertical drop, shaded darker than the top)
-      const faceGrad = ctx.createLinearGradient(0, wallTopY, 0, floorY);
-      faceGrad.addColorStop(0, '#1c2c38');
-      faceGrad.addColorStop(1, '#0e1820');
-      ctx.fillStyle = faceGrad;
-      ctx.fillRect(wx, wallTopY, TILE, WALL_H);
-      // top edge highlight (catches the "light")
-      ctx.fillStyle = 'rgba(0,255,136,.16)';
-      ctx.fillRect(wx, wallTopY, TILE, 2);
-      // contact shadow where the wall meets the floor
-      ctx.fillStyle = 'rgba(0,0,0,.45)';
-      ctx.fillRect(wx, floorY-2, TILE, 2);
-      ctx.restore();
+      // For the remaining sides (a floor tile is to the south, east, or
+      // west of this wall, but not visually "in front" of it from this
+      // camera angle) draw a thin lit cap so the wall ring still reads as
+      // solid on every side instead of just vanishing into the void.
+      const capS = visible(x,y-1), capE = visible(x+1,y), capW = visible(x-1,y);
+      if(capS || capE || capW){
+        ctx.fillStyle='#121b22'; ctx.fillRect(wx,wy,TILE,TILE);
+        if(capS){ ctx.fillStyle='rgba(0,255,136,.07)'; ctx.fillRect(wx,wy+TILE-4,TILE,4); }
+        if(capE){ ctx.fillStyle='rgba(0,255,136,.05)'; ctx.fillRect(wx+TILE-4,wy,4,TILE); }
+        if(capW){ ctx.fillStyle='rgba(0,255,136,.05)'; ctx.fillRect(wx,wy,4,TILE); }
+      }
     }
   }
 }
@@ -574,6 +646,7 @@ function drawWallFaces(x0,x1,y0,y1){
 function drawGoldenKey(){
   if(!G.key || G.key.taken || G.key._pendingPlacement || G.key.depth!==G.depth) return;
   const { x, y } = G.key;
+  if(!isTileVisited(G.dun, (x/TILE)|0, (y/TILE)|0)) return;
   const bob = Math.sin(G.time*3.2)*4;
   const pulse = 0.5+0.5*Math.sin(G.time*4);
 
@@ -609,6 +682,7 @@ function drawGoldenKey(){
 
 function drawStairs(){
   const s=G.dun.stairsPx;
+  if(!isTileVisited(G.dun, (s.x/TILE)|0, (s.y/TILE)|0)) return;
   const pulse=0.5+0.5*Math.sin(G.time*3);
   const bob=Math.sin(G.time*2.4)*5; // arrow bob amplitude, px
 
@@ -703,9 +777,14 @@ function drawVignette(){
 // the minimap's own little view window, a directional arrow at the edge
 // points toward them so the player always has a "which way do I go" cue.
 const MM = { size:108, pad:12, top:78 }; // top clears the HP/XP bars + stat row
+function getMinimapMetrics(){
+  // Smaller on narrow/portrait phones — 108px was dominating the screen.
+  if(portrait && cw < 480) return { size:78, pad:10, top:74 };
+  return MM;
+}
 function drawMinimap(){
   const d = G.dun; if(!d) return;
-  const { size, pad, top } = MM;
+  const { size, pad, top } = getMinimapMetrics();
   const mx = cw - pad - size, my = top;
   const cellPx = size / Math.max(d.W, d.H);
 
@@ -727,6 +806,7 @@ function drawMinimap(){
   for(let ty=0; ty<d.H; ty++){
     for(let tx=0; tx<d.W; tx++){
       if(d.grid[ty][tx]===0) continue;
+      if(!isTileVisited(d,tx,ty)) continue;
       if(Math.hypot(tx-ptx,ty-pty) > visR) continue;
       ctx.fillRect(mx+tx*cellPx, my+ty*cellPx, Math.max(1,cellPx), Math.max(1,cellPx));
     }
@@ -1074,7 +1154,7 @@ function attach(){
   $('startBtn').addEventListener('click', onStart);
   $('invBtn').addEventListener('click', onInvToggle);
   $('invClose').addEventListener('click', onInvToggle);
-  $('liftCancel').addEventListener('click', closeLiftMenu);
+  $('liftCancel').addEventListener('click', onLiftCancel);
 }
 
 // debug hook (harmless; used for automated testing)
