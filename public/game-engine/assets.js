@@ -84,6 +84,10 @@ const BOSS_ARCH = { key:'orc_warrior', mon:'orc_warrior', name:'THE WARLORD', hp
 
 const backgrounds = ['/backgrounds/forest.png','/backgrounds/desert.png',
   '/backgrounds/snow.png','/backgrounds/field.png','/backgrounds/back.png'];
+const BG_BY_KEY = {
+  forest:'/backgrounds/forest.png', desert:'/backgrounds/desert.png',
+  snow:'/backgrounds/snow.png', field:'/backgrounds/field.png', back:'/backgrounds/back.png',
+};
 
 // ---- decoration / world-object sprites ----
 const DECOR_SPRITES = {
@@ -118,4 +122,4 @@ async function preloadAll(){
 }
 
 window.NS_ASSETS={HERO,MON,ARCHETYPES,BOSS_ARCH,ORC_SHAMAN_ARCH,SKEL_MAGE_ARCH,SKEL_WARRIOR_ARCH,
-  DECOR_SPRITES,GOLDEN_KEY_SRC,backgrounds,loadImg,img,preloadAll};
+  DECOR_SPRITES,GOLDEN_KEY_SRC,backgrounds,BG_BY_KEY,loadImg,img,preloadAll};

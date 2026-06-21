@@ -6,11 +6,13 @@
    matching the original NS_CHAIN.ultiTx({damage,xp,killed,onStatus}) -> {ok,demo,hash}.
    ============================================================ */
 window.NullStateGame = (() => {
-const { HERO, MON, ARCHETYPES, BOSS_ARCH, ORC_SHAMAN_ARCH, SKEL_MAGE_ARCH, SKEL_WARRIOR_ARCH, backgrounds, preloadAll, img, DECOR_SPRITES, GOLDEN_KEY_SRC } = window.NS_ASSETS;
+const { HERO, MON, ARCHETYPES, BOSS_ARCH, ORC_SHAMAN_ARCH, SKEL_MAGE_ARCH, SKEL_WARRIOR_ARCH, backgrounds, BG_BY_KEY, preloadAll, img, DECOR_SPRITES, GOLDEN_KEY_SRC } = window.NS_ASSETS;
 const { makeDungeon, TILE } = window.NS_DUNGEON;
 const { Player, Enemy } = window.NS_ENT;
 const { Decor, DECOR_TYPES, rollLoot } = window.NS_PROPS;
 const Story = window.NS_STORY;
+const CAMPAIGN = window.NS_CAMPAIGN;
+const Outdoor = window.NS_OUTDOOR;
 const A = window.Audio2;
 
 // ---- mount/teardown state ----
@@ -309,7 +311,7 @@ function openLiftMenu(){
   const opts = [];
   for(let f=1; f<=G.maxDepthReached; f++) opts.push({ floor:f, locked:false });
   const nextFloor = G.depth+1;
-  if(!opts.find(o=>o.floor===nextFloor)){
+  if(nextFloor<=5 && !opts.find(o=>o.floor===nextFloor)){
     opts.push({ floor:nextFloor, locked: !isFloorClearForAdvance(G.depth) });
   }
   opts.sort((a,b)=>a.floor-b.floor);
@@ -353,19 +355,23 @@ function travelToFloor(depth){
 // swap never happens visibly mid-frame. onDark runs once the screen is
 // fully black (safe to swap state); onDone runs once it's fully faded back
 // in (safe to resume simulation/input).
-function showLoadingTransition(onDark, onDone){
+function showLoadingTransition(onDark, onDone, loadingText){
   const el = $('loadingFade');
+  const textEl = $('loadingFadeText');
   if(!el){ onDark(); if(onDone) onDone(); return; }
+  if(textEl){ textEl.textContent = loadingText||''; textEl.classList.remove('show'); }
   el.classList.remove('hidden');
   el.style.opacity = '0';
   requestAnimationFrame(()=>{
     el.style.opacity = '1';
     setTimeout(()=>{
       onDark();
+      if(textEl && loadingText) textEl.classList.add('show');
       setTimeout(()=>{
+        if(textEl) textEl.classList.remove('show');
         el.style.opacity = '0';
         setTimeout(()=>{ el.classList.add('hidden'); if(onDone) onDone(); }, 420);
-      }, 260);
+      }, loadingText ? 1400 : 260);
     }, 420);
   });
 }
@@ -443,7 +449,11 @@ function onEnemyKilled(e){
   updateHUD();
   if(e.isBoss){
     G.bossAlive=false;
-    setTimeout(()=>cutscene(Story.bossDown),700);
+    if(G.depth>=5){
+      setTimeout(()=>onActBunkerCleared(),700);
+    } else {
+      setTimeout(()=>cutscene(Story.bossDown),700);
+    }
   }
 }
 
@@ -489,6 +499,14 @@ function render(){
   ctx.setTransform(dpr,0,0,dpr,0,0);
   ctx.clearRect(0,0,cw,ch);
   ctx.fillStyle='#04060a'; ctx.fillRect(0,0,cw,ch);
+
+  if(Outdoor.active()){
+    const bgKey = Outdoor.currentBgKey ? Outdoor.currentBgKey() : null;
+    const bgImg = bgKey ? img(BG_BY_KEY[bgKey]) : null;
+    Outdoor.render(ctx, cw, ch, bgImg);
+    return;
+  }
+
   if(!G){ return; }
 
   const sx=(G.shake>0?(Math.random()*2-1)*G.shake:0);
@@ -891,6 +909,7 @@ function drawMinimap(){
 
 // ---- update ----
 function update(dt){
+  if(Outdoor.active()){ if(!csActive) Outdoor.update(dt, input); return; }
   if(!G||G.paused||G.over) return;
   G.time+=dt;
   const p=G.player;
@@ -1034,10 +1053,10 @@ function showBanner(main,sub){
 }
 
 // ---- cutscene ----
-let csLines=[], csIdx=0, csDone=null;
+let csLines=[], csIdx=0, csDone=null, csActive=false;
 function cutscene(lines,onDone){
   G&&(G.paused=true);
-  csLines=lines; csIdx=0; csDone=onDone||null;
+  csLines=lines; csIdx=0; csDone=onDone||null; csActive=true;
   $('story').classList.remove('hidden');
   renderCS();
 }
@@ -1046,6 +1065,7 @@ function onStoryNext(){
   csIdx++;
   if(csIdx>=csLines.length){
     $('story').classList.add('hidden');
+    csActive=false;
     if(G) G.paused=false;
     const cb=csDone; csDone=null; if(cb) cb();
   } else renderCS();
@@ -1088,7 +1108,7 @@ function onRevive(){
     descend(deathDepth);
     cutscene(['You claw your way back from the NULL, gasping on the floor where you fell…'], ()=>updateHUD());
     updateHUD();
-  });
+  }, ()=>{}, 'THE CHAIN PULLS YOU BACK…');
 }
 
 // ---- ulti button handlers ----
@@ -1125,6 +1145,10 @@ async function onUltiTx(){
 
 // ---- title / char select ----
 let selectedChar='knight';
+// Campaign progress — survives across dungeon sessions (unlike G, which is
+// torn down and rebuilt each time newGame() runs for a fresh bunker).
+let campaignActIndex = 0;
+let campaignReturningFromBunker = false;
 // draw a character preview at a CONSISTENT on-screen height by detecting the
 // sprite's alpha bounding box (frame 0) and normalizing — so male & female match.
 function drawPreview(elId, cfg){
@@ -1170,10 +1194,65 @@ async function onStart(){
   $('startBtn').textContent='ENTERING…'; $('startBtn').disabled=true;
   $('title').classList.add('hidden');
   $('hud').classList.remove('hidden');
-  newGame(selectedChar);
-  updateHUD();
-  cutscene(Story.intro, ()=>{ updateHUD(); });
+  campaignActIndex = 0;
+  campaignReturningFromBunker = false;
+  enterOutdoorAct(campaignActIndex, false);
 }
+
+// ---- campaign / outdoor flow ----
+function enterOutdoorAct(actIndex, resumeAtDoor){
+  const heroCfg = HERO[selectedChar];
+  Outdoor.enter(actIndex, CAMPAIGN, {
+    heroCfg, charKey: selectedChar, resumeAtDoor,
+    onReachDoor: onOutdoorReachedDoor,
+  });
+  if(atkBtn) atkBtn.classList.add('hidden');
+}
+function onOutdoorReachedDoor(){
+  const act = CAMPAIGN[campaignActIndex];
+  showLoadingTransition(() => {
+    Outdoor.exit();
+    newGame(selectedChar);
+    if(atkBtn) atkBtn.classList.remove('hidden');
+    cutscene(act.preBunker, ()=>updateHUD());
+  }, ()=>{ if(G) G.paused=false; updateHUD(); }, `DESCENDING INTO ${act.title}…`);
+}
+// Called when the final boss (floor 5) of the current act's bunker falls —
+// see onEnemyKilled(). Returns the player to THIS SAME act's outdoor scene
+// (near the bunker door, not from the start of the strip) and plays the
+// post-bunker dialog there. From that point the player is free to walk
+// right again — which now advances to the NEXT act instead of re-entering
+// this bunker (see enterOutdoorAct's resumeAtDoor + the "already cleared"
+// door-trigger branch below).
+function onActBunkerCleared(){
+  const act = CAMPAIGN[campaignActIndex];
+  showLoadingTransition(() => {
+    G = null;
+    Outdoor.enter(campaignActIndex, CAMPAIGN, {
+      heroCfg: HERO[selectedChar], charKey: selectedChar,
+      resumeAtDoor: true, // skip arrival speech bubbles, this act was already greeted
+      bunkerCleared: true, // door now advances to the next act instead of re-entering
+      onReachDoor: onOutdoorAdvanceToNextAct,
+    });
+  }, () => { cutscene(act.postBunker, ()=>{}); }, 'RETURNING TO THE SURFACE…');
+}
+function onOutdoorAdvanceToNextAct(){
+  const finishedAct = CAMPAIGN[campaignActIndex];
+  showLoadingTransition(() => {
+    Outdoor.exit();
+    campaignActIndex++;
+    if(campaignActIndex >= CAMPAIGN.length){
+      // Act I complete — no further acts authored yet. Hold here; the
+      // campaign continues simply by appending new entries to CAMPAIGN
+      // later, with no other code changes required.
+      campaignActIndex = CAMPAIGN.length-1;
+      enterOutdoorAct(campaignActIndex, true);
+      return;
+    }
+    enterOutdoorAct(campaignActIndex, false);
+  }, ()=>{}, `LEAVING ${finishedAct.title}…`);
+}
+
 
 // ---- attach DOM listeners (called in mount) ----
 function attach(){
@@ -1200,7 +1279,9 @@ window.__NS = { get G(){ return G; },
     G.enemies.push(new Enemy(a, G.player.x+50, G.player.y, G.depth, false)); },
   spawnElite(){ if(!G) return; const a=ARCHETYPES[0];
     G.enemies.push(new Enemy(a, G.player.x+120, G.player.y, G.depth, false, true)); },
-  addDecor(t){ if(!G) return; G.decor.push(new Decor(t||'vase', G.player.x+40, G.player.y)); } };
+  addDecor(t){ if(!G) return; G.decor.push(new Decor(t||'vase', G.player.x+40, G.player.y)); },
+  onEnemyKilled, // debug-only: lets tests exercise act-completion without a full attack simulation
+  get campaignActIndex(){ return campaignActIndex; } };
 
 // ---- boot ----
 async function boot(){

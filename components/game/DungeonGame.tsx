@@ -27,9 +27,11 @@ const ENGINE_SCRIPTS = [
   '/game-engine/audio.js',
   '/game-engine/assets.js',
   '/game-engine/story.js',
+  '/game-engine/story_campaign.js',
   '/game-engine/dungeon.js',
   '/game-engine/props.js',
   '/game-engine/entities.js',
+  '/game-engine/outdoor.js',
   '/game-engine/game.js',
 ].map(src => `${src}?v=${BUILD_TAG}`)
 
@@ -160,6 +162,20 @@ export default function DungeonGame() {
       },
     }
 
+    // Block the browser's native pull-to-refresh / overscroll gesture while
+    // the game is mounted. The CSS (overscroll-behavior + touch-action on
+    // .ns-game-root) handles most cases, but some Android Chrome versions
+    // still trigger pull-to-refresh from a touchmove that starts outside
+    // any touch-action:none element, so this is a JS-level backstop.
+    // Passive:false is required for preventDefault() to actually take effect.
+    const preventPullToRefresh = (e: TouchEvent) => {
+      if (e.touches.length > 1) return // allow pinch gestures to pass through untouched
+      const target = e.target as HTMLElement
+      if (target.closest('.inv-panel, .lift-floor-list')) return // these rely on native scroll
+      e.preventDefault()
+    }
+    document.addEventListener('touchmove', preventPullToRefresh, { passive: false })
+
     loadEngine()
       .then(() => {
         if (cancelled) return
@@ -170,6 +186,7 @@ export default function DungeonGame() {
 
     return () => {
       cancelled = true
+      document.removeEventListener('touchmove', preventPullToRefresh)
       const NSG = (window as any).NullStateGame
       if (NSG && typeof NSG.unmount === 'function') NSG.unmount()
     }
@@ -268,7 +285,9 @@ export default function DungeonGame() {
         </div>
 
         {/* Dark loading transition, used whenever the lift changes floors */}
-        <div id="loadingFade" className="loading-fade hidden" />
+        <div id="loadingFade" className="loading-fade hidden">
+          <div id="loadingFadeText" className="loading-fade-text" />
+        </div>
 
         {/* Title screen */}
         <div id="title" className="overlay">

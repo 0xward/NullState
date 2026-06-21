@@ -501,6 +501,10 @@ body::before {
   position:fixed; inset:0; width:100vw; height:100vh; overflow:hidden; z-index:50;
   background:var(--g-bg); color:#cfeede;
   font-family:'Share Tech Mono',monospace; -webkit-font-smoothing:none;
+  /* Stop mobile pull-to-refresh / rubber-band overscroll and any other
+     browser-native touch gesture (pinch-zoom, pan-scroll) from hijacking
+     a swipe that was meant for the game's own joystick/attack controls. */
+  overscroll-behavior:none; touch-action:none;
 }
 /* Mobile browsers (Chrome/Safari) report 100vh as the LARGEST possible
    viewport (address bar hidden), but on first load the address bar is
@@ -683,7 +687,7 @@ body::before {
 .ns-game-root .inv-btn:hover{border-color:var(--green);background:rgba(0,255,136,.1);color:var(--green);}
 
 .ns-game-root .inv-panel{position:absolute;top:200px;right:12px;z-index:8;pointer-events:auto;
-  width:228px;max-height:min(64vh,440px);overflow-y:auto;
+  width:228px;max-height:min(64vh,440px);overflow-y:auto;touch-action:pan-y;
   background:rgba(6,10,13,.92);border:1px solid var(--line);border-radius:10px;
   box-shadow:0 12px 36px rgba(0,0,0,.55);padding:12px;animation:ns-fadeUp .25s ease;}
 .ns-game-root .inv-panel-head{display:flex;align-items:center;justify-content:space-between;
@@ -712,7 +716,7 @@ body::before {
   background:rgba(8,14,18,.85);border:1px solid var(--line);border-radius:12px;
   padding:26px 22px;box-shadow:0 0 40px rgba(255,70,90,.12);}
 .ns-game-root .lift-floor-list{display:flex;flex-direction:column;gap:8px;margin:18px 0 4px;
-  max-height:46vh;overflow-y:auto;}
+  max-height:46vh;overflow-y:auto;touch-action:pan-y;}
 .ns-game-root .lift-floor-btn{width:100%;padding:11px 16px;font-size:14px;letter-spacing:3px;
   background:linear-gradient(180deg,#2a3a36,#1a2622);color:#eafff5;border:1px solid rgba(0,255,136,.3);
   box-shadow:none;border-radius:8px;}
@@ -729,7 +733,11 @@ body::before {
    visibly mid-frame.
    ════════════════════════════════════════════════════════════════════════ */
 .ns-game-root .loading-fade{position:absolute;inset:0;z-index:40;background:#020304;
-  opacity:0;transition:opacity .4s ease;pointer-events:none;}
+  opacity:0;transition:opacity .4s ease;pointer-events:none;
+  display:flex;align-items:center;justify-content:center;padding:40px;text-align:center;}
+.ns-game-root .loading-fade-text{font-family:'Share Tech Mono';color:#5c8a78;font-size:13px;
+  letter-spacing:1px;line-height:1.8;max-width:480px;opacity:0;transition:opacity .5s ease .3s;}
+.ns-game-root .loading-fade-text.show{opacity:1;}
 
 @media (orientation:portrait){
   .ns-game-root .inv-btn,.ns-game-root .inv-panel{top:170px;}
