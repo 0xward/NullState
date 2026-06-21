@@ -6,7 +6,7 @@
    matching the original NS_CHAIN.ultiTx({damage,xp,killed,onStatus}) -> {ok,demo,hash}.
    ============================================================ */
 window.NullStateGame = (() => {
-const { HERO, MON, ARCHETYPES, BOSS_ARCH, backgrounds, preloadAll, img } = window.NS_ASSETS;
+const { HERO, MON, ARCHETYPES, BOSS_ARCH, ORC_SHAMAN_ARCH, SKEL_MAGE_ARCH, SKEL_WARRIOR_ARCH, backgrounds, preloadAll, img, DECOR_SPRITES, GOLDEN_KEY_SRC } = window.NS_ASSETS;
 const { makeDungeon, TILE } = window.NS_DUNGEON;
 const { Player, Enemy } = window.NS_ENT;
 const { Decor, DECOR_TYPES, rollLoot } = window.NS_PROPS;
@@ -282,6 +282,7 @@ function applyUltiDamage(t){
 }
 function maybeOfferUlti(nearest,nd){
   const u=G.ulti; if(!u||u.cd>0||G.paused||G.over) return;
+  if(nearest && nearest.dead) return; // killed this frame — don't offer an ulti on a corpse
   const p=G.player;
   if(p.hp/p.maxHp>0.4) u.lowHpArmed=true;
   if(u.lowHpArmed && p.hp/p.maxHp<0.25 && nearest && nd<330){
@@ -532,6 +533,29 @@ function render(){
 // player standing behind it (see drawWallFaces below).
 const WALL_H = 30;
 
+// Door tile rendering: real sprite (Mystic Woods wooden door, 2 frames —
+// closed/open), opens when the player is near it. Falls back to a plain
+// outlined tile if the sprite image hasn't finished loading yet.
+function drawDoorTile(px,py,tx,ty){
+  const p=G.player;
+  const distTiles = Math.hypot((tx+0.5)-(p.x/TILE), (ty+0.5)-(p.y/TILE));
+  const open = distTiles < 1.3;
+  const frame = open ? 1 : 0;
+  const im = img(`${DECOR_SPRITES.door.src}/frame_${frame}.png`);
+  if(im){
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    // dark floor base under the door so there's no transparent gap at the sprite's edges
+    ctx.fillStyle = '#0a121b'; ctx.fillRect(px,py,TILE,TILE);
+    ctx.drawImage(im, px, py-4, TILE, TILE+4); // slight extra height so the frame reads as "standing in" the wall
+    ctx.restore();
+  } else {
+    ctx.fillStyle = '#141f17'; ctx.fillRect(px,py,TILE,TILE);
+    ctx.strokeStyle = 'rgba(0,255,136,.3)'; ctx.lineWidth=2;
+    ctx.strokeRect(px+3,py+3,TILE-6,TILE-6);
+  }
+}
+
 function drawTiles(){
   const d=G.dun;
   const x0=Math.max(0,((cam.x-cw/2/zoom)/TILE|0)-1);
@@ -555,10 +579,7 @@ function drawTiles(){
         continue;
       }
       if(t===3){
-        // door tile: a lighter frame so it visually reads as an opening
-        ctx.fillStyle = '#141f17'; ctx.fillRect(px,py,TILE,TILE);
-        ctx.strokeStyle = 'rgba(0,255,136,.3)'; ctx.lineWidth=2;
-        ctx.strokeRect(px+3,py+3,TILE-6,TILE-6);
+        drawDoorTile(px,py,x,y);
         continue;
       }
       // floor
@@ -892,12 +913,17 @@ function update(dt){
     else if(decorInRange){ p.facing=(nearDecor.x>=p.x)?1:-1; p.startAttack(); }
   }
   if(input.attack) p.startAttack();          // manual (desktop)
-  // ULTI offer (elite / boss / low-hp)
-  maybeOfferUlti(nearest, nd);
-  if(G.paused) return;                        // ulti popup opened this frame
+  if(G.paused) return;
   p.update(dt, input, G.dun);
   if(p.takeSwingFx()) spark(p.x+p.facing*30, p.y-10, '#eafff5', 8, 100);
   hitTest();
+  // ULTI offer (elite / boss / low-hp) — checked AFTER hitTest() so a
+  // killing blow landed this frame is already reflected (e.dead=true)
+  // before we decide whether to pop up the ulti prompt; otherwise a
+  // monster that's about to die from this frame's hit could still get
+  // offered as an ulti target a frame later than it visually died.
+  maybeOfferUlti(nearest, nd);
+  if(G.paused) return;                        // ulti popup opened this frame
   for(const e of G.enemies){
     e.update(dt, p, G.dun);
     if(e.takeSwingFx()) spark(e.x+e.facing*e.r, e.y-e.r*0.4, e.elite?'#ffd166':'#ff8a7a', 10, 90);

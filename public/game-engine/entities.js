@@ -67,7 +67,7 @@ class Player {
   startAttack(){
     if(this.atkCd>0 || this.attacking) return false;
     this.attacking=true; this.atkTime=0; this.hitDone=false;
-    this.swingFlash=0.22; // brief weapon-swing flash since there's no attack sprite to switch to
+    this.swingFlash=0.34; // class-flavored attack visual duration (see draw())
     this.atkCd=0.42;
     this._wantSwingFx=true;
     return true;
@@ -128,17 +128,48 @@ class Player {
     if(this.flash>0){
       this.anim.draw(ctx,this.x,this.y,this.cfg.scale,this.facing<0,this.cfg.foot,this.flash*0.7);
     }
-    // weapon-swing flash: a quick bright arc in front of the character,
-    // standing in for a dedicated attack sprite the new classes don't have.
+    // Class-flavored attack visual — stands in for a dedicated attack
+    // sprite (none of the 3 classes have one, only Idle/Run/Death).
     if(this.swingFlash>0){
-      const sa=this.swingFlash/0.22;
+      const dur=0.34;
+      const sa=Math.max(0,this.swingFlash/dur);
       ctx.save();
-      ctx.globalAlpha=sa*0.8;
       ctx.globalCompositeOperation='lighter';
-      ctx.strokeStyle='#eafff5'; ctx.lineWidth=3;
-      ctx.beginPath();
-      ctx.arc(this.x+this.facing*16, this.y-4, 22, -0.9, 0.9);
-      ctx.stroke();
+      const fx = this.x+this.facing*30, fy = this.y-6;
+      if(this.char==='wizzard'){
+        // fire burst: layered radial glow + flickering flame tongues
+        const g = ctx.createRadialGradient(fx,fy,0, fx,fy,30);
+        g.addColorStop(0, `rgba(255,236,170,${0.9*sa})`);
+        g.addColorStop(0.45, `rgba(255,140,40,${0.7*sa})`);
+        g.addColorStop(1, `rgba(255,60,20,0)`);
+        ctx.fillStyle=g;
+        ctx.beginPath(); ctx.arc(fx,fy,30,0,7); ctx.fill();
+        ctx.fillStyle=`rgba(255,210,120,${0.85*sa})`;
+        for(let i=0;i<5;i++){
+          const ang=-0.7+i*0.35 + Math.sin(this.swingFlash*40+i)*0.08;
+          const len=14+((i%3)*5);
+          ctx.beginPath();
+          ctx.ellipse(fx+Math.cos(ang)*16, fy+Math.sin(ang)*16, len*0.5, 5, ang, 0, 7);
+          ctx.fill();
+        }
+      } else if(this.char==='rogue'){
+        // quick double-slash flicker (fast dagger strikes)
+        ctx.globalAlpha=sa*0.9;
+        ctx.strokeStyle='#fff3c4'; ctx.lineWidth=2.5;
+        ctx.beginPath(); ctx.arc(fx-6,fy, 20, -1.0,0.5); ctx.stroke();
+        ctx.beginPath(); ctx.arc(fx+8,fy-3, 18, -0.6,0.9); ctx.stroke();
+      } else {
+        // knight: a single wide steel slash arc
+        ctx.globalAlpha=sa*0.95;
+        ctx.strokeStyle='#eafff5'; ctx.lineWidth=4;
+        ctx.beginPath();
+        ctx.arc(this.x+this.facing*18, this.y-4, 28, -1.0, 1.0);
+        ctx.stroke();
+        ctx.lineWidth=1.5; ctx.globalAlpha=sa*0.5;
+        ctx.beginPath();
+        ctx.arc(this.x+this.facing*18, this.y-4, 33, -0.9, 0.9);
+        ctx.stroke();
+      }
       ctx.restore();
     }
   }
@@ -197,8 +228,11 @@ class Enemy {
     let chasing=false;
     if(this.attacking){
       this.atkTime+=dt;
-      // deal damage mid-swing
-      if(!this.hitDone && this.atkTime>0.22 && this.atkTime<0.4 && dist<reach+10){
+      // deal damage mid-swing — wider window + reach grace than before,
+      // since nothing freezes the player in place during an enemy's
+      // swing; a tight window made attacks whiff constantly if the player
+      // moved at all during the wind-up, even though they started in range.
+      if(!this.hitDone && this.atkTime>0.16 && this.atkTime<0.5 && dist<reach+26){
         this.hitDone=true; this._wantHit=this.dmg;
       }
       // attack flash + a forward particle "swing" burst once, right as the
