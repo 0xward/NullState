@@ -68,17 +68,17 @@ function tryMakeDungeon(depth){
   // and the corridor-start tile just outside that door.
   function doorTowards(room, tx, ty){
     const dx = tx-room.cx, dy = ty-room.cy;
-    let dpx, dpy, outx, outy;
+    let dpx, dpy, outx, outy, side;
     if(Math.abs(dx) >= Math.abs(dy)){
-      if(dx>=0){ dpx=room.x+room.w; outx=dpx+1; } else { dpx=room.x-1; outx=dpx-1; }
+      if(dx>=0){ dpx=room.x+room.w; outx=dpx+1; side='E'; } else { dpx=room.x-1; outx=dpx-1; side='W'; }
       dpy = Math.max(room.y+1, Math.min(room.y+room.h-2, room.cy));
       outy = dpy;
     } else {
-      if(dy>=0){ dpy=room.y+room.h; outy=dpy+1; } else { dpy=room.y-1; outy=dpy-1; }
+      if(dy>=0){ dpy=room.y+room.h; outy=dpy+1; side='S'; } else { dpy=room.y-1; outy=dpy-1; side='N'; }
       dpx = Math.max(room.x+1, Math.min(room.x+room.w-2, room.cx));
       outx = dpx;
     }
-    return { doorX:dpx, doorY:dpy, outX:outx, outY:outy };
+    return { doorX:dpx, doorY:dpy, outX:outx, outY:outy, side };
   }
 
   function connect(roomA, roomB){
@@ -87,10 +87,10 @@ function tryMakeDungeon(depth){
     if(!inBounds(dA.doorX,dA.doorY) || !inBounds(dB.doorX,dB.doorY)) return;
     g[dA.doorY][dA.doorX]=3;
     g[dB.doorY][dB.doorX]=3;
-    roomA.doors.push({x:dA.doorX,y:dA.doorY});
-    roomB.doors.push({x:dB.doorX,y:dB.doorY});
-    doors.push({x:dA.doorX,y:dA.doorY,roomA:roomA.id,roomB:roomB.id});
-    doors.push({x:dB.doorX,y:dB.doorY,roomA:roomA.id,roomB:roomB.id});
+    roomA.doors.push({x:dA.doorX,y:dA.doorY,side:dA.side});
+    roomB.doors.push({x:dB.doorX,y:dB.doorY,side:dB.side});
+    doors.push({x:dA.doorX,y:dA.doorY,side:dA.side,roomA:roomA.id,roomB:roomB.id});
+    doors.push({x:dB.doorX,y:dB.doorY,side:dB.side,roomA:roomA.id,roomB:roomB.id});
     // corridor: go from just-outside-A, axis-align, then to just-outside-B
     let cx=dA.outX, cy=dA.outY;
     if(inBounds(cx,cy) && g[cy][cx]===0) g[cy][cx]=1;
@@ -143,6 +143,9 @@ function tryMakeDungeon(depth){
     }
     return null;
   }
+  const doorBySpot = {};
+  for(const dr of doors) doorBySpot[dr.x+','+dr.y] = dr;
+  function doorAt(tx,ty){ return doorBySpot[tx+','+ty] || null; }
 
   return {
     W,H,grid:g,rooms,doors,
@@ -155,6 +158,7 @@ function tryMakeDungeon(depth){
       return g[ty][tx]===0;
     },
     roomAt,
+    doorAt,
     pxW:W*TILE, pxH:H*TILE,
   };
 }
@@ -178,6 +182,7 @@ function makeDungeon(depth){
     spawns:[{x:TILE*(W/2),y:TILE*(H/2)}],
     isWall(px,py){ const tx=(px/TILE)|0,ty=(py/TILE)|0; if(tx<0||ty<0||tx>=W||ty>=H) return true; return g[ty][tx]===0; },
     roomAt(){ return room; },
+    doorAt(){ return null; },
     pxW:W*TILE, pxH:H*TILE,
   };
 }
