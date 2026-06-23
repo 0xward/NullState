@@ -603,7 +603,41 @@ function drawTiles(){
       if(((x*7+y*13)%11)===0){ ctx.fillStyle='rgba(0,255,136,.08)'; ctx.fillRect(px+TILE/2-1,py+TILE/2-1,2,2); }
     }
   }
+  drawRoomLighting(x0,x1,y0,y1);
   drawWallFaces(x0,x1,y0,y1);
+}
+
+// Soft overhead-lamp glow centered on each visited room (and a gentler
+// glow along visited corridor tiles), drawn on top of the flat floor color
+// so rooms/corridors read as lit, walkable spaces — distinct from the dark
+// solid walls drawn afterward in drawWallFaces.
+function drawRoomLighting(x0,x1,y0,y1){
+  const d=G.dun;
+  ctx.save();
+  ctx.globalCompositeOperation='lighter';
+  for(const r of d.rooms){
+    if(!r.visited) continue;
+    if(r.x+r.w<x0-2 || r.x>x1+2 || r.y+r.h<y0-2 || r.y>y1+2) continue; // outside viewport, skip
+    const cx=(r.cx+0.5)*TILE, cy=(r.cy+0.5)*TILE;
+    const rad=Math.max(r.w,r.h)*TILE*0.62;
+    const g=ctx.createRadialGradient(cx,cy,0, cx,cy,rad);
+    g.addColorStop(0,'rgba(180,225,210,0.16)');
+    g.addColorStop(0.6,'rgba(120,190,175,0.07)');
+    g.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle=g;
+    ctx.fillRect(r.x*TILE-TILE, r.y*TILE-TILE, (r.w+2)*TILE, (r.h+2)*TILE);
+  }
+  // gentle ambient strip along visited corridor tiles (non-room floor)
+  for(let y=y0;y<y1;y++){
+    for(let x=x0;x<x1;x++){
+      if(d.grid[y][x]===0 || d.grid[y][x]===2) continue;
+      if(d.roomAt(x,y)) continue; // rooms already got the glow above
+      if(!isTileVisited(d,x,y)) continue;
+      ctx.fillStyle='rgba(90,160,150,0.05)';
+      ctx.fillRect(x*TILE, y*TILE, TILE, TILE);
+    }
+  }
+  ctx.restore();
 }
 
 // A room (or the start room) is visited once the player has stood inside
@@ -638,27 +672,51 @@ function isTileVisited(d,x,y){
 // so the wall is still legible while you're back there.
 function drawWallFaces(x0,x1,y0,y1){
   const d=G.dun;
-  const visible=(x,y)=> y>=0 && y<d.H && x>=0 && x<d.W && d.grid[y][x]!==0 && isTileVisited(d,x,y);
+  const isFloor=(x,y)=> x>=0&&y>=0&&x<d.W&&y<d.H&&d.grid[y][x]!==0;
+  const isVisitedFloor=(x,y)=> isFloor(x,y) && isTileVisited(d,x,y);
+  // Expand the draw window by 1 tile so the extra "thickness" tile (drawn
+  // one step outside an actual wall tile) isn't clipped at the viewport edge.
+  const ex0=x0-1, ex1=x1+1, ey0=y0-1, ey1=y1+1;
 
-  for(let y=y0;y<y1;y++){
-    for(let x=x0;x<x1;x++){
-      if(d.grid[y][x]!==0) continue; // only wall tiles get drawn here
+  for(let y=ey0;y<ey1;y++){
+    for(let x=ex0;x<ex1;x++){
+      if(y<0||y>=d.H||x<0||x>=d.W) continue;
+      if(d.grid[y][x]!==0) continue; // only void/wall tiles render here
+
+      // A wall tile only gets drawn if it's within 2 tiles of a VISITED
+      // floor tile (so unexplored areas stay fully hidden, matching the
+      // existing fog-of-war). Checking up to 2 tiles away (not just 1) is
+      // what gives the wall its thickness: the tile directly adjacent to
+      // floor AND the tile one step further out both qualify and render.
+      let nearVisitedFloor=false;
+      for(let dy=-2; dy<=2 && !nearVisitedFloor; dy++){
+        for(let dx=-2; dx<=2; dx++){
+          if(Math.abs(dx)+Math.abs(dy)>2) continue; // diamond radius, not full square
+          if(dx===0 && dy===0) continue;
+          if(isVisitedFloor(x+dx,y+dy)){ nearVisitedFloor=true; break; }
+        }
+      }
+      if(!nearVisitedFloor) continue;
+
       const wx=x*TILE, wy=y*TILE;
-
-      // Flat, solid wall fill — uniform thickness/color on every side, no
-      // raised 3D geometry, matching the reference's clean blueprint look.
-      ctx.fillStyle = '#1b2b35';
+      // Walls render distinctly darker than the lit floor/corridor tiles
+      // (see drawTiles' floor color) so rooms/corridors read as the lit,
+      // walkable space and everything else reads as solid dark wall.
+      ctx.fillStyle = '#0a1117';
       ctx.fillRect(wx, wy, TILE, TILE);
 
-      // A thin bright edge exactly on whichever side(s) border a floor
-      // tile, so the wall reads as a clean drawn border/outline around
-      // each room rather than just fading into the void.
+      // Lit inner edge exactly where this wall touches a floor tile —
+      // gives the room a clean drawn border, like a wall catching light
+      // from the room behind it.
       const edge = 3;
-      ctx.fillStyle = 'rgba(120,200,190,.35)';
-      if(visible(x,y+1)) ctx.fillRect(wx, wy+TILE-edge, TILE, edge);       // floor below -> bottom edge lit
-      if(visible(x,y-1)) ctx.fillRect(wx, wy, TILE, edge);                  // floor above -> top edge lit
-      if(visible(x+1,y)) ctx.fillRect(wx+TILE-edge, wy, edge, TILE);        // floor right -> right edge lit
-      if(visible(x-1,y)) ctx.fillRect(wx, wy, edge, TILE);                  // floor left -> left edge lit
+      const touchS = isFloor(x,y+1), touchN = isFloor(x,y-1), touchE = isFloor(x+1,y), touchW = isFloor(x-1,y);
+      if(touchS || touchN || touchE || touchW){
+        ctx.fillStyle = 'rgba(70,140,130,.3)';
+        if(touchS) ctx.fillRect(wx, wy+TILE-edge, TILE, edge);
+        if(touchN) ctx.fillRect(wx, wy, TILE, edge);
+        if(touchE) ctx.fillRect(wx+TILE-edge, wy, edge, TILE);
+        if(touchW) ctx.fillRect(wx, wy, edge, TILE);
+      }
     }
   }
 }
@@ -1179,7 +1237,7 @@ async function onStart(){
 function enterOutdoorAct(actIndex, resumeAtDoor){
   const heroCfg = HERO[selectedChar];
   Outdoor.enter(actIndex, CAMPAIGN, {
-    heroCfg, charKey: selectedChar, resumeAtDoor,
+    heroCfg, charKey: selectedChar, resumeAtDoor, canvasWidth: cw,
     onReachDoor: onOutdoorReachedDoor,
   });
   if(atkBtn) atkBtn.classList.add('hidden');
@@ -1205,7 +1263,7 @@ function onActBunkerCleared(){
   showLoadingTransition(() => {
     G = null;
     Outdoor.enter(campaignActIndex, CAMPAIGN, {
-      heroCfg: HERO[selectedChar], charKey: selectedChar,
+      heroCfg: HERO[selectedChar], charKey: selectedChar, canvasWidth: cw,
       resumeAtDoor: true, // skip arrival speech bubbles, this act was already greeted
       bunkerCleared: true, // door now advances to the next act instead of re-entering
       onReachDoor: onOutdoorAdvanceToNextAct,

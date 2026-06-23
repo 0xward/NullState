@@ -37,7 +37,10 @@ function tryMakeDungeon(depth){
     const r = { x:rx, y:ry, w:rw, h:rh, cx:(rx+rw/2)|0, cy:(ry+rh/2)|0, id:rooms.length, visited:false, doors:[] };
     let overlap=false;
     for(const o of rooms){
-      if(rx-2 < o.x+o.w+2 && rx+rw+2 > o.x-2 && ry-2 < o.y+o.h+2 && ry+rh+2 > o.y-2){ overlap=true; break; }
+      // 3-tile buffer (up from 2) so a real 2-tile-thick wall has room to
+      // render between adjacent rooms instead of the wall ring overlapping
+      // straight into a neighboring room.
+      if(rx-3 < o.x+o.w+3 && rx+rw+3 > o.x-3 && ry-3 < o.y+o.h+3 && ry+rh+3 > o.y-3){ overlap=true; break; }
     }
     if(overlap) continue;
     rooms.push(r);

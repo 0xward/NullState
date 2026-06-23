@@ -3,19 +3,20 @@
    ------------------------------------------------------------
    A lightweight second "mode" alongside the dungeon: a static
    background, the player sprite walking left/right only (no
-   up/down, no dungeon collision grid), speech-bubble lines on
-   arrival, and a dialog-box beat right before the bunker door.
-   Reuses the same Anim/Player rendering primitives as the dungeon
-   so the character reads identically in both modes.
+   up/down, no dungeon collision grid, NO camera scroll — the
+   playable area is exactly the screen width), speech-bubble
+   lines on arrival, and a glowing right-arrow trail guiding the
+   player to the right edge of the screen, which is where the
+   scene ends (no in-world door object — reaching the edge itself
+   triggers the transition). Reuses the same Anim/Player rendering
+   primitives as the dungeon so the character reads identically
+   in both modes.
    ============================================================ */
 window.NS_OUTDOOR = (function(){
   const { Anim } = window.NS_ENT;
 
-  // World is a simple 1D strip: x in [0, WORLD_W]. The bunker door sits
-  // near the right edge; walking into its trigger zone advances the act.
-  const WORLD_W = 1400;
-  const DOOR_X = WORLD_W - 160;
-  const GROUND_Y_FRAC = 0.82; // player's feet, as a fraction of canvas height
+  const GROUND_Y_FRAC = 0.5; // player's feet, as a fraction of canvas height — vertical middle of the screen
+  const EDGE_MARGIN = 36; // how close to the literal screen edge the player can walk before being clamped/triggering the exit
 
   let state = null; // null when not in an outdoor scene
 
@@ -24,14 +25,18 @@ window.NS_OUTDOOR = (function(){
     state = {
       act, actIndex, campaign,
       heroCfg: opts.heroCfg, charKey: opts.charKey,
-      x: opts.resumeAtDoor ? DOOR_X-90 : 80, facing: 1, walking: false,
+      // x is a SCREEN-space position (0..cw), not world-space — there is
+      // no camera to scroll, the screen width IS the walkable strip.
+      xFrac: opts.resumeAtDoor ? 0.78 : 0.12, // fraction of screen width, resolved to pixels in render()/update()
+      facing: 1, walking: false,
       anim: new Anim(),
       phase: opts.resumeAtDoor ? 'free' : 'arrival', // 'arrival' -> speech bubbles play first
       arrivalIdx: 0, arrivalT: 0,
       bubble: null, bubbleT: 0,
-      doorTriggered: false,
+      edgeTriggered: false,
       bunkerCleared: !!opts.bunkerCleared,
       onReachDoor: opts.onReachDoor, // callback into game.js to start the dark transition into the bunker (or to the next act, if bunkerCleared)
+      lastCw: opts.canvasWidth || 360, // updated each render call; seeded from the real canvas width so there's no incorrect-width frame before the first render
     };
     state.anim.set(state.heroCfg.idle, 'idle');
     if(state.phase==='arrival') showNextArrival();
@@ -64,19 +69,22 @@ window.NS_OUTDOOR = (function(){
       return;
     }
 
-    // free walk — left/right only
+    // free walk — left/right only, in literal screen pixels (no camera)
     let mx = (input.right?1:0) - (input.left?1:0);
     s.walking = mx!==0;
     if(mx!==0) s.facing = mx;
     const sp = 150;
-    s.x = Math.max(20, Math.min(WORLD_W-20, s.x + mx*sp*dt));
+    const cw = s.lastCw;
+    let px = s.xFrac*cw + mx*sp*dt;
+    px = Math.max(EDGE_MARGIN, Math.min(cw-EDGE_MARGIN, px));
+    s.xFrac = px/cw;
 
     if(s.walking){ s.anim.loop=true; s.anim.set(s.heroCfg.walk,'walk'); }
     else { s.anim.loop=true; s.anim.set(s.heroCfg.idle,'idle'); }
     s.anim.update(dt);
 
-    if(!s.doorTriggered && s.x > DOOR_X){
-      s.doorTriggered = true;
+    if(!s.edgeTriggered && px >= cw-EDGE_MARGIN){
+      s.edgeTriggered = true;
       s.onReachDoor && s.onReachDoor();
     }
   }
@@ -84,44 +92,26 @@ window.NS_OUTDOOR = (function(){
   function render(ctx, cw, ch, bgImg){
     if(!state) return;
     const s = state;
-    // camera: keep the player roughly centered, clamped to world bounds
-    const camX = Math.max(cw/2, Math.min(WORLD_W-cw/2, s.x));
-    const offsetX = cw/2 - camX;
+    s.lastCw = cw;
+    const px = s.xFrac*cw, py = ch*GROUND_Y_FRAC;
 
-    // background — drawn to cover the canvas height, repeated/clamped
-    // horizontally isn't needed since the world is a fixed short strip
-    // narrower than most backgrounds are wide at this scale; we just
-    // scale the image to cover and let it pan with offsetX capped above.
+    // background — scaled to cover the canvas, no panning (static, since
+    // there's no camera scroll in this redesign).
     if(bgImg){
       const scale = Math.max(cw/bgImg.width, ch/bgImg.height);
       const dw = bgImg.width*scale, dh = bgImg.height*scale;
-      const bgPanX = (offsetX*0.35); // subtle parallax: background moves slower than the player
-      ctx.drawImage(bgImg, (cw-dw)/2 + bgPanX*0, (ch-dh)/2, dw, dh);
+      ctx.drawImage(bgImg, (cw-dw)/2, (ch-dh)/2, dw, dh);
     } else {
       ctx.fillStyle = '#0a1410'; ctx.fillRect(0,0,cw,ch);
     }
     // ground shadow strip so the character doesn't look like it's floating
     ctx.fillStyle = 'rgba(0,0,0,.18)';
-    ctx.fillRect(0, ch*GROUND_Y_FRAC+18, cw, ch*(1-GROUND_Y_FRAC));
+    ctx.fillRect(0, py+18, cw, ch-py-18);
 
-    const px = s.x + offsetX, py = ch*GROUND_Y_FRAC;
-
-    // bunker door marker near the right edge of the world
-    const doorScreenX = DOOR_X + offsetX;
-    if(doorScreenX > -80 && doorScreenX < cw+80){
-      ctx.save();
-      ctx.translate(doorScreenX, py);
-      ctx.fillStyle = '#1a2430'; ctx.fillRect(-22,-58,44,58);
-      ctx.fillStyle = '#0e1620'; ctx.fillRect(-16,-50,32,50);
-      ctx.fillStyle = 'rgba(0,255,136,.5)'; ctx.fillRect(-16,-50,32,2);
-      ctx.restore();
-      if(!s.doorTriggered && s.phase==='free'){
-        ctx.save();
-        ctx.globalAlpha = 0.6+0.3*Math.sin(performance.now()/300);
-        ctx.fillStyle = '#00ff88'; ctx.font='11px "Share Tech Mono"'; ctx.textAlign='center';
-        ctx.fillText(s.bunkerCleared ? '▸ keep walking ▸' : '▸ walk to the bunker ▸', doorScreenX, py-72);
-        ctx.restore();
-      }
+    // animated glowing right-arrow trail guiding the player toward the
+    // right edge of the screen — replaces the old in-world door marker.
+    if(!s.edgeTriggered && s.phase==='free'){
+      drawArrowTrail(ctx, px, py, cw);
     }
 
     // player shadow + sprite
@@ -133,6 +123,34 @@ window.NS_OUTDOOR = (function(){
     if(s.bubble){
       drawSpeechBubble(ctx, px, py - 86, s.bubble, cw);
     }
+  }
+
+  // A trail of 3 chevron arrows between the player and the right edge of
+  // the screen, pulsing/animating in sequence to read as "this way ->".
+  function drawArrowTrail(ctx, px, py, cw){
+    const rightEdge = cw - EDGE_MARGIN;
+    const trailStart = px + 50;
+    if(trailStart >= rightEdge - 20) return; // too close to the edge, arrows would overlap the player
+    const count = 3;
+    const span = rightEdge - trailStart;
+    const t = performance.now()/1000;
+    ctx.save();
+    for(let i=0;i<count;i++){
+      const baseX = trailStart + (span/count)*i + (span/count)*0.5;
+      const pulse = (Math.sin(t*2.2 - i*0.8)+1)/2; // staggered pulse, travels left->right over time
+      const alpha = 0.25 + pulse*0.55;
+      const ax = baseX, ay = py;
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = '#00ff88';
+      ctx.beginPath();
+      ctx.moveTo(ax-9, ay-11);
+      ctx.lineTo(ax+5, ay);
+      ctx.lineTo(ax-9, ay+11);
+      ctx.lineTo(ax-3, ay);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
   }
 
   function drawSpeechBubble(ctx, x, y, text, cw){
@@ -166,5 +184,5 @@ window.NS_OUTDOOR = (function(){
     ctx.restore();
   }
 
-  return { enter, exit, active, isBlockingInput, currentBgKey, update, render, WORLD_W, DOOR_X };
+  return { enter, exit, active, isBlockingInput, currentBgKey, update, render };
 })();
