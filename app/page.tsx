@@ -7,7 +7,6 @@ import Footer from '@/components/ui/Footer'
 import SectionDivider from '@/components/ui/SectionDivider'
 import LiveStatsTicker from '@/components/ui/LiveStatsTicker'
 import HeroSection from '@/components/landing/HeroSection'
-import GamePreviewSection from '@/components/landing/GamePreviewSection'
 import AboutSection from '@/components/landing/AboutSection'
 import FeaturesSection from '@/components/landing/FeaturesSection'
 import RaidBossSection from '@/components/landing/RaidBossSection'
@@ -84,11 +83,6 @@ export default function Home() {
         {/* LIVE STATS TICKER */}
         <LiveStatsTicker />
 
-        <SectionDivider label="// GAME PREVIEW" />
-
-        {/* GAME PREVIEW with phone mockup + glow */}
-        <GamePreviewSection />
-
         <SectionDivider label="// ABOUT" />
 
         {/* ABOUT */}
@@ -96,7 +90,7 @@ export default function Home() {
 
         <SectionDivider label="// GAMEPLAY" />
 
-        {/* FEATURES + ENEMIES */}
+        {/* GAMEPLAY FLOW */}
         <FeaturesSection />
 
         <SectionDivider label="// WORLD EVENT" />
