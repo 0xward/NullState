@@ -199,7 +199,7 @@ function descend(toDepth){
 }
 
 function spawnDecorInto(floor, d){
-  const common=['vase','pot','barrel','crate','cabinet_s'];
+  const common=['vase','pot','barrel','crate','cabinet_s','cabinet_s','monitor','monitor'];
   const rare=['wardrobe','chest'];
   const g=d.grid, W=d.W, H=d.H;
   const isWall=(x,y)=> !(x>=0&&y>=0&&x<W&&y<H) || g[y][x]===0;
@@ -234,11 +234,11 @@ function spawnDecorInto(floor, d){
     // shuffle candidates
     for(let i=cand.length-1;i>0;i--){ const j=(Math.random()*(i+1))|0; const t=cand[i]; cand[i]=cand[j]; cand[j]=t; }
     const area=r.w*r.h;
-    const n=Math.min(cand.length, Math.min(4, Math.max(1, Math.round(area/16))));
+    const n=Math.min(cand.length, Math.min(3, Math.max(1, Math.round(area/20))));
     let placed=0;
     for(const c of cand){
       if(placed>=n) break;
-      if(floor.decor.some(o=>Math.hypot(o.x-c.px,o.y-c.py)<TILE*0.9)) continue;
+      if(floor.decor.some(o=>Math.hypot(o.x-c.px,o.y-c.py)<TILE*1.3)) continue;
       const t = Math.random()<0.12 ? rare[Math.random()<0.5?0:1]
                                    : common[Math.floor(Math.random()*common.length)];
       floor.decor.push(new Decor(t,c.px,c.py,c.facing));
@@ -555,46 +555,19 @@ const WALL_H = 30;
 // closed/open), opens when the player is near it. Falls back to a plain
 // outlined tile if the sprite image hasn't finished loading yet.
 function drawDoorTile(px,py,tx,ty){
-  const d=G.dun;
-  const door = d.doorAt(tx,ty);
-  const side = door ? door.side : 'S';
   const p=G.player;
   const distTiles = Math.hypot((tx+0.5)-(p.x/TILE), (ty+0.5)-(p.y/TILE));
   const open = distTiles < 1.3;
-
-  if(side==='S'){
-    // South wall door: the only orientation where a front-facing door
-    // sprite actually reads correctly from a top-down camera (it's the
-    // wall edge directly facing the player), so this is the one spot we
-    // use the real sprite.
-    const frame = open ? 1 : 0;
-    const im = img(`${DECOR_SPRITES.door.src}/frame_${frame}.png`);
-    if(im){
-      ctx.save();
-      ctx.imageSmoothingEnabled = false;
-      ctx.fillStyle = '#0a121b'; ctx.fillRect(px,py,TILE,TILE);
-      ctx.drawImage(im, px, py-4, TILE, TILE+4);
-      ctx.restore();
-      return;
-    }
-  }
-  if(side==='N'){
-    // North wall (the room's back/roof edge): a dark archway cut into the
-    // raised back-wall block instead of a flat sprite, since nothing
-    // front-facing would look right viewed from directly above/behind.
-    const blockBot = py+TILE, blockTop = blockBot-WALL_H*0.7;
-    ctx.fillStyle = open ? '#02060a' : '#0d161c';
-    ctx.fillRect(px+6, blockTop+3, TILE-12, blockBot-blockTop-3);
-    ctx.fillStyle = 'rgba(0,255,136,.22)';
-    ctx.fillRect(px+6, blockTop+3, TILE-12, 2);
-    return;
-  }
-  // East/West wall: a side-on dark archway in the angled side wall.
-  const blockBot = py+TILE, blockTop = blockBot-WALL_H*0.85;
-  ctx.fillStyle = open ? '#02060a' : '#0c151a';
-  ctx.fillRect(px+5, blockTop+4, TILE-10, blockBot-blockTop-4);
-  ctx.fillStyle = 'rgba(0,255,136,.18)';
-  ctx.fillRect(px+5, blockTop+4, TILE-10, 2);
+  // Flat blueprint-style door: a clean lit gap in the wall outline rather
+  // than a decorative sprite — matches the reference's clean rectangular
+  // door-cuts, and avoids the front-facing-sprite-only-works-on-one-side
+  // issue from the previous approach.
+  ctx.fillStyle = '#16242d'; ctx.fillRect(px,py,TILE,TILE);
+  ctx.fillStyle = open ? '#02060a' : '#0e1c24';
+  ctx.fillRect(px+4, py+4, TILE-8, TILE-8);
+  ctx.fillStyle = open ? 'rgba(0,255,136,.45)' : 'rgba(0,255,136,.25)';
+  ctx.fillRect(px+4, py+4, TILE-8, 2);
+  ctx.fillRect(px+4, py+TILE-6, TILE-8, 2);
 }
 
 function drawTiles(){
@@ -624,10 +597,10 @@ function drawTiles(){
         continue;
       }
       // floor
-      const shade=((x+y)%2===0)?'#0c1620':'#0a121b';
+      const shade=((x+y)%2===0)?'#1c2e38':'#182832';
       ctx.fillStyle=shade; ctx.fillRect(px,py,TILE,TILE);
       // faint floor speckle
-      if(((x*7+y*13)%11)===0){ ctx.fillStyle='rgba(0,255,136,.06)'; ctx.fillRect(px+TILE/2-1,py+TILE/2-1,2,2); }
+      if(((x*7+y*13)%11)===0){ ctx.fillStyle='rgba(0,255,136,.08)'; ctx.fillRect(px+TILE/2-1,py+TILE/2-1,2,2); }
     }
   }
   drawWallFaces(x0,x1,y0,y1);
@@ -664,67 +637,28 @@ function isTileVisited(d,x,y){
 // stays visible through it — but only dims a little, not full transparency,
 // so the wall is still legible while you're back there.
 function drawWallFaces(x0,x1,y0,y1){
-  const d=G.dun, p=G.player;
-  const playerTileX = p.x/TILE, playerTileY = p.y/TILE;
+  const d=G.dun;
   const visible=(x,y)=> y>=0 && y<d.H && x>=0 && x<d.W && d.grid[y][x]!==0 && isTileVisited(d,x,y);
 
   for(let y=y0;y<y1;y++){
     for(let x=x0;x<x1;x++){
-      if(d.grid[y][x]!==0) continue; // only wall tiles have faces
+      if(d.grid[y][x]!==0) continue; // only wall tiles get drawn here
       const wx=x*TILE, wy=y*TILE;
-      const hasS=visible(x,y+1), hasN=visible(x,y-1), hasE=visible(x+1,y), hasW=visible(x-1,y);
-      if(!hasS && !hasN && !hasE && !hasW) continue; // wall tile with no adjacent floor — fully hidden, skip
 
-      // South-facing wall (floor sits below this tile): the tall, brightest
-      // face — this is the wall edge directly facing the camera, same as
-      // before, including the player-occlusion fade.
-      if(hasS){
-        const wallTopY=(y+1)*TILE-WALL_H, floorY=(y+1)*TILE;
-        const withinColumn = playerTileX > x-0.2 && playerTileX < x+1.2;
-        const inFrontRow = playerTileY >= y+1 && playerTileY < y+1.65;
-        const fade = (withinColumn && inFrontRow) ? 0.4 : 1;
-        ctx.save();
-        ctx.globalAlpha = fade;
-        const faceGrad = ctx.createLinearGradient(0, wallTopY, 0, floorY);
-        faceGrad.addColorStop(0, '#23363f');
-        faceGrad.addColorStop(1, '#0e1820');
-        ctx.fillStyle = faceGrad;
-        ctx.fillRect(wx, wallTopY, TILE, WALL_H);
-        ctx.fillStyle = 'rgba(0,255,136,.18)';
-        ctx.fillRect(wx, wallTopY, TILE, 2);
-        ctx.fillStyle = 'rgba(0,0,0,.45)';
-        ctx.fillRect(wx, floorY-2, TILE, 2);
-        ctx.restore();
-        continue; // south face fully covers this tile; other edges don't need separate treatment here
-      }
+      // Flat, solid wall fill — uniform thickness/color on every side, no
+      // raised 3D geometry, matching the reference's clean blueprint look.
+      ctx.fillStyle = '#1b2b35';
+      ctx.fillRect(wx, wy, TILE, TILE);
 
-      // North-facing wall (floor sits above this tile, i.e. this is the
-      // back/roof wall of a room from the camera's POV): a flatter, darker
-      // raised block — still a full WALL_H-tall face so it doesn't look
-      // "collapsed" next to a south wall, but dimmer since nothing would
-      // ever catch direct light back there.
-      if(hasN){
-        const blockBot = wy+TILE, blockTop = blockBot-WALL_H*0.7;
-        const g = ctx.createLinearGradient(0, blockTop, 0, blockBot);
-        g.addColorStop(0, '#16222a'); g.addColorStop(1, '#0a1218');
-        ctx.fillStyle = g; ctx.fillRect(wx, blockTop, TILE, blockBot-blockTop);
-        ctx.fillStyle = 'rgba(0,255,136,.08)'; ctx.fillRect(wx, blockTop, TILE, 2);
-        continue;
-      }
-
-      // East/West-facing wall (a side wall, viewed edge-on): a medium
-      // raised strip with a diagonal-ish shade to suggest it's turned away
-      // from the camera, still full-height so it matches its neighbors.
-      if(hasE || hasW){
-        const blockBot = wy+TILE, blockTop = blockBot-WALL_H*0.85;
-        const g = ctx.createLinearGradient(0, blockTop, 0, blockBot);
-        g.addColorStop(0, '#1d2e37'); g.addColorStop(1, '#0c161d');
-        ctx.fillStyle = g; ctx.fillRect(wx, blockTop, TILE, blockBot-blockTop);
-        ctx.fillStyle = hasE ? 'rgba(0,0,0,.22)' : 'rgba(255,255,255,.05)';
-        ctx.fillRect(hasE ? wx+TILE-6 : wx, blockTop, 6, blockBot-blockTop);
-        ctx.fillStyle = 'rgba(0,255,136,.1)'; ctx.fillRect(wx, blockTop, TILE, 2);
-        continue;
-      }
+      // A thin bright edge exactly on whichever side(s) border a floor
+      // tile, so the wall reads as a clean drawn border/outline around
+      // each room rather than just fading into the void.
+      const edge = 3;
+      ctx.fillStyle = 'rgba(120,200,190,.35)';
+      if(visible(x,y+1)) ctx.fillRect(wx, wy+TILE-edge, TILE, edge);       // floor below -> bottom edge lit
+      if(visible(x,y-1)) ctx.fillRect(wx, wy, TILE, edge);                  // floor above -> top edge lit
+      if(visible(x+1,y)) ctx.fillRect(wx+TILE-edge, wy, edge, TILE);        // floor right -> right edge lit
+      if(visible(x-1,y)) ctx.fillRect(wx, wy, edge, TILE);                  // floor left -> left edge lit
     }
   }
 }
@@ -840,11 +774,11 @@ function drawDarkness(sx,sy){
   // screen-space light around player
   const px=(G.player.x-cam.x)*zoom+cw/2+sx;
   const py=(G.player.y-cam.y)*zoom+ch/2+sy;
-  const rad=Math.max(cw,ch)*0.42;
-  const g=ctx.createRadialGradient(px,py,rad*0.18, px,py,rad);
+  const rad=Math.max(cw,ch)*0.62;
+  const g=ctx.createRadialGradient(px,py,rad*0.3, px,py,rad);
   g.addColorStop(0,'rgba(0,0,0,0)');
-  g.addColorStop(0.55,'rgba(2,5,8,0.35)');
-  g.addColorStop(1,'rgba(1,3,5,0.95)');
+  g.addColorStop(0.6,'rgba(2,5,8,0.12)');
+  g.addColorStop(1,'rgba(1,3,5,0.38)');
   ctx.fillStyle=g; ctx.fillRect(0,0,cw,ch);
   // warm torch tint
   const g2=ctx.createRadialGradient(px,py,0,px,py,rad*0.6);
@@ -853,8 +787,8 @@ function drawDarkness(sx,sy){
   ctx.fillStyle=g2; ctx.fillRect(0,0,cw,ch);
 }
 function drawVignette(){
-  const g=ctx.createRadialGradient(cw/2,ch/2,Math.min(cw,ch)*0.3,cw/2,ch/2,Math.max(cw,ch)*0.75);
-  g.addColorStop(0,'rgba(0,0,0,0)'); g.addColorStop(1,'rgba(0,0,0,0.55)');
+  const g=ctx.createRadialGradient(cw/2,ch/2,Math.min(cw,ch)*0.4,cw/2,ch/2,Math.max(cw,ch)*0.8);
+  g.addColorStop(0,'rgba(0,0,0,0)'); g.addColorStop(1,'rgba(0,0,0,0.28)');
   ctx.fillStyle=g; ctx.fillRect(0,0,cw,ch);
 }
 

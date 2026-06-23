@@ -16,6 +16,7 @@ const DECOR_TYPES = {
   cabinet_s:{ hp:2, w:34, h:46, label:'Cabinet',       loot:[['hp',14,45],['xp',24,40],['celo',0.01,15]] },
   wardrobe: { hp:3, w:48, h:64, label:'Old Wardrobe',  loot:[['hp',32,40],['xp',55,40],['celo',0.01,20]] },
   chest:    { hp:2, w:42, h:34, label:'Lost Cache',    loot:[['celo',0.01,45],['xp',60,35],['hp',30,20]] },
+  monitor:  { hp:2, w:30, h:36, label:'Old Terminal',  loot:[['xp',16,55],['hp',6,25],['none',0,20]] },
 };
 
 function rollLoot(table){
@@ -160,6 +161,19 @@ class Decor {
       if(front){
         R(-3,-22,6,10,'#e0c074');                               // front lock
         R(-21,-18,4,18,'#caa15a'); R(17,-18,4,18,'#caa15a');    // corner straps
+      }
+    } else if(t==='monitor'){
+      // wall-mounted terminal: stand + housing + glowing green screen
+      R(-3,-8,6,8,'#1a1a1a');                                    // stand
+      R(-15,-34,30,28,'#23272b'); R(-15,-34,30,3,'#34393d');     // housing
+      if(front){
+        R(-12,-31,24,20,'#06140d');                              // screen bezel/glass
+        R(-10,-29,20,16,'#0a2a18');                              // dim screen base
+        ctx.fillStyle='rgba(0,255,136,.55)';
+        ctx.fillRect(-9,-27,16,2); ctx.fillRect(-9,-23,11,2); ctx.fillRect(-9,-19,13,2); // scanline text rows
+        ctx.fillStyle='rgba(0,255,136,.18)'; ctx.fillRect(-12,-31,24,20);                 // glow wash
+      } else {
+        R(-13,-32,26,24,'#1a1d20');                              // plain back panel
       }
     }
   }
