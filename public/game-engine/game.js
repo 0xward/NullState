@@ -6,7 +6,7 @@
    matching the original NS_CHAIN.ultiTx({damage,xp,killed,onStatus}) -> {ok,demo,hash}.
    ============================================================ */
 window.NullStateGame = (() => {
-const { HERO, MON, ARCHETYPES, BOSS_ARCH, ORC_SHAMAN_ARCH, SKEL_MAGE_ARCH, SKEL_WARRIOR_ARCH, backgrounds, BG_BY_KEY, preloadAll, img, DECOR_SPRITES, GOLDEN_KEY_SRC } = window.NS_ASSETS;
+const { HERO, MON, ARCHETYPES, BOSS_ARCH, ORC_SHAMAN_ARCH, SKEL_MAGE_ARCH, SKEL_WARRIOR_ARCH, backgrounds, BG_BY_KEY, preloadAll, img, DECOR_SPRITES, GOLDEN_KEY_SRC, DUNGEON_THEMES } = window.NS_ASSETS;
 const { makeDungeon, TILE } = window.NS_DUNGEON;
 const { Player, Enemy } = window.NS_ENT;
 const { Decor, DECOR_TYPES, rollLoot } = window.NS_PROPS;
@@ -176,6 +176,10 @@ function descend(toDepth){
   G.dun = floor.dun; G.enemies = floor.enemies; G.decor = floor.decor;
   G.bossAlive = floor.bossAlive;
   G.particles=[]; G.dmgNums=[];
+  // Pull the current act's color theme so drawTiles/drawWallFaces render
+  // with the right palette for this leg of the campaign.
+  const act = CAMPAIGN[campaignActIndex];
+  G.dungeonTheme = DUNGEON_THEMES[(act && act.dungeonTheme) || 'bluestone'];
   // Only drop the player at the entrance the FIRST time a floor is visited;
   // revisiting (lift travel) places them at the lift landing instead so
   // backtracking doesn't feel like restarting the floor from its far entrance.
@@ -557,12 +561,23 @@ const WALL_H = 30;
 function drawDoorTile(px,py,tx,ty){
   const p=G.player;
   const distTiles = Math.hypot((tx+0.5)-(p.x/TILE), (ty+0.5)-(p.y/TILE));
+  const theme = G.dungeonTheme || DUNGEON_THEMES.bluestone;
+  const doorSet = DECOR_SPRITES[theme.door] || DECOR_SPRITES.doorIron;
+  // 5-frame closed->open sprite, indexed by proximity so the door visibly
+  // swings open as the player approaches and shut again as they leave.
+  const frame = Math.max(0, Math.min(4, Math.round((1.5-distTiles)*3)));
+  const im = img(`${doorSet.src}/frame_${frame}.png`);
+  if(im){
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    ctx.fillStyle = theme.wallFill; ctx.fillRect(px,py,TILE,TILE);
+    ctx.drawImage(im, px, py-8, TILE, TILE+8); // slight extra height so the arch reads as part of the wall above it
+    ctx.restore();
+    return;
+  }
+  // fallback: flat lit gap, in case the sprite hasn't loaded yet
   const open = distTiles < 1.3;
-  // Flat blueprint-style door: a clean lit gap in the wall outline rather
-  // than a decorative sprite — matches the reference's clean rectangular
-  // door-cuts, and avoids the front-facing-sprite-only-works-on-one-side
-  // issue from the previous approach.
-  ctx.fillStyle = '#16242d'; ctx.fillRect(px,py,TILE,TILE);
+  ctx.fillStyle = theme.wallFill; ctx.fillRect(px,py,TILE,TILE);
   ctx.fillStyle = open ? '#02060a' : '#0e1c24';
   ctx.fillRect(px+4, py+4, TILE-8, TILE-8);
   ctx.fillStyle = open ? 'rgba(0,255,136,.45)' : 'rgba(0,255,136,.25)';
@@ -596,11 +611,12 @@ function drawTiles(){
         drawDoorTile(px,py,x,y);
         continue;
       }
-      // floor
-      const shade=((x+y)%2===0)?'#1c2e38':'#182832';
+      // floor — colored per the current act's dungeon theme
+      const theme = G.dungeonTheme || DUNGEON_THEMES.bluestone;
+      const shade=((x+y)%2===0)?theme.floorA:theme.floorB;
       ctx.fillStyle=shade; ctx.fillRect(px,py,TILE,TILE);
       // faint floor speckle
-      if(((x*7+y*13)%11)===0){ ctx.fillStyle='rgba(0,255,136,.08)'; ctx.fillRect(px+TILE/2-1,py+TILE/2-1,2,2); }
+      if(((x*7+y*13)%11)===0){ ctx.fillStyle=theme.floorSpeckle; ctx.fillRect(px+TILE/2-1,py+TILE/2-1,2,2); }
     }
   }
   drawRoomLighting(x0,x1,y0,y1);
@@ -613,6 +629,7 @@ function drawTiles(){
 // solid walls drawn afterward in drawWallFaces.
 function drawRoomLighting(x0,x1,y0,y1){
   const d=G.dun;
+  const theme = G.dungeonTheme || DUNGEON_THEMES.bluestone;
   ctx.save();
   ctx.globalCompositeOperation='lighter';
   for(const r of d.rooms){
@@ -621,8 +638,8 @@ function drawRoomLighting(x0,x1,y0,y1){
     const cx=(r.cx+0.5)*TILE, cy=(r.cy+0.5)*TILE;
     const rad=Math.max(r.w,r.h)*TILE*0.62;
     const g=ctx.createRadialGradient(cx,cy,0, cx,cy,rad);
-    g.addColorStop(0,'rgba(180,225,210,0.16)');
-    g.addColorStop(0.6,'rgba(120,190,175,0.07)');
+    g.addColorStop(0,theme.roomGlow);
+    g.addColorStop(0.6,theme.corridorGlow);
     g.addColorStop(1,'rgba(0,0,0,0)');
     ctx.fillStyle=g;
     ctx.fillRect(r.x*TILE-TILE, r.y*TILE-TILE, (r.w+2)*TILE, (r.h+2)*TILE);
@@ -633,7 +650,7 @@ function drawRoomLighting(x0,x1,y0,y1){
       if(d.grid[y][x]===0 || d.grid[y][x]===2) continue;
       if(d.roomAt(x,y)) continue; // rooms already got the glow above
       if(!isTileVisited(d,x,y)) continue;
-      ctx.fillStyle='rgba(90,160,150,0.05)';
+      ctx.fillStyle=theme.corridorGlow;
       ctx.fillRect(x*TILE, y*TILE, TILE, TILE);
     }
   }
@@ -672,6 +689,7 @@ function isTileVisited(d,x,y){
 // so the wall is still legible while you're back there.
 function drawWallFaces(x0,x1,y0,y1){
   const d=G.dun;
+  const theme = G.dungeonTheme || DUNGEON_THEMES.bluestone;
   const isFloor=(x,y)=> x>=0&&y>=0&&x<d.W&&y<d.H&&d.grid[y][x]!==0;
   const isVisitedFloor=(x,y)=> isFloor(x,y) && isTileVisited(d,x,y);
   // Expand the draw window by 1 tile so the extra "thickness" tile (drawn
@@ -702,7 +720,7 @@ function drawWallFaces(x0,x1,y0,y1){
       // Walls render distinctly darker than the lit floor/corridor tiles
       // (see drawTiles' floor color) so rooms/corridors read as the lit,
       // walkable space and everything else reads as solid dark wall.
-      ctx.fillStyle = '#0a1117';
+      ctx.fillStyle = theme.wallFill;
       ctx.fillRect(wx, wy, TILE, TILE);
 
       // Lit inner edge exactly where this wall touches a floor tile —
@@ -711,7 +729,7 @@ function drawWallFaces(x0,x1,y0,y1){
       const edge = 3;
       const touchS = isFloor(x,y+1), touchN = isFloor(x,y-1), touchE = isFloor(x+1,y), touchW = isFloor(x-1,y);
       if(touchS || touchN || touchE || touchW){
-        ctx.fillStyle = 'rgba(70,140,130,.3)';
+        ctx.fillStyle = theme.wallEdge;
         if(touchS) ctx.fillRect(wx, wy+TILE-edge, TILE, edge);
         if(touchN) ctx.fillRect(wx, wy, TILE, edge);
         if(touchE) ctx.fillRect(wx+TILE-edge, wy, edge, TILE);

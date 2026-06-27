@@ -236,9 +236,10 @@ class Enemy {
         this.hitDone=true; this._wantHit=this.dmg;
       }
       // attack flash + a forward particle "swing" burst once, right as the
-      // swing starts — stands in for a dedicated attack sprite (none of the
-      // Orc/Skeleton crew sheets have one, only Idle/Run/Death).
-      if(this.atkTime<dt+0.001){ this.attackFlashT=0.5; this._wantSwingFx=true; }
+      // swing starts — stands in for a dedicated attack sprite, but only
+      // for archetypes that don't have one (Orc/Skeleton Crew); skel_reaper
+      // and vampire play their own real attack animation instead.
+      if(!this.cfg.attack && this.atkTime<dt+0.001){ this.attackFlashT=0.5; this._wantSwingFx=true; }
       if(this.atkTime>=0.55){ this.attacking=false; this.atkCd=0.6; }
     } else if(dist<this.aggro){
       if(dist<=reach && this.atkCd<=0){
@@ -261,11 +262,13 @@ class Enemy {
       if(!dun.isWall(this.x,ny)) this.y=ny;
       this.kb.x*=0.82; this.kb.y*=0.82;
     }
-    // Animation state machine: walk while chasing, idle otherwise (idle is
-    // also held during the attack swing — see attackFlashT/hitFlash for how
-    // the swing itself reads visually without a dedicated attack sprite).
+    // Animation state machine: attacking plays the real attack sheet if
+    // this archetype has one (skel_reaper, vampire); otherwise it holds
+    // idle/walk and the swing reads via attackFlashT/hitFlash instead
+    // (Orc/Skeleton Crew, which only ship Idle/Run/Death).
     this.anim.loop=true;
-    if(chasing){ this.anim.set(this.cfg.walk||this.cfg.idle,'walk'); }
+    if(this.attacking && this.cfg.attack){ this.anim.set(this.cfg.attack,'attack'); }
+    else if(chasing){ this.anim.set(this.cfg.walk||this.cfg.idle,'walk'); }
     else { this.anim.set(this.cfg.idle,'idle'); }
     this.anim.update(dt);
   }

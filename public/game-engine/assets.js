@@ -40,6 +40,14 @@ const HERO = {
 // monster sprite sheets — idle/run share geometry across all variants;
 // death frame count/width differ per-variant (see header note above).
 const MON = {
+  skel_reaper: { idle:{src:'/sprites/monsters2/skel2_idle.png',   fw:32,fh:32,frames:6},
+                 walk:{src:'/sprites/monsters2/skel2_walk.png',   fw:32,fh:32,frames:10},
+                 attack:{src:'/sprites/monsters2/skel2_attack.png', fw:32,fh:32,frames:9},
+                 death:{src:'/sprites/monsters2/skel2_death.png', fw:32,fh:32,frames:17}, scale:3.73, foot:1.0 },
+  vampire:     { idle:{src:'/sprites/monsters2/vampire_idle.png',   fw:32,fh:32,frames:6},
+                 walk:{src:'/sprites/monsters2/vampire_walk.png',   fw:32,fh:32,frames:8},
+                 attack:{src:'/sprites/monsters2/vampire_attack.png', fw:32,fh:32,frames:16},
+                 death:{src:'/sprites/monsters2/vampire_death.png', fw:32,fh:32,frames:14}, scale:3.5, foot:1.0 },
   orc_base:    { idle:{src:'/sprites/monsters/orc_base_idle.png',   fw:32,fh:32,frames:4},
                  walk:{src:'/sprites/monsters/orc_base_run.png',    fw:64,fh:64,frames:6},
                  death:{src:'/sprites/monsters/orc_base_death.png', fw:64,fh:64,frames:6}, scale:1.87, foot:1.0 },
@@ -76,6 +84,8 @@ const ARCHETYPES = [
   { key:'orc_warrior',  mon:'orc_warrior',  name:'Orc Warrior',      hp:58, dmg:13, spd:36, xp:52, color:'#5c8a46', r:17, isUndead:false },
   { key:'skel_base',    mon:'skel_base',    name:'Restless Bones',   hp:34, dmg:8,  spd:44, xp:36, color:'#cbb98e', r:14, isUndead:true },
   { key:'skel_rogue',   mon:'skel_rogue',   name:'Bone Skulker',     hp:30, dmg:10, spd:58, xp:42, color:'#b3a378', r:14, isUndead:true },
+  { key:'skel_reaper',  mon:'skel_reaper',  name:'Reaper Skeleton',  hp:46, dmg:12, spd:46, xp:50, color:'#cfd6e6', r:15, isUndead:true },
+  { key:'vampire',      mon:'vampire',      name:'Crypt Vampire',    hp:54, dmg:14, spd:50, xp:55, color:'#8a2f4a', r:15, isUndead:true },
 ];
 const ORC_SHAMAN_ARCH = { key:'orc_shaman', mon:'orc_shaman', name:'Orc Shaman', hp:48, dmg:14, spd:40, xp:60, color:'#4a7a3a', r:16 };
 const SKEL_MAGE_ARCH   = { key:'skel_mage',  mon:'skel_mage',  name:'Bone Caster', hp:40, dmg:15, spd:40, xp:58, color:'#8f9bb8', r:15, isUndead:true };
@@ -93,6 +103,17 @@ const BG_BY_KEY = {
 const DECOR_SPRITES = {
   door:  { src:'/sprites/decor/door_a_frames', frames:2 },           // 0=closed 1=open, 16x16 each
   chest: { src:'/sprites/decor/chest_a_frames', frames:4 },          // 0=closed..3=open, 16x16 each
+  // New top-down door/chest sprites — verified true top-down perspective
+  // (unlike the Mystic Woods door used above, which is front-facing and
+  // only ever looked correct on one wall orientation). 32x32 per frame, 5
+  // frames closed->open.
+  doorWood:  { src:'/sprites/tiles2/door_wood',  frames:5 },
+  doorIron:  { src:'/sprites/tiles2/door_iron',  frames:5 },
+  doorWood2: { src:'/sprites/tiles2/door_wood2', frames:5 },
+  doorIron2: { src:'/sprites/tiles2/door_iron2', frames:5 },
+  chestBig:   { src:'/sprites/tiles2/chest_big',   frames:5 },
+  chestSmall: { src:'/sprites/tiles2/chest_small', frames:5 },
+  lever:      { src:'/sprites/tiles2/lever',       frames:3 },
 };
 const GOLDEN_KEY_SRC = '/sprites/items/golden_key.png';
 
@@ -116,10 +137,46 @@ async function preloadAll(){
   });
   backgrounds.forEach(b=>srcs.add(b));
   srcs.add(GOLDEN_KEY_SRC);
-  for(let i=0;i<2;i++) srcs.add(`${DECOR_SPRITES.door.src}/frame_${i}.png`);
-  for(let i=0;i<4;i++) srcs.add(`${DECOR_SPRITES.chest.src}/frame_${i}.png`);
+  Object.values(DECOR_SPRITES).forEach(d=>{
+    for(let i=0;i<d.frames;i++) srcs.add(`${d.src}/frame_${i}.png`);
+  });
   await Promise.all([...srcs].map(loadImg));
 }
 
+// ---- per-act dungeon color themes ----
+// Colors sampled directly from the reference tilesets (bluestone from the
+// free top-down dungeon pack, catacombs from RF Catacombs) so the
+// code-rendered walls/floors carry an authentic palette instead of a
+// single hardcoded color for every act. icestone/voidstone are derived
+// variants (hue-shifted) for additional variety across acts that don't
+// have a directly-sampled source tileset.
+const DUNGEON_THEMES = {
+  bluestone: {
+    wallFill:'#1d1c2b', wallEdge:'rgba(128,138,163,.4)',
+    floorA:'#343446', floorB:'#3f3f53', floorSpeckle:'rgba(128,138,163,.12)',
+    roomGlow:'rgba(146,153,192,0.16)', corridorGlow:'rgba(105,101,132,0.06)',
+    door:'doorIron', chest:'chestBig',
+  },
+  catacombs: {
+    wallFill:'#140e0e', wallEdge:'rgba(69,65,53,.4)',
+    floorA:'#2e2a25', floorB:'#312220', floorSpeckle:'rgba(69,65,53,.14)',
+    roomGlow:'rgba(180,140,90,0.14)', corridorGlow:'rgba(120,90,60,0.06)',
+    door:'doorWood', chest:'chestSmall',
+  },
+  icestone: {
+    wallFill:'#10202c', wallEdge:'rgba(150,200,220,.35)',
+    floorA:'#1d3a4a', floorB:'#234458', floorSpeckle:'rgba(180,225,240,.14)',
+    roomGlow:'rgba(170,220,235,0.17)', corridorGlow:'rgba(110,170,190,0.07)',
+    door:'doorIron2', chest:'chestBig',
+  },
+  voidstone: {
+    wallFill:'#1a0f24', wallEdge:'rgba(180,120,220,.35)',
+    floorA:'#2c1838', floorB:'#341d42', floorSpeckle:'rgba(200,140,230,.13)',
+    roomGlow:'rgba(190,130,225,0.16)', corridorGlow:'rgba(130,80,160,0.07)',
+    door:'doorWood2', chest:'chestSmall',
+  },
+};
+
 window.NS_ASSETS={HERO,MON,ARCHETYPES,BOSS_ARCH,ORC_SHAMAN_ARCH,SKEL_MAGE_ARCH,SKEL_WARRIOR_ARCH,
+  DUNGEON_THEMES,
   DECOR_SPRITES,GOLDEN_KEY_SRC,backgrounds,BG_BY_KEY,loadImg,img,preloadAll};

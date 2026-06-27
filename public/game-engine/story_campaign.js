@@ -40,6 +40,7 @@ const CAMPAIGN = [
   {
     id: 1,
     bg: 'forest',
+    dungeonTheme: 'bluestone',
     title: 'THE TREELINE BUNKER',
     arrival: [
       "...This used to be the road home.",
@@ -63,6 +64,7 @@ const CAMPAIGN = [
   {
     id: 2,
     bg: 'desert',
+    dungeonTheme: 'catacombs',
     title: 'THE SUNKEN FIELD',
     arrival: [
       "The road keeps going. So do I.",
@@ -86,6 +88,7 @@ const CAMPAIGN = [
   {
     id: 3,
     bg: 'snow',
+    dungeonTheme: 'icestone',
     title: 'THE FROSTLINE BUNKER',
     arrival: [
       "Cold enough out here that even the NULL_STATE seems to move slower.",
@@ -108,6 +111,7 @@ const CAMPAIGN = [
   {
     id: 4,
     bg: 'field',
+    dungeonTheme: 'bluestone',
     title: 'THE HOLLOW MARKET',
     arrival: [
       "Stalls still standing. Fruit still in the crates, gone to dust years before I got here.",
@@ -132,6 +136,7 @@ const CAMPAIGN = [
   {
     id: 5,
     bg: 'back',
+    dungeonTheme: 'voidstone',
     title: 'THE LAST LIGHT',
     arrival: [
       "The sky out here isn't a sky. It's a wound, stitched shut with light that doesn't reach the ground.",
