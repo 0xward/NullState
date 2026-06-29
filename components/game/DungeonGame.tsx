@@ -319,6 +319,52 @@ export default function DungeonGame() {
           </div>
         </div>
 
+        {/* Tutorial overlay — animated how-to-play, shown once before the
+            first bunker. Each slide pairs a small animated visual demo
+            with a short line of text, rather than a plain text popup. */}
+        <div id="tutorial" className="overlay hidden">
+          <div className="tutorial-inner">
+            <div id="tutorialVisual" className="tutorial-visual">
+              {/* slide 1: movement — animated virtual joystick demoing a circular drag */}
+              <div className="tut-slide" data-slide="move">
+                <div className="tut-stick-base">
+                  <div id="tutStickNub" className="tut-stick-nub" />
+                </div>
+              </div>
+              {/* slide 2: auto-attack — sword swing arc pulsing toward a target dot */}
+              <div className="tut-slide hidden" data-slide="attack">
+                <div className="tut-attack-demo">
+                  <div className="tut-hero-dot" />
+                  <div id="tutSwingArc" className="tut-swing-arc" />
+                  <div className="tut-enemy-dot" />
+                </div>
+              </div>
+              {/* slide 3: clear the floor — lock icon that unlocks */}
+              <div className="tut-slide hidden" data-slide="clear">
+                <div className="tut-lock-demo">
+                  <div id="tutLockIcon" className="tut-lock-icon">🔒</div>
+                  <div id="tutLiftGlow" className="tut-lift-glow" />
+                </div>
+              </div>
+              {/* slide 4: ulti / NULL_STRIKE — pulsing lightning bolt */}
+              <div className="tut-slide hidden" data-slide="ulti">
+                <div className="tut-ulti-demo">
+                  <div id="tutBolt" className="tut-bolt">⚡</div>
+                  <div className="tut-hp-bar"><div id="tutHpFill" className="tut-hp-fill" /></div>
+                </div>
+              </div>
+            </div>
+            <p id="tutorialText" className="tutorial-text" />
+            <div className="tutorial-dots">
+              <span className="tut-dot" data-i="0" />
+              <span className="tut-dot" data-i="1" />
+              <span className="tut-dot" data-i="2" />
+              <span className="tut-dot" data-i="3" />
+            </div>
+            <button id="tutorialNext" className="ghost-btn">▾ got it</button>
+          </div>
+        </div>
+
         {/* Ultimate / on-chain strike popup */}
         <div id="ulti" className="overlay hidden">
           <div className="ulti-inner">

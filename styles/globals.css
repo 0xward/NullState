@@ -743,3 +743,81 @@ body::before {
   .ns-game-root .inv-btn,.ns-game-root .inv-panel{top:170px;}
   .ns-game-root .inv-panel{width:min(74vw,240px);}
 }
+
+/* ════════════════════════════════════════════════════════════════════════
+   TUTORIAL — animated how-to-play overlay, shown once before the first
+   bunker. Each slide demos its concept with a small looping CSS animation
+   instead of static text.
+   ════════════════════════════════════════════════════════════════════════ */
+.ns-game-root .tutorial-inner{max-width:420px;width:100%;animation:ns-fadeUp .5s ease;
+  background:rgba(8,14,18,.9);border:1px solid var(--line);border-radius:14px;
+  padding:30px 24px 24px;text-align:center;}
+.ns-game-root .tutorial-visual{position:relative;width:100%;height:140px;
+  display:flex;align-items:center;justify-content:center;margin-bottom:18px;}
+.ns-game-root .tut-slide{position:relative;width:100%;height:100%;display:flex;align-items:center;justify-content:center;}
+.ns-game-root .tutorial-text{font-size:14px;line-height:1.7;color:#d4ffe8;min-height:64px;margin-bottom:14px;}
+.ns-game-root .tutorial-dots{display:flex;gap:7px;justify-content:center;margin-bottom:18px;}
+.ns-game-root .tut-dot{width:7px;height:7px;border-radius:50%;background:rgba(0,255,136,.18);transition:.25s;}
+.ns-game-root .tut-dot.active{background:var(--green);box-shadow:0 0 8px rgba(0,255,136,.6);}
+
+/* slide 1: joystick auto-drag demo */
+.ns-game-root .tut-stick-base{position:relative;width:96px;height:96px;border-radius:50%;
+  border:2px solid rgba(0,255,136,.3);background:rgba(0,255,136,.04);}
+.ns-game-root .tut-stick-nub{position:absolute;width:40px;height:40px;border-radius:50%;
+  background:radial-gradient(circle at 35% 30%,#5dffb0,#00ff88);
+  top:28px;left:28px;box-shadow:0 0 14px rgba(0,255,136,.5);
+  animation:tutStickDrag 2.6s ease-in-out infinite;}
+@keyframes tutStickDrag{
+  0%,100%{ transform:translate(0,0); }
+  12%{ transform:translate(20px,0); }
+  25%{ transform:translate(20px,20px); }
+  37%{ transform:translate(0,20px); }
+  50%{ transform:translate(-20px,20px); }
+  62%{ transform:translate(-20px,0); }
+  75%{ transform:translate(-20px,-20px); }
+  87%{ transform:translate(0,-20px); }
+}
+
+/* slide 2: auto-attack swing demo */
+.ns-game-root .tut-attack-demo{position:relative;width:200px;height:80px;display:flex;align-items:center;justify-content:space-between;padding:0 20px;}
+.ns-game-root .tut-hero-dot{width:18px;height:18px;border-radius:4px;background:#00ff88;box-shadow:0 0 10px rgba(0,255,136,.6);}
+.ns-game-root .tut-enemy-dot{width:16px;height:16px;border-radius:50%;background:#ff5d54;box-shadow:0 0 10px rgba(255,93,84,.6);
+  animation:tutEnemyHit 1.4s ease-in-out infinite;}
+@keyframes tutEnemyHit{ 0%,70%,100%{ transform:scale(1); opacity:1; } 80%{ transform:scale(1.3); opacity:.5; } 90%{ transform:scale(0.85); opacity:1; } }
+.ns-game-root .tut-swing-arc{position:absolute;left:50%;top:50%;width:70px;height:70px;margin:-35px 0 0 -50px;
+  border:3px solid rgba(0,255,136,0); border-left-color:#eafff5; border-top-color:#eafff5;
+  border-radius:50%; transform:rotate(-30deg);
+  animation:tutSwing 1.4s ease-in-out infinite;}
+@keyframes tutSwing{
+  0%,55%{ opacity:0; transform:rotate(-30deg) scale(0.7); }
+  65%{ opacity:1; transform:rotate(20deg) scale(1); }
+  78%{ opacity:0; transform:rotate(50deg) scale(1.1); }
+  100%{ opacity:0; }
+}
+
+/* slide 3: floor-clear lock demo */
+.ns-game-root .tut-lock-demo{position:relative;display:flex;flex-direction:column;align-items:center;gap:10px;}
+.ns-game-root .tut-lock-icon{font-size:42px; animation:tutLockPulse 2.2s ease-in-out infinite;}
+@keyframes tutLockPulse{
+  0%,40%{ transform:scale(1); filter:drop-shadow(0 0 0 rgba(255,80,80,0)); }
+  50%{ transform:scale(1.15); filter:drop-shadow(0 0 10px rgba(0,255,136,.8)); }
+  60%,100%{ transform:scale(1); }
+}
+.ns-game-root .tut-lift-glow{width:60px;height:14px;border-radius:50%;background:rgba(0,255,136,.15);
+  animation:tutLiftGlowPulse 2.2s ease-in-out infinite;}
+@keyframes tutLiftGlowPulse{ 0%,40%{ opacity:.2; } 50%{ opacity:.8; } 60%,100%{ opacity:.2; } }
+
+/* slide 4: ulti / NULL_STRIKE demo */
+.ns-game-root .tut-ulti-demo{display:flex;flex-direction:column;align-items:center;gap:12px;}
+.ns-game-root .tut-bolt{font-size:46px;color:#ffd166;animation:tutBoltFlash 1.6s ease-in-out infinite;}
+@keyframes tutBoltFlash{
+  0%,60%{ opacity:.35; transform:scale(0.9); filter:drop-shadow(0 0 0 rgba(255,209,102,0)); }
+  72%{ opacity:1; transform:scale(1.2); filter:drop-shadow(0 0 16px rgba(255,209,102,.9)); }
+  85%,100%{ opacity:.35; transform:scale(0.9); }
+}
+.ns-game-root .tut-hp-bar{width:140px;height:10px;border-radius:5px;background:rgba(255,59,92,.15);
+  border:1px solid rgba(255,59,92,.4);overflow:hidden;}
+.ns-game-root .tut-hp-fill{height:100%;background:linear-gradient(90deg,#ff3b5c,#ff8a7a);
+  animation:tutHpDrain 1.6s ease-in-out infinite;}
+@keyframes tutHpDrain{ 0%,60%{ width:22%; } 72%{ width:22%; } 100%{ width:22%; } }
+

@@ -253,7 +253,15 @@ function spawnDecorInto(floor, d){
 
 function applyLoot(kind,amt,x,y){
   const p=G.player;
-  if(kind==='hp'){ p.hp=Math.min(p.maxHp,p.hp+amt); lootText(x,y,'+'+amt+' HP','#3dff88'); }
+  if(kind==='hp'){
+    if(p.hp>=p.maxHp){
+      // Full HP — don't waste the drop, convert it to XP instead.
+      const ups=p.gainXp(amt); lootText(x,y,'+'+amt+' XP (HP full)','#4ad7ff');
+      if(ups>0){ A.levelup(); log('◆ LEVEL UP → '+p.level,'reward'); spark(p.x,p.y-20,'#00ff88',24,200); }
+    } else {
+      p.hp=Math.min(p.maxHp,p.hp+amt); lootText(x,y,'+'+amt+' HP','#3dff88');
+    }
+  }
   else if(kind==='xp'){ const ups=p.gainXp(amt); lootText(x,y,'+'+amt+' XP','#4ad7ff');
     if(ups>0){ A.levelup(); log('◆ LEVEL UP → '+p.level,'reward'); spark(p.x,p.y-20,'#00ff88',24,200); } }
   else if(kind==='celo'){ p.celo+=amt; lootText(x,y,'+'+amt.toFixed(2)+' CELO','#ffd166'); }
@@ -291,10 +299,14 @@ function maybeOfferUlti(nearest,nd){
   if(nearest && nearest.dead) return; // killed this frame — don't offer an ulti on a corpse
   const p=G.player;
   if(p.hp/p.maxHp>0.4) u.lowHpArmed=true;
-  if(u.lowHpArmed && p.hp/p.maxHp<0.25 && nearest && nd<330){
+  // Low-HP ulti: only while actually engaged with something nearby (close
+  // combat range), not just "HP happens to be low somewhere safe on the floor."
+  if(u.lowHpArmed && p.hp/p.maxHp<0.25 && nearest && nd<140){
     u.lowHpArmed=false; offerUlti(nearest,'lowhp'); return;
   }
-  if(nearest && !nearest.ultiOffered && nd<300 && (nearest.isBoss||nearest.elite)){
+  // Boss/elite ulti: only when genuinely close — a real face-to-face
+  // encounter, not "somewhere on the same floor within a loose radius."
+  if(nearest && !nearest.ultiOffered && nd<180 && (nearest.isBoss||nearest.elite)){
     nearest.ultiOffered=true; offerUlti(nearest, nearest.isBoss?'boss':'elite');
   }
 }
@@ -967,10 +979,16 @@ function update(dt){
   const p=G.player;
   if(G.ulti.cd>0) G.ulti.cd-=dt;
   if(G.ultiFlash>0) G.ultiFlash-=dt;
-  // nearest alive enemy (drives auto-attack + camera + ulti)
+  // nearest VISIBLE alive enemy (drives auto-attack + camera + ulti).
+  // "Visible" = standing in a tile the player has actually explored — an
+  // elite/boss sitting in an unvisited room behind the fog-of-war should
+  // never be able to trigger an ulti offer the player can't even see.
   let nearest=null, nd=1e9;
-  for(const e of G.enemies){ if(e.dead||e.spawnT>0) continue;
-    const d=Math.hypot(e.x-p.x,e.y-p.y); if(d<nd){ nd=d; nearest=e; } }
+  for(const e of G.enemies){
+    if(e.dead||e.spawnT>0) continue;
+    if(!isTileVisited(G.dun, (e.x/TILE)|0, (e.y/TILE)|0)) continue;
+    const d=Math.hypot(e.x-p.x,e.y-p.y); if(d<nd){ nd=d; nearest=e; }
+  }
   G._nd=nd;
   // nearest unbroken decoration
   let nearDecor=null, ndd=1e9;
@@ -1123,6 +1141,40 @@ function onStoryNext(){
   } else renderCS();
 }
 
+// ---- tutorial (animated how-to-play, shown once before the first bunker) ----
+const TUTORIAL_SLIDES = [
+  { key:'move',   text:"Drag the stick to move. NULL_STATE plays itself otherwise — your hero attacks on its own the moment an enemy gets close." },
+  { key:'attack', text:"That's it for combat — just stay close. No attack button to mash. Walk into trouble, your blade does the rest." },
+  { key:'clear',  text:"Every hostile on a floor has to fall before the lift will take you deeper. Clear the floor — the lift unlocks the moment the last one drops." },
+  { key:'ulti',   text:"Run is going badly, or a boss is in your face? A NULL_STRIKE prompt appears — sign it to channel real on-chain force into one devastating hit." },
+];
+let tutIdx = 0, tutDone = null;
+function showTutorial(onDone){
+  G&&(G.paused=true);
+  tutIdx = 0; tutDone = onDone||null;
+  $('tutorial').classList.remove('hidden');
+  renderTutorial();
+}
+function renderTutorial(){
+  const slide = TUTORIAL_SLIDES[tutIdx];
+  $('tutorialText').textContent = slide.text;
+  document.querySelectorAll('.ns-game-root .tut-slide').forEach(el=>{
+    el.classList.toggle('hidden', el.dataset.slide!==slide.key);
+  });
+  document.querySelectorAll('.ns-game-root .tut-dot').forEach(el=>{
+    el.classList.toggle('active', Number(el.dataset.i)===tutIdx);
+  });
+  $('tutorialNext').textContent = tutIdx>=TUTORIAL_SLIDES.length-1 ? '▾ let\'s go' : '▾ next';
+}
+function onTutorialNext(){
+  tutIdx++;
+  if(tutIdx>=TUTORIAL_SLIDES.length){
+    $('tutorial').classList.add('hidden');
+    if(G) G.paused=false;
+    const cb=tutDone; tutDone=null; if(cb) cb();
+  } else renderTutorial();
+}
+
 // ---- death ----
 function gameOver(){
   if(G.over) return; G.over=true;
@@ -1262,11 +1314,15 @@ function enterOutdoorAct(actIndex, resumeAtDoor){
 }
 function onOutdoorReachedDoor(){
   const act = CAMPAIGN[campaignActIndex];
+  const isFirstBunker = campaignActIndex===0;
   showLoadingTransition(() => {
     Outdoor.exit();
     newGame(selectedChar);
     if(atkBtn) atkBtn.classList.remove('hidden');
-    cutscene(act.preBunker, ()=>updateHUD());
+    cutscene(act.preBunker, ()=>{
+      updateHUD();
+      if(isFirstBunker) showTutorial(()=>updateHUD());
+    });
   }, ()=>{ if(G) G.paused=false; updateHUD(); }, `DESCENDING INTO ${act.title}…`);
 }
 // Called when the final boss (floor 5) of the current act's bunker falls —
@@ -1314,6 +1370,7 @@ function attach(){
   cv.addEventListener('mousedown', ()=>{ input.attack=1; });
   cv.addEventListener('mouseup', ()=>{ input.attack=0; });
   $('storyNext').addEventListener('click', onStoryNext);
+  $('tutorialNext').addEventListener('click', onTutorialNext);
   $('reviveBtn').addEventListener('click', onRevive);
   $('ultiSkip').addEventListener('click', onUltiSkip);
   $('ultiTx').addEventListener('click', onUltiTx);
