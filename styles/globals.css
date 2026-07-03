@@ -1,0 +1,823 @@
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@300;400;500;600;700&family=Orbitron:wght@400;700;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --null-bg: #020a06;
+  --null-surface: #040f08;
+  --null-green: #00ff88;
+  --null-green-dim: #00cc6a;
+  --null-green-dark: #004422;
+  --null-acid: #a8ff3e;
+  --null-red: #ff2244;
+  --null-amber: #ffaa00;
+  --null-blue: #00aaff;
+  --null-white: #d4ffe8;
+  --null-muted: #2a4a35;
+  --null-border: rgba(0,255,136,0.15);
+  --null-glow: 0 0 20px rgba(0,255,136,0.3);
+  --null-glow-strong: 0 0 40px rgba(0,255,136,0.5), 0 0 80px rgba(0,255,136,0.2);
+  --null-glow-red: 0 0 20px rgba(255,34,68,0.4);
+  --font-mono: 'Share Tech Mono', monospace;
+  --font-hud: 'Rajdhani', sans-serif;
+  --font-display: 'Orbitron', monospace;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--null-bg);
+  color: var(--null-white);
+  font-family: var(--font-hud);
+  overflow-x: hidden;
+  cursor: none;
+}
+
+/* SCROLLBAR */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: var(--null-bg); }
+::-webkit-scrollbar-thumb { background: rgba(0,255,136,0.2); border-radius: 0; }
+::-webkit-scrollbar-thumb:hover { background: rgba(0,255,136,0.4); }
+
+/* GLOBAL SCANLINE OVERLAY */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0,0,0,0.06) 2px,
+    rgba(0,0,0,0.06) 4px
+  );
+  pointer-events: none;
+  z-index: 1000;
+}
+
+::selection {
+  background: rgba(0,255,136,0.2);
+  color: var(--null-green);
+}
+
+/* CLIP PATHS */
+.clip-button    { clip-path: polygon(12px 0, 100% 0, calc(100% - 12px) 100%, 0 100%); }
+.clip-button-sm { clip-path: polygon(8px 0,  100% 0, calc(100% - 8px)  100%, 0 100%); }
+
+/* GLOW UTILITIES */
+.glow-green        { text-shadow: var(--null-glow); }
+.glow-green-strong { text-shadow: var(--null-glow-strong); }
+.box-glow          { box-shadow: var(--null-glow); }
+.box-glow-strong   { box-shadow: var(--null-glow-strong); }
+.box-glow-red      { box-shadow: var(--null-glow-red); }
+
+/* GRID BG */
+.bg-grid {
+  background-image:
+    linear-gradient(rgba(0,255,136,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,255,136,0.03) 1px, transparent 1px);
+  background-size: 60px 60px;
+}
+
+/* ─────────────────────────────────────────────
+   REVEAL ANIMATION
+   ───────────────────────────────────────────── */
+.reveal {
+  opacity: 0;
+  transform: translateY(32px);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+}
+.reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ─────────────────────────────────────────────
+   TERMINAL SCAN LINE
+   ───────────────────────────────────────────── */
+.terminal-scan::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--null-green), transparent);
+  animation: scanH 3s linear infinite;
+}
+@keyframes scanH {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* ─────────────────────────────────────────────
+   TYPING CURSOR
+   ───────────────────────────────────────────── */
+.t-cursor {
+  display: inline-block;
+  width: 8px;
+  height: 14px;
+  background: var(--null-green);
+  animation: blinkStep 1s step-end infinite;
+  vertical-align: middle;
+}
+@keyframes blinkStep {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+/* ─────────────────────────────────────────────
+   SPRITE ANIMATIONS — all stepped, no easing
+   ───────────────────────────────────────────── */
+
+/* Idle bob — stepped quantised y-axis float */
+@keyframes spriteIdle {
+  0%   { transform: translateY(0px); }
+  14%  { transform: translateY(0px); }
+  28%  { transform: translateY(-3px); }
+  42%  { transform: translateY(-5px); }
+  56%  { transform: translateY(-3px); }
+  70%  { transform: translateY(0px); }
+  84%  { transform: translateY(-2px); }
+  100% { transform: translateY(0px); }
+}
+
+.sprite-idle {
+  animation: spriteIdle 2s steps(7) infinite;
+  image-rendering: pixelated;
+}
+
+/* Enemy idle (mirrored) */
+@keyframes spriteIdleEnemy {
+  0%   { transform: scaleX(-1) translateY(0px); }
+  14%  { transform: scaleX(-1) translateY(0px); }
+  28%  { transform: scaleX(-1) translateY(-3px); }
+  42%  { transform: scaleX(-1) translateY(-5px); }
+  56%  { transform: scaleX(-1) translateY(-3px); }
+  70%  { transform: scaleX(-1) translateY(0px); }
+  84%  { transform: scaleX(-1) translateY(-2px); }
+  100% { transform: scaleX(-1) translateY(0px); }
+}
+
+.sprite-idle-enemy {
+  animation: spriteIdleEnemy 2s steps(7) infinite;
+  image-rendering: pixelated;
+}
+
+/* Attack — stepped lunge forward */
+@keyframes spriteAttack {
+  0%   { transform: translateX(0); }
+  33%  { transform: translateX(22px); }
+  66%  { transform: translateX(-4px); }
+  100% { transform: translateX(0); }
+}
+
+.sprite-attack {
+  animation: spriteAttack 0.5s steps(3) forwards;
+  image-rendering: pixelated;
+}
+
+/* Hit flash — stepped brightness + knockback */
+@keyframes spriteHit {
+  0%   { filter: brightness(1); transform: translateX(0); }
+  25%  { filter: brightness(5) drop-shadow(0 0 10px #ff2244); transform: translateX(-8px); }
+  50%  { filter: brightness(2); transform: translateX(4px); }
+  75%  { filter: brightness(1.5); transform: translateX(-2px); }
+  100% { filter: brightness(1); transform: translateX(0); }
+}
+
+.sprite-hit {
+  animation: spriteHit 0.5s steps(4) forwards;
+  image-rendering: pixelated;
+}
+
+/* Enemy hit (mirrored) */
+@keyframes spriteHitEnemy {
+  0%   { filter: brightness(1);  transform: scaleX(-1) translateX(0); }
+  25%  { filter: brightness(5) drop-shadow(0 0 10px #ff2244); transform: scaleX(-1) translateX(8px); }
+  50%  { filter: brightness(2);  transform: scaleX(-1) translateX(-4px); }
+  100% { filter: brightness(1);  transform: scaleX(-1) translateX(0); }
+}
+
+.sprite-hit-enemy {
+  animation: spriteHitEnemy 0.5s steps(3) forwards;
+  image-rendering: pixelated;
+}
+
+/* Death — stepped topple */
+@keyframes spriteDeath {
+  0%   { opacity: 1; transform: scaleX(-1) rotate(0deg)   translateY(0); }
+  33%  { opacity: 0.8; transform: scaleX(-1) rotate(-30deg) translateY(6px); }
+  66%  { opacity: 0.4; transform: scaleX(-1) rotate(-70deg) translateY(14px); }
+  100% { opacity: 0; transform: scaleX(-1) rotate(-90deg) translateY(22px); }
+}
+
+.sprite-death {
+  animation: spriteDeath 0.8s steps(3) forwards;
+  image-rendering: pixelated;
+}
+
+/* Boss idle — heavier, wider bob */
+@keyframes bossIdle {
+  0%   { transform: translateY(0px); }
+  10%  { transform: translateY(0px); }
+  25%  { transform: translateY(-4px); }
+  40%  { transform: translateY(-8px); }
+  55%  { transform: translateY(-8px); }
+  70%  { transform: translateY(-4px); }
+  85%  { transform: translateY(0px); }
+  100% { transform: translateY(0px); }
+}
+
+.boss-idle {
+  animation: bossIdle 2.4s steps(7) infinite;
+  image-rendering: pixelated;
+}
+
+/* Boss hit shake */
+@keyframes bossShake {
+  0%   { transform: translateX(0); }
+  25%  { transform: translateX(-4px) rotate(-1deg); }
+  50%  { transform: translateX(4px)  rotate(1deg); }
+  75%  { transform: translateX(-2px); }
+  100% { transform: translateX(0); }
+}
+
+.boss-hit {
+  animation: bossShake 0.4s steps(4);
+  image-rendering: pixelated;
+}
+
+/* ─────────────────────────────────────────────
+   SCREEN SHAKE — stepped
+   ───────────────────────────────────────────── */
+@keyframes screenShake {
+  0%   { transform: translate(0, 0); }
+  20%  { transform: translate(-4px, 2px); }
+  40%  { transform: translate(4px, -2px); }
+  60%  { transform: translate(-3px, 3px); }
+  80%  { transform: translate(3px, -1px); }
+  100% { transform: translate(0, 0); }
+}
+
+.screen-shake {
+  animation: screenShake 0.4s steps(4);
+}
+
+/* ─────────────────────────────────────────────
+   DAMAGE NUMBER
+   ───────────────────────────────────────────── */
+@keyframes damageFloat {
+  0%   { transform: translateY(0) scale(0.5); opacity: 0; }
+  20%  { transform: translateY(-12px) scale(1.3); opacity: 1; }
+  80%  { transform: translateY(-50px) scale(1); opacity: 1; }
+  100% { transform: translateY(-70px) scale(0.8); opacity: 0; }
+}
+
+.damage-number {
+  animation: damageFloat 1.2s steps(8) forwards;
+  pointer-events: none;
+}
+
+/* ─────────────────────────────────────────────
+   HP BAR — stepped fill transition
+   ───────────────────────────────────────────── */
+.health-bar-fill {
+  transition: width 0.5s steps(20);
+}
+
+/* ─────────────────────────────────────────────
+   MENU PULSE — stepped glow
+   ───────────────────────────────────────────── */
+@keyframes menuPulseStep {
+  0%, 49% { box-shadow: 0 0 0 1px rgba(0,255,136,0.4); }
+  50%, 100% { box-shadow: 0 0 0 1px rgba(0,255,136,0.8), 0 0 20px rgba(0,255,136,0.3); }
+}
+
+.menu-pulse {
+  animation: menuPulseStep 2s step-end infinite;
+}
+
+/* ─────────────────────────────────────────────
+   PARTICLE FLOAT
+   ───────────────────────────────────────────── */
+@keyframes particleFloat {
+  0%   { transform: translateY(0) translateX(0); opacity: 0; }
+  20%  { opacity: 1; }
+  80%  { opacity: 1; }
+  100% { transform: translateY(-100px) translateX(var(--drift, 20px)); opacity: 0; }
+}
+
+/* ─────────────────────────────────────────────
+   HERO ORB PULSE — stepped
+   ───────────────────────────────────────────── */
+@keyframes orbPulse {
+  0%, 49% { transform: translate(-50%,-50%) scale(1);   opacity: 0.6; }
+  50%, 100% { transform: translate(-50%,-50%) scale(1.08); opacity: 1; }
+}
+
+/* ─────────────────────────────────────────────
+   SCROLL INDICATOR
+   ───────────────────────────────────────────── */
+@keyframes scrollLine {
+  0%   { transform: scaleY(1);   transform-origin: top; }
+  50%  { transform: scaleY(0.3); transform-origin: bottom; }
+  100% { transform: scaleY(1);   transform-origin: top; }
+}
+
+.scroll-line {
+  animation: scrollLine 2s steps(4) infinite;
+}
+
+/* ─────────────────────────────────────────────
+   TICKER
+   ───────────────────────────────────────────── */
+@keyframes tickerScroll {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.ticker-wrap  { overflow: hidden; white-space: nowrap; }
+.ticker-inner { display: inline-block; animation: tickerScroll 20s linear infinite; }
+
+/* ─────────────────────────────────────────────
+   NAV
+   ───────────────────────────────────────────── */
+.nav-blur {
+  background: rgba(2,10,6,0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* ─────────────────────────────────────────────
+   CUSTOM CURSOR
+   ───────────────────────────────────────────── */
+#cursor {
+  position: fixed;
+  width: 20px; height: 20px;
+  border: 1px solid var(--null-green);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 9999;
+  transform: translate(-50%,-50%);
+  /* No smooth transition — snappy update via JS */
+  mix-blend-mode: screen;
+}
+
+#cursor-dot {
+  position: fixed;
+  width: 4px; height: 4px;
+  background: var(--null-green);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 9999;
+  transform: translate(-50%,-50%);
+  box-shadow: 0 0 6px var(--null-green);
+}
+
+/* ─────────────────────────────────────────────
+   GAME PHONE MOCKUP
+   ───────────────────────────────────────────── */
+.game-phone {
+  position: relative;
+  width: 320px;
+  border: 2px solid rgba(0,255,136,0.25);
+  background: #010805;
+  border-radius: 24px;
+  overflow: hidden;
+  box-shadow:
+    0 0 60px rgba(0,255,136,0.15),
+    0 0 120px rgba(0,255,136,0.05),
+    inset 0 0 40px rgba(0,0,0,0.5);
+}
+
+.phone-glow {
+  position: absolute;
+  inset: -60px;
+  background: radial-gradient(ellipse at center, rgba(0,255,136,0.12) 0%, rgba(0,170,255,0.04) 40%, transparent 70%);
+  filter: blur(40px);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+/* ─────────────────────────────────────────────
+   CARD / SECTION COMPONENTS
+   ───────────────────────────────────────────── */
+.about-card {
+  border: 1px solid rgba(0,255,136,0.1);
+  background: rgba(0,255,136,0.02);
+  transition: all 0.3s;
+}
+.about-card:hover {
+  border-color: rgba(0,255,136,0.25);
+  background: rgba(0,255,136,0.04);
+  transform: translateY(-4px);
+}
+
+.faq-item {
+  border-bottom: 1px solid rgba(0,255,136,0.08);
+  transition: all 0.3s;
+}
+.faq-item.open {
+  border-color: rgba(0,255,136,0.2);
+}
+
+/* ─────────────────────────────────────────────
+   PIXEL BORDER — game arena
+   ───────────────────────────────────────────── */
+.pixel-border {
+  box-shadow:
+    0 0 0 2px rgba(0,255,136,0.4),
+    0 0 0 4px rgba(0,255,136,0.1),
+    inset 0 0 40px rgba(0,0,0,0.6);
+}
+
+/* ─────────────────────────────────────────────
+   CRT SCANLINES (in-arena overlay)
+   ───────────────────────────────────────────── */
+.crt-scanlines {
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0,0,0,0.15) 2px,
+    rgba(0,0,0,0.15) 4px
+  );
+  pointer-events: none;
+}
+
+/* ─────────────────────────────────────────────
+   ACTION BUTTON SHIMMER
+   ───────────────────────────────────────────── */
+@keyframes shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position:  200% center; }
+}
+
+.btn-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--null-green) 0%,
+    var(--null-acid) 50%,
+    var(--null-green) 100%
+  );
+  background-size: 200% auto;
+  animation: shimmer 3s linear infinite;
+}
+
+/* ─────────────────────────────────────────────
+   ROTATE UTILITY (Roadmap Celo logo)
+   ───────────────────────────────────────────── */
+@keyframes rotateCW {
+  from { transform: translate(-50%,-50%) rotate(0deg); }
+  to   { transform: translate(-50%,-50%) rotate(360deg); }
+}
+
+/* ─────────────────────────────────────────────
+   FADE UP (hero section stagger)
+   ───────────────────────────────────────────── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+
+/* ════════════════════════════════════════════════════════════════════════
+   NULL_STATE :: DUNGEON GAME (canvas engine UI)
+   All selectors scoped under .ns-game-root so they never leak into the
+   landing page. Keyframes are ns-prefixed to avoid colliding with the
+   site's own fadeUp/etc. The engine lives in /public/game-engine/*.
+   ════════════════════════════════════════════════════════════════════════ */
+.ns-game-root{
+  --green:#00ff88; --green-dim:#0a3;
+  --amber:#ffb347; --red:#ff3b5c; --blue:#4ad7ff;
+  --g-bg:#05070a; --panel:rgba(8,14,18,.72); --line:rgba(0,255,136,.25);
+  position:fixed; inset:0; width:100vw; height:100vh; overflow:hidden; z-index:50;
+  background:var(--g-bg); color:#cfeede;
+  font-family:'Share Tech Mono',monospace; -webkit-font-smoothing:none;
+  /* Stop mobile pull-to-refresh / rubber-band overscroll and any other
+     browser-native touch gesture (pinch-zoom, pan-scroll) from hijacking
+     a swipe that was meant for the game's own joystick/attack controls. */
+  overscroll-behavior:none; touch-action:none;
+}
+/* Mobile browsers (Chrome/Safari) report 100vh as the LARGEST possible
+   viewport (address bar hidden), but on first load the address bar is
+   still visible, so 100vh overshoots the real visible area and anything
+   anchored to the bottom (the touch stick) renders underneath the browser
+   chrome and gets clipped. 100dvh tracks the actual visible viewport. */
+@supports (height: 100dvh){
+  .ns-game-root{ height:100dvh; }
+}
+.ns-game-root *{box-sizing:border-box;margin:0;padding:0;}
+.ns-game-root #app{position:relative;width:100%;height:100%;overflow:hidden;}
+.ns-game-root canvas#game{position:absolute;inset:0;width:100%;height:100%;display:block;
+  image-rendering:pixelated;image-rendering:crisp-edges;background:#04060a;}
+.ns-game-root .hidden{display:none !important;}
+
+/* back / exit link */
+.ns-game-root .ns-back{position:absolute;top:10px;left:14px;z-index:30;pointer-events:auto;
+  font-family:'Share Tech Mono',monospace;font-size:11px;letter-spacing:3px;text-decoration:none;
+  color:var(--green);border:1px solid var(--line);border-radius:6px;padding:6px 12px;
+  background:rgba(0,0,0,.45);transition:.2s;}
+.ns-game-root .ns-back:hover{background:rgba(0,255,136,.12);color:#eafff5;}
+
+/* ---------- HUD ---------- */
+.ns-game-root #hud{position:absolute;inset:0;pointer-events:none;z-index:5;}
+.ns-game-root .hud-top{position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;
+  align-items:flex-start;padding:10px 14px 10px 78px;gap:14px;
+  background:linear-gradient(to bottom,rgba(0,0,0,.6),transparent);}
+.ns-game-root .hud-left{display:flex;flex-direction:column;gap:6px;min-width:200px;max-width:42vw;}
+.ns-game-root .bar-row{display:flex;align-items:center;gap:8px;}
+.ns-game-root .bar-label{font-size:11px;letter-spacing:2px;color:var(--green);width:22px;}
+.ns-game-root .bar{position:relative;flex:1;height:16px;border:1px solid var(--line);background:rgba(0,0,0,.55);
+  border-radius:3px;overflow:hidden;box-shadow:inset 0 0 8px rgba(0,0,0,.6);}
+.ns-game-root .bar-fill{position:absolute;inset:0;width:100%;transform-origin:left;transition:width .25s ease;}
+.ns-game-root .bar.hp .bar-fill{background:linear-gradient(90deg,#ff2d4f,#ff7b54);}
+.ns-game-root .bar.xp .bar-fill{background:linear-gradient(90deg,#0a6,#00ff88);}
+.ns-game-root .bar-text{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-size:10px;letter-spacing:1px;text-shadow:0 1px 2px #000;color:#fff;}
+.ns-game-root .hud-right{display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:flex-end;}
+.ns-game-root .stat{display:flex;flex-direction:column;align-items:center;line-height:1.1;}
+.ns-game-root .stat-k{font-size:9px;letter-spacing:2px;color:#5c8a78;}
+.ns-game-root .stat-v{font-size:15px;color:#eafff5;text-shadow:0 0 6px rgba(0,255,136,.4);}
+.ns-game-root #muteBtn{pointer-events:auto;cursor:pointer;background:rgba(0,0,0,.4);color:var(--green);
+  border:1px solid var(--line);border-radius:6px;width:30px;height:30px;font-size:15px;}
+.ns-game-root #muteBtn.off{color:#557;}
+
+.ns-game-root .floor-banner{position:absolute;top:30%;left:50%;transform:translateX(-50%);
+  text-align:center;font-family:'Cinzel',serif;font-size:clamp(20px,5vw,40px);letter-spacing:6px;
+  color:#eafff5;text-shadow:0 0 24px rgba(0,255,136,.6);opacity:0;pointer-events:none;
+  transition:opacity .6s ease;white-space:nowrap;}
+.ns-game-root .floor-banner .sub{display:block;font-family:'Share Tech Mono';font-size:13px;letter-spacing:4px;
+  color:var(--green);margin-top:6px;}
+.ns-game-root .floor-banner.show{opacity:1;}
+
+.ns-game-root .log{position:absolute;left:14px;bottom:64px;max-width:min(440px,70vw);display:flex;
+  flex-direction:column;gap:3px;font-size:12px;}
+.ns-game-root .log .line{background:var(--panel);border-left:2px solid var(--green-dim);padding:4px 9px;
+  border-radius:0 4px 4px 0;opacity:0;transform:translateX(-8px);
+  animation:ns-logIn .35s ease forwards;backdrop-filter:blur(2px);}
+.ns-game-root .log .line.dm{border-color:var(--green);color:#d9fff0;}
+.ns-game-root .log .line.combat{border-color:var(--amber);color:#ffe2bd;}
+.ns-game-root .log .line.reward{border-color:var(--blue);color:#cdf3ff;}
+.ns-game-root .log .line.death{border-color:var(--red);color:#ffd2db;}
+@keyframes ns-logIn{to{opacity:1;transform:none;}}
+
+.ns-game-root .hint{position:absolute;bottom:10px;left:0;right:0;text-align:center;font-size:11px;
+  color:#4d6b5e;letter-spacing:1px;}
+
+/* ---------- touch ---------- */
+.ns-game-root .touch{position:absolute;inset:0;pointer-events:none;z-index:6;}
+.ns-game-root .stick{position:absolute;left:18px;
+  bottom:calc(26px + env(safe-area-inset-bottom, 0px));
+  width:92px;height:92px;border-radius:50%;
+  border:1px solid rgba(0,255,136,.28);background:rgba(0,0,0,.14);pointer-events:auto;
+  opacity:.28;transition:opacity .2s ease;touch-action:none;}
+.ns-game-root .stick.active{opacity:.6;}
+.ns-game-root .nub{position:absolute;left:26px;top:26px;width:40px;height:40px;border-radius:50%;
+  background:rgba(0,255,136,.22);border:1px solid rgba(0,255,136,.55);
+  box-shadow:0 0 10px rgba(0,255,136,.25);}
+.ns-game-root .atk{display:none;}  /* auto-attack: no manual button needed */
+
+/* ---------- overlays ---------- */
+.ns-game-root .overlay{position:absolute;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(circle at 50% 40%,rgba(4,8,12,.86),rgba(2,4,6,.97));
+  backdrop-filter:blur(3px);padding:24px;text-align:center;}
+.ns-game-root .title-inner,.ns-game-root .death-inner,.ns-game-root .story-inner{max-width:560px;width:100%;animation:ns-fadeUp .7s ease;}
+@keyframes ns-fadeUp{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:none;}}
+.ns-game-root .logo{font-family:'Cinzel',serif;font-size:clamp(38px,11vw,82px);font-weight:700;letter-spacing:10px;
+  color:#eafff5;text-shadow:0 0 30px rgba(0,255,136,.55),0 0 6px rgba(0,255,136,.9);}
+.ns-game-root .subtitle{color:var(--green);letter-spacing:7px;font-size:13px;margin-top:2px;}
+.ns-game-root .lore{color:#9fc3b4;font-size:13px;line-height:1.7;margin:22px auto;max-width:440px;white-space:pre-line;}
+.ns-game-root .char-select{display:flex;gap:16px;justify-content:center;margin:14px 0 26px;}
+.ns-game-root .char-btn{cursor:pointer;background:rgba(0,0,0,.35);border:1px solid var(--line);border-radius:10px;
+  padding:12px 16px;display:flex;flex-direction:column;align-items:center;gap:8px;color:#9fc3b4;
+  font-family:'Share Tech Mono';letter-spacing:2px;font-size:11px;transition:.2s;width:140px;}
+.ns-game-root .char-btn:hover{border-color:var(--green);color:#eafff5;}
+.ns-game-root .char-btn.selected{border-color:var(--green);background:rgba(0,255,136,.08);color:#eafff5;
+  box-shadow:0 0 20px rgba(0,255,136,.2);}
+.ns-game-root .char-prev{width:84px;height:84px;background-repeat:no-repeat;image-rendering:pixelated;}
+.ns-game-root .big-btn{cursor:pointer;font-family:'Cinzel',serif;letter-spacing:5px;font-size:18px;font-weight:700;
+  color:#04110b;background:linear-gradient(180deg,#00ff88,#06c46a);border:none;border-radius:8px;
+  padding:14px 40px;box-shadow:0 0 24px rgba(0,255,136,.45);transition:.15s;}
+.ns-game-root .big-btn:hover{transform:translateY(-2px);box-shadow:0 0 34px rgba(0,255,136,.7);}
+.ns-game-root .big-btn:active{transform:translateY(0);}
+.ns-game-root .title-foot{margin-top:24px;color:#3f5b4f;font-size:11px;letter-spacing:2px;}
+
+.ns-game-root .story-text{font-family:'Cinzel',serif;font-size:clamp(16px,3.4vw,23px);line-height:1.9;color:#e7fff5;
+  text-shadow:0 0 18px rgba(0,255,136,.35);min-height:120px;}
+.ns-game-root .ghost-btn{margin-top:30px;cursor:pointer;background:transparent;border:1px solid var(--line);
+  color:var(--green);border-radius:6px;padding:9px 22px;letter-spacing:3px;font-family:'Share Tech Mono';
+  font-size:12px;transition:.2s;}
+.ns-game-root .ghost-btn:hover{background:rgba(0,255,136,.1);}
+
+.ns-game-root .death-title{font-family:'Cinzel',serif;font-size:clamp(44px,12vw,90px);font-weight:700;letter-spacing:12px;
+  color:var(--red);text-shadow:0 0 40px rgba(255,59,92,.6);}
+.ns-game-root .death-sub{color:#c98b96;margin-top:8px;letter-spacing:2px;font-size:13px;}
+.ns-game-root .death-stats{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;max-width:340px;margin:26px auto;}
+.ns-game-root .death-stats .ds{background:rgba(0,0,0,.4);border:1px solid rgba(255,59,92,.25);border-radius:8px;
+  padding:10px;}
+.ns-game-root .death-stats .ds b{display:block;color:#eafff5;font-size:22px;}
+.ns-game-root .death-stats .ds span{font-size:10px;letter-spacing:2px;color:#7d5c61;}
+
+/* ---------- ulti popup ---------- */
+.ns-game-root #ulti{background:radial-gradient(circle at 50% 45%,rgba(40,22,4,.82),rgba(4,3,2,.96));}
+.ns-game-root .ulti-inner{max-width:480px;width:100%;animation:ns-fadeUp .35s ease;
+  border:1px solid rgba(255,174,0,.35);border-radius:16px;padding:26px 24px;
+  background:rgba(10,8,4,.7);box-shadow:0 0 50px rgba(255,150,0,.18);}
+.ns-game-root .ulti-tag{font-family:'Share Tech Mono';letter-spacing:5px;color:#ffae00;font-size:13px;
+  text-shadow:0 0 16px rgba(255,174,0,.6);animation:ns-ultiPulse 1.1s ease-in-out infinite;}
+@keyframes ns-ultiPulse{0%,100%{opacity:.7}50%{opacity:1}}
+.ns-game-root .ulti-target{font-family:'Cinzel',serif;font-weight:700;font-size:clamp(22px,5vw,34px);
+  letter-spacing:3px;color:#fff3df;margin:8px 0 4px;text-shadow:0 0 22px rgba(255,150,0,.5);}
+.ns-game-root .ulti-desc{color:#d9c3a0;font-size:13px;line-height:1.7;margin:10px auto 16px;max-width:400px;}
+.ns-game-root .ulti-fee{display:inline-block;border:1px solid rgba(255,174,0,.4);border-radius:999px;
+  padding:6px 16px;font-size:12px;letter-spacing:2px;color:#ffd58a;background:rgba(255,174,0,.08);}
+.ns-game-root .ulti-fee b{color:#fff;}
+.ns-game-root .ulti-status{min-height:18px;margin:14px 0 4px;font-size:12px;letter-spacing:1px;color:#ffd58a;}
+.ns-game-root .ulti-btns{display:flex;gap:14px;justify-content:center;align-items:center;margin-top:8px;flex-wrap:wrap;}
+.ns-game-root #ultiTx{background:linear-gradient(180deg,#ffc24d,#ff8a00);color:#2a1500;
+  box-shadow:0 0 26px rgba(255,150,0,.5);}
+.ns-game-root #ultiTx:hover{box-shadow:0 0 38px rgba(255,170,0,.8);}
+.ns-game-root #ultiTx:disabled{opacity:.6;cursor:wait;transform:none;box-shadow:none;}
+.ns-game-root .ulti-btns .ghost-btn{border-color:rgba(255,174,0,.4);color:#ffd58a;margin-top:0;}
+.ns-game-root .ulti-btns .ghost-btn:hover{background:rgba(255,174,0,.12);}
+.ns-game-root .ulti-note{min-height:16px;margin-top:14px;font-size:11px;letter-spacing:.5px;color:#cdb088;}
+@media (orientation:portrait){ .ns-game-root .ulti-inner{padding:22px 16px;} }
+
+@media (max-width:520px){
+  .ns-game-root .hud-left{min-width:140px;}
+  .ns-game-root .hint{display:none;}
+}
+
+/* ---------- portrait / mobile vertical ---------- */
+@media (orientation:portrait){
+  .ns-game-root .hud-top{flex-direction:column;gap:8px;padding:8px 10px 8px 70px;}
+  .ns-game-root .hud-left{width:100%;max-width:none;}
+  .ns-game-root .hud-right{width:100%;justify-content:space-between;gap:8px;}
+  .ns-game-root .hud-right .stat-v{font-size:14px;}
+  .ns-game-root .stat-k{font-size:8px;}
+  .ns-game-root #muteBtn{position:absolute;top:8px;right:10px;}
+  .ns-game-root .log{bottom:132px;left:10px;max-width:78vw;font-size:11px;}
+  .ns-game-root .floor-banner{top:24%;}
+  .ns-game-root .logo{letter-spacing:6px;}
+  .ns-game-root .char-select{gap:10px;flex-wrap:wrap;}
+  .ns-game-root .char-btn{width:28vw;min-width:96px;max-width:130px;padding:10px 8px;}
+  .ns-game-root .hint{display:none;}
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   INVENTORY — button + panel. The button sits directly under the
+   canvas-drawn minimap (top-right corner; minimap is drawn at
+   top:78px/size:108px/pad:12px from the canvas itself, see MM in game.js),
+   so its position here is hand-tuned to land just below that, not derived
+   from a shared constant (the minimap is canvas-drawn, this is DOM).
+   ════════════════════════════════════════════════════════════════════════ */
+.ns-game-root .inv-btn{position:absolute;top:200px;right:12px;z-index:7;pointer-events:auto;
+  width:34px;height:34px;border-radius:8px;cursor:pointer;
+  background:rgba(4,8,10,.62);border:1px solid var(--line);color:#cfeede;
+  display:flex;align-items:center;justify-content:center;
+  transition:.15s;}
+.ns-game-root .inv-btn:hover{border-color:var(--green);background:rgba(0,255,136,.1);color:var(--green);}
+
+.ns-game-root .inv-panel{position:absolute;top:200px;right:12px;z-index:8;pointer-events:auto;
+  width:228px;max-height:min(64vh,440px);overflow-y:auto;touch-action:pan-y;
+  background:rgba(6,10,13,.92);border:1px solid var(--line);border-radius:10px;
+  box-shadow:0 12px 36px rgba(0,0,0,.55);padding:12px;animation:ns-fadeUp .25s ease;}
+.ns-game-root .inv-panel-head{display:flex;align-items:center;justify-content:space-between;
+  font-family:'Share Tech Mono';letter-spacing:3px;font-size:12px;color:var(--green);
+  border-bottom:1px solid var(--line);padding-bottom:8px;margin-bottom:10px;}
+.ns-game-root .inv-close{background:transparent;border:none;color:#9fc3b4;cursor:pointer;
+  font-size:14px;line-height:1;padding:2px 4px;}
+.ns-game-root .inv-close:hover{color:#eafff5;}
+.ns-game-root .inv-vitals{display:flex;flex-direction:column;gap:6px;margin-bottom:12px;
+  padding-bottom:10px;border-bottom:1px dashed rgba(0,255,136,.18);}
+.ns-game-root .inv-vital-row{display:flex;align-items:center;gap:8px;}
+.ns-game-root .inv-vital-row .bar{flex:1;height:14px;}
+.ns-game-root .inv-items{display:flex;flex-direction:column;gap:6px;}
+.ns-game-root .inv-empty{color:#5c8a78;font-size:11px;letter-spacing:.5px;text-align:center;padding:14px 4px;}
+.ns-game-root .inv-item{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.03);
+  border:1px solid rgba(255,209,102,.25);border-radius:7px;padding:7px 9px;}
+.ns-game-root .inv-item-icon{font-size:15px;color:#ffd166;text-shadow:0 0 8px rgba(255,209,102,.6);}
+.ns-game-root .inv-item-name{flex:1;font-size:12px;color:#eafff5;letter-spacing:.5px;}
+.ns-game-root .inv-item-count{font-size:11px;color:#caa15a;}
+
+/* ════════════════════════════════════════════════════════════════════════
+   LIFT — floor-select popup. Compact variant of the .overlay pattern
+   (modeled on .ulti-inner) rather than a full title-style screen.
+   ════════════════════════════════════════════════════════════════════════ */
+.ns-game-root .lift-inner{max-width:380px;width:100%;animation:ns-fadeUp .3s ease;
+  background:rgba(8,14,18,.85);border:1px solid var(--line);border-radius:12px;
+  padding:26px 22px;box-shadow:0 0 40px rgba(255,70,90,.12);}
+.ns-game-root .lift-floor-list{display:flex;flex-direction:column;gap:8px;margin:18px 0 4px;
+  max-height:46vh;overflow-y:auto;touch-action:pan-y;}
+.ns-game-root .lift-floor-btn{width:100%;padding:11px 16px;font-size:14px;letter-spacing:3px;
+  background:linear-gradient(180deg,#2a3a36,#1a2622);color:#eafff5;border:1px solid rgba(0,255,136,.3);
+  box-shadow:none;border-radius:8px;}
+.ns-game-root .lift-floor-btn:hover{transform:translateY(-1px);border-color:var(--green);box-shadow:0 0 18px rgba(0,255,136,.25);}
+.ns-game-root .lift-floor-btn.current{border-color:#ffd166;color:#ffd166;background:linear-gradient(180deg,#3a311a,#221c10);cursor:default;}
+.ns-game-root .lift-floor-btn.current:hover{transform:none;box-shadow:none;}
+.ns-game-root .lift-floor-btn.locked{opacity:.45;cursor:not-allowed;border-color:rgba(255,70,90,.35);color:#c98a92;}
+.ns-game-root .lift-floor-btn.locked:hover{transform:none;box-shadow:none;}
+.ns-game-root .lift-floor-btn:disabled{pointer-events:none;}
+
+/* ════════════════════════════════════════════════════════════════════════
+   LOADING TRANSITION — full dark fade used for every floor change (lift
+   travel, respawn), so the floor-data swap underneath never happens
+   visibly mid-frame.
+   ════════════════════════════════════════════════════════════════════════ */
+.ns-game-root .loading-fade{position:absolute;inset:0;z-index:40;background:#020304;
+  opacity:0;transition:opacity .4s ease;pointer-events:none;
+  display:flex;align-items:center;justify-content:center;padding:40px;text-align:center;}
+.ns-game-root .loading-fade-text{font-family:'Share Tech Mono';color:#5c8a78;font-size:13px;
+  letter-spacing:1px;line-height:1.8;max-width:480px;opacity:0;transition:opacity .5s ease .3s;}
+.ns-game-root .loading-fade-text.show{opacity:1;}
+
+@media (orientation:portrait){
+  .ns-game-root .inv-btn,.ns-game-root .inv-panel{top:170px;}
+  .ns-game-root .inv-panel{width:min(74vw,240px);}
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   TUTORIAL — animated how-to-play overlay, shown once before the first
+   bunker. Each slide demos its concept with a small looping CSS animation
+   instead of static text.
+   ════════════════════════════════════════════════════════════════════════ */
+.ns-game-root .tutorial-inner{max-width:420px;width:100%;animation:ns-fadeUp .5s ease;
+  background:rgba(8,14,18,.9);border:1px solid var(--line);border-radius:14px;
+  padding:30px 24px 24px;text-align:center;}
+.ns-game-root .tutorial-visual{position:relative;width:100%;height:140px;
+  display:flex;align-items:center;justify-content:center;margin-bottom:18px;}
+.ns-game-root .tut-slide{position:relative;width:100%;height:100%;display:flex;align-items:center;justify-content:center;}
+.ns-game-root .tutorial-text{font-size:14px;line-height:1.7;color:#d4ffe8;min-height:64px;margin-bottom:14px;}
+.ns-game-root .tutorial-dots{display:flex;gap:7px;justify-content:center;margin-bottom:18px;}
+.ns-game-root .tut-dot{width:7px;height:7px;border-radius:50%;background:rgba(0,255,136,.18);transition:.25s;}
+.ns-game-root .tut-dot.active{background:var(--green);box-shadow:0 0 8px rgba(0,255,136,.6);}
+
+/* slide 1: joystick auto-drag demo */
+.ns-game-root .tut-stick-base{position:relative;width:96px;height:96px;border-radius:50%;
+  border:2px solid rgba(0,255,136,.3);background:rgba(0,255,136,.04);}
+.ns-game-root .tut-stick-nub{position:absolute;width:40px;height:40px;border-radius:50%;
+  background:radial-gradient(circle at 35% 30%,#5dffb0,#00ff88);
+  top:28px;left:28px;box-shadow:0 0 14px rgba(0,255,136,.5);
+  animation:tutStickDrag 2.6s ease-in-out infinite;}
+@keyframes tutStickDrag{
+  0%,100%{ transform:translate(0,0); }
+  12%{ transform:translate(20px,0); }
+  25%{ transform:translate(20px,20px); }
+  37%{ transform:translate(0,20px); }
+  50%{ transform:translate(-20px,20px); }
+  62%{ transform:translate(-20px,0); }
+  75%{ transform:translate(-20px,-20px); }
+  87%{ transform:translate(0,-20px); }
+}
+
+/* slide 2: auto-attack swing demo */
+.ns-game-root .tut-attack-demo{position:relative;width:200px;height:80px;display:flex;align-items:center;justify-content:space-between;padding:0 20px;}
+.ns-game-root .tut-hero-dot{width:18px;height:18px;border-radius:4px;background:#00ff88;box-shadow:0 0 10px rgba(0,255,136,.6);}
+.ns-game-root .tut-enemy-dot{width:16px;height:16px;border-radius:50%;background:#ff5d54;box-shadow:0 0 10px rgba(255,93,84,.6);
+  animation:tutEnemyHit 1.4s ease-in-out infinite;}
+@keyframes tutEnemyHit{ 0%,70%,100%{ transform:scale(1); opacity:1; } 80%{ transform:scale(1.3); opacity:.5; } 90%{ transform:scale(0.85); opacity:1; } }
+.ns-game-root .tut-swing-arc{position:absolute;left:50%;top:50%;width:70px;height:70px;margin:-35px 0 0 -50px;
+  border:3px solid rgba(0,255,136,0); border-left-color:#eafff5; border-top-color:#eafff5;
+  border-radius:50%; transform:rotate(-30deg);
+  animation:tutSwing 1.4s ease-in-out infinite;}
+@keyframes tutSwing{
+  0%,55%{ opacity:0; transform:rotate(-30deg) scale(0.7); }
+  65%{ opacity:1; transform:rotate(20deg) scale(1); }
+  78%{ opacity:0; transform:rotate(50deg) scale(1.1); }
+  100%{ opacity:0; }
+}
+
+/* slide 3: floor-clear lock demo */
+.ns-game-root .tut-lock-demo{position:relative;display:flex;flex-direction:column;align-items:center;gap:10px;}
+.ns-game-root .tut-lock-icon{font-size:42px; animation:tutLockPulse 2.2s ease-in-out infinite;}
+@keyframes tutLockPulse{
+  0%,40%{ transform:scale(1); filter:drop-shadow(0 0 0 rgba(255,80,80,0)); }
+  50%{ transform:scale(1.15); filter:drop-shadow(0 0 10px rgba(0,255,136,.8)); }
+  60%,100%{ transform:scale(1); }
+}
+.ns-game-root .tut-lift-glow{width:60px;height:14px;border-radius:50%;background:rgba(0,255,136,.15);
+  animation:tutLiftGlowPulse 2.2s ease-in-out infinite;}
+@keyframes tutLiftGlowPulse{ 0%,40%{ opacity:.2; } 50%{ opacity:.8; } 60%,100%{ opacity:.2; } }
+
+/* slide 4: ulti / NULL_STRIKE demo */
+.ns-game-root .tut-ulti-demo{display:flex;flex-direction:column;align-items:center;gap:12px;}
+.ns-game-root .tut-bolt{font-size:46px;color:#ffd166;animation:tutBoltFlash 1.6s ease-in-out infinite;}
+@keyframes tutBoltFlash{
+  0%,60%{ opacity:.35; transform:scale(0.9); filter:drop-shadow(0 0 0 rgba(255,209,102,0)); }
+  72%{ opacity:1; transform:scale(1.2); filter:drop-shadow(0 0 16px rgba(255,209,102,.9)); }
+  85%,100%{ opacity:.35; transform:scale(0.9); }
+}
+.ns-game-root .tut-hp-bar{width:140px;height:10px;border-radius:5px;background:rgba(255,59,92,.15);
+  border:1px solid rgba(255,59,92,.4);overflow:hidden;}
+.ns-game-root .tut-hp-fill{height:100%;background:linear-gradient(90deg,#ff3b5c,#ff8a7a);
+  animation:tutHpDrain 1.6s ease-in-out infinite;}
+@keyframes tutHpDrain{ 0%,60%{ width:22%; } 72%{ width:22%; } 100%{ width:22%; } }
+
