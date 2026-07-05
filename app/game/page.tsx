@@ -1,5 +1,8 @@
 import type { Metadata } from 'next'
-import DungeonGame from '@/components/game/DungeonGame'
+import GameFlowManager from '@/components/game/GameFlowManager'
+
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
 export const metadata: Metadata = {
   title: 'Play NullState // The Forsaken Depths',
@@ -7,5 +10,5 @@ export const metadata: Metadata = {
 }
 
 export default function GamePage() {
-  return <DungeonGame />
+  return <GameFlowManager />
 }

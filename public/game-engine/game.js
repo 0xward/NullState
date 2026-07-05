@@ -1548,6 +1548,15 @@ function gameOver(){
       `<div class="ds"><b>${p.kills}</b><span>SOULS PURGED</span></div>`+
       `<div class="ds"><b>${p.celo.toFixed(2)}</b><span>CELO RECLAIMED</span></div>`;
     $('death').classList.remove('hidden');
+    
+    // [v0] Emit custom event with player stats for contract update
+    window.dispatchEvent(new CustomEvent('nullstate-player-death', {
+      detail: {
+        xp: p.xp,
+        level: p.level,
+        kills: p.kills
+      }
+    }));
   },650);
 }
 function onRevive(){
