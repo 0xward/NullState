@@ -23,12 +23,19 @@ type GamePhase = 'menu' | 'username-setup' | 'character-select' | 'game' | 'lead
  */
 export default function GameFlowManager() {
   const { address, isConnected } = useWallet()
-  const { playerProfile, isLoading: isLoadingProfile, registerPlayer, fetchLeaderboard } = useContractPlayer(address || undefined)
+  const { 
+    playerProfile, 
+    isLoading: isLoadingProfile, 
+    registerPlayer,
+    setPlayerUsername,
+    fetchLeaderboard 
+  } = useContractPlayer(address || undefined)
 
   const [phase, setPhase] = useState<GamePhase>('menu')
   const [leaderboardEntries, setLeaderboardEntries] = useState<LeaderboardEntry[]>([])
   const [isLoadingLeaderboard, setIsLoadingLeaderboard] = useState(false)
   const [selectedCharacterClass, setSelectedCharacterClass] = useState<number>(CHARACTER_CLASSES.WARRIOR)
+  const [selectedUsername, setSelectedUsername] = useState<string>('')
   const [error, setError] = useState<string | null>(null)
 
   // If wallet disconnects, go back to menu
@@ -50,12 +57,20 @@ export default function GameFlowManager() {
   const handleUsernameSet = async (username: string) => {
     try {
       setError(null)
-      // Register player on-chain with selected character class
-      await registerPlayer(username, selectedCharacterClass)
-      // After registration, move to game
+      setSelectedUsername(username)
+      
+      // If player not registered yet, register on-chain first
+      if (!playerProfile?.isRegistered) {
+        await registerPlayer()
+      }
+      
+      // Then set username in Firebase
+      await setPlayerUsername(username)
+      
+      // Move to game
       setPhase('game')
     } catch (err) {
-      const message = (err as any)?.message || 'Failed to register player'
+      const message = (err as any)?.message || 'Failed to set up player'
       setError(message)
     }
   }
