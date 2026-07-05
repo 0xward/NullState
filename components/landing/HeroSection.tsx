@@ -223,7 +223,7 @@ export default function HeroSection() {
             el.style.transform = 'translateY(0)'
           }}
         >
-          <span>⬡</span> LAUNCH APP
+          <span>⬡</span> LAUNCH GAME
         </a>
         <a
           href="#about"
