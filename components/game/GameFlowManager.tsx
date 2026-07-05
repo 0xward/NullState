@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useWallet } from '@/lib/WalletProvider'
 import { useContractPlayer } from '@/lib/useContractPlayer'
 import { PlayerProfile, LeaderboardEntry, CHARACTER_CLASSES } from '@/lib/contract'
-import DungeonGame from './DungeonGame'
+import DungeonGameWrapper from './DungeonGameWrapper'
 import MainMenu from './MainMenu'
 import UsernameSetup from './UsernameSetup'
 import Leaderboard from './Leaderboard'
@@ -70,7 +70,7 @@ export default function GameFlowManager() {
     setPhase('leaderboard')
     setIsLoadingLeaderboard(true)
     try {
-      const entries = await fetchLeaderboard(100)
+      const entries = await fetchLeaderboard()
       setLeaderboardEntries(entries)
     } catch (err) {
       console.error('[v0] Failed to load leaderboard:', err)
@@ -217,7 +217,7 @@ export default function GameFlowManager() {
 
   // PHASE: GAME
   if (phase === 'game') {
-    return <DungeonGame />
+    return <DungeonGameWrapper />
   }
 
   return null

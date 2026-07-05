@@ -6,25 +6,25 @@
 
 export const NULLSTATE_CONTRACT_ADDRESS = '0xe6c471dd3c715db8b10457113867885afa12ec13'
 
-// Minimal ABI for the functions we need
+// Minimal ABI for the functions we need (based on actual contract at Celoscan)
 export const NULLSTATE_CONTRACT_ABI = [
   {
     name: 'registerPlayer',
     type: 'function',
     inputs: [
-      { name: 'username', type: 'string' },
-      { name: 'characterClass', type: 'uint8' },
+      { name: '_username', type: 'string' },
+      { name: '_characterClass', type: 'uint8' },
     ],
     outputs: [],
     stateMutability: 'nonpayable',
   },
   {
-    name: 'updatePlayerStats',
+    name: 'updatePlayerProgress',
     type: 'function',
     inputs: [
-      { name: 'xp', type: 'uint64' },
-      { name: 'kills', type: 'uint32' },
-      { name: 'characterClass', type: 'uint8' },
+      { name: '_xp', type: 'uint64' },
+      { name: '_level', type: 'uint16' },
+      { name: '_kills', type: 'uint32' },
     ],
     outputs: [],
     stateMutability: 'nonpayable',
@@ -32,7 +32,7 @@ export const NULLSTATE_CONTRACT_ABI = [
   {
     name: 'getPlayerProfile',
     type: 'function',
-    inputs: [{ name: 'playerAddress', type: 'address' }],
+    inputs: [{ name: 'player', type: 'address' }],
     outputs: [
       { name: 'username', type: 'string' },
       { name: 'xp', type: 'uint64' },
@@ -44,22 +44,10 @@ export const NULLSTATE_CONTRACT_ABI = [
     stateMutability: 'view',
   },
   {
-    name: 'getTopPlayers',
+    name: 'getAllPlayers',
     type: 'function',
-    inputs: [{ name: 'limit', type: 'uint8' }],
-    outputs: [
-      {
-        name: 'players',
-        type: 'tuple[]',
-        components: [
-          { name: 'playerAddress', type: 'address' },
-          { name: 'username', type: 'string' },
-          { name: 'xp', type: 'uint64' },
-          { name: 'level', type: 'uint16' },
-          { name: 'kills', type: 'uint32' },
-        ],
-      },
-    ],
+    inputs: [],
+    outputs: [{ name: 'players', type: 'address[]' }],
     stateMutability: 'view',
   },
 ] as const

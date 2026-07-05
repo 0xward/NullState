@@ -33,11 +33,11 @@ import '@rainbow-me/rainbowkit/styles.css'
 
 // ─── Wagmi config ─────────────────────────────────────────────────────────────
 
-const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID ?? ''
+const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID ?? 'default-project-id'
 
-if (!projectId) {
+if (!process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID) {
   // Reminder di console — tidak crash, tapi WalletConnect modal tidak akan muncul
-  console.warn('[NullState] NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID tidak di-set.')
+  console.warn('[NullState] NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID tidak di-set. Using default.')
 }
 
 const config = getDefaultConfig({

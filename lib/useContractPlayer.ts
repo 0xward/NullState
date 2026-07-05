@@ -109,9 +109,9 @@ export function useContractPlayer(walletAddress: string | undefined) {
     [walletClient, publicClient, fetchPlayerProfile]
   )
 
-  // Update player stats
-  const updatePlayerStats = useCallback(
-    async (xp: number, kills: number, characterClass: number) => {
+  // Update player progress (XP, level, kills)
+  const updatePlayerProgress = useCallback(
+    async (xp: number, level: number, kills: number) => {
       if (!walletClient || !publicClient) throw new Error('Wallet not connected')
 
       setIsLoading(true)
@@ -121,8 +121,8 @@ export function useContractPlayer(walletAddress: string | undefined) {
         const hash = await walletClient.writeContract({
           address: NULLSTATE_CONTRACT_ADDRESS as `0x${string}`,
           abi: NULLSTATE_CONTRACT_ABI,
-          functionName: 'updatePlayerStats',
-          args: [BigInt(xp), kills, characterClass],
+          functionName: 'updatePlayerProgress',
+          args: [BigInt(xp), level, kills],
           account: walletClient.account,
         })
 
@@ -135,9 +135,9 @@ export function useContractPlayer(walletAddress: string | undefined) {
           throw new Error('Transaction failed')
         }
       } catch (err) {
-        const message = (err as any)?.message || 'Failed to update stats'
+        const message = (err as any)?.message || 'Failed to update progress'
         setError(message)
-        console.error('[v0] Update stats error:', err)
+        console.error('[v0] Update progress error:', err)
         throw err
       } finally {
         setIsLoading(false)
@@ -146,29 +146,64 @@ export function useContractPlayer(walletAddress: string | undefined) {
     [walletClient, publicClient, fetchPlayerProfile]
   )
 
-  // Fetch leaderboard
+  // Fetch leaderboard from all players
   const fetchLeaderboard = useCallback(
-    async (limit: number = 100): Promise<LeaderboardEntry[]> => {
+    async (): Promise<LeaderboardEntry[]> => {
       if (!publicClient) return []
 
       try {
-        const result = await publicClient.readContract({
+        // Get all players
+        const allPlayersAddresses = await publicClient.readContract({
           address: NULLSTATE_CONTRACT_ADDRESS as `0x${string}`,
           abi: NULLSTATE_CONTRACT_ABI,
-          functionName: 'getTopPlayers',
-          args: [limit],
+          functionName: 'getAllPlayers',
+          args: [],
         })
 
-        const players = (result as any[])[0] || []
+        const playerAddresses = (allPlayersAddresses as any[])[0] || []
 
-        return players.map((player: any, index: number) => ({
-          rank: index + 1,
-          walletAddress: player.playerAddress,
-          username: player.username,
-          xp: Number(player.xp),
-          level: Number(player.level),
-          kills: Number(player.kills),
-        }))
+        // Fetch each player's profile and sort by XP
+        const profiles: LeaderboardEntry[] = await Promise.all(
+          playerAddresses.map(async (address: string, index: number) => {
+            try {
+              const profile = await publicClient.readContract({
+                address: NULLSTATE_CONTRACT_ADDRESS as `0x${string}`,
+                abi: NULLSTATE_CONTRACT_ABI,
+                functionName: 'getPlayerProfile',
+                args: [address as `0x${string}`],
+              })
+
+              const [username, xp, level, kills, characterClass, isRegistered] = profile as any
+
+              return {
+                rank: 0, // Will be calculated after sort
+                walletAddress: address,
+                username: isRegistered ? username : 'Unknown',
+                xp: Number(xp),
+                level: Number(level),
+                kills: Number(kills),
+              }
+            } catch (err) {
+              console.error(`[v0] Failed to fetch profile for ${address}:`, err)
+              return {
+                rank: 0,
+                walletAddress: address,
+                username: 'Unknown',
+                xp: 0,
+                level: 0,
+                kills: 0,
+              }
+            }
+          })
+        )
+
+        // Sort by XP descending and assign ranks
+        return profiles
+          .sort((a, b) => b.xp - a.xp)
+          .map((profile, index) => ({
+            ...profile,
+            rank: index + 1,
+          }))
       } catch (err) {
         console.error('[v0] Failed to fetch leaderboard:', err)
         return []
@@ -183,7 +218,7 @@ export function useContractPlayer(walletAddress: string | undefined) {
     error,
     fetchPlayerProfile,
     registerPlayer,
-    updatePlayerStats,
+    updatePlayerProgress,
     fetchLeaderboard,
   }
 }
