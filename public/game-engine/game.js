@@ -701,7 +701,16 @@ function render(){
   const ents=[G.player, ...G.enemies, ...G.decor]
     .filter(e => e===G.player || isTileVisited(d, (e.x/TILE)|0, (e.y/TILE)|0))
     .sort((a,b)=>a.y-b.y);
-  for(const e of ents) e.draw(ctx);
+  for(const e of ents){
+    try{ e.draw(ctx); }
+    catch(err){
+      // A single bad draw call (bad sprite config, NaN position, etc.)
+      // must never abort the loop — that used to mean every entity
+      // sorted after the failing one, including the player, silently
+      // never got drawn for the rest of that frame.
+      if(!G._drawErrLogged){ G._drawErrLogged=true; console.error('[NullState] entity draw failed', err); }
+    }
+  }
 
   // Second wall pass: the wall block directly south of the player is
   // re-drawn ON TOP of the sprites at low alpha, so walking behind a tall
@@ -871,7 +880,16 @@ function drawTorchSconces(){
   for(const l of d.lamps){
     if(l.tx<x0||l.tx>x1||l.ty<y0||l.ty>y1) continue;
     if(!isTileVisited(d,l.tx,l.ty)) continue;
-    const x=(l.tx+0.5)*TILE, y=(l.ty+0.48)*TILE;
+    // Push the sconce off the tile's center toward whichever edge is the
+    // actual wall (N/S/E/W), so it reads as mounted on the wall face
+    // instead of floating in the middle of the walkway.
+    const edge = TILE*0.36;
+    let ox=0, oy=0;
+    if(l.side==='N') oy=-edge;
+    else if(l.side==='S') oy=edge;
+    else if(l.side==='W') ox=-edge;
+    else if(l.side==='E') ox=edge;
+    const x=(l.tx+0.5)*TILE+ox, y=(l.ty+0.48)*TILE+oy;
     const flick=0.7+0.3*Math.sin(G.time*10+l.tx);
     ctx.save();
     ctx.translate(x,y);
@@ -923,6 +941,12 @@ function markVisited(d){
   const room = d.roomAt(tx,ty);
   if(room && !room.visited) room.visited = true;
   if(!d._visitedTiles) d._visitedTiles = new Set();
+  if(!d._visitedCorridors) d._visitedCorridors = new Set();
+  // Corridors reveal in one shot: the whole connected hallway the player
+  // just stepped into lights up together, matching how rooms already
+  // reveal fully on entry, instead of leaving unstepped-on edge tiles dark.
+  const cid = (d.corridorId && d.corridorId[ty]) ? d.corridorId[ty][tx] : -1;
+  if(cid!==-1) d._visitedCorridors.add(cid);
   d._visitedTiles.add(ty*d.W+tx);
   // also mark the 8 neighbours so standing in a doorway reveals both sides a touch
   for(let dy=-1;dy<=1;dy++) for(let dx=-1;dx<=1;dx++){
@@ -933,8 +957,12 @@ function markVisited(d){
 function isTileVisited(d,x,y){
   const room = d.roomAt(x,y);
   if(room) return room.visited;
-  // corridor / non-room tile: visited if the player has physically been
-  // on or adjacent to it at some point
+  // corridor / non-room tile: visited once the player has set foot
+  // anywhere in that same connected corridor (whole hallway lights up
+  // together), falling back to the old per-tile check for edge cases
+  // (e.g. the single-room fallback dungeon has no corridor components).
+  const cid = (d.corridorId && d.corridorId[y]) ? d.corridorId[y][x] : -1;
+  if(cid!==-1 && d._visitedCorridors && d._visitedCorridors.has(cid)) return true;
   return d._visitedTiles && d._visitedTiles.has(y*d.W+x);
 }
 function isEntityVisibleToPlayer(d,e){
@@ -1426,15 +1454,15 @@ function updateInventoryPanel(){
   items.querySelectorAll('.inv-item').forEach(n=>n.remove());
   if(keyCount+relicCount+shardCount<=0){ if(empty) empty.style.display=''; return; }
   if(empty) empty.style.display='none';
-  const addRow=(id,icon,name,count)=>{
+  const addRow=(id,iconSrc,name,count)=>{
     if(count<=0) return;
     const row=document.createElement('div'); row.className='inv-item'; row.dataset.id=id;
-    row.innerHTML=`<span class="inv-item-icon">${icon}</span><span class="inv-item-name">${name}</span><span class="inv-item-count">×${count}</span>`;
+    row.innerHTML=`<img class="inv-item-icon" src="${iconSrc}" alt="${name}" draggable="false"><span class="inv-item-name">${name}</span><span class="inv-item-count">×${count}</span>`;
     items.appendChild(row);
   };
-  addRow('goldkey','⚷','Golden Key',keyCount);
-  addRow('relic','◆','Absorbed Relics',relicCount);
-  addRow('shard','✦','Null Shards',shardCount);
+  addRow('goldkey','/sprites/items/golden_key.png','Golden Key',keyCount);
+  addRow('relic','/sprites/items/relic.png','Relic',relicCount);
+  addRow('shard','/sprites/items/shard.png','Null Shard',shardCount);
 }
 function onInvToggle(){
   const panel=$('invPanel');
