@@ -1267,7 +1267,14 @@ function drawMinimap(){
 // ---- update ----
 function update(dt){
   if(Outdoor.active()){
-    if(!csActive && !(Outdoor.isBlockingInput && Outdoor.isBlockingInput())) Outdoor.update(dt, input);
+    // Always keep ticking Outdoor.update() while active (as long as no
+    // cutscene is stealing the frame) — outdoor.js already withholds
+    // movement input on its own during phase==='arrival' (it returns
+    // before ever reading input.left/right). Gating the call itself here
+    // used to also freeze the arrival dialogue's own advance timer, since
+    // that timer only ticks inside Outdoor.update() — leaving the player
+    // stuck on the first speech line forever, unable to move even after.
+    if(!csActive) Outdoor.update(dt, input);
     return;
   }
   if(!G||G.paused||G.over) return;
