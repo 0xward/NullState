@@ -24,7 +24,18 @@ class Anim {
     }
   }
   draw(ctx, cx, cy, scale, flip, footY=0.92, alpha=1){
-    if(!this.cfg) return;
+    if(!this.cfg){
+      // No animation config set at all (should only ever happen for a
+      // single frame right after construction) — never silently render
+      // nothing, since that previously made entities (including the
+      // player) vanish with zero visible trace and no error.
+      ctx.save();
+      ctx.globalAlpha=alpha*0.6;
+      ctx.fillStyle='#5c8a78';
+      ctx.beginPath(); ctx.ellipse(cx, cy-14, 12, 18, 0, 0, Math.PI*2); ctx.fill();
+      ctx.restore();
+      return;
+    }
     const im=imgGet(this.cfg.src);
     if(!im){
       // Sprite not loaded yet (or failed to load) — draw a simple visible
