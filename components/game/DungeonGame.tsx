@@ -89,6 +89,47 @@ export default function DungeonGame() {
   useEffect(() => {
     let cancelled = false
 
+    // ── TEMPORARY DEBUG OVERLAY ────────────────────────────────────────────
+    // Phone-only testing, no DevTools access. This renders any console.error
+    // (including the engine's own internal safety-net logs, e.g.
+    // "frame() failed, continuing loop" / "showLoadingTransition: onDark
+    // failed") plus any uncaught error/rejection directly on screen, so the
+    // exact crash message is visible without a computer.
+    // REMOVE THIS BLOCK once the bug is found — it's diagnostic only.
+    const dbgBox = document.createElement('div')
+    dbgBox.id = 'ns-debug-overlay'
+    Object.assign(dbgBox.style, {
+      position: 'fixed', left: '0', right: '0', bottom: '0',
+      maxHeight: '40vh', overflowY: 'auto', zIndex: '99999',
+      background: 'rgba(0,0,0,0.92)', color: '#5cff9d',
+      font: '11px/1.4 monospace', padding: '8px', whiteSpace: 'pre-wrap',
+      wordBreak: 'break-word', borderTop: '2px solid #5cff9d',
+    } as CSSStyleDeclaration)
+    dbgBox.textContent = '[debug overlay active — waiting for errors]'
+    document.body.appendChild(dbgBox)
+    const logToOverlay = (label: string, msg: string) => {
+      const line = document.createElement('div')
+      line.style.marginBottom = '6px'
+      line.style.borderBottom = '1px solid rgba(92,255,157,0.25)'
+      line.textContent = `[${new Date().toLocaleTimeString()}] ${label}: ${msg}`
+      dbgBox.appendChild(line)
+      dbgBox.scrollTop = dbgBox.scrollHeight
+    }
+    const origConsoleError = console.error
+    console.error = (...args: any[]) => {
+      logToOverlay('console.error', args.map(a => (a && a.stack) ? a.stack : String(a)).join(' '))
+      origConsoleError.apply(console, args)
+    }
+    const onWinError = (e: ErrorEvent) => {
+      logToOverlay('uncaught', `${e.message} @ ${e.filename}:${e.lineno}:${e.colno}`)
+    }
+    const onRejection = (e: PromiseRejectionEvent) => {
+      logToOverlay('unhandledrejection', String(e.reason && e.reason.stack || e.reason))
+    }
+    window.addEventListener('error', onWinError)
+    window.addEventListener('unhandledrejection', onRejection)
+    // ── END TEMPORARY DEBUG OVERLAY ─────────────────────────────────────────
+
     // Wait for a tx receipt (best-effort; never throws).
     const waitForTx = async (hash?: string) => {
       const client = clientRef.current
@@ -191,6 +232,11 @@ export default function DungeonGame() {
       document.removeEventListener('touchmove', preventPullToRefresh)
       const NSG = (window as any).NullStateGame
       if (NSG && typeof NSG.unmount === 'function') NSG.unmount()
+      // ── TEMPORARY DEBUG OVERLAY cleanup ──
+      console.error = origConsoleError
+      window.removeEventListener('error', onWinError)
+      window.removeEventListener('unhandledrejection', onRejection)
+      dbgBox.remove()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
