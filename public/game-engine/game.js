@@ -244,7 +244,16 @@ function descend(toDepth){
 }
 
 function spawnDecorInto(floor, d){
-  const common=['vase','pot','barrel','crate','cabinet_s','cabinet_s','monitor','monitor'];
+  // NOTE: 'monitor' used to be listed here but was never defined in
+  // DECOR_TYPES (props.js) — picking it threw "Cannot read properties of
+  // undefined (reading 'hp')" inside `new Decor()`, which aborted
+  // ensureFloor() -> descend() partway through, before G.dun was ever
+  // assigned. That left G.dun permanently null and crashed every
+  // subsequent frame in checkRoomDiscovery(), freezing the screen right
+  // after the bunker-entry transition. Replaced with real DECOR_TYPES
+  // entries ('urn'/'bones') that also fit the ancient-ruin theme better
+  // than a sci-fi monitor ever did.
+  const common=['vase','pot','barrel','crate','cabinet_s','cabinet_s','urn','bones'];
   const rare=['wardrobe','chest'];
   const g=d.grid, W=d.W, H=d.H;
   const isWall=(x,y)=> !(x>=0&&y>=0&&x<W&&y<H) || g[y][x]===0;
