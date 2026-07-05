@@ -226,18 +226,50 @@ function tryMakeDungeon(depth){
   for(const dr of doors) doorBySpot[dr.x+','+dr.y] = dr;
   function doorAt(tx,ty){ return doorBySpot[tx+','+ty] || null; }
 
-  // Wall torches: corridors get a sconce every few tiles and each room
-  // gets one over its top wall (only where that spot is actually floor —
-  // cave rooms have irregular interiors). The renderer draws these as
-  // warm, flickering flames that only light their immediate surroundings.
-  const lamps=[];
+  // Corridor connected components — every run of non-room floor/door tiles
+  // (a "corridor") is grouped into its own component so we can (a) place
+  // exactly two wall-mounted torches per corridor, evenly spread along its
+  // length, and (b) reveal the whole corridor at once the moment the
+  // player sets foot on any tile of it, instead of a narrow trailing patch.
   const isFloorT=(x,y)=> x>=0&&y>=0&&x<W&&y<H&&g[y][x]!==0;
+  const corridorId = Array.from({length:H},()=>new Array(W).fill(-1));
+  const corridorTiles = []; // corridorTiles[id] = ordered [x,y] list (BFS order ~= path order)
   for(let y=0;y<H;y++)for(let x=0;x<W;x++){
-    if(g[y][x]!==1 || roomAt(x,y)) continue;          // corridor tiles only
-    if(((x*31+y*17)%4)!==0) continue;                 // spacing between fixtures
-    if(!isFloorT(x,y-1))      lamps.push({tx:x,ty:y,side:'N'});
-    else if(!isFloorT(x-1,y)) lamps.push({tx:x,ty:y,side:'W'});
-    else if(!isFloorT(x+1,y)) lamps.push({tx:x,ty:y,side:'E'});
+    if(g[y][x]===0 || roomAt(x,y) || corridorId[y][x]!==-1) continue;
+    const id = corridorTiles.length;
+    const tiles=[]; const st=[[x,y]]; corridorId[y][x]=id;
+    while(st.length){
+      const [cx,cy]=st.pop(); tiles.push([cx,cy]);
+      for(const [nx,ny] of [[cx+1,cy],[cx-1,cy],[cx,cy+1],[cx,cy-1]]){
+        if(nx<0||ny<0||nx>=W||ny>=H||g[ny][nx]===0||roomAt(nx,ny)||corridorId[ny][nx]!==-1) continue;
+        corridorId[ny][nx]=id; st.push([nx,ny]);
+      }
+    }
+    corridorTiles.push(tiles);
+  }
+
+  // Wall torches: exactly two per corridor (roughly a third and two-thirds
+  // along its tile order), each snapped onto whichever side is a real wall,
+  // plus one over each room's top wall (only where that spot is actually
+  // floor — cave rooms have irregular interiors). The renderer draws these
+  // as warm, flickering flames mounted on the wall, not floating mid-path.
+  const lamps=[];
+  function wallSideAt(x,y){
+    if(!isFloorT(x,y-1)) return 'N';
+    if(!isFloorT(x-1,y)) return 'W';
+    if(!isFloorT(x+1,y)) return 'E';
+    if(!isFloorT(x,y+1)) return 'S';
+    return null;
+  }
+  for(const tiles of corridorTiles){
+    if(tiles.length<3) continue; // too short for two separate sconces
+    const idxs=[Math.floor(tiles.length*0.3), Math.floor(tiles.length*0.7)];
+    for(const i of idxs){
+      const [tx,ty]=tiles[i];
+      const side=wallSideAt(tx,ty);
+      if(!side) continue;
+      lamps.push({tx,ty,side});
+    }
   }
   for(const r of rooms){
     const lx=r.x+(r.w>>1);
@@ -245,7 +277,7 @@ function tryMakeDungeon(depth){
   }
 
   return {
-    W,H,grid:g,rooms,doors,lamps,
+    W,H,grid:g,rooms,doors,lamps,corridorId,
     startPx:{x:(start.cx+0.5)*TILE, y:(start.cy+0.5)*TILE},
     stairsPx:{x:(last.cx+0.5)*TILE, y:(last.cy+0.5)*TILE},
     spawns,
@@ -274,7 +306,7 @@ function makeDungeon(depth){
   g[H-2][W-2]=2;
   const room={x:1,y:1,w:W-2,h:H-2,cx:(W/2)|0,cy:(H/2)|0,id:0,visited:true,doors:[],shape:'rect',vibe:'stone',gates:null};
   return {
-    W,H,grid:g,rooms:[room],doors:[],lamps:[],
+    W,H,grid:g,rooms:[room],doors:[],lamps:[],corridorId:Array.from({length:H},()=>new Array(W).fill(-1)),
     startPx:{x:TILE*2,y:TILE*2}, stairsPx:{x:(W-2.5)*TILE,y:(H-2.5)*TILE},
     spawns:[{x:TILE*(W/2),y:TILE*(H/2)}],
     isWall(px,py){ const tx=(px/TILE)|0,ty=(py/TILE)|0; if(tx<0||ty<0||tx>=W||ty>=H) return true; return g[ty][tx]===0; },
