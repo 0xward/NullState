@@ -700,13 +700,17 @@ body::before {
   padding-bottom:10px;border-bottom:1px dashed rgba(0,255,136,.18);}
 .ns-game-root .inv-vital-row{display:flex;align-items:center;gap:8px;}
 .ns-game-root .inv-vital-row .bar{flex:1;height:14px;}
-.ns-game-root .inv-items{display:flex;flex-direction:column;gap:6px;}
-.ns-game-root .inv-empty{color:#5c8a78;font-size:11px;letter-spacing:.5px;text-align:center;padding:14px 4px;}
-.ns-game-root .inv-item{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.03);
-  border:1px solid rgba(255,209,102,.25);border-radius:7px;padding:7px 9px;}
-.ns-game-root .inv-item-icon{font-size:15px;color:#ffd166;text-shadow:0 0 8px rgba(255,209,102,.6);}
-.ns-game-root .inv-item-name{flex:1;font-size:12px;color:#eafff5;letter-spacing:.5px;}
-.ns-game-root .inv-item-count{font-size:11px;color:#caa15a;}
+.ns-game-root .inv-items{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
+.ns-game-root .inv-empty{grid-column:1/-1;color:#5c8a78;font-size:11px;letter-spacing:.5px;text-align:center;padding:14px 4px;}
+.ns-game-root .inv-item{position:relative;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:4px;aspect-ratio:1/1;background:rgba(255,255,255,.03);
+  border:1px solid rgba(255,209,102,.25);border-radius:7px;padding:6px 3px 5px;}
+.ns-game-root .inv-item-icon{width:28px;height:28px;image-rendering:pixelated;
+  filter:drop-shadow(0 0 6px rgba(255,209,102,.5));}
+.ns-game-root .inv-item-name{font-size:8.5px;line-height:1.15;color:#cfeede;letter-spacing:.3px;
+  text-align:center;text-transform:uppercase;}
+.ns-game-root .inv-item-count{position:absolute;top:3px;right:4px;font-size:10px;color:#0b0e0c;
+  background:#ffd166;border-radius:5px;padding:0 4px;font-weight:700;line-height:1.4;}
 
 /* ════════════════════════════════════════════════════════════════════════
    LIFT — floor-select popup. Compact variant of the .overlay pattern
@@ -820,4 +824,3 @@ body::before {
 .ns-game-root .tut-hp-fill{height:100%;background:linear-gradient(90deg,#ff3b5c,#ff8a7a);
   animation:tutHpDrain 1.6s ease-in-out infinite;}
 @keyframes tutHpDrain{ 0%,60%{ width:22%; } 72%{ width:22%; } 100%{ width:22%; } }
-
