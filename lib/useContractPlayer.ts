@@ -23,6 +23,25 @@ import {
 // viem helpers (publicClient is a viem client)
 import { getEventSelector } from 'viem'
 
+// tiny concurrency limiter
+const pLimit = (concurrency: number) => {
+  const queue: (() => Promise<any>)[] = []
+  let active = 0
+  const next = () => {
+    if (active >= concurrency || queue.length === 0) return
+    active++
+    const fn = queue.shift()!
+    fn().finally(() => {
+      active--
+      next()
+    })
+  }
+  return <T>(fn: () => Promise<T>) => new Promise<T>((resolve, reject) => {
+    queue.push(() => fn().then(resolve).catch(reject))
+    next()
+  })
+}
+
 export function useContractPlayer(walletAddress: string | undefined) {
   const publicClient = usePublicClient({ chainId: CELO_CHAIN_ID })
   const { data: walletClient } = useWalletClient()
@@ -295,8 +314,10 @@ export function useContractPlayer(walletAddress: string | undefined) {
       )
 
       // For each address, read on-chain profile and username from Firebase
+      const concurrency = 8
+      const limit = pLimit(concurrency)
       const results = await Promise.all(
-        addrs.map(async (addr) => {
+        addrs.map((addr) => limit(async () => {
           try {
             const res = await publicClient.readContract({
               address: NULLSTATE_CONTRACT_ADDRESS as `0x${string}`,
@@ -323,7 +344,7 @@ export function useContractPlayer(walletAddress: string | undefined) {
             console.warn('[v0] fetchLeaderboard - failed to read player', addr, e)
             return null
           }
-        })
+        }))
       )
 
       const entries = results.filter(Boolean) as LeaderboardEntry[]
