@@ -310,7 +310,7 @@ export function useContractPlayer(walletAddress: string | undefined) {
               // topics[1] is 32-byte padded address. Grab last 40 hex chars
               return `0x${topicAddr.slice(-40)}`
             })
-            .filter(Boolean)
+            .filter((x): x is string => Boolean(x))
         )
       )
 
