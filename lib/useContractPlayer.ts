@@ -264,31 +264,60 @@ export function useContractPlayer(walletAddress: string | undefined) {
     return logs
   }, [publicClient])
 
-  // Fallback: query Celoscan logs API
+  // Fallback: query Celoscan logs API (will fallback to Etherscan v2 for Celo if needed)
   const fetchLogsFromCeloScan = useCallback(async (eventSelector: string, fromBlock: bigint, toBlock: string | bigint) => {
     const apiKey = process.env.NEXT_PUBLIC_CELOSCAN_API_KEY || ''
     if (!apiKey) {
-      console.warn('[v0] Celoscan API key not configured, cannot use fallback')
+      console.warn('[v0] Celoscan/Etherscan API key not configured, cannot use fallback')
       return []
     }
 
     const fromB = fromBlock.toString()
     const toB = typeof toBlock === 'bigint' ? toBlock.toString() : toBlock
 
-    const url = `https://api.celoscan.io/api?module=logs&action=getLogs&address=${NULLSTATE_CONTRACT_ADDRESS}&topic0=${eventSelector}&fromBlock=${fromB}&toBlock=${toB}&apikey=${apiKey}`
+    // Try Celoscan endpoint first (keeps compatibility)
+    const celoUrl = `https://api.celoscan.io/api?module=logs&action=getLogs&address=${NULLSTATE_CONTRACT_ADDRESS}&topic0=${eventSelector}&fromBlock=${fromB}&toBlock=${toB}&apikey=${apiKey}`
 
     try {
-      const res = await fetch(url)
-      if (!res.ok) {
+      const res = await fetch(celoUrl)
+      if (res.ok) {
+        const data = await res.json()
+        if (data && Array.isArray(data.result) && data.result.length > 0) {
+          console.log('[v0] Celoscan fallback returned', data.result.length, 'logs')
+          return (data.result as any[]).map((r) => ({ topics: r.topics, data: r.data }))
+        }
+        console.log('[v0] Celoscan returned empty result, will try Etherscan v2')
+      } else {
         console.warn('[v0] Celoscan fallback failed with status', res.status)
-        return []
       }
-      const data = await res.json()
-      if (!data || !data.result) return []
-      // Normalize to viem-like log objects
-      return (data.result as any[]).map((r) => ({ topics: r.topics, data: r.data }))
     } catch (e) {
       console.warn('[v0] Celoscan fetch error', e)
+    }
+
+    // If Celoscan didn't return logs, try Etherscan v2 API with chainid=42220 (Celo)
+    try {
+      const ethersUrl = `https://api.etherscan.io/v2/api?module=logs&action=getLogs&address=${NULLSTATE_CONTRACT_ADDRESS}&topic0=${eventSelector}&fromBlock=${fromB}&toBlock=${toB}&chainid=42220&apikey=${apiKey}`
+      const res2 = await fetch(ethersUrl)
+      if (!res2.ok) {
+        console.warn('[v0] Etherscan v2 fallback failed with status', res2.status)
+        return []
+      }
+      const data2 = await res2.json()
+      if (!data2 || !Array.isArray(data2.result) || data2.result.length === 0) return []
+      console.log('[v0] Etherscan v2 fallback returned', data2.result.length, 'logs')
+      // Etherscan v2 returns topics as array; normalize
+      return (data2.result as any[]).map((r) => {
+        if (r.topics) return { topics: r.topics, data: r.data }
+        // older formats may have topic0, topic1 etc — build topics array
+        const topics: string[] = []
+        for (let i = 0; i < 4; i++) {
+          const t = r[`topic${i}`]
+          if (t) topics.push(t)
+        }
+        return { topics, data: r.data }
+      })
+    } catch (e) {
+      console.warn('[v0] Etherscan v2 fetch error', e)
       return []
     }
   }, [publicClient])
