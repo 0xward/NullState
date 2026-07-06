@@ -214,29 +214,52 @@ export function useContractPlayer(walletAddress: string | undefined) {
 
   updateProgressRef.current = updatePlayerProgressFn
 
-  // Helper: attempt to fetch logs in chunks via RPC
+  // Helper: attempt to fetch logs in chunks via RPC, with auto-splitting on range errors
   const fetchLogsInChunks = useCallback(async (fromBlock: bigint, toBlock: bigint, chunkSize: bigint, eventSelector: string) => {
     if (!publicClient) return []
+
+    const MAX_RPC_BLOCK_RANGE = BigInt(5000)
+
+    // safeGetLogs will attempt a getLogs and if the provider rejects due to too-large range,
+    // it will recursively split the range and retry smaller ranges.
+    const safeGetLogs = async (from: bigint, to: bigint): Promise<any[]> => {
+      try {
+        // use any cast to avoid viem overload typing problems
+        return await (publicClient as any).getLogs({
+          address: NULLSTATE_CONTRACT_ADDRESS as `0x${string}`,
+          topics: [eventSelector],
+          fromBlock: from,
+          toBlock: to,
+        })
+      } catch (err: any) {
+        const msg = String(err?.message || err)
+        // detect common RPC range / max-block error messages
+        if ((msg.includes('query exceeds range') || msg.includes('max block range') || msg.includes('range') || msg.includes('exceeds')) && (to - from) > MAX_RPC_BLOCK_RANGE) {
+          // split range in half and retry
+          const mid = from + ((to - from) / BigInt(2))
+          const left = await safeGetLogs(from, mid)
+          const right = await safeGetLogs(mid + BigInt(1), to)
+          return [...(left as any[]), ...(right as any[])]
+        }
+        // otherwise rethrow so caller can fallback to explorer
+        throw err
+      }
+    }
+
     const logs: any[] = []
     let cur = fromBlock
     while (cur <= toBlock) {
       const end = cur + chunkSize - BigInt(1) > toBlock ? toBlock : cur + chunkSize - BigInt(1)
       try {
         // eslint-disable-next-line no-await-in-loop
-        const chunk = await (publicClient as any).getLogs({
-          address: NULLSTATE_CONTRACT_ADDRESS as `0x${string}`,
-          topics: [eventSelector],
-          fromBlock: cur,
-          toBlock: end,
-        })
+        const chunk = await safeGetLogs(cur, end)
         logs.push(...(chunk as any[]))
       } catch (e) {
-        console.warn('[v0] getLogs chunk failed', { from: cur.toString(), to: end.toString(), err: e })
+        console.warn('[v0] getLogs chunk failed and could not recover, range', { from: cur.toString(), to: end.toString(), err: e })
         // rethrow to allow fallback to explorer API
         throw e
       }
       cur = end + BigInt(1)
-
     }
     return logs
   }, [publicClient])
@@ -287,13 +310,18 @@ export function useContractPlayer(walletAddress: string | undefined) {
       const latest = await publicClient.getBlockNumber()
 
       let logs: any[] = []
+      let usedFallback = false
 
       try {
         logs = await fetchLogsInChunks(startBlock, latest as bigint, chunkSize, eventSelector)
       } catch (rpcErr) {
         console.warn('[v0] RPC getLogs failed, attempting Celoscan fallback', rpcErr)
+        usedFallback = true
         logs = await fetchLogsFromCeloScan(eventSelector, startBlock, latest as bigint)
       }
+
+      console.log('[v0] fetchLeaderboard - usedFallback:', usedFallback, 'rawLogsCount:', logs?.length || 0)
+      if (logs && logs.length > 0) console.log('[v0] fetchLeaderboard - sampleLogs:', logs.slice(0,3))
 
       if (!logs || logs.length === 0) {
         console.warn('[v0] No PlayerRegistered logs found')
@@ -314,9 +342,13 @@ export function useContractPlayer(walletAddress: string | undefined) {
         )
       )
 
+      console.log('[v0] fetchLeaderboard - parsedAddrsCount:', addrs.length, 'sampleAddrs:', addrs.slice(0,20))
+
       // For each address, read on-chain profile and username from Firebase
-      const concurrency = 8
+      const concurrency = 4 // lowered from 8 to reduce provider throttling
       const limit = pLimit(concurrency)
+      let processed = 0
+
       const results = await Promise.all(
         addrs.map((addr) => limit(async () => {
           try {
@@ -326,6 +358,9 @@ export function useContractPlayer(walletAddress: string | undefined) {
               functionName: 'getPlayer',
               args: [addr as `0x${string}`],
             })
+
+            processed++
+            if (processed % 10 === 0) console.log('[v0] fetchLeaderboard - processed', processed, 'of', addrs.length)
 
             const [exists, hp, maxHp, xp, level, kills] = res as any
             if (!exists) return null
