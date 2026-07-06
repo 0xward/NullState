@@ -215,7 +215,8 @@ export function useContractPlayer(walletAddress: string | undefined) {
   updateProgressRef.current = updatePlayerProgressFn
 
   // Helper: attempt to fetch logs in chunks via RPC
-  const fetchLogsInChunks = async (fromBlock: bigint, toBlock: bigint, chunkSize: bigint, eventSelector: string) => {
+  const fetchLogsInChunks = useCallback(async (fromBlock: bigint, toBlock: bigint, chunkSize: bigint, eventSelector: string) => {
+    if (!publicClient) return []
     const logs: any[] = []
     let cur = fromBlock
     while (cur <= toBlock) {
@@ -238,10 +239,10 @@ export function useContractPlayer(walletAddress: string | undefined) {
 
     }
     return logs
-  }
+  }, [publicClient])
 
   // Fallback: query Celoscan logs API
-  const fetchLogsFromCeloScan = async (eventSelector: string, fromBlock: bigint, toBlock: string | bigint) => {
+  const fetchLogsFromCeloScan = useCallback(async (eventSelector: string, fromBlock: bigint, toBlock: string | bigint) => {
     const apiKey = process.env.NEXT_PUBLIC_CELOSCAN_API_KEY || ''
     if (!apiKey) {
       console.warn('[v0] Celoscan API key not configured, cannot use fallback')
@@ -267,7 +268,7 @@ export function useContractPlayer(walletAddress: string | undefined) {
       console.warn('[v0] Celoscan fetch error', e)
       return []
     }
-  }
+  }, [])
 
   // Fetch leaderboard by indexing PlayerRegistered events via RPC logs
   const fetchLeaderboard = useCallback(async (): Promise<LeaderboardEntry[]> => {
