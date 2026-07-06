@@ -195,22 +195,90 @@ export function useContractPlayer(walletAddress: string | undefined) {
 
   updateProgressRef.current = updatePlayerProgressFn
 
+  // Helper: attempt to fetch logs in chunks via RPC
+  const fetchLogsInChunks = async (fromBlock: bigint, toBlock: bigint, chunkSize: bigint, eventSelector: string) => {
+    const logs: any[] = []
+    let cur = fromBlock
+    while (cur <= toBlock) {
+      const end = cur + chunkSize - 1n > toBlock ? toBlock : cur + chunkSize - 1n
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        const chunk = await publicClient.getLogs({
+          address: NULLSTATE_CONTRACT_ADDRESS as `0x${string}`,
+          topics: [eventSelector],
+          fromBlock: cur,
+          toBlock: end,
+        })
+        logs.push(...(chunk as any[]))
+      } catch (e) {
+        console.warn('[v0] getLogs chunk failed', { from: cur.toString(), to: end.toString(), err: e })
+        // rethrow to allow fallback to explorer API
+        throw e
+      }
+      cur = end + 1n
+
+    }
+    return logs
+  }
+
+  // Fallback: query Celoscan logs API
+  const fetchLogsFromCeloScan = async (eventSelector: string, fromBlock: bigint, toBlock: string | bigint) => {
+    const apiKey = process.env.NEXT_PUBLIC_CELOSCAN_API_KEY || ''
+    if (!apiKey) {
+      console.warn('[v0] Celoscan API key not configured, cannot use fallback')
+      return []
+    }
+
+    const fromB = fromBlock.toString()
+    const toB = typeof toBlock === 'bigint' ? toBlock.toString() : toBlock
+
+    const url = `https://api.celoscan.io/api?module=logs&action=getLogs&address=${NULLSTATE_CONTRACT_ADDRESS}&topic0=${eventSelector}&fromBlock=${fromB}&toBlock=${toB}&apikey=${apiKey}`
+
+    try {
+      const res = await fetch(url)
+      if (!res.ok) {
+        console.warn('[v0] Celoscan fallback failed with status', res.status)
+        return []
+      }
+      const data = await res.json()
+      if (!data || !data.result) return []
+      // Normalize to viem-like log objects
+      return (data.result as any[]).map((r) => ({ topics: r.topics, data: r.data }))
+    } catch (e) {
+      console.warn('[v0] Celoscan fetch error', e)
+      return []
+    }
+  }
+
   // Fetch leaderboard by indexing PlayerRegistered events via RPC logs
   const fetchLeaderboard = useCallback(async (): Promise<LeaderboardEntry[]> => {
     if (!publicClient) return []
 
     try {
-      // Build the event signature selector for PlayerRegistered(address,uint64)
+      // Configurable start block and chunk size via env vars
+      const envStart = process.env.NEXT_PUBLIC_LEADERBOARD_FROM_BLOCK
+      const startBlock = envStart ? BigInt(envStart) : 0n
+      const chunkSizeEnv = process.env.NEXT_PUBLIC_LEADERBOARD_CHUNK_SIZE || '50000'
+      const chunkSize = BigInt(chunkSizeEnv)
+
       const eventSelector = getEventSelector('PlayerRegistered(address,uint64)')
 
-      // Query logs for the contract filtered by the PlayerRegistered event
-      const logs = await publicClient.getLogs({
-        address: NULLSTATE_CONTRACT_ADDRESS as `0x${string}`,
-        topics: [eventSelector],
-        // fromBlock: 0n, // optional: you can set an explicit start block for faster queries
-        fromBlock: 0n,
-        toBlock: 'latest',
-      })
+      // Determine latest block
+      const latest = await publicClient.getBlockNumber()
+
+      let logs: any[] = []
+
+      try {
+        logs = await fetchLogsInChunks(startBlock, latest as bigint, chunkSize, eventSelector)
+      } catch (rpcErr) {
+        console.warn('[v0] RPC getLogs failed, attempting Celoscan fallback', rpcErr)
+        logs = await fetchLogsFromCeloScan(eventSelector, startBlock, latest as bigint)
+      }
+
+      if (!logs || logs.length === 0) {
+        console.warn('[v0] No PlayerRegistered logs found')
+        return []
+      }
 
       // Extract unique addresses from the indexed topic[1]
       const addrs = Array.from(
