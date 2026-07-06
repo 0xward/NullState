@@ -1,3 +1,8 @@
+/**
+ * Merge existing next.config.js with additional webpack alias stubs for
+ * native/server-only modules that leak into browser bundles (wallet SDKs etc.).
+ */
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
@@ -24,6 +29,17 @@ const nextConfig = {
   // don't have VERCEL_GIT_COMMIT_SHA at all.
   env: {
     NEXT_PUBLIC_BUILD_ID: process.env.VERCEL_GIT_COMMIT_SHA || String(Date.now()),
+  },
+  webpack: (config) => {
+    config.resolve = config.resolve || {}
+    config.resolve.alias = {
+      ...(config.resolve.alias || {}),
+      // Stub React Native async storage (not used in browser builds)
+      '@react-native-async-storage/async-storage': false,
+      // Stub pino-pretty (server-only logging helper)
+      'pino-pretty': false,
+    }
+    return config
   },
 }
 
