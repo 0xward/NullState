@@ -345,14 +345,37 @@ export function useContractPlayer(walletAddress: string | undefined) {
       console.log('[v0] fetchLeaderboard - parsedAddrsCount:', addrs.length, 'sampleAddrs:', addrs.slice(0,20))
 
       // For each address, read on-chain profile and username from Firebase
-      const concurrency = 4 // lowered from 8 to reduce provider throttling
+      const concurrency = 2 // lowered from 4 to reduce provider throttling further
       const limit = pLimit(concurrency)
       let processed = 0
+
+      // helper: readContract with retries + backoff
+      const readContractWithRetry = async (opts: any, retries = 3, delay = 200) => {
+        let attempt = 0
+        // eslint-disable-next-line no-constant-condition
+        while (true) {
+          try {
+            // @ts-ignore
+            return await publicClient.readContract(opts)
+          } catch (e: any) {
+            attempt++
+            const msg = String(e?.message || e)
+            if (attempt > retries) {
+              // out of retries
+              throw e
+            }
+            const backoff = delay * Math.pow(2, attempt - 1)
+            console.warn('[v0] readContract failed, retrying', { attempt, backoff, err: msg })
+            // eslint-disable-next-line no-await-in-loop
+            await new Promise((res) => setTimeout(res, backoff))
+          }
+        }
+      }
 
       const results = await Promise.all(
         addrs.map((addr) => limit(async () => {
           try {
-            const res = await publicClient.readContract({
+            const res = await readContractWithRetry({
               address: NULLSTATE_CONTRACT_ADDRESS as `0x${string}`,
               abi: NULLSTATE_CONTRACT_ABI,
               functionName: 'getPlayer',
@@ -360,7 +383,7 @@ export function useContractPlayer(walletAddress: string | undefined) {
             })
 
             processed++
-            if (processed % 10 === 0) console.log('[v0] fetchLeaderboard - processed', processed, 'of', addrs.length)
+            if (processed % 5 === 0 || processed === addrs.length) console.log('[v0] fetchLeaderboard - processed', processed, 'of', addrs.length)
 
             const [exists, hp, maxHp, xp, level, kills] = res as any
             if (!exists) return null
