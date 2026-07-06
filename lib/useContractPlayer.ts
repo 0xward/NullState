@@ -1,9 +1,7 @@
-/**
- * Hook to interact with NullState smart contract for player persistence
- * 
- * ON-CHAIN (Celo): XP, level, kills via getPlayer()
- * OFF-CHAIN (Firebase): Username via usernameService
- */
+// Hook to interact with NullState smart contract for player persistence
+// 
+// ON-CHAIN (Celo): XP, level, kills via getPlayer()
+// OFF-CHAIN (Firebase): Username via usernameService
 
 'use client'
 
@@ -21,6 +19,9 @@ import {
   setUsername,
   isUsernameAvailable,
 } from '@/lib/usernameService'
+
+// viem helpers (publicClient is a viem client)
+import { getEventSelector } from 'viem'
 
 export function useContractPlayer(walletAddress: string | undefined) {
   const publicClient = usePublicClient({ chainId: CELO_CHAIN_ID })
@@ -194,15 +195,81 @@ export function useContractPlayer(walletAddress: string | undefined) {
 
   updateProgressRef.current = updatePlayerProgressFn
 
-  // Fetch leaderboard
-  // Note: Contract doesn't have getAllPlayers, so we return empty for now
-  // In production: use The Graph, Dune Analytics, or event indexing
+  // Fetch leaderboard by indexing PlayerRegistered events via RPC logs
   const fetchLeaderboard = useCallback(async (): Promise<LeaderboardEntry[]> => {
-    console.warn(
-      '[v0] Leaderboard requires event indexing. Contract has no getAllPlayers() view function.'
-    )
-    return []
-  }, [])
+    if (!publicClient) return []
+
+    try {
+      // Build the event signature selector for PlayerRegistered(address,uint64)
+      const eventSelector = getEventSelector('PlayerRegistered(address,uint64)')
+
+      // Query logs for the contract filtered by the PlayerRegistered event
+      const logs = await publicClient.getLogs({
+        address: NULLSTATE_CONTRACT_ADDRESS as `0x${string}`,
+        topics: [eventSelector],
+        // fromBlock: 0n, // optional: you can set an explicit start block for faster queries
+        fromBlock: 0n,
+        toBlock: 'latest',
+      })
+
+      // Extract unique addresses from the indexed topic[1]
+      const addrs = Array.from(
+        new Set(
+          logs
+            .map((l: any) => {
+              if (!l.topics || l.topics.length < 2) return null
+              const topicAddr = l.topics[1]
+              // topics[1] is 32-byte padded address. Grab last 40 hex chars
+              return `0x${topicAddr.slice(-40)}`
+            })
+            .filter(Boolean)
+        )
+      )
+
+      // For each address, read on-chain profile and username from Firebase
+      const results = await Promise.all(
+        addrs.map(async (addr) => {
+          try {
+            const res = await publicClient.readContract({
+              address: NULLSTATE_CONTRACT_ADDRESS as `0x${string}`,
+              abi: NULLSTATE_CONTRACT_ABI,
+              functionName: 'getPlayer',
+              args: [addr as `0x${string}`],
+            })
+
+            const [exists, hp, maxHp, xp, level, kills] = res as any
+            if (!exists) return null
+
+            const { username } = await getOrCreateUsername(addr).catch(() => ({ username: addr }))
+
+            const entry: LeaderboardEntry = {
+              rank: 0,
+              walletAddress: addr,
+              username,
+              xp: Number(xp),
+              level: Number(level),
+              kills: Number(kills),
+            }
+            return entry
+          } catch (e) {
+            console.warn('[v0] fetchLeaderboard - failed to read player', addr, e)
+            return null
+          }
+        })
+      )
+
+      const entries = results.filter(Boolean) as LeaderboardEntry[]
+
+      // Sort by xp desc and assign ranks
+      entries.sort((a, b) => b.xp - a.xp)
+      entries.forEach((e, i) => (e.rank = i + 1))
+
+      return entries
+    } catch (err) {
+      console.error('[v0] Leaderboard fetch error:', err)
+      return []
+    }
+  }, [publicClient])
 
   return {
     playerProfile,
