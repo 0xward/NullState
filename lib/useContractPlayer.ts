@@ -219,7 +219,7 @@ export function useContractPlayer(walletAddress: string | undefined) {
     const logs: any[] = []
     let cur = fromBlock
     while (cur <= toBlock) {
-      const end = cur + chunkSize - 1n > toBlock ? toBlock : cur + chunkSize - 1n
+      const end = cur + chunkSize - BigInt(1) > toBlock ? toBlock : cur + chunkSize - BigInt(1)
       try {
         // eslint-disable-next-line no-await-in-loop
         const chunk = await publicClient.getLogs({
@@ -234,7 +234,7 @@ export function useContractPlayer(walletAddress: string | undefined) {
         // rethrow to allow fallback to explorer API
         throw e
       }
-      cur = end + 1n
+      cur = end + BigInt(1)
 
     }
     return logs
@@ -276,7 +276,7 @@ export function useContractPlayer(walletAddress: string | undefined) {
     try {
       // Configurable start block and chunk size via env vars
       const envStart = process.env.NEXT_PUBLIC_LEADERBOARD_FROM_BLOCK
-      const startBlock = envStart ? BigInt(envStart) : 0n
+      const startBlock = envStart ? BigInt(envStart) : BigInt(0)
       const chunkSizeEnv = process.env.NEXT_PUBLIC_LEADERBOARD_CHUNK_SIZE || '50000'
       const chunkSize = BigInt(chunkSizeEnv)
 
@@ -358,7 +358,7 @@ export function useContractPlayer(walletAddress: string | undefined) {
       console.error('[v0] Leaderboard fetch error:', err)
       return []
     }
-  }, [publicClient])
+  }, [publicClient, fetchLogsInChunks, fetchLogsFromCeloScan])
 
   return {
     playerProfile,
