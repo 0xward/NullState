@@ -223,7 +223,7 @@ export function useContractPlayer(walletAddress: string | undefined) {
       const end = cur + chunkSize - BigInt(1) > toBlock ? toBlock : cur + chunkSize - BigInt(1)
       try {
         // eslint-disable-next-line no-await-in-loop
-        const chunk = await publicClient.getLogs({
+        const chunk = await (publicClient as any).getLogs({
           address: NULLSTATE_CONTRACT_ADDRESS as `0x${string}`,
           topics: [eventSelector],
           fromBlock: cur,
@@ -268,7 +268,7 @@ export function useContractPlayer(walletAddress: string | undefined) {
       console.warn('[v0] Celoscan fetch error', e)
       return []
     }
-  }, [])
+  }, [publicClient])
 
   // Fetch leaderboard by indexing PlayerRegistered events via RPC logs
   const fetchLeaderboard = useCallback(async (): Promise<LeaderboardEntry[]> => {
