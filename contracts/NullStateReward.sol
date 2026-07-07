@@ -22,7 +22,6 @@ pragma solidity ^0.8.20;
  */
 
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
 interface IERC20 {
     function transfer(address to, uint256 amount) external returns (bool);
@@ -37,8 +36,6 @@ interface IPassSBT {
 }
 
 contract NullStateReward is Ownable {
-    using SafeMath for uint256;
-
     // ============ Constants ============
     uint256 public constant TOTAL_SEASONS = 6;
     uint256 public constant RANK1_REWARD = 20e18; // 20 USDm
@@ -47,9 +44,9 @@ contract NullStateReward is Ownable {
 
     // ============ Supported Tokens ============
     IERC20 public usdmToken = IERC20(0x765DE816845861e75A25fCA122bb6898B8B1282a);
-    IERC20 public usdtToken = IERC20(0x88eeC42eaf6e1b371f4A7e786FdDB2e782b72cCA);
-    IERC20 public usdcToken = IERC20(0xEf63B1fDeFA2C442f41911160bCEFDAD5896e107);
-    address public celoToken = 0x471EcE3750Da237f93B8E339c536cb1483c48E8F; // Native CELO
+    IERC20 public usdtToken = IERC20(0x88eEc42eaf6E1b371f4a7e786fDDB2E782b72ccA);
+    IERC20 public usdcToken = IERC20(0xeF63B1FdEfA2C442f41911160bCEFdaD5896e107);
+    address public celoToken = 0x471ecE3750da237F93b8e339C536Cb1483c48E8f; // Native CELO
 
     IPassSBT public passSBT;
 
@@ -147,7 +144,7 @@ contract NullStateReward is Ownable {
     }
 
     // ============ Constructor ============
-    constructor(address _passSBT) {
+    constructor(address _passSBT) Ownable(msg.sender) {
         passSBT = IPassSBT(_passSBT);
     }
 
@@ -228,7 +225,7 @@ contract NullStateReward is Ownable {
 
         // Track weekly burn
         uint256 currentWeek = _getCurrentWeek();
-        userWeeklyBurnAmount[_user][currentWeek] = userWeeklyBurnAmount[_user][currentWeek].add(
+        userWeeklyBurnAmount[_user][currentWeek] = userWeeklyBurnAmount[_user][currentWeek] + (
             _burnValue
         );
 
@@ -272,7 +269,7 @@ contract NullStateReward is Ownable {
             });
             emit WeeklyPoolCreated(_week, _rewardToken, _amount);
         } else {
-            weeklyPools[_week].depositedAmount = weeklyPools[_week].depositedAmount.add(_amount);
+            weeklyPools[_week].depositedAmount = weeklyPools[_week].depositedAmount + (_amount);
             emit WeeklyPoolDeposit(_week, _rewardToken, _amount);
         }
     }
@@ -285,7 +282,7 @@ contract NullStateReward is Ownable {
 
         uint256 userBurned = userWeeklyBurnAmount[msg.sender][_week];
         uint256 userClaimed = userWeeklyClaimed[msg.sender][_week];
-        uint256 claimable = userBurned.sub(userClaimed);
+        uint256 claimable = userBurned - (userClaimed);
 
         require(claimable > 0, "No rewards to claim");
 
@@ -295,12 +292,12 @@ contract NullStateReward is Ownable {
 
         // Check pool availability (pro-rata if depleted)
         WeeklyPool storage pool = weeklyPools[_week];
-        uint256 poolAvailable = pool.depositedAmount.sub(pool.claimedAmount);
+        uint256 poolAvailable = pool.depositedAmount - (pool.claimedAmount);
         require(poolAvailable >= toClaim, "Insufficient pool");
 
         // Update claims
-        userWeeklyClaimed[msg.sender][_week] = userClaimed.add(toClaim);
-        pool.claimedAmount = pool.claimedAmount.add(toClaim);
+        userWeeklyClaimed[msg.sender][_week] = userClaimed + (toClaim);
+        pool.claimedAmount = pool.claimedAmount + (toClaim);
 
         // Transfer reward token
         if (pool.rewardToken == celoToken) {
@@ -358,7 +355,7 @@ contract NullStateReward is Ownable {
             _rewardToken == celoToken,
             "Unsupported token"
         );
-        require(_amount >= RANK1_REWARD.add(RANK2_REWARD).add(RANK3_REWARD), "Insufficient amount");
+        require(_amount >= RANK1_REWARD + (RANK2_REWARD) + (RANK3_REWARD), "Insufficient amount");
 
         // Transfer tokens
         if (_rewardToken != celoToken) {
@@ -422,9 +419,9 @@ contract NullStateReward is Ownable {
      */
     function _getCurrentWeek() internal view returns (uint256) {
         uint256 timestamp = block.timestamp;
-        uint256 days = timestamp / 86400;
-        uint256 dayOfWeek = (days + 4) % 7; // Thursday is day 4 for ISO week
-        uint256 weekStart = days - dayOfWeek;
+        uint256 dayCount = timestamp / 86400;
+        uint256 dayOfWeek = (dayCount + 4) % 7; // Thursday is day 4 for ISO week
+        uint256 weekStart = dayCount - dayOfWeek;
         uint256 year = 1970;
         uint256 daysRemaining = weekStart;
 
