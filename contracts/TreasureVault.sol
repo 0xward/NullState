@@ -17,11 +17,11 @@ pragma solidity ^0.8.20;
  * - Immutable vault code records on-chain
  *
  * Quest Flow:
- * 1. User finds Paper (Epic) in Bunker 2, Floor 2 → Firebase stores weekly code
- * 2. User finds Golden Key (Legendary) in Bunker 1, Floor 3 → gets key
- * 3. User reaches Bunker 6, Floor 3 → Vault UI appears
+ * 1. User finds Paper (Epic) in Bunker 2, Floor 2 -> Firebase stores weekly code
+ * 2. User finds Golden Key (Legendary) in Bunker 1, Floor 3 -> gets key
+ * 3. User reaches Bunker 6, Floor 3 -> Vault UI appears
  * 4. User inputs 4-digit code from Paper
- * 5. Backend validates via submitVaultCode() → user gets 1 USDm if correct
+ * 5. Backend validates via submitVaultCode() -> user gets 1 USDm if correct
  * 6. Max 3 attempts per week, then locked until next week
  */
 
@@ -49,13 +49,13 @@ contract TreasureVault is Ownable {
     IERC20 public usdmToken = IERC20(0x765DE816845861e75A25fCA122bb6898B8B1282a);
 
     /// @dev USDT - alternative reward token
-    IERC20 public usdtToken = IERC20(0x88eeC42eaf6e1b371f4A7e786FdDB2e782b72cCA);
+    IERC20 public usdtToken = IERC20(0x88eEc42eaf6E1b371f4a7e786fDDB2E782b72ccA);
 
     /// @dev USDC - alternative reward token
-    IERC20 public usdcToken = IERC20(0xEf63B1fDeFA2C442f41911160bCEFDAD5896e107);
+    IERC20 public usdcToken = IERC20(0xeF63B1FdEfA2C442f41911160bCEFdaD5896e107);
 
     /// @dev CELO native token address marker
-    address public constant celoToken = 0x471EcE3750Da237f93B8E339c536cb1483c48E8F;
+    address public constant celoToken = 0x471ecE3750da237F93b8e339C536Cb1483c48E8f;
 
     // ============ Vault Code Storage ============
     /// @notice Weekly vault codes (4-digit, regenerate every Monday 00:00 UTC)
@@ -128,7 +128,7 @@ contract TreasureVault is Ownable {
     }
 
     // ============ Constructor ============
-    constructor() {
+    constructor() Ownable(msg.sender) {
         // @dev Initialize with USDm as default reward token
         currentRewardToken = address(usdmToken);
     }
@@ -168,7 +168,7 @@ contract TreasureVault is Ownable {
     /// @dev Accepts any supported token, tracks total deposited
     /// @param _token Token address (USDm, USDT, USDC, or CELO)
     /// @param _amount Amount to deposit (in wei)
-    function depositVaultPool(address _token, uint256 _amount) external onlyOwner {
+    function depositVaultPool(address _token, uint256 _amount) external payable onlyOwner {
         require(
             _token == address(usdmToken) ||
             _token == address(usdtToken) ||
