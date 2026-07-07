@@ -60,7 +60,7 @@ contract PassSBT is ERC721, Ownable {
     event SeasonCreated(uint256 seasonId, uint256 startDate, uint256 endDate);
 
     // ============ Constructor ============
-    constructor() ERC721("NullState Season Pass", "NULPASS") {}
+    constructor() ERC721("NullState Season Pass", "NULPASS") Ownable(msg.sender) {}
 
     // ============ Season Management (Owner Only) ============
 
