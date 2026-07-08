@@ -1,0 +1,30 @@
+name: Weekly Vault Unlock
+
+on:
+  schedule:
+    - cron: '0 0 * * 1'  # Every Monday 00:00 UTC (after code generation)
+  workflow_dispatch:
+
+jobs:
+  unlock-vault:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      
+      - name: Install dependencies
+        run: npm install ethers
+      
+      - name: Unlock Vault for New Week
+        env:
+          BACKEND_PRIVATE_KEY: ${{ secrets.BACKEND_PRIVATE_KEY }}
+          CELO_RPC_URL: ${{ secrets.CELO_RPC_URL }}
+          TREASURE_VAULT_ADDRESS: ${{ secrets.TREASURE_VAULT_ADDRESS }}
+        run: node .github/scripts/vault-weekly-unlock.js
+      
+      - name: Log success
+        run: echo "✅ Vault unlocked for new week"
