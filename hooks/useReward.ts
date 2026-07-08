@@ -29,8 +29,8 @@ export function useReward(walletAddress: string | undefined) {
   const publicClient = usePublicClient({ chainId: celo.id })
   const { data: walletClient } = useWalletClient()
 
-  const [weeklyBurnAmount, setWeeklyBurnAmount] = useState<bigint>(0n)
-  const [weeklyClaimedAmount, setWeeklyClaimedAmount] = useState<bigint>(0n)
+  const [weeklyBurnAmount, setWeeklyBurnAmount] = useState<bigint>(BigInt(0))
+  const [weeklyClaimedAmount, setWeeklyClaimedAmount] = useState<bigint>(BigInt(0))
   const [seasonLeaderboard, setSeasonLeaderboard] = useState<SeasonLeaderboard | null>(null)
   const [hasClaimedSeasonBonus, setHasClaimedSeasonBonus] = useState<boolean>(false)
   const [isLoading, setIsLoading] = useState(false)
@@ -202,7 +202,7 @@ export function useReward(walletAddress: string | undefined) {
   // Claimable amount = burned this week minus already claimed, capped by maxPerUser
   const weeklyClaimable = weeklyBurnAmount > weeklyClaimedAmount
     ? weeklyBurnAmount - weeklyClaimedAmount
-    : 0n
+    : BigInt(0)
 
   return {
     weeklyBurnAmount,

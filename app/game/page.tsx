@@ -1,14 +1,20 @@
 import type { Metadata } from 'next'
 import GameFlowManager from '@/components/game/GameFlowManager'
+import GameDashboard from '@/components/game/GameDashboard'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
 export const metadata: Metadata = {
-  title: 'Play NullState // The Forsaken Depths',
-  description: 'Descend into the NULL_STATE. A real-time dungeon crawler on Celo — WASD to move, permadeath, and on-chain NULL_STRIKE ultimates.',
+  title: 'NullState Game Dashboard',
+  description: 'Vault quests, leaderboard rankings, profile inventory, and reward claims for NullState.',
 }
 
-export default function GamePage() {
-  return <GameFlowManager />
+export default function GamePage({
+  searchParams,
+}: {
+  searchParams?: { mode?: string }
+}) {
+  if (searchParams?.mode === 'play') return <GameFlowManager />
+  return <GameDashboard />
 }
