@@ -1,128 +1,54 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getCurrentSeasonId } from '@/lib/web3-client'
 import { getAdminDb } from '@/firebase-config'
-
-// =============================================
-// PLAYER PROFILE
-// GET  /api/player/profile?walletAddress=
-// POST /api/player/profile
-//      Body: { walletAddress: string, username?: string, avatarId?: number }
-//
-// GET Response:
-//   {
-//     walletAddress: string,
-//     username: string,
-//     avatarId: number,
-//     totalXp: number,
-//     level: number,
-//     wins: number,
-//     losses: number,
-//     createdAt: number,
-//     updatedAt: number,
-//   }
-// =============================================
-
-const ALLOWED_UPDATE_FIELDS = ['username', 'avatarId'] as const
-type AllowedField = (typeof ALLOWED_UPDATE_FIELDS)[number]
+import { normalizeWalletAddress } from '@/lib/vault-utils'
 
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url)
-    const walletAddress = searchParams.get('walletAddress')
+    const walletAddress = String(searchParams.get('walletAddress') ?? '').trim()
 
     if (!walletAddress) {
-      return NextResponse.json(
-        { error: 'Missing required query param: walletAddress' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'walletAddress is required' }, { status: 400 })
     }
+
+    const seasonId = Number(searchParams.get('seasonId') ?? getCurrentSeasonId())
+    const normalizedWallet = normalizeWalletAddress(walletAddress)
 
     const db = getAdminDb()
     if (!db) {
-      return NextResponse.json(
-        { error: 'Database unavailable' },
-        { status: 503 }
-      )
+      return NextResponse.json({ error: 'Firebase Admin is not configured on the server' }, { status: 503 })
     }
 
-    const snap = await db.ref(`players/${walletAddress}`).get()
+    const [profileSnap, rewardSnap, burnSnap] = await Promise.all([
+      db.ref(`playerProfiles/${normalizedWallet}`).get(),
+      db.ref(`rewards/${normalizedWallet}`).get(),
+      db.ref(`burnRecords/${seasonId}/${normalizedWallet}`).get(),
+    ])
 
-    if (!snap.exists()) {
-      return NextResponse.json(
-        { error: 'Player not found' },
-        { status: 404 }
-      )
+    const profile = profileSnap.val() ?? {
+      walletAddress: normalizedWallet,
+      nickname: 'Unknown Player',
+      inventory: { health: 100, mana: 50, items: {} },
+      stats: { totalBurns: 0, totalRewards: 0, vaultAttempts: 0 },
+      joinedAt: null,
+      currentSeasonId: seasonId,
     }
 
-    return NextResponse.json(snap.val(), { status: 200 })
+    const burns = burnSnap.exists() ? Object.values(burnSnap.val() ?? {}) : []
+    const weeklyRewards = rewardSnap.val()?.weeklyRewards ?? {}
+    const seasonBonus = rewardSnap.val()?.seasonBonus ?? {}
+
+    return NextResponse.json({
+      profile,
+      summary: {
+        totalBurnEvents: burns.length,
+        weeklyRewardEntries: Object.keys(weeklyRewards).length,
+        seasonBonusEntries: Object.keys(seasonBonus).length,
+      },
+    })
   } catch (error) {
-    console.error('[player/profile] GET error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
-  }
-}
-
-export async function POST(req: NextRequest) {
-  try {
-    const body = await req.json()
-    const { walletAddress, ...updates } = body as {
-      walletAddress?: string
-      username?: string
-      avatarId?: number
-      [key: string]: unknown
-    }
-
-    if (!walletAddress) {
-      return NextResponse.json(
-        { error: 'Missing required field: walletAddress' },
-        { status: 400 }
-      )
-    }
-
-    const db = getAdminDb()
-    if (!db) {
-      return NextResponse.json(
-        { error: 'Database unavailable' },
-        { status: 503 }
-      )
-    }
-
-    const playerRef = db.ref(`players/${walletAddress}`)
-    const snap = await playerRef.get()
-    const now = Date.now()
-
-    if (!snap.exists()) {
-      // Create new profile
-      const newProfile = {
-        walletAddress,
-        username: (updates.username as string) ?? `NOMAD_${walletAddress.slice(-4).toUpperCase()}`,
-        avatarId: (updates.avatarId as number) ?? 0,
-        totalXp: 0,
-        level: 1,
-        wins: 0,
-        losses: 0,
-        createdAt: now,
-        updatedAt: now,
-      }
-      await playerRef.set(newProfile)
-      return NextResponse.json(newProfile, { status: 201 })
-    }
-
-    // Update only allowed fields
-    const safeUpdates: Partial<Record<AllowedField, unknown>> & {
-      updatedAt: number
-    } = { updatedAt: now }
-
-    for (const field of ALLOWED_UPDATE_FIELDS) {
-      if (field in updates && updates[field] !== undefined) {
-        safeUpdates[field] = updates[field]
-      }
-    }
-
-    await playerRef.update(safeUpdates)
-
-    const updatedSnap = await playerRef.get()
-    return NextResponse.json(updatedSnap.val(), { status: 200 })
-  } catch (error) {
-    console.error('[player/profile] POST error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    const message = error instanceof Error ? error.message : 'Internal server error'
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }

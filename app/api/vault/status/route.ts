@@ -1,72 +1,45 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAdminDb } from '@/firebase-config'
-
-// =============================================
-// VAULT STATUS
-// GET /api/vault/status?weekId=&walletAddress=
-//
-// Response:
-//   {
-//     weekId: number,
-//     isActive: boolean,
-//     attempts: number,
-//     maxAttempts: number,
-//     attemptsRemaining: number,
-//     completed: boolean,
-//     completedAt?: number,
-//   }
-// =============================================
-
-const MAX_ATTEMPTS = 3
+import { getISOWeekId } from '@/lib/web3-client'
+import { getAttemptsRemaining, parseWeekId, normalizeWalletAddress } from '@/lib/vault-utils'
 
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url)
-    const weekId = searchParams.get('weekId')
-    const walletAddress = searchParams.get('walletAddress')
+    const walletAddress = String(searchParams.get('walletAddress') ?? '').trim()
+    const weekIdInput = searchParams.get('weekId') ?? String(getISOWeekId())
 
-    if (!weekId || !walletAddress) {
-      return NextResponse.json(
-        { error: 'Missing required query params: weekId, walletAddress' },
-        { status: 400 }
-      )
+    if (!walletAddress) {
+      return NextResponse.json({ error: 'walletAddress is required' }, { status: 400 })
     }
+
+    const weekId = parseWeekId(weekIdInput)
+    const normalizedWallet = normalizeWalletAddress(walletAddress)
 
     const db = getAdminDb()
     if (!db) {
-      return NextResponse.json(
-        { error: 'Database unavailable' },
-        { status: 503 }
-      )
+      return NextResponse.json({ error: 'Firebase Admin is not configured on the server' }, { status: 503 })
     }
 
-    const [attemptsSnap, completedSnap, codeSnap] = await Promise.all([
-      db.ref(`vaultAttempts/${weekId}/${walletAddress}`).get(),
-      db.ref(`vaultCompleted/${weekId}/${walletAddress}`).get(),
-      db.ref(`vaultCodes/${weekId}`).get(),
+    const [attemptsSnap, solvedSnap] = await Promise.all([
+      db.ref(`vaultAttempts/${weekId}/${normalizedWallet}`).get(),
+      db.ref(`vaultCompleted/${weekId}/${normalizedWallet}`).get(),
     ])
 
-    const attempts: number = attemptsSnap.val() ?? 0
-    const completedData = completedSnap.val() as {
-      completedAt: number
-      attempts: number
-    } | null
-    const isActive = codeSnap.exists()
+    const attemptsUsed = Number(attemptsSnap.val() ?? 0)
+    const isUnlocked = solvedSnap.exists()
 
-    return NextResponse.json(
-      {
-        weekId: Number(weekId),
-        isActive,
-        attempts,
-        maxAttempts: MAX_ATTEMPTS,
-        attemptsRemaining: Math.max(0, MAX_ATTEMPTS - attempts),
-        completed: !!completedData,
-        ...(completedData ? { completedAt: completedData.completedAt } : {}),
-      },
-      { status: 200 }
-    )
+    return NextResponse.json({
+      weekId,
+      attemptsUsed,
+      attemptsRemaining: isUnlocked ? 0 : getAttemptsRemaining(attemptsUsed),
+      isUnlocked,
+      isLocked: !isUnlocked && attemptsUsed >= 3,
+      unlockedAt: isUnlocked ? solvedSnap.val()?.completedAt ?? null : null,
+    })
   } catch (error) {
-    console.error('[vault/status] Error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    const message = error instanceof Error ? error.message : 'Internal server error'
+    const status = message === 'Invalid weekId' ? 400 : 500
+    return NextResponse.json({ error: message }, { status })
   }
 }

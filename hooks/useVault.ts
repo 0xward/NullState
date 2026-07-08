@@ -5,11 +5,16 @@ import { usePublicClient } from 'wagmi'
 import { celo } from 'wagmi/chains'
 import { TREASURE_VAULT_ADDRESS, TREASURE_VAULT_ABI } from '@/lib/contract-abi'
 import { getISOWeekId } from '@/lib/web3-client'
+import { validateVaultCode } from '@/lib/vault-utils'
 
 export interface VaultPoolStats {
   deposited: bigint
   claimed: bigint
   available: bigint
+}
+
+export function isVaultCodeSubmittable(code: string): boolean {
+  return validateVaultCode(code)
 }
 
 export function useVault(walletAddress: string | undefined) {
@@ -102,6 +107,10 @@ export function useVault(walletAddress: string | undefined) {
       setError(null)
 
       try {
+        if (!validateVaultCode(code)) {
+          throw new Error('Code must be 4 digits')
+        }
+
         const res = await fetch('/api/vault/submit', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -120,7 +129,7 @@ export function useVault(walletAddress: string | undefined) {
 
         // Refresh vault state after submission
         await fetchVaultStatus()
-        return { success: data.correct, message: data.message }
+        return { success: data.isCorrect, message: data.message }
       } catch (err) {
         const message = (err as Error)?.message ?? 'Vault submission failed'
         setError(message)

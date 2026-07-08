@@ -1,110 +1,80 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createPublicClient, http } from 'viem'
+import { celo } from 'viem/chains'
+import { REWARD_ABI, REWARD_CONTRACT_ADDRESS } from '@/lib/contract-abi'
+import { getCurrentSeasonId } from '@/lib/web3-client'
 import { getAdminDb } from '@/firebase-config'
 
-// =============================================
-// LEADERBOARD
-// GET /api/leaderboard?seasonId=&limit=
-//
-// Response:
-//   {
-//     seasonId: number,
-//     updatedAt: number,
-//     entries: Array<{
-//       rank: number,
-//       walletAddress: string,
-//       username: string,
-//       totalXp: number,
-//       level: number,
-//       wins: number,
-//     }>
-//   }
-// =============================================
-
-const DEFAULT_LIMIT = 50
-const MAX_LIMIT = 100
+type LeaderboardItem = {
+  rank: number
+  player: string
+  score: number
+  username?: string
+}
 
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url)
-    const seasonId = searchParams.get('seasonId')
-    const limitParam = searchParams.get('limit')
-
-    if (!seasonId) {
-      return NextResponse.json(
-        { error: 'Missing required query param: seasonId' },
-        { status: 400 }
-      )
-    }
-
-    const limit = Math.min(
-      parseInt(limitParam ?? String(DEFAULT_LIMIT), 10) || DEFAULT_LIMIT,
-      MAX_LIMIT
-    )
+    const seasonId = Number(searchParams.get('seasonId') ?? getCurrentSeasonId())
 
     const db = getAdminDb()
-    if (!db) {
-      return NextResponse.json(
-        { error: 'Database unavailable' },
-        { status: 503 }
-      )
+    const firebaseLeaderboard: LeaderboardItem[] = []
+
+    if (db) {
+      const snapshot = await db.ref(`leaderboards/${seasonId}`).get()
+      if (snapshot.exists()) {
+        const data = snapshot.val() ?? {}
+        const maybeList = Object.values(data)
+          .filter((entry: any) => entry && typeof entry === 'object' && entry.rank)
+          .map((entry: any) => ({
+            rank: Number(entry.rank),
+            player: String(entry.player ?? entry.walletAddress ?? ''),
+            score: Number(entry.score ?? 0),
+            username: entry.username ? String(entry.username) : undefined,
+          }))
+        firebaseLeaderboard.push(...(maybeList as LeaderboardItem[]))
+      }
     }
 
-    // Fetch top players by XP for the season
-    const snap = await db
-      .ref(`leaderboard/${seasonId}`)
-      .orderByChild('totalXp')
-      .limitToLast(limit)
-      .get()
-
-    if (!snap.exists()) {
-      return NextResponse.json(
-        {
-          seasonId: Number(seasonId),
-          updatedAt: Date.now(),
-          entries: [],
-        },
-        { status: 200 }
-      )
-    }
-
-    // Firebase returns ascending order — reverse for descending rank
-    const entries: Array<{
-      rank: number
-      walletAddress: string
-      username: string
-      totalXp: number
-      level: number
-      wins: number
-    }> = []
-
-    snap.forEach((child: { key: string | null; val: () => Record<string, unknown> }) => {
-      const data = child.val()
-      entries.push({
-        rank: 0, // assigned below after sort
-        walletAddress: child.key ?? '',
-        username: (data.username as string) ?? 'NOMAD',
-        totalXp: (data.totalXp as number) ?? 0,
-        level: (data.level as number) ?? 1,
-        wins: (data.wins as number) ?? 0,
+    let onchainTop: LeaderboardItem[] = []
+    if (REWARD_CONTRACT_ADDRESS && REWARD_CONTRACT_ADDRESS !== '0x') {
+      const publicClient = createPublicClient({
+        chain: celo,
+        transport: http(process.env.CELO_RPC_URL ?? process.env.NEXT_PUBLIC_CELO_RPC ?? 'https://forno.celo.org'),
       })
-    })
+      const result = await publicClient.readContract({
+        address: REWARD_CONTRACT_ADDRESS,
+        abi: REWARD_ABI,
+        functionName: 'getSeasonLeaderboard',
+        args: [BigInt(seasonId)],
+      })
 
-    // Sort descending by totalXp and assign rank
-    entries.sort((a, b) => b.totalXp - a.totalXp)
-    entries.forEach((entry, i) => {
-      entry.rank = i + 1
-    })
+      const parsed = result as {
+        topPlayers: readonly [string, string, string]
+        topScores: readonly [bigint, bigint, bigint]
+      }
 
-    return NextResponse.json(
-      {
-        seasonId: Number(seasonId),
-        updatedAt: Date.now(),
-        entries,
-      },
-      { status: 200 }
-    )
+      onchainTop = parsed.topPlayers
+        .map((player, idx) => ({
+          rank: idx + 1,
+          player,
+          score: Number(parsed.topScores[idx] ?? BigInt(0)),
+        }))
+        .filter((row) => row.player && row.player !== '0x0000000000000000000000000000000000000000')
+    }
+
+    const leaderboard = (firebaseLeaderboard.length ? firebaseLeaderboard : onchainTop)
+      .sort((a, b) => b.score - a.score)
+      .map((item, idx) => ({ ...item, rank: idx + 1 }))
+
+    return NextResponse.json({
+      seasonId,
+      leaderboard,
+      topThree: leaderboard.slice(0, 3),
+      source: firebaseLeaderboard.length ? 'firebase' : 'contract',
+    })
   } catch (error) {
-    console.error('[leaderboard] Error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    const message = error instanceof Error ? error.message : 'Internal server error'
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }

@@ -38,7 +38,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           rel="stylesheet"
         />
       </head>
-      <body>
+      <body className="min-h-screen bg-null-bg text-null-white antialiased">
         {/*
           Web3Providers adalah 'use client' component yang membungkus:
           WagmiProvider → QueryClientProvider → RainbowKitProvider → WalletProvider

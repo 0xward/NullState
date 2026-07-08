@@ -1,114 +1,114 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createPublicClient, createWalletClient, http } from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
+import { celo } from 'viem/chains'
+import { TREASURE_VAULT_ABI, TREASURE_VAULT_ADDRESS } from '@/lib/contract-abi'
 import { getAdminDb } from '@/firebase-config'
-
-// =============================================
-// VAULT SUBMIT
-// POST /api/vault/submit
-//
-// Body: { walletAddress: string, weekId: number, code: string }
-//
-// Response:
-//   { success: true,  isCorrect: true,  message: string, attempts: number }
-//   { success: false, isCorrect: false, message: string, attemptsRemaining: number }
-// =============================================
-
-const MAX_ATTEMPTS = 3
+import {
+  getAttemptsRemaining,
+  parseWeekId,
+  validateVaultCode,
+  normalizeWalletAddress,
+} from '@/lib/vault-utils'
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { walletAddress, weekId, code } = body as {
-      walletAddress?: string
-      weekId?: number
-      code?: string
+    const walletAddress = String(body.walletAddress ?? '')
+    const code = String(body.code ?? '').trim()
+
+    if (!walletAddress || !body.weekId || !code) {
+      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
-    if (!walletAddress || !weekId || !code) {
-      return NextResponse.json(
-        { error: 'Missing required fields: walletAddress, weekId, code' },
-        { status: 400 }
-      )
+    if (!validateVaultCode(code)) {
+      return NextResponse.json({ error: 'Code must be 4 digits' }, { status: 400 })
     }
 
-    if (!/^\d{4}$/.test(code)) {
-      return NextResponse.json(
-        { error: 'Code must be exactly 4 digits' },
-        { status: 400 }
-      )
-    }
+    const weekId = parseWeekId(body.weekId)
+    const normalizedWallet = normalizeWalletAddress(walletAddress)
 
     const db = getAdminDb()
     if (!db) {
       return NextResponse.json(
-        { error: 'Database unavailable' },
-        { status: 503 }
+        { error: 'Firebase Admin is not configured on the server' },
+        { status: 503 },
       )
     }
 
-    // Fetch correct vault code for the week
-    const codeSnap = await db.ref(`vaultCodes/${weekId}`).get()
+    const [codeSnap, attemptsSnap, solvedSnap] = await Promise.all([
+      db.ref(`vaultCodes/${weekId}`).get(),
+      db.ref(`vaultAttempts/${weekId}/${normalizedWallet}`).get(),
+      db.ref(`vaultCompleted/${weekId}/${normalizedWallet}`).get(),
+    ])
+
     if (!codeSnap.exists()) {
-      return NextResponse.json(
-        { error: 'Vault code not found for this week' },
-        { status: 404 }
-      )
+      return NextResponse.json({ error: 'Vault code not found for this week' }, { status: 404 })
     }
-    const correctCode: string = codeSnap.val().code
 
-    // Read existing attempts
-    const attemptsRef = db.ref(`vaultAttempts/${weekId}/${walletAddress}`)
-    const attemptsSnap = await attemptsRef.get()
-    const prevAttempts: number = attemptsSnap.val() ?? 0
-
-    if (prevAttempts >= MAX_ATTEMPTS) {
+    if (solvedSnap.exists()) {
       return NextResponse.json(
-        {
-          success: false,
-          isCorrect: false,
-          message: 'All attempts used. Try again next week.',
-          attemptsRemaining: 0,
-        },
-        { status: 200 }
+        { success: true, isCorrect: true, message: 'Vault already unlocked for this week', attemptsRemaining: 0 },
+        { status: 200 },
       )
     }
 
-    const attempts = prevAttempts + 1
-    await attemptsRef.set(attempts)
+    const attemptsUsed = Number(attemptsSnap.val() ?? 0)
+    if (attemptsUsed >= 3) {
+      return NextResponse.json(
+        { success: false, isCorrect: false, message: 'No attempts remaining this week', attemptsRemaining: 0 },
+        { status: 200 },
+      )
+    }
 
-    const isCorrect = code === correctCode
+    const expectedCode = String(codeSnap.val()?.code ?? '')
+    const isCorrect = expectedCode === code
+    const updatedAttempts = attemptsUsed + 1
+
+    await db.ref(`vaultAttempts/${weekId}/${normalizedWallet}`).set(updatedAttempts)
+
+    let txHash: string | null = null
+    const backendPrivateKey = process.env.BACKEND_PRIVATE_KEY as `0x${string}` | undefined
+    if (backendPrivateKey && TREASURE_VAULT_ADDRESS && TREASURE_VAULT_ADDRESS !== '0x') {
+      const account = privateKeyToAccount(backendPrivateKey)
+      const transport = http(process.env.CELO_RPC_URL ?? process.env.NEXT_PUBLIC_CELO_RPC ?? 'https://forno.celo.org')
+      const publicClient = createPublicClient({ chain: celo, transport })
+      const walletClient = createWalletClient({ chain: celo, transport, account })
+
+      const hash = await walletClient.writeContract({
+        address: TREASURE_VAULT_ADDRESS,
+        abi: TREASURE_VAULT_ABI,
+        functionName: 'submitVaultCode',
+        args: [walletAddress as `0x${string}`, BigInt(weekId), code],
+        account,
+      })
+      await publicClient.waitForTransactionReceipt({ hash })
+      txHash = hash
+    }
 
     if (isCorrect) {
-      await db.ref(`vaultCompleted/${weekId}/${walletAddress}`).set({
+      await db.ref(`vaultCompleted/${weekId}/${normalizedWallet}`).set({
         completedAt: Date.now(),
-        attempts,
+        attempts: updatedAttempts,
+        txHash,
       })
-
-      return NextResponse.json(
-        {
-          success: true,
-          isCorrect: true,
-          message: 'Correct code! Vault unlocked.',
-          attempts,
-        },
-        { status: 200 }
-      )
     }
 
-    const attemptsRemaining = MAX_ATTEMPTS - attempts
     return NextResponse.json(
       {
-        success: false,
-        isCorrect: false,
-        message:
-          attemptsRemaining > 0
-            ? `Wrong code! ${attemptsRemaining} attempt${attemptsRemaining === 1 ? '' : 's'} remaining.`
-            : 'Wrong code! All attempts used.',
-        attemptsRemaining,
+        success: isCorrect,
+        isCorrect,
+        attemptsRemaining: getAttemptsRemaining(updatedAttempts),
+        attemptsUsed: updatedAttempts,
+        message: isCorrect ? 'Correct code! Vault unlocked.' : 'Wrong code. Try again.',
+        txHash,
       },
-      { status: 200 }
+      { status: 200 },
     )
   } catch (error) {
-    console.error('[vault/submit] Error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    console.error('Vault submit error:', error)
+    const message = error instanceof Error ? error.message : 'Internal server error'
+    const status = message === 'Invalid weekId' ? 400 : 500
+    return NextResponse.json({ error: message }, { status })
   }
 }
