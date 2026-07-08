@@ -14,13 +14,13 @@
      facing 'left'  = against the right wall  (9 o'clock, side profile)
    ============================================================ */
 const DECOR_TYPES = {
+  // ---- breakable decorations: smash them for loot ----
   vase:     { hp:1, w:24, h:38, label:'Glazed Vase',     loot:[['hp',6,50],['xp',12,32],['relic',1,4],['none',0,14]] },
   pot:      { hp:1, w:30, h:30, label:'Herb Pot',        loot:[['hp',8,58],['xp',10,26],['none',0,16]] },
   barrel:   { hp:2, w:30, h:40, label:'Old Barrel',      loot:[['xp',18,45],['hp',10,35],['none',0,20]] },
   crate:    { hp:2, w:34, h:34, label:'Supply Crate',    loot:[['xp',22,55],['hp',8,30],['none',0,15]] },
   cabinet_s:{ hp:2, w:34, h:46, label:'Scroll Cabinet',  loot:[['hp',14,42],['xp',24,38],['celo',0.01,14],['relic',1,6]] },
   wardrobe: { hp:3, w:48, h:64, label:'Rotten Armoire',  loot:[['hp',32,40],['xp',55,40],['celo',0.01,20]] },
-  chest:    { hp:2, w:42, h:34, label:'Lost Cache',      loot:[['celo',0.01,40],['relic',1,20],['xp',60,25],['hp',30,15]] },
   // ---- ancient ornaments: break them for XP, CELO, or rare relics ----
   urn:      { hp:1, w:30, h:44, label:'Burial Urn',      loot:[['xp',20,40],['hp',10,28],['relic',1,12],['none',0,20]] },
   column:   { hp:3, w:34, h:60, label:'Cracked Column',  loot:[['xp',26,50],['hp',12,26],['relic',1,8],['none',0,16]] },
@@ -30,6 +30,8 @@ const DECOR_TYPES = {
   crystal:  { hp:2, w:26, h:40, label:'Cave Crystal',    loot:[['celo',0.01,35],['relic',1,20],['xp',30,30],['none',0,15]] },
   tablet:   { hp:2, w:36, h:48, label:'Engraved Tablet', loot:[['relic',1,40],['xp',40,35],['celo',0.01,25]] },
   statue:   { hp:3, w:36, h:62, label:'Weathered Idol',  loot:[['relic',1,45],['celo',0.02,25],['xp',50,30]] },
+  // ---- interactive containers: opened via interact (E), not combat ----
+  chest:    { hp:2, w:42, h:34, label:'Lost Cache',      loot:[['celo',0.01,40],['relic',1,20],['xp',60,25],['hp',30,15]], interactive:true },
 };
 
 function rollLoot(table){
@@ -48,23 +50,40 @@ class Decor {
     this.r=def.w*0.55; this.h=def.h;
     this.broken=false; this.brokenT=0; this.hitFlash=0; this.shake=0;
     this.bob=Math.random()*Math.PI*2;
+    // Interactive containers (chests): opened via interact key, not combat.
+    this.interactive=!!def.interactive;
+    this.opened=false; this.openT=0;
   }
   hit(dmg){
     if(this.broken) return false;
+    // Interactive containers cannot be damaged by combat swings.
+    if(this.interactive) return false;
     this.hp-=1; this.hitFlash=0.16; this.shake=4;
     if(this.hp<=0){ this.broken=true; this.brokenT=0.45; return true; }
     return false;
+  }
+  // Open an interactive container (called from tryInteract).
+  // Returns true if this interaction consumed the container (first open).
+  open(){
+    if(!this.interactive || this.opened) return false;
+    this.opened=true; this.openT=0.6;
+    return true;
   }
   update(dt){
     if(this.hitFlash>0) this.hitFlash-=dt;
     if(this.shake>0) this.shake=Math.max(0,this.shake-dt*22);
     if(this.broken) this.brokenT-=dt;
+    if(this.openT>0) this.openT-=dt;
     this.bob+=dt;
   }
   rect(ctx,x,y,w,h,col){ ctx.fillStyle=col; ctx.fillRect(Math.round(x),Math.round(y),Math.round(w),Math.round(h)); }
   draw(ctx){
     if(this.broken && this.brokenT<=0) return;
-    const a = this.broken ? Math.max(0,this.brokenT/0.45) : 1;
+    // Opened interactive containers fade to a dim "opened" look, then persist.
+    const isOpened = this.interactive && this.opened;
+    const a = this.broken ? Math.max(0,this.brokenT/0.45)
+            : isOpened ? Math.max(0.5, 1 - (1 - Math.max(0, this.openT/0.6)) * 0.5)
+            : 1;
     const sx=this.shake>0?(Math.random()*2-1)*this.shake:0;
     const f=this.facing||'down';
     const side = (f==='left'||f==='right');
@@ -166,13 +185,27 @@ class Decor {
       }
       R(-21,-6,42,6,'#3a2514');                                       // base
     } else if(t==='chest'){
-      R(-21,-18,42,18,'#6b4326');                               // base
-      ctx.beginPath(); ctx.fillStyle='#7d5230';
-      ctx.moveTo(-21,-18); ctx.quadraticCurveTo(0,-34,21,-18); ctx.lineTo(21,-18); ctx.lineTo(-21,-18); ctx.fill();
-      R(-21,-20,42,4,'#caa15a');                                // trim band (visible all sides)
-      if(front){
-        R(-3,-22,6,10,'#e0c074');                               // front lock
-        R(-21,-18,4,18,'#caa15a'); R(17,-18,4,18,'#caa15a');    // corner straps
+      if(this.opened){
+        // Opened chest: lid hinged back, empty interior visible
+        R(-21,-18,42,18,'#6b4326');                               // base
+        R(-21,-20,42,4,'#caa15a');                                // trim band
+        R(-19,-16,38,14,'#3a2514');                               // dark interior
+        if(front){
+          // Lid tilted back behind the chest
+          ctx.beginPath(); ctx.fillStyle='#7d5230';
+          ctx.moveTo(-21,-18); ctx.quadraticCurveTo(-24,-30,-18,-34);
+          ctx.lineTo(-21,-18); ctx.fill();
+          R(-21,-18,4,18,'#caa15a'); R(17,-18,4,18,'#caa15a');    // corner straps
+        }
+      } else {
+        R(-21,-18,42,18,'#6b4326');                               // base
+        ctx.beginPath(); ctx.fillStyle='#7d5230';
+        ctx.moveTo(-21,-18); ctx.quadraticCurveTo(0,-34,21,-18); ctx.lineTo(21,-18); ctx.lineTo(-21,-18); ctx.fill();
+        R(-21,-20,42,4,'#caa15a');                                // trim band (visible all sides)
+        if(front){
+          R(-3,-22,6,10,'#e0c074');                               // front lock
+          R(-21,-18,4,18,'#caa15a'); R(17,-18,4,18,'#caa15a');    // corner straps
+        }
       }
     } else if(t==='urn'){
       // tall clay burial urn with banded engravings

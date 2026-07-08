@@ -440,9 +440,27 @@ function maybeOfferUlti(nearest,nd){
 function tryInteract(){
   if(!G||G.over) return;
   const d=G.dun, p=G.player;
+  // Lift interaction (stairs)
   const dx=p.x-d.stairsPx.x, dy=p.y-d.stairsPx.y;
   if(Math.hypot(dx,dy)<TILE*0.9){
     openLiftMenu();
+    return;
+  }
+  // Interactive container interaction (chests etc.)
+  let nearest=null, nd=1e9;
+  for(const o of G.decor){
+    if(!o.interactive || o.opened) continue;
+    const dist=Math.hypot(o.x-p.x, (o.y-o.h*0.35)-p.y);
+    if(dist<nd){ nd=dist; nearest=o; }
+  }
+  if(nearest && nd < TILE*1.1){
+    if(nearest.open()){
+      A.breakProp();
+      spark(nearest.x, nearest.y-nearest.h*0.45, '#ffd166', 22, 180);
+      const loot=rollLoot(nearest.def.loot);
+      if(loot.kind!=='none') applyLoot(loot.kind, loot.amt, nearest.x, nearest.y-nearest.h*0.8);
+      log(nearest.def.label+' opened'+(loot.kind!=='none'?' — loot!':'.'), loot.kind==='celo'?'reward':'dm');
+    }
   }
 }
 
@@ -628,9 +646,9 @@ function hitTest(){
       }
     }
     if(any===false){ /* swing missed enemies */ }
-    // breakable decorations caught in the same swing
+    // breakable decorations caught in the same swing (skip interactive containers)
     for(const o of G.decor){
-      if(o.broken) continue;
+      if(o.broken || o.interactive) continue;
       if(Math.hypot(o.x-(z.x), (o.y-o.h*0.4)-z.y) < z.r+o.r){
         const broke=o.hit();
         spark(o.x,o.y-o.h*0.4,'#caa15a',6,120); G.shake=Math.min(G.shake+2,6);
@@ -1408,9 +1426,9 @@ function update(dt){
     const d=Math.hypot(e.x-p.x,e.y-p.y); if(d<nd){ nd=d; nearest=e; }
   }
   G._nd=nd;
-  // nearest unbroken decoration
+  // nearest unbroken non-interactive decoration (auto-smash targets only)
   let nearDecor=null, ndd=1e9;
-  for(const o of G.decor){ if(o.broken) continue;
+  for(const o of G.decor){ if(o.broken||o.interactive) continue;
     const d=Math.hypot(o.x-p.x,o.y-p.y); if(d<ndd){ ndd=d; nearDecor=o; } }
   // AUTO-ATTACK: enemies first, then nearby breakables
   const enemyInRange = nearest && nd < (76+nearest.r);
