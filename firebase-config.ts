@@ -14,10 +14,11 @@
 // firebase-admin is a server-only package; dynamic require avoids bundling it
 // into the Next.js client bundle.
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const admin = require('firebase-admin')
+const adminModule = require('firebase-admin')
+const admin = adminModule.default ?? adminModule
 
 function initAdmin() {
-  if (admin.apps.length > 0) return admin.apps[0]
+  if (admin?.apps?.length > 0) return admin.apps[0]
 
   const serviceAccountEnv = process.env.FIREBASE_SERVICE_ACCOUNT
   if (!serviceAccountEnv) {
@@ -45,13 +46,13 @@ initAdmin()
 
 /** Firebase Admin Realtime Database instance (or null if unconfigured) */
 export function getAdminDb(): ReturnType<typeof admin.database> | null {
-  if (!admin.apps.length) return null
+  if (!admin?.apps?.length) return null
   return admin.database()
 }
 
 /** Firebase Admin Auth instance (or null if unconfigured) */
 export function getAdminAuth(): ReturnType<typeof admin.auth> | null {
-  if (!admin.apps.length) return null
+  if (!admin?.apps?.length) return null
   return admin.auth()
 }
 

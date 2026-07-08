@@ -17,7 +17,7 @@ export function usePassSBT(walletAddress: string | undefined) {
   const { data: walletClient } = useWalletClient()
 
   const [hasPass, setHasPass] = useState<boolean>(false)
-  const [passSeasonId, setPassSeasonId] = useState<bigint>(0n)
+  const [passSeasonId, setPassSeasonId] = useState<bigint>(BigInt(0))
   const [isWhitelisted, setIsWhitelisted] = useState<boolean>(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)

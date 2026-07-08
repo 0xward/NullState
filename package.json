@@ -22,7 +22,8 @@
     "@rainbow-me/rainbowkit": "^2.1.6",
     "lucide-react": "^0.414.0",
     "clsx": "^2.1.1",
-    "firebase": "^11.0.0"
+    "firebase": "^11.0.0",
+    "firebase-admin": "^14.1.0"
   },
   "devDependencies": {
     "typescript": "^5",
