@@ -1,0 +1,30 @@
+name: Daily Leaderboard Update
+
+on:
+  schedule:
+    - cron: '0 0 * * *'  # Every day 00:00 UTC
+  workflow_dispatch:
+
+jobs:
+  update-leaderboard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      
+      - name: Install dependencies
+        run: npm install ethers
+      
+      - name: Update Leaderboard
+        env:
+          BACKEND_PRIVATE_KEY: ${{ secrets.BACKEND_PRIVATE_KEY }}
+          CELO_RPC_URL: ${{ secrets.CELO_RPC_URL }}
+          REWARD_CONTRACT_ADDRESS: ${{ secrets.REWARD_CONTRACT_ADDRESS }}
+        run: node .github/scripts/leaderboard-update.js
+      
+      - name: Log success
+        run: echo "✅ Leaderboard updated successfully"
