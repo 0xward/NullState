@@ -1,0 +1,32 @@
+name: Firebase Sync
+
+on:
+  schedule:
+    - cron: '30 0 * * *'  # Every day 00:30 UTC (after leaderboard-update runs at 00:00)
+  workflow_dispatch:
+
+jobs:
+  firebase-sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: npm install ethers firebase-admin
+
+      - name: Sync on-chain data to Firebase
+        env:
+          CELO_RPC_URL: ${{ secrets.CELO_RPC_URL }}
+          REWARD_CONTRACT_ADDRESS: ${{ secrets.REWARD_CONTRACT_ADDRESS }}
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          FIREBASE_DATABASE_URL: ${{ secrets.FIREBASE_DATABASE_URL }}
+        run: node .github/scripts/firebase-sync.js
+
+      - name: Log success
+        run: echo "✅ Firebase sync completed"
