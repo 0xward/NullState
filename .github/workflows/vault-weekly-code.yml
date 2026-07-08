@@ -1,0 +1,30 @@
+name: Weekly Vault Code Generation
+
+on:
+  schedule:
+    - cron: '0 0 * * 1'  # Every Monday 00:00 UTC
+  workflow_dispatch:
+
+jobs:
+  generate-code:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      
+      - name: Install dependencies
+        run: npm install ethers
+      
+      - name: Generate Vault Code
+        env:
+          BACKEND_PRIVATE_KEY: ${{ secrets.BACKEND_PRIVATE_KEY }}
+          CELO_RPC_URL: ${{ secrets.CELO_RPC_URL }}
+          TREASURE_VAULT_ADDRESS: ${{ secrets.TREASURE_VAULT_ADDRESS }}
+        run: node .github/scripts/vault-weekly-code.js
+      
+      - name: Log success
+        run: echo "✅ Weekly vault code generated"
