@@ -641,35 +641,101 @@ body::before {
 @keyframes ns-actionPulse{0%,100%{box-shadow:0 0 24px rgba(255,150,0,.55);}50%{box-shadow:0 0 36px rgba(255,170,0,.85);}}
 @media (orientation:portrait){ .ns-game-root .action-btn{right:16px;bottom:96px;} }
 
-/* ---------- container window (dual-panel loot / stash) ---------- */
-.ns-game-root #containerWindow{background:radial-gradient(circle at 50% 45%,rgba(6,14,10,.86),rgba(2,4,3,.97));}
+/* ---------- container window (dual-panel loot / stash) ----------
+   Canvas-putih theme, matching .ns-settings-panel (see SETTINGS MODAL
+   block below): warm off-white/parchment base, brown hairline borders,
+   dark ink text — instead of the dungeon's neon-on-black look. */
+.ns-game-root #containerWindow{background:rgba(6,8,7,.7);backdrop-filter:blur(2px);}
 .ns-game-root .container-inner{max-width:640px;width:100%;animation:ns-fadeUp .3s ease;
-  border:1px solid var(--line);border-radius:16px;padding:24px 22px;
-  background:rgba(6,10,13,.92);box-shadow:0 0 50px rgba(0,0,0,.5);}
+  border:1px solid rgba(80,65,40,.35);border-radius:8px;padding:24px 22px;
+  color:#3a3226;font-family:'Share Tech Mono',monospace;
+  background-color:#e9e2d0;
+  background-image:
+    radial-gradient(circle at 12% 18%, rgba(120,105,75,.10) 0%, transparent 40%),
+    radial-gradient(circle at 85% 12%, rgba(90,80,55,.08) 0%, transparent 35%),
+    radial-gradient(circle at 75% 80%, rgba(110,95,65,.10) 0%, transparent 42%),
+    radial-gradient(circle at 20% 88%, rgba(80,70,50,.08) 0%, transparent 38%),
+    repeating-linear-gradient(115deg, rgba(0,0,0,.015) 0px, rgba(0,0,0,.015) 1px, transparent 1px, transparent 3px);
+  box-shadow:0 24px 60px rgba(0,0,0,.55), inset 0 0 40px rgba(80,65,40,.12);}
 .ns-game-root .container-title{font-family:'Cinzel',serif;font-weight:700;font-size:clamp(18px,4vw,26px);
-  letter-spacing:2px;color:#eafff5;margin-bottom:16px;text-shadow:0 0 18px rgba(0,255,136,.4);}
+  letter-spacing:2px;color:#2b2620;margin-bottom:16px;}
 .ns-game-root .container-panels{display:grid;grid-template-columns:1fr 1fr;gap:16px;text-align:left;}
 .ns-game-root .container-panel-label{font-family:'Share Tech Mono';letter-spacing:3px;font-size:11px;
-  color:var(--green);border-bottom:1px solid var(--line);padding-bottom:6px;margin-bottom:10px;}
+  color:#5c4d33;font-weight:700;text-transform:uppercase;
+  border-bottom:1px solid rgba(80,65,40,.25);padding-bottom:6px;margin-bottom:10px;}
 .ns-game-root .container-items{min-height:120px;max-height:38vh;overflow-y:auto;touch-action:pan-y;
-  grid-template-columns:repeat(3,1fr);}
+  grid-template-columns:repeat(5,1fr);}
 .ns-game-root .container-btns{display:flex;gap:14px;justify-content:center;align-items:center;margin-top:20px;flex-wrap:wrap;}
 @media (orientation:portrait){
   .ns-game-root .container-panels{grid-template-columns:1fr;}
   .ns-game-root .container-inner{padding:20px 14px;}
 }
 
-/* ---------- burn queue highlight + value label ---------- */
-.ns-game-root .inv-item.queued{border-color:var(--amber);box-shadow:0 0 14px rgba(255,179,71,.5);
-  background:rgba(255,179,71,.08);}
+/* ---------- burn queue highlight + value label ----------
+   Multi-select queue: tap the small corner checkbox (.inv-item-select) on
+   a stash item to add/remove it from the queue, then "BURN SELECTED"
+   burns everything queued at once. This is separate from tapping the item
+   body itself, which opens the #itemZoom overlay for an instant single-
+   item burn — the two flows share state (both write to G.burnQueue /
+   G.inventory.items) but are triggered by different hit targets so
+   neither one breaks the other. */
+.ns-game-root .inv-item.queued{border-color:#a13a2f;box-shadow:0 0 0 1px rgba(161,58,47,.35) inset;
+  background:rgba(161,58,47,.08);}
 .ns-game-root .inv-item-value{position:absolute;bottom:3px;left:4px;font-size:8px;letter-spacing:.2px;
-  color:#ffd58a;font-family:'Share Tech Mono';}
+  color:#6b5d45;font-family:'Share Tech Mono';}
+.ns-game-root .inv-item-select{position:absolute;top:3px;left:4px;width:13px;height:13px;
+  border-radius:3px;border:1px solid rgba(80,65,40,.45);background:rgba(255,255,255,.5);
+  cursor:pointer;z-index:2;transition:.12s;}
+.ns-game-root .inv-item-select:hover{border-color:#2b2620;}
+.ns-game-root .inv-item-select.checked{background:#a13a2f;border-color:#a13a2f;}
+.ns-game-root .inv-item-select.checked::after{content:'✓';position:absolute;inset:0;
+  display:flex;align-items:center;justify-content:center;font-size:9px;color:#e9e2d0;line-height:1;}
 
 /* ---------- burn bar (bottom of #invPanel) ---------- */
-.ns-game-root .burn-summary{margin-top:10px;padding-top:10px;border-top:1px dashed rgba(0,255,136,.18);
-  font-size:11px;letter-spacing:.5px;color:#9fc3b4;text-align:center;min-height:14px;}
-.ns-game-root .burn-confirm{width:100%;margin-top:8px;padding:10px 0;font-size:13px;letter-spacing:3px;}
-.ns-game-root .burn-confirm:disabled{opacity:.4;cursor:not-allowed;box-shadow:none;transform:none;}
+.ns-game-root .burn-summary{margin-top:10px;padding-top:10px;border-top:1px dashed rgba(80,65,40,.3);
+  font-size:11px;letter-spacing:.5px;color:#7a6c52;text-align:center;min-height:14px;}
+.ns-game-root .burn-confirm{width:100%;margin-top:8px;padding:11px 0;font-size:12px;letter-spacing:2px;
+  border-radius:6px;background:#2b2620;color:#e9e2d0;border:1px solid #2b2620;box-shadow:none;}
+.ns-game-root .burn-confirm:hover{background:#453d30;}
+.ns-game-root .burn-confirm:disabled{opacity:.4;cursor:not-allowed;box-shadow:none;transform:none;background:#2b2620;}
+
+/* ════════════════════════════════════════════════════════════════════════
+   ITEM ZOOM — overlay opened by tapping a slot in #invPanel or the LOOT
+   side of #containerWindow. Same canvas-putih aesthetic as the settings
+   modal / container window above, so the three read as one visual family.
+   TAKE is shown for container-loot slots, BURN for stash items — never
+   both (see openItemZoom() in game.js). Wired up in Task 2.
+   ════════════════════════════════════════════════════════════════════════ */
+.ns-game-root #itemZoom{background:rgba(6,8,7,.75);backdrop-filter:blur(2px);}
+.ns-game-root .item-zoom-inner{max-width:300px;width:100%;animation:ns-fadeUp .2s ease;
+  text-align:center;border-radius:8px;padding:26px 22px 22px;
+  color:#3a3226;font-family:'Share Tech Mono',monospace;
+  border:1px solid rgba(80,65,40,.35);
+  background-color:#e9e2d0;
+  background-image:
+    radial-gradient(circle at 12% 18%, rgba(120,105,75,.10) 0%, transparent 40%),
+    radial-gradient(circle at 85% 12%, rgba(90,80,55,.08) 0%, transparent 35%),
+    repeating-linear-gradient(115deg, rgba(0,0,0,.015) 0px, rgba(0,0,0,.015) 1px, transparent 1px, transparent 3px);
+  box-shadow:0 24px 60px rgba(0,0,0,.55), inset 0 0 40px rgba(80,65,40,.12);}
+.ns-game-root .item-zoom-icon{width:88px;height:88px;image-rendering:pixelated;margin:0 auto 14px;
+  filter:drop-shadow(0 2px 4px rgba(0,0,0,.3));}
+.ns-game-root .item-zoom-name{font-size:14px;letter-spacing:1.5px;text-transform:uppercase;
+  font-weight:700;color:#2b2620;margin-bottom:2px;}
+.ns-game-root .item-zoom-qty{font-size:11px;color:#7a6c52;margin-bottom:4px;}
+.ns-game-root .item-zoom-value{font-size:11px;color:#6b5d45;margin-bottom:18px;}
+.ns-game-root .item-zoom-btns{display:flex;flex-direction:column;gap:10px;}
+.ns-game-root .item-zoom-btn{width:100%;padding:11px 16px;border-radius:6px;cursor:pointer;
+  font-family:'Share Tech Mono',monospace;font-size:12px;letter-spacing:2px;text-transform:uppercase;
+  transition:.15s;border:1px solid #2b2620;}
+.ns-game-root .item-zoom-btn.take{background:#2b2620;color:#e9e2d0;}
+.ns-game-root .item-zoom-btn.take:hover{background:#453d30;}
+.ns-game-root .item-zoom-btn.burn{background:rgba(161,58,47,.1);color:#a13a2f;border-color:#a13a2f;}
+.ns-game-root .item-zoom-btn.burn:hover{background:rgba(161,58,47,.18);}
+.ns-game-root .item-zoom-btn.hidden{display:none;}
+.ns-game-root .item-zoom-close{margin-top:12px;background:transparent;border:none;cursor:pointer;
+  font-size:11px;letter-spacing:1.5px;color:#7a6c52;font-family:'Share Tech Mono',monospace;
+  text-transform:uppercase;padding:4px;}
+.ns-game-root .item-zoom-close:hover{color:#2b2620;}
 
 @media (max-width:520px){
   .ns-game-root .hud-left{min-width:140px;}
@@ -707,30 +773,40 @@ body::before {
 .ns-game-root .inv-btn:hover{border-color:var(--green);background:rgba(0,255,136,.1);color:var(--green);}
 
 .ns-game-root .inv-panel{position:absolute;top:200px;right:12px;z-index:8;pointer-events:auto;
-  width:228px;max-height:min(64vh,440px);overflow-y:auto;touch-action:pan-y;
-  background:rgba(6,10,13,.92);border:1px solid var(--line);border-radius:10px;
-  box-shadow:0 12px 36px rgba(0,0,0,.55);padding:12px;animation:ns-fadeUp .25s ease;}
+  width:266px;max-height:min(64vh,440px);overflow-y:auto;touch-action:pan-y;
+  border:1px solid rgba(80,65,40,.35);border-radius:8px;
+  box-shadow:0 12px 36px rgba(0,0,0,.55), inset 0 0 30px rgba(80,65,40,.1);
+  padding:12px;animation:ns-fadeUp .25s ease;
+  color:#3a3226;font-family:'Share Tech Mono',monospace;
+  background-color:#e9e2d0;
+  background-image:
+    radial-gradient(circle at 12% 18%, rgba(120,105,75,.10) 0%, transparent 40%),
+    radial-gradient(circle at 85% 12%, rgba(90,80,55,.08) 0%, transparent 35%),
+    radial-gradient(circle at 75% 80%, rgba(110,95,65,.10) 0%, transparent 42%),
+    radial-gradient(circle at 20% 88%, rgba(80,70,50,.08) 0%, transparent 38%),
+    repeating-linear-gradient(115deg, rgba(0,0,0,.015) 0px, rgba(0,0,0,.015) 1px, transparent 1px, transparent 3px);}
 .ns-game-root .inv-panel-head{display:flex;align-items:center;justify-content:space-between;
-  font-family:'Share Tech Mono';letter-spacing:3px;font-size:12px;color:var(--green);
-  border-bottom:1px solid var(--line);padding-bottom:8px;margin-bottom:10px;}
-.ns-game-root .inv-close{background:transparent;border:none;color:#9fc3b4;cursor:pointer;
+  font-family:'Share Tech Mono';letter-spacing:3px;font-size:12px;color:#5c4d33;font-weight:700;
+  border-bottom:1px solid rgba(80,65,40,.25);padding-bottom:8px;margin-bottom:10px;}
+.ns-game-root .inv-close{background:transparent;border:none;color:#7a6c52;cursor:pointer;
   font-size:14px;line-height:1;padding:2px 4px;}
-.ns-game-root .inv-close:hover{color:#eafff5;}
+.ns-game-root .inv-close:hover{color:#2b2620;}
 .ns-game-root .inv-vitals{display:flex;flex-direction:column;gap:6px;margin-bottom:12px;
-  padding-bottom:10px;border-bottom:1px dashed rgba(0,255,136,.18);}
+  padding-bottom:10px;border-bottom:1px dashed rgba(80,65,40,.3);}
 .ns-game-root .inv-vital-row{display:flex;align-items:center;gap:8px;}
 .ns-game-root .inv-vital-row .bar{flex:1;height:14px;}
-.ns-game-root .inv-items{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
-.ns-game-root .inv-empty{grid-column:1/-1;color:#5c8a78;font-size:11px;letter-spacing:.5px;text-align:center;padding:14px 4px;}
+.ns-game-root .inv-items{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;}
+.ns-game-root .inv-empty{grid-column:1/-1;color:#7a6c52;font-size:11px;letter-spacing:.5px;text-align:center;padding:14px 4px;}
 .ns-game-root .inv-item{position:relative;display:flex;flex-direction:column;align-items:center;
-  justify-content:center;gap:4px;aspect-ratio:1/1;background:rgba(255,255,255,.03);
-  border:1px solid rgba(255,209,102,.25);border-radius:7px;padding:6px 3px 5px;}
-.ns-game-root .inv-item-icon{width:28px;height:28px;image-rendering:pixelated;
-  filter:drop-shadow(0 0 6px rgba(255,209,102,.5));}
-.ns-game-root .inv-item-name{font-size:8.5px;line-height:1.15;color:#cfeede;letter-spacing:.3px;
+  justify-content:center;gap:3px;aspect-ratio:1/1;background:rgba(255,255,255,.35);
+  border:1px solid rgba(80,65,40,.25);border-radius:7px;padding:5px 2px 4px;cursor:pointer;transition:.12s;}
+.ns-game-root .inv-item:hover{background:rgba(255,255,255,.55);border-color:rgba(80,65,40,.4);}
+.ns-game-root .inv-item-icon{width:24px;height:24px;image-rendering:pixelated;
+  filter:drop-shadow(0 1px 2px rgba(0,0,0,.25));}
+.ns-game-root .inv-item-name{font-size:7.5px;line-height:1.15;color:#5c4d33;letter-spacing:.3px;
   text-align:center;text-transform:uppercase;}
-.ns-game-root .inv-item-count{position:absolute;top:3px;right:4px;font-size:10px;color:#0b0e0c;
-  background:#ffd166;border-radius:5px;padding:0 4px;font-weight:700;line-height:1.4;}
+.ns-game-root .inv-item-count{position:absolute;top:3px;right:4px;font-size:9px;color:#e9e2d0;
+  background:#2b2620;border-radius:5px;padding:0 4px;font-weight:700;line-height:1.4;}
 
 /* Settings gear button — sits directly under the inventory button, same
    visual language, so the two read as one "menu" cluster. */
