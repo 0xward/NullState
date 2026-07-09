@@ -4,21 +4,30 @@
  * This file uses the Admin SDK (firebase-admin) — do NOT import it in
  * client-side code. For client-side Firebase, use lib/firebase.ts instead.
  *
+ * IMPORTANT: firebase-admin v12+ (we're on v14) dropped the old namespaced
+ * API (`admin.credential.cert(...)`, `admin.database()`, `admin.auth()`).
+ * `require('firebase-admin')` now only exposes a small top-level surface
+ * (initializeApp, cert, getApps, ...) — the rest lives in subpath modules
+ * (`firebase-admin/app`, `firebase-admin/database`, `firebase-admin/auth`).
+ * Using the old namespaced calls silently resolves to `undefined` and
+ * throws "Cannot read properties of undefined (reading 'cert')" the moment
+ * FIREBASE_SERVICE_ACCOUNT is actually set (it never got that far while the
+ * env var was empty, which is why this stayed hidden).
+ *
  * Required environment variables:
  *   FIREBASE_SERVICE_ACCOUNT  — JSON string of the service account key
  *                               (store only in GitHub Secrets / Vercel env, never commit)
  *   FIREBASE_DATABASE_URL     — Realtime Database URL
- *                               e.g. https://nullstate-35b2e-default-rtdb.firebaseio.com
+ *                               e.g. https://nullstate-35b2e-default-rtdb.asia-southeast1.firebasedatabase.app
  */
 
-// firebase-admin is a server-only package; dynamic require avoids bundling it
-// into the Next.js client bundle.
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const adminModule = require('firebase-admin')
-const admin = adminModule.default ?? adminModule
+import { initializeApp, getApps, cert, type App } from 'firebase-admin/app'
+import { getDatabase } from 'firebase-admin/database'
+import { getAuth } from 'firebase-admin/auth'
 
-function initAdmin() {
-  if (admin?.apps?.length > 0) return admin.apps[0]
+function initAdmin(): App | null {
+  const existing = getApps()
+  if (existing.length > 0) return existing[0]
 
   const serviceAccountEnv = process.env.FIREBASE_SERVICE_ACCOUNT
   if (!serviceAccountEnv) {
@@ -34,26 +43,31 @@ function initAdmin() {
     return null
   }
 
-  return admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount),
-    databaseURL:
-      process.env.FIREBASE_DATABASE_URL ??
-      `https://nullstate-35b2e-default-rtdb.firebaseio.com`,
-  })
+  try {
+    return initializeApp({
+      credential: cert(serviceAccount as Parameters<typeof cert>[0]),
+      databaseURL:
+        process.env.FIREBASE_DATABASE_URL ??
+        'https://nullstate-35b2e-default-rtdb.firebaseio.com',
+    })
+  } catch (err) {
+    console.error('[firebase-config] Failed to initialize Firebase Admin app:', err)
+    return null
+  }
 }
 
-initAdmin()
+const adminApp = initAdmin()
 
 /** Firebase Admin Realtime Database instance (or null if unconfigured) */
-export function getAdminDb(): ReturnType<typeof admin.database> | null {
-  if (!admin?.apps?.length) return null
-  return admin.database()
+export function getAdminDb(): ReturnType<typeof getDatabase> | null {
+  if (!adminApp) return null
+  return getDatabase(adminApp)
 }
 
 /** Firebase Admin Auth instance (or null if unconfigured) */
-export function getAdminAuth(): ReturnType<typeof admin.auth> | null {
-  if (!admin?.apps?.length) return null
-  return admin.auth()
+export function getAdminAuth(): ReturnType<typeof getAuth> | null {
+  if (!adminApp) return null
+  return getAuth(adminApp)
 }
 
-export default admin
+export default adminApp
