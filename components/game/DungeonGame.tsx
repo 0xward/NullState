@@ -250,7 +250,7 @@ export default function DungeonGame({ playerProfile, setPlayerUsername }: Dungeo
       // couldn't be scrolled and the volume slider felt stuck/janky: every
       // touchmove on top of it was being preventDefault()-ed before the
       // browser's native scroll/slider-drag handling ever got a chance to run.
-      if (target.closest('.inv-panel, .lift-floor-list, .ns-settings-panel, .ns-settings-slider')) return
+      if (target.closest('.inv-panel-inner, .lift-floor-list, .ns-settings-panel, .ns-settings-slider')) return
       e.preventDefault()
     }
     document.addEventListener('touchmove', preventPullToRefresh, { passive: false })
@@ -419,26 +419,32 @@ export default function DungeonGame({ playerProfile, setPlayerUsername }: Dungeo
               />
             </svg>
           </button>
-          <div id="invPanel" className="inv-panel hidden">
-            <div className="inv-panel-head">
-              <span>INVENTORY</span>
-              <button id="invClose" className="inv-close" aria-label="Close">✕</button>
-            </div>
-            <div className="inv-vitals">
-              <div className="inv-vital-row">
-                <span className="bar-label">HP</span>
-                <div className="bar hp"><div id="invHpFill" className="bar-fill" /><span id="invHpText" className="bar-text">100/100</span></div>
+          {/* Inventory — a centered modal (like #containerWindow/#itemZoom)
+              rather than a small corner panel, so it never sits under the
+              minimap/settings gear and always has room to show a full,
+              legible 5-column item grid. */}
+          <div id="invPanel" className="overlay hidden">
+            <div className="inv-panel-inner">
+              <div className="inv-panel-head">
+                <span>INVENTORY</span>
+                <button id="invClose" className="inv-close" aria-label="Close">✕</button>
               </div>
-              <div className="inv-vital-row">
-                <span className="bar-label">XP</span>
-                <div className="bar xp"><div id="invXpFill" className="bar-fill" /><span id="invXpText" className="bar-text">0/200</span></div>
+              <div className="inv-vitals">
+                <div className="inv-vital-row">
+                  <span className="bar-label">HP</span>
+                  <div className="bar hp"><div id="invHpFill" className="bar-fill" /><span id="invHpText" className="bar-text">100/100</span></div>
+                </div>
+                <div className="inv-vital-row">
+                  <span className="bar-label">XP</span>
+                  <div className="bar xp"><div id="invXpFill" className="bar-fill" /><span id="invXpText" className="bar-text">0/200</span></div>
+                </div>
               </div>
+              <div id="invItems" className="inv-items">
+                <div className="inv-empty" id="invEmpty">No items yet — explore the depths.</div>
+              </div>
+              <div id="burnSummary" className="burn-summary" />
+              <button id="burnConfirm" className="big-btn burn-confirm" disabled>BURN SELECTED</button>
             </div>
-            <div id="invItems" className="inv-items">
-              <div className="inv-empty" id="invEmpty">No items yet — explore the depths.</div>
-            </div>
-            <div id="burnSummary" className="burn-summary" />
-            <button id="burnConfirm" className="big-btn burn-confirm" disabled>BURN SELECTED</button>
           </div>
 
           <div id="touchControls" className="touch hidden">
@@ -559,7 +565,7 @@ export default function DungeonGame({ playerProfile, setPlayerUsername }: Dungeo
                 <div id="containerEmpty" className="inv-empty">Empty.</div>
               </div>
               <div>
-                <div className="container-panel-label">YOUR STASH</div>
+                <div className="container-panel-label">YOUR INVENTORY</div>
                 <div id="containerPlayerItems" className="inv-items container-items" />
                 <div id="containerPlayerEmpty" className="inv-empty">No items yet.</div>
               </div>
