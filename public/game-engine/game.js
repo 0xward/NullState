@@ -17,6 +17,11 @@ const A = window.Audio2;
 
 // ---- mount/teardown state ----
 let CHAIN = null;            // injected on mount (wagmi bridge)
+// WALLET_ADDRESS: current connected wallet, attached to burn-record events
+// so /api/burn/record knows whose stash to credit. Kept in sync after
+// mount via setWalletAddress() (see DungeonGame.tsx — wagmi's address can
+// change after the engine has already mounted).
+let WALLET_ADDRESS = null;
 // INITIAL_STATS: baseline {xp, level} pulled from the on-chain PlayerProfile,
 // applied to a brand-new run so a returning player's career level carries
 // over even when there's no exact bunker save (see applyRestoredState()).
@@ -119,6 +124,13 @@ function applyRestoredState(G, p, snap){
     G.inventory.keys = snap.inventory.keys || 0;
     G.inventory.relics = snap.inventory.relics || 0;
     G.inventory.shards = snap.inventory.shards || 0;
+    G.inventory.items = {};
+    if (snap.inventory.items && window.NS_ITEMS) {
+      for (const [id, qty] of Object.entries(snap.inventory.items)) {
+        const item = window.NS_ITEMS.getItem(Number(id));
+        if (item && qty > 0) G.inventory.items[item.id] = { item, qty };
+      }
+    }
   }
   if (snap.key && snap.key.taken) {
     G.key.depth = snap.key.depth || 0;
@@ -135,7 +147,12 @@ function newGame(charKey, restoreSnapshot){
   const p = new Player(charKey, cfg);
   G = { player:p, dun:null, enemies:[], decor:[], particles:[], dmgNums:[],
         depth:0, shake:0, time:0, paused:false, bgIndex:0, bossAlive:false, over:false,
-        ulti:{ cd:0, lowHpArmed:true },
+        // Unified non-blocking action button state (replaces the old ULTI
+        // popup). mode: null | 'ulti' | 'open'. target: the boss Enemy (ulti)
+        // or the Decor container (open) currently in range. cd: short
+        // cooldown after a NULL_STRIKE so the button can't be double-tapped
+        // while the same boss stays in range.
+        action:{ mode:null, target:null, cd:0 },
         // Per-floor cache: floors[depth] = {dun, enemies, decor, cleared, bossAlive}
         // so revisiting a floor via the lift shows it exactly as it was left
         // (dead enemies stay dead, unbroken decor stays lootable).
@@ -144,7 +161,12 @@ function newGame(charKey, restoreSnapshot){
         // sits (floor + world pos), whether it's been picked up, and the
         // floor to respawn on after death.
         key:{ depth:0, x:0, y:0, taken:false },
-        inventory:{ keys:0, relics:0, shards:0 },
+        // keys/relics/shards: legacy simple counters (still used for lift-key
+        // and the relic-power mutation system). items: the new NS_ITEMS-backed
+        // stash, keyed by item id -> {item, qty}. burnQueue: Set of item ids
+        // the player has marked to send to the weekly burn pool.
+        inventory:{ keys:0, relics:0, shards:0, items:{} },
+        burnQueue:new Set(),
         discoveredRooms:new Set(), lastRoomId:null, floorClearShown:{}, combo:{count:0,t:0},
         respawnDepth:1 };
 
@@ -292,7 +314,8 @@ function descend(toDepth){
   floor.visited = true;
   G.player.depth=G.depth;
   G.bgIndex=(G.depth-1)%backgrounds.length;
-  G.ulti.lowHpArmed=true;
+  G.action.mode=null; G.action.target=null;
+  setActionButton(null);
   const isBoss = G.depth%5===0;
   showBanner(`FLOOR ${G.depth}`, isBoss?'⚠ GUARDED':backgrounds[G.bgIndex].split('/').pop().replace('.png','').toUpperCase());
   if(isBoss && floor.bossAlive){
@@ -376,12 +399,23 @@ function applyLoot(kind,amt,x,y){
   }
   else if(kind==='xp'){ const ups=p.gainXp(amt); lootText(x,y,'+'+amt+' XP','#4ad7ff');
     if(ups>0){ A.levelup(); log('◆ LEVEL UP → '+p.level,'reward'); spark(p.x,p.y-20,'#00ff88',24,200); } }
-  else if(kind==='celo'){ p.celo+=amt; lootText(x,y,'+'+amt.toFixed(2)+' CELO','#ffd166'); }
+  else if(kind==='celo'){ p.celo+=amt; lootText(x,y,'+'+amt.toFixed(2)+' USDm','#ffd166'); }
   else if(kind==='relic'){
     G.inventory.relics = (G.inventory.relics||0) + amt;
     applyRelicPower(amt, x, y);
   }
   A.pickup(); updateHUD();
+}
+// Add a rolled NS_ITEMS item (with a quantity) straight into the player's
+// stash — used by combat/decor loot rolls that draw an 'item' kind directly
+// (not via a container window). Stacks per item id, capped at the item's
+// rarity stackCap.
+function addItemToStash(item, qty){
+  if(!item) return;
+  const inv=G.inventory.items;
+  const cur=inv[item.id] || { item, qty:0 };
+  cur.qty = Math.min(item.stackCap||99, cur.qty + (qty||1));
+  inv[item.id] = cur;
 }
 function applyRelicPower(amt,x,y){
   const p=G.player;
@@ -395,23 +429,11 @@ function applyRelicPower(amt,x,y){
 }
 function lootText(x,y,txt,color){ G.dmgNums.push({x,y,val:txt,life:1.2,crit:false,vy:-38,color}); }
 
-// ---------- ULTI (on-chain NULL_STRIKE) ----------
-function offerUlti(target,reason){
-  G.ulti.target=target; G.paused=true;
-  $('ultiTarget').textContent=(target.name||'ENEMY').toUpperCase();
-  $('ultiDesc').textContent = reason==='lowhp'
-    ? 'You are near death. Sign an on-chain NULL_STRIKE to crush your foe before the dark takes you.'
-    : (target.isBoss
-        ? 'The Gatekeeper looms. Channel an on-chain NULL_STRIKE to break its guard.'
-        : 'An elite blocks your path. Sign an on-chain NULL_STRIKE for devastating damage.');
-  $('ultiStatus').textContent=''; $('ultiNote').textContent='';
-  $('ultiTx').disabled=false;
-  $('ulti').classList.remove('hidden');
-}
-function closeUlti(){
-  $('ulti').classList.add('hidden');
-  G.ulti.target=null; G.ulti.cd=8; if(G) G.paused=false;
-}
+// ---------- Unified action button (NULL_STRIKE + container OPEN) ----------
+// Replaces the old blocking ULTI popup. A single non-blocking button
+// (#actionBtn) sits near the attack button; its mode/label/visibility is
+// driven every frame by updateActionButton() from the position of the
+// nearest boss / nearest openable container.
 function applyUltiDamage(t){
   const dmg=Math.max(1, Math.ceil(t.hp*0.92));
   t.hp=Math.max(1, t.hp-dmg);          // leave foe near death
@@ -420,21 +442,88 @@ function applyUltiDamage(t){
   spark(t.x,t.y-10,'#ffae00',46,320);
   G.shake=13; G.ultiFlash=0.55; A.ultiBlast();
 }
-function maybeOfferUlti(nearest,nd){
-  const u=G.ulti; if(!u||u.cd>0||G.paused||G.over) return;
-  if(nearest && nearest.dead) return; // killed this frame — don't offer an ulti on a corpse
+// A room is "clear" once every enemy that spawned in it is dead (mirrors
+// isFloorClearForAdvance, but scoped to a single room so a container in an
+// already-cleared room stays openable even mid-floor).
+function isRoomClear(room){
+  if(!room || !G.dun) return true;
+  return G.enemies.every(e => e.dead || (G.dun.roomAt((e.x/TILE)|0,(e.y/TILE)|0) !== room));
+}
+function setActionButton(mode, label){
+  const btn=$('actionBtn'); if(!btn) return;
+  if(!mode){ btn.classList.add('hidden'); btn.disabled=false; btn.classList.remove('loading'); return; }
+  btn.classList.remove('hidden');
+  btn.dataset.mode=mode;
+  btn.textContent = label || (mode==='ulti' ? '⚡ NULL_STRIKE' : '▤ OPEN');
+}
+function updateActionButton(nearest, nd){
+  const a=G.action;
+  if(G.paused || G.over || a.cd>0){ setActionButton(null); return; }
+  // Priority 1: a live boss within striking range -> NULL_STRIKE.
+  if(nearest && !nearest.dead && nearest.isBoss && nd<180){
+    a.mode='ulti'; a.target=nearest;
+    setActionButton('ulti', '⚡ NULL_STRIKE');
+    return;
+  }
+  // Priority 2: nearest unopened container, but only once its room is clear.
   const p=G.player;
-  if(p.hp/p.maxHp>0.4) u.lowHpArmed=true;
-  // Low-HP ulti: only while actually engaged with something nearby (close
-  // combat range), not just "HP happens to be low somewhere safe on the floor."
-  if(u.lowHpArmed && p.hp/p.maxHp<0.25 && nearest && nd<140){
-    u.lowHpArmed=false; offerUlti(nearest,'lowhp'); return;
+  let nearestDecor=null, nnd=1e9;
+  for(const o of G.decor){
+    if(!o.interactive || o.opened) continue;
+    const dist=Math.hypot(o.x-p.x, (o.y-o.h*0.35)-p.y);
+    if(dist<nnd){ nnd=dist; nearestDecor=o; }
   }
-  // Boss/elite ulti: only when genuinely close — a real face-to-face
-  // encounter, not "somewhere on the same floor within a loose radius."
-  if(nearest && !nearest.ultiOffered && nd<180 && (nearest.isBoss||nearest.elite)){
-    nearest.ultiOffered=true; offerUlti(nearest, nearest.isBoss?'boss':'elite');
+  if(nearestDecor && nnd<TILE*1.1){
+    const room=G.dun.roomAt((p.x/TILE)|0,(p.y/TILE)|0);
+    if(isRoomClear(room)){
+      a.mode='open'; a.target=nearestDecor;
+      setActionButton('open', '▤ OPEN');
+      return;
+    }
   }
+  a.mode=null; a.target=null;
+  setActionButton(null);
+}
+function onActionBtnClick(){
+  const a=G.action; if(!a || !a.mode) return;
+  if(a.mode==='ulti') onUltiButtonTap();
+  else if(a.mode==='open') onOpenButtonTap();
+}
+// NULL_STRIKE: apply the damage instantly (so it feels responsive), then
+// send the 0.005 USDm fee on-chain in the background via CHAIN.ultiTx (bridged
+// to walletRef.payUsdmFee in DungeonGame.tsx). The button shows a brief
+// loading state either way — the strike itself never waits on the tx.
+async function onUltiButtonTap(){
+  const t=G.action.target; if(!t || t.dead) return;
+  const btn=$('actionBtn');
+  applyUltiDamage(t);
+  log('⚡ NULL_STRIKE landed — '+(t.name||'foe')+' reels, near death.', 'reward');
+  if(btn){ btn.disabled=true; btn.classList.add('loading'); btn.textContent='…'; }
+  G.action.cd=1.5;
+  CHAIN.ultiTx({ damage: Math.ceil(t.hp*0.92), xp: t.xp, killed:false, onStatus:()=>{} })
+    .then(res=>{
+      if(res && !res.demo) log('✓ NULL_STRIKE fee confirmed on-chain.','dm');
+    })
+    .catch(()=>{ /* fee tx failed — the strike itself already landed, so just log it */
+      log('⚠ NULL_STRIKE fee tx failed — strike still landed.', 'dm');
+    });
+  setTimeout(()=>{
+    if(btn){ btn.disabled=false; btn.classList.remove('loading'); }
+  }, 450);
+}
+function onOpenButtonTap(){
+  const target=G.action.target; if(!target || target.opened) return;
+  const btn=$('actionBtn');
+  if(btn){ btn.disabled=true; btn.classList.add('loading'); btn.textContent='…'; }
+  setTimeout(()=>{
+    if(!target.open()){ if(btn){ btn.disabled=false; btn.classList.remove('loading'); } return; }
+    A.breakProp();
+    spark(target.x, target.y-target.h*0.45, '#ffd166', 22, 180);
+    log(target.def.label+' opened.', 'dm');
+    if(btn){ btn.disabled=false; btn.classList.remove('loading'); }
+    G.action.mode=null; G.action.target=null; setActionButton(null);
+    openContainerWindow(target);
+  }, 450);
 }
 
 function tryInteract(){
@@ -446,22 +535,69 @@ function tryInteract(){
     openLiftMenu();
     return;
   }
-  // Interactive container interaction (chests etc.)
-  let nearest=null, nd=1e9;
-  for(const o of G.decor){
-    if(!o.interactive || o.opened) continue;
-    const dist=Math.hypot(o.x-p.x, (o.y-o.h*0.35)-p.y);
-    if(dist<nd){ nd=dist; nearest=o; }
-  }
-  if(nearest && nd < TILE*1.1){
-    if(nearest.open()){
-      A.breakProp();
-      spark(nearest.x, nearest.y-nearest.h*0.45, '#ffd166', 22, 180);
-      const loot=rollLoot(nearest.def.loot);
-      if(loot.kind!=='none') applyLoot(loot.kind, loot.amt, nearest.x, nearest.y-nearest.h*0.8);
-      log(nearest.def.label+' opened'+(loot.kind!=='none'?' — loot!':'.'), loot.kind==='celo'?'reward':'dm');
+  // 'E' interact mirrors the OPEN action button for containers already in
+  // range (same 450ms open + dual-panel flow), so there are two equivalent
+  // ways to open a container: tap the button, or walk up and press E.
+  if(G.action.mode==='open' && G.action.target) onOpenButtonTap();
+}
+
+// ---- container loot window (dual-panel: container slots + player stash) ----
+function openContainerWindow(decor){
+  const win=$('containerWindow'); if(!win) return;
+  G._openContainer = decor;
+  G.paused = true;
+  const title=$('containerTitle'); if(title) title.textContent=(decor.def.label||'CONTAINER').toUpperCase();
+  renderContainerSlots();
+  renderStashPanel('containerPlayerItems','containerPlayerEmpty',{readonly:true});
+  win.classList.remove('hidden');
+}
+function renderContainerSlots(){
+  const decor=G._openContainer; if(!decor) return;
+  const host=$('containerItems'), empty=$('containerEmpty');
+  if(!host) return;
+  host.innerHTML='';
+  const slots=(decor.lootSlots||[]).filter(s=>!s.taken);
+  if(!slots.length){ if(empty) empty.style.display=''; return; }
+  if(empty) empty.style.display='none';
+  for(const s of slots){
+    const row=document.createElement('div');
+    row.className='inv-item container-slot';
+    row.dataset.slot=s.slotId;
+    if(s.kind==='item'){
+      const it=s.item;
+      row.style.borderColor=it.color;
+      row.innerHTML=`<img class="inv-item-icon" src="${it.icon}" alt="${it.name}" draggable="false">`+
+        `<span class="inv-item-name" style="color:${it.color}">${it.name}</span>`+
+        `<span class="inv-item-count">×${s.qty}</span>`+
+        `<span class="inv-item-value">${it.burnValue.toFixed(3)} USDm</span>`;
+    } else {
+      const labelMap={hp:'HP',xp:'XP',celo:'USDm',relic:'RELIC'};
+      row.innerHTML=`<span class="inv-item-name">+${s.amt}${typeof s.amt==='number'&&s.amt<1?'':''} ${labelMap[s.kind]||s.kind.toUpperCase()}</span>`;
     }
+    row.addEventListener('click', ()=>takeContainerSlot(s.slotId));
+    host.appendChild(row);
   }
+}
+function takeContainerSlot(slotId){
+  const decor=G._openContainer; if(!decor) return;
+  const slot=(decor.lootSlots||[]).find(s=>s.slotId===slotId && !s.taken);
+  if(!slot) return;
+  slot.taken=true;
+  if(slot.kind==='item') addItemToStash(slot.item, slot.qty);
+  else applyLoot(slot.kind, slot.amt, decor.x, decor.y-decor.h*0.8);
+  A.pickup();
+  renderContainerSlots();
+  renderStashPanel('containerPlayerItems','containerPlayerEmpty',{readonly:true});
+  updateInventoryPanel();
+}
+function takeAllContainerSlots(){
+  const decor=G._openContainer; if(!decor) return;
+  for(const s of (decor.lootSlots||[])){ if(!s.taken) takeContainerSlot(s.slotId); }
+}
+function closeContainerWindow(){
+  const win=$('containerWindow'); if(win) win.classList.add('hidden');
+  G._openContainer=null;
+  G.paused=false;
 }
 
 // ---- lift menu ----
@@ -619,7 +755,7 @@ function checkFloorClearReward(){
   G.floorClearShown[G.depth]=true;
   G.player.hp=Math.min(G.player.maxHp, G.player.hp+18);
   G.player.celo+=0.01;
-  showBanner('FLOOR SECURED', 'LIFT UNLOCKED · +0.01 CELO');
+  showBanner('FLOOR SECURED', 'LIFT UNLOCKED · +0.01 USDm');
   spark(G.player.x,G.player.y-18,'#00ff88',36,240);
   updateHUD();
 }
@@ -684,7 +820,7 @@ function onEnemyKilled(e){
   const reward=(0.01 + (e.isBoss?0.2:0.01)).toFixed(2);
   p.celo+=parseFloat(reward);
   const ups=p.gainXp(e.xp);
-  log(`${e.arch.name} purged. +${e.xp} XP · +${reward} CELO`, 'reward');
+  log(`${e.arch.name} purged. +${e.xp} XP · +${reward} USDm`, 'reward');
   if(ups>0){ A.levelup(); log(`◆ LEVEL UP → ${p.level}. Max HP & power increased.`,'reward');
     spark(p.x,p.y-20,'#00ff88',30,220); }
   G.combo.count = (G.combo.t>0 ? G.combo.count+1 : 1);
@@ -1411,7 +1547,7 @@ function update(dt){
   if(!G||G.paused||G.over) return;
   G.time+=dt;
   const p=G.player;
-  if(G.ulti.cd>0) G.ulti.cd-=dt;
+  if(G.action.cd>0) G.action.cd-=dt;
   if(G.ultiFlash>0) G.ultiFlash-=dt;
   if(G.combo && G.combo.t>0) G.combo.t-=dt;
   checkRoomDiscovery();
@@ -1448,13 +1584,12 @@ function update(dt){
   p.update(dt, input, G.dun);
   if(p.takeSwingFx()) spark(p.x+p.facing*30, p.y-10, '#eafff5', 8, 100);
   hitTest();
-  // ULTI offer (elite / boss / low-hp) — checked AFTER hitTest() so a
+  // Action button (NULL_STRIKE / OPEN) — recomputed AFTER hitTest() so a
   // killing blow landed this frame is already reflected (e.dead=true)
-  // before we decide whether to pop up the ulti prompt; otherwise a
-  // monster that's about to die from this frame's hit could still get
-  // offered as an ulti target a frame later than it visually died.
-  maybeOfferUlti(nearest, nd);
-  if(G.paused) return;                        // ulti popup opened this frame
+  // before we decide whether the button should show NULL_STRIKE; otherwise
+  // a boss that's about to die from this frame's hit could still flash the
+  // button a frame later than it visually died. Non-blocking — never pauses.
+  updateActionButton(nearest, nd);
   for(const e of G.enemies){
     e.update(dt, p, G.dun);
     if(e.takeSwingFx()) spark(e.x+e.facing*e.r, e.y-e.r*0.4, e.elite?'#ffd166':'#ff8a7a', 10, 90);
@@ -1540,23 +1675,93 @@ function updateInventoryPanel(){
   if(hpText){ hpText.textContent=`${Math.ceil(p.hp)}/${p.maxHp}`; }
   if(xpFill){ xpFill.style.width=(p.xp/p.xpForNext()*100)+'%'; }
   if(xpText){ xpText.textContent=`${p.xp}/${p.xpForNext()}`; }
-  const items=$('invItems'), empty=$('invEmpty');
-  if(!items) return;
+  renderStashPanel('invItems','invEmpty',{readonly:false});
+}
+// Generic stash renderer, reused for both the player's own inventory panel
+// (#invItems, selectable — click an item to queue/unqueue it for burning)
+// and the read-only reference panel inside the container window
+// (#containerPlayerItems, opts.readonly:true — no selection, no burn bar).
+function renderStashPanel(targetId, emptyId, opts){
+  opts=opts||{};
+  const host=$(targetId), empty=emptyId?$(emptyId):null;
+  if(!host || !G) return;
+  host.querySelectorAll('.inv-item').forEach(n=>n.remove());
   const keyCount = G.inventory.keys||0;
   const relicCount = G.inventory.relics||0;
   const shardCount = G.inventory.shards||0;
-  items.querySelectorAll('.inv-item').forEach(n=>n.remove());
-  if(keyCount+relicCount+shardCount<=0){ if(empty) empty.style.display=''; return; }
+  const itemEntries = Object.values(G.inventory.items||{});
+  const anything = keyCount+relicCount+shardCount+itemEntries.length>0;
+  if(!anything){ if(empty) empty.style.display=''; if(!opts.readonly) updateBurnBar(); return; }
   if(empty) empty.style.display='none';
   const addRow=(id,iconSrc,name,count)=>{
     if(count<=0) return;
     const row=document.createElement('div'); row.className='inv-item'; row.dataset.id=id;
     row.innerHTML=`<img class="inv-item-icon" src="${iconSrc}" alt="${name}" draggable="false"><span class="inv-item-name">${name}</span><span class="inv-item-count">×${count}</span>`;
-    items.appendChild(row);
+    host.appendChild(row);
   };
   addRow('goldkey','/sprites/items/golden_key.png','Golden Key',keyCount);
   addRow('relic','/sprites/items/relic.png','Relic',relicCount);
   addRow('shard','/sprites/items/shard.png','Null Shard',shardCount);
+  for(const entry of itemEntries){
+    const it=entry.item;
+    const row=document.createElement('div');
+    row.className='inv-item'; row.dataset.id=it.id;
+    row.style.borderColor=it.color;
+    const queued = !opts.readonly && G.burnQueue.has(it.id);
+    if(queued) row.classList.add('queued');
+    row.innerHTML=`<img class="inv-item-icon" src="${it.icon}" alt="${it.name}" draggable="false">`+
+      `<span class="inv-item-name" style="color:${it.color}">${it.name}</span>`+
+      `<span class="inv-item-count">×${entry.qty}</span>`+
+      `<span class="inv-item-value">${it.burnValue.toFixed(3)}</span>`;
+    if(!opts.readonly){
+      row.addEventListener('click', ()=>toggleBurnQueue(it.id));
+    }
+    host.appendChild(row);
+  }
+  if(!opts.readonly) updateBurnBar();
+}
+function toggleBurnQueue(itemId){
+  if(G.burnQueue.has(itemId)) G.burnQueue.delete(itemId);
+  else G.burnQueue.add(itemId);
+  renderStashPanel('invItems','invEmpty',{readonly:false});
+}
+function updateBurnBar(){
+  const bar=$('burnSummary'), btn=$('burnConfirm');
+  if(!bar || !btn) return;
+  const ids=[...G.burnQueue].filter(id=>G.inventory.items[id]);
+  if(!ids.length){
+    bar.textContent='Select items to send to the weekly burn pool.';
+    btn.disabled=true;
+    return;
+  }
+  let total=0, count=0;
+  for(const id of ids){ const e=G.inventory.items[id]; total+=e.item.burnValue*e.qty; count+=e.qty; }
+  bar.textContent=`${count} item(s) selected · ${(Math.round(total*1000)/1000).toFixed(3)} USDm`;
+  btn.disabled=false;
+}
+// Burn the currently-queued items. Does NOT credit p.celo/p.usdm instantly —
+// burns now feed the weekly reward pool (see NullStateReward.sol /
+// /api/burn/record), so the player's claimable balance only updates once
+// they claim the weekly pool (ClaimWeeklyWidget). This just clears the
+// items from the local stash (optimistic) and reports the burn to the app
+// shell via a CustomEvent that DungeonGameWrapper.tsx listens for.
+function confirmBurn(){
+  if(!G || !G.burnQueue.size) return;
+  const items=[]; let totalValue=0;
+  for(const id of [...G.burnQueue]){
+    const entry=G.inventory.items[id]; if(!entry) continue;
+    items.push({ id, name:entry.item.name, rarity:entry.item.rarity, qty:entry.qty, burnValue:entry.item.burnValue });
+    totalValue += entry.item.burnValue*entry.qty;
+    delete G.inventory.items[id];
+  }
+  G.burnQueue.clear();
+  if(items.length){
+    window.dispatchEvent(new CustomEvent('nullstate-items-burned', {
+      detail: { wallet: WALLET_ADDRESS, items, totalValue: Math.round(totalValue*1000)/1000, timestamp: Date.now() }
+    }));
+    log(`◆ ${items.length} item(s) sent to the weekly burn pool.`, 'reward');
+  }
+  updateInventoryPanel();
 }
 function onInvToggle(){
   const panel=$('invPanel');
@@ -1640,7 +1845,7 @@ function gameOver(){
       `<div class="ds"><b>${G.depth}</b><span>FLOOR REACHED</span></div>`+
       `<div class="ds"><b>${p.level}</b><span>LEVEL</span></div>`+
       `<div class="ds"><b>${p.kills}</b><span>SOULS PURGED</span></div>`+
-      `<div class="ds"><b>${p.celo.toFixed(2)}</b><span>CELO RECLAIMED</span></div>`;
+      `<div class="ds"><b>${p.celo.toFixed(2)}</b><span>USDm RECLAIMED</span></div>`;
     $('death').classList.remove('hidden');
     
     // [v0] Emit custom event with player stats for contract update
@@ -1679,37 +1884,7 @@ function onRevive(){
   }, ()=>{}, 'THE CHAIN PULLS YOU BACK…');
 }
 
-// ---- ulti button handlers ----
-function onUltiSkip(){ closeUlti(); }
-async function onUltiTx(){
-  const t=G&&G.ulti.target; if(!t){ closeUlti(); return; }
-  const btn=$('ultiTx'), status=$('ultiStatus'), note=$('ultiNote');
-  btn.disabled=true;
-  const MAP={connecting:'Connecting wallet…',registering:'Registering Walker on-chain…',
-    signing:'Confirm in your wallet…',pending:'Broadcasting to Celo…',
-    demo:'No wallet connected — demo strike…'};
-  try{
-    const res=await CHAIN.ultiTx({
-      damage: Math.ceil(t.hp*0.92), xp: t.xp, killed:false,
-      onStatus:(s)=>{ status.textContent=MAP[s]||s; }
-    });
-    status.textContent='';
-    applyUltiDamage(t);
-    if(res.demo){
-      note.textContent='⚠ Demo mode — connect a Celo wallet (MiniPay / MetaMask) for a real on-chain strike.';
-    } else {
-      note.innerHTML='✓ Confirmed on Celo'+(res.hash?` · <a href="https://celoscan.io/tx/${res.hash}" target="_blank" rel="noopener" style="color:#7fffce">view tx ↗</a>`:'');
-    }
-    log('⚡ NULL_STRIKE landed — '+(t.name||'foe')+' reels, near death.', 'reward');
-    setTimeout(closeUlti, res.demo?700:1300);
-  }catch(e){
-    status.textContent='';
-    const msg = (e&&e.message==='NO_WALLET') ? 'No wallet detected'
-              : (e&&(e.shortMessage||e.info&&e.info.error&&e.info.error.message||e.message)) || 'Transaction failed';
-    note.textContent='✗ '+msg+' — you can SKIP and keep fighting.';
-    btn.disabled=false;
-  }
-}
+
 
 // ---- title / char select ----
 let selectedChar='knight';
@@ -1871,8 +2046,10 @@ function attach(){
   $('storyNext').addEventListener('click', onStoryNext);
   $('tutorialNext').addEventListener('click', onTutorialNext);
   $('reviveBtn').addEventListener('click', onRevive);
-  $('ultiSkip').addEventListener('click', onUltiSkip);
-  $('ultiTx').addEventListener('click', onUltiTx);
+  $('actionBtn').addEventListener('click', onActionBtnClick);
+  $('containerClose').addEventListener('click', closeContainerWindow);
+  $('containerTakeAll').addEventListener('click', takeAllContainerSlots);
+  $('burnConfirm').addEventListener('click', confirmBurn);
   document.querySelectorAll('.ns-game-root .char-btn').forEach(b=>b.addEventListener('click', onCharBtn));
   $('startBtn').addEventListener('click', onStart);
   $('invBtn').addEventListener('click', onInvToggle);
@@ -1950,6 +2127,7 @@ function mount(opts){
   if(mounted) return;
   mounted = true; destroyed = false; last = 0; G = null;
   CHAIN = opts.chain || { ultiTx: async ()=>({ ok:true, demo:true, hash:null }) };
+  WALLET_ADDRESS = opts.walletAddress || null;
   INITIAL_STATS = opts.initialStats || null;
   SAVED_SESSION = opts.savedSession || null;
   cv = document.getElementById('game');
@@ -1992,7 +2170,13 @@ function getSaveSnapshot(){
     maxDepthReached: G.maxDepthReached,
     xp: p.xp, level: p.level, kills: p.kills, celo: p.celo,
     hp: p.hp,
-    inventory: { keys: G.inventory.keys, relics: G.inventory.relics, shards: G.inventory.shards },
+    inventory: {
+      keys: G.inventory.keys, relics: G.inventory.relics, shards: G.inventory.shards,
+      // Serialize the item stash as {id: qty} — the item's full definition
+      // (name/rarity/icon/burnValue) is deterministic from its id via
+      // NS_ITEMS.getItem(), so only id+qty need to survive a save/restore.
+      items: Object.fromEntries(Object.entries(G.inventory.items||{}).map(([id,e])=>[id,e.qty])),
+    },
     key: { depth: G.key.depth, taken: G.key.taken },
     savedAt: Date.now(),
   };
@@ -2004,7 +2188,11 @@ function setMusicVolume(v){ return A.setMusicVolume(v); }
 function getMusicVolume(){ return A.musicVolume; }
 function toggleSfx(){ return A.toggleSfx(); }
 function isSfxEnabled(){ return A.sfxEnabled; }
+// Called from DungeonGame.tsx whenever wagmi's wallet address changes
+// (connect/disconnect/account switch) after the engine has already mounted,
+// so nullstate-items-burned events always carry the CURRENT address.
+function setWalletAddress(addr){ WALLET_ADDRESS = addr || null; }
 
 return { mount, unmount, isInDungeon, getSaveSnapshot, toggleSound, isSoundMuted,
-         setMusicVolume, getMusicVolume, toggleSfx, isSfxEnabled };
+         setMusicVolume, getMusicVolume, toggleSfx, isSfxEnabled, setWalletAddress };
 })();
