@@ -19,7 +19,7 @@ const DECOR_TYPES = {
   pot:      { hp:1, w:30, h:30, label:'Herb Pot',        loot:[['hp',8,58],['xp',10,26],['none',0,16]] },
   barrel:   { hp:2, w:30, h:40, label:'Old Barrel',      loot:[['xp',18,45],['hp',10,35],['none',0,20]] },
   crate:    { hp:2, w:34, h:34, label:'Supply Crate',    loot:[['xp',22,45],['hp',8,25],['item',1,20],['none',0,10]] },
-  cabinet_s:{ hp:2, w:34, h:46, label:'Scroll Cabinet',  loot:[['hp',14,26],['xp',24,24],['item',2,30],['relic',1,10],['celo',0.01,10]], interactive:true },
+  cabinet_s:{ hp:2, w:34, h:46, label:'Forgotten Archive', loot:[['hp',14,26],['xp',24,24],['item',2,30],['relic',1,10],['celo',0.01,10]], interactive:true },
   wardrobe: { hp:3, w:48, h:64, label:'Rotten Armoire',  loot:[['hp',32,24],['xp',55,24],['item',2,32],['celo',0.01,20]], interactive:true },
   // ---- ancient ornaments: break them for XP, CELO, or rare relics ----
   urn:      { hp:1, w:30, h:44, label:'Burial Urn',      loot:[['xp',20,40],['hp',10,28],['relic',1,12],['none',0,20]] },
