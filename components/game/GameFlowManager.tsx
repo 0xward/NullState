@@ -8,8 +8,9 @@ import DungeonGameWrapper from './DungeonGameWrapper'
 import MainMenu from './MainMenu'
 import UsernameSetup from './UsernameSetup'
 import Leaderboard from './Leaderboard'
+import RewardsScreen from './RewardsScreen'
 
-type GamePhase = 'menu' | 'username-setup' | 'character-select' | 'game' | 'leaderboard'
+type GamePhase = 'menu' | 'username-setup' | 'character-select' | 'game' | 'leaderboard' | 'rewards'
 
 /**
  * GameFlowManager orchestrates the entire NullState game flow:
@@ -99,6 +100,10 @@ export default function GameFlowManager() {
     setError(null)
   }
 
+  const handleRewardsClick = () => {
+    setPhase('rewards')
+  }
+
   // Character classes with descriptions (would come from game config normally)
   const CHARACTER_OPTIONS = [
     {
@@ -134,6 +139,7 @@ export default function GameFlowManager() {
         onContinueGame={handleContinueGame}
         onNewGame={handleNewGame}
         onLeaderboard={handleLeaderboardClick}
+        onRewards={handleRewardsClick}
         playerProfile={playerProfile}
         isLoadingProfile={isLoadingProfile}
       />
@@ -226,6 +232,17 @@ export default function GameFlowManager() {
         onBack={handleBackToMenu}
         isLoading={isLoadingLeaderboard}
         entries={leaderboardEntries}
+      />
+    )
+  }
+
+  // PHASE: REWARDS
+  if (phase === 'rewards') {
+    return (
+      <RewardsScreen
+        onBack={handleBackToMenu}
+        address={address || undefined}
+        playerProfile={playerProfile}
       />
     )
   }
