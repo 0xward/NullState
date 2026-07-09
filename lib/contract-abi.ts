@@ -64,7 +64,22 @@ export const USDM_ABI = [
     outputs: [{ name: '', type: 'uint8' }],
     stateMutability: 'view',
   },
+  {
+    name: 'allowance',
+    type: 'function',
+    inputs: [
+      { name: 'owner', type: 'address' },
+      { name: 'spender', type: 'address' },
+    ],
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+  },
 ] as const
+
+// Mirrors PassSBT.sol's `PASS_PRICE` constant (0.3 USDm, 18 decimals).
+// Kept here (not re-read on-chain) since it's a Solidity `constant` and can
+// never change without a redeploy — same assumption the contract itself makes.
+export const PASS_PRICE_WEI = BigInt('300000000000000000') // 0.3 USDm
 
 // ─── PassSBT ABI ─────────────────────────────────────────────────────────────
 
