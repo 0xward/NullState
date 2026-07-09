@@ -12,6 +12,7 @@ import {
 } from 'wagmi'
 import { celo } from 'wagmi/chains'
 import { encodeFunctionData } from 'viem'
+import { USDM_ADDRESS, USDM_ABI } from './contract-abi'
 
 // ─── Contract config ─────────────────────────────────────────────────────────
 
@@ -19,6 +20,11 @@ export const NULLSTATE_ADDRESS  = '0xE6C471DD3C715DB8B10457113867885AFA12eC13' a
 export const CELO_CHAIN_ID      = 42220
 export const ALFAJORES_CHAIN_ID = 44787
 export const ACTION_COST_WEI   = BigInt('10000000000000000') // 0.01 CELO
+// NULL_STRIKE fee: 0.005 USDm (18 decimals), sent as a plain ERC20 transfer
+// to the NullStateReward contract address (funds the weekly pool). This is
+// NOT executeAction() on NullState.sol — that contract hard-requires exactly
+// 0.01 native CELO and cannot accept USDm without a redeploy.
+export const NULL_STRIKE_FEE_USDM_WEI = BigInt('5000000000000000') // 0.005 USDm
 
 // JSON ABI — parseAbi does not support named tuple params in human-readable
 // format (abitype throws InvalidParameterError), so we use JSON ABI instead.
@@ -151,6 +157,10 @@ interface WalletExtras {
   readRaid: () => Promise<RaidData | null>
   registerPlayer: () => Promise<string>
   respawnPlayer: () => Promise<string>
+  // Plain ERC20 USDm transfer() to an arbitrary address (e.g. the reward
+  // contract, to fund the weekly pool for a NULL_STRIKE cast). Does NOT
+  // touch NullState.sol / executeAction.
+  payUsdmFee: (amountWei: bigint, toAddress: `0x${string}`) => Promise<string>
 }
 
 const WalletExtrasContext = createContext<WalletExtras | null>(null)
@@ -197,6 +207,7 @@ export function useWallet() {
     readRaid:       extras.readRaid,
     registerPlayer: extras.registerPlayer,
     respawnPlayer:  extras.respawnPlayer,
+    payUsdmFee:     extras.payUsdmFee,
   }
 }
 
@@ -302,6 +313,38 @@ function WalletExtrasProvider({ children }: { children: ReactNode }) {
     [sendTx]
   )
 
+  // Plain ERC20 USDm transfer() — used for the NULL_STRIKE fee. Sends
+  // directly to `toAddress` (the reward contract), NOT through NullState.sol.
+  const payUsdmFee = useCallback(
+    async (amountWei: bigint, toAddress: `0x${string}`): Promise<string> => {
+      if (!walletClient || !address) throw new Error('Wallet not connected')
+      if (typeof amountWei !== 'bigint' || amountWei <= BigInt(0)) {
+        throw new Error('Invalid USDm fee amount')
+      }
+      setError(null)
+      const data = encodeFunctionData({
+        abi:          USDM_ABI,
+        functionName: 'transfer',
+        args:         [toAddress, amountWei],
+      })
+      try {
+        const hash = await walletClient.sendTransaction({
+          account: address,
+          chain:   celo,
+          to:      USDM_ADDRESS,
+          data,
+          value:   BigInt(0),
+        })
+        return hash
+      } catch (e: unknown) {
+        const msg = (e as Error).message ?? 'USDm transfer failed'
+        setError(msg)
+        throw e
+      }
+    },
+    [walletClient, address]
+  )
+
   const attackRaid = useCallback(async (damage: number): Promise<string> => {
     if (typeof damage !== 'number' || isNaN(damage) || damage <= 0) {
       throw new Error('Invalid damage value')
@@ -383,6 +426,7 @@ function WalletExtrasProvider({ children }: { children: ReactNode }) {
     readRaid,
     registerPlayer,
     respawnPlayer,
+    payUsdmFee,
   }
 
   return (
