@@ -665,7 +665,20 @@ body::before {
   border-bottom:1px solid rgba(80,65,40,.25);padding-bottom:6px;margin-bottom:10px;}
 .ns-game-root .container-items{min-height:120px;max-height:38vh;overflow-y:auto;touch-action:pan-y;
   grid-template-columns:repeat(5,minmax(0,1fr));}
-.ns-game-root .container-btns{display:flex;gap:14px;justify-content:center;align-items:center;margin-top:20px;flex-wrap:wrap;}
+.ns-game-root .container-btns{display:flex;gap:14px;justify-content:center;align-items:stretch;margin-top:20px;flex-wrap:wrap;}
+/* Inside the container window specifically, the "close" ghost button should
+   read as the same size/weight as "TAKE ALL" (just visually secondary via
+   outline-only styling) rather than the much smaller default .ghost-btn
+   used elsewhere (e.g. the title screen's back/cancel links). Both buttons
+   share flex-basis so they split the row evenly and never overflow the
+   modal width on small screens. */
+.ns-game-root .container-btns .big-btn,
+.ns-game-root .container-btns .ghost-btn{flex:1 1 150px;max-width:220px;margin-top:0;
+  padding:14px 20px;font-size:13px;letter-spacing:3px;border-radius:8px;text-align:center;}
+@media (max-width:420px){
+  .ns-game-root .container-btns .big-btn,
+  .ns-game-root .container-btns .ghost-btn{flex:1 1 100%;max-width:none;}
+}
 @media (orientation:portrait){
   .ns-game-root .container-panels{grid-template-columns:1fr;}
   .ns-game-root .container-inner{padding:20px 14px;}
