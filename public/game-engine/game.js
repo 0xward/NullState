@@ -544,11 +544,19 @@ function tryInteract(){
 // ---- shared grid helpers ----
 // All three item grids (#invItems, #containerItems/LOOT, #containerPlayerItems/
 // YOUR INVENTORY) are laid out as a fixed 5-column CSS grid (see .inv-items /
-// .container-items in globals.css). Padding every grid out to a full 5x5
-// (25 slots) with empty placeholder cells — instead of only rendering rows
-// for populated slots — keeps the grid shape constant whether it holds 1
-// item or 20, matching the reference "always show the grid" screenshots.
+// .container-items in globals.css). Padding every grid out to a fixed slot
+// count with empty placeholder cells — instead of only rendering rows for
+// populated slots — keeps the grid shape constant no matter how many items
+// it holds.
+// The container window (LOOT + YOUR INVENTORY, opened from a breakable/
+// chest prop) is a centered modal with limited vertical room, so it's
+// padded to 5x3 (15 slots) — a full 5x5 (25) made the modal taller than the
+// viewport and forced the whole page to scroll just to reach TAKE ALL/close.
+// The standalone inventory panel (#invItems, opened via the top-right inv
+// button) has its own internal scroll area sized for the full screen, so it
+// keeps the larger 5x5 (25) grid.
 const GRID_SLOT_COUNT = 25;
+const CONTAINER_GRID_SLOT_COUNT = 15;
 function fillGridPlaceholders(host, count){
   for(let i=0;i<count;i++){
     const cell=document.createElement('div');
@@ -564,7 +572,7 @@ function openContainerWindow(decor){
   G.paused = true;
   const title=$('containerTitle'); if(title) title.textContent=(decor.def.label||'CONTAINER').toUpperCase();
   renderContainerSlots();
-  renderStashPanel('containerPlayerItems','containerPlayerEmpty',{readonly:true});
+  renderStashPanel('containerPlayerItems','containerPlayerEmpty',{readonly:true, gridSlots:CONTAINER_GRID_SLOT_COUNT});
   win.classList.remove('hidden');
 }
 // Non-item loot kinds that DO have a real sprite/icon representation (same
@@ -580,11 +588,11 @@ function renderContainerSlots(){
   host.innerHTML='';
   const slots=(decor.lootSlots||[]).filter(s=>!s.taken);
   // As with renderStashPanel(), the grid itself (now always padded to a
-  // fixed 5x5) visually communicates "nothing here" via empty placeholder
+  // fixed 5x3) visually communicates "nothing here" via empty placeholder
   // cells, so the old "Empty." text is kept hidden rather than shown
   // alongside/instead of the grid.
   if(empty) empty.style.display='none';
-  if(!slots.length){ fillGridPlaceholders(host,GRID_SLOT_COUNT); return; }
+  if(!slots.length){ fillGridPlaceholders(host,CONTAINER_GRID_SLOT_COUNT); return; }
   for(const s of slots){
     const row=document.createElement('div');
     row.className='inv-item container-slot';
@@ -612,7 +620,7 @@ function renderContainerSlots(){
     }
     host.appendChild(row);
   }
-  fillGridPlaceholders(host,Math.max(0,GRID_SLOT_COUNT-slots.length));
+  fillGridPlaceholders(host,Math.max(0,CONTAINER_GRID_SLOT_COUNT-slots.length));
 }
 function takeContainerSlot(slotId){
   const decor=G._openContainer; if(!decor) return;
@@ -623,7 +631,7 @@ function takeContainerSlot(slotId){
   else applyLoot(slot.kind, slot.amt, decor.x, decor.y-decor.h*0.8);
   A.pickup();
   renderContainerSlots();
-  renderStashPanel('containerPlayerItems','containerPlayerEmpty',{readonly:true});
+  renderStashPanel('containerPlayerItems','containerPlayerEmpty',{readonly:true, gridSlots:CONTAINER_GRID_SLOT_COUNT});
   updateInventoryPanel();
 }
 function takeAllContainerSlots(){
@@ -1799,7 +1807,7 @@ function renderStashPanel(targetId, emptyId, opts){
     host.appendChild(row);
     rowCount++;
   }
-  fillGridPlaceholders(host, Math.max(0, GRID_SLOT_COUNT-rowCount));
+  fillGridPlaceholders(host, Math.max(0, (opts.gridSlots||GRID_SLOT_COUNT)-rowCount));
   if(!opts.readonly) updateBurnBar();
 }
 function toggleBurnQueue(itemId){
