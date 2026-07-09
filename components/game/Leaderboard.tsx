@@ -43,6 +43,21 @@ export default function Leaderboard({
           ? 'text-[#cd7f32]'
           : 'text-null-muted'
 
+  // Bonus badge for the top 3 — a medal emoji shown next to the rank
+  // number, plus a subtle tinted row background so the podium stands out
+  // at a glance while scrolling a long list.
+  const rankMedal = (rank: number) =>
+    rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : null
+
+  const rankRowBg = (rank: number) =>
+    rank === 1
+      ? 'bg-[rgba(255,215,0,0.06)]'
+      : rank === 2
+        ? 'bg-[rgba(192,192,192,0.06)]'
+        : rank === 3
+          ? 'bg-[rgba(205,127,50,0.06)]'
+          : ''
+
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-[rgba(0,0,0,0.95)] p-4 sm:p-6 overflow-y-auto">
       {/* Glow orb */}
@@ -121,11 +136,15 @@ export default function Leaderboard({
             {visibleEntries.map((entry) => (
               <div
                 key={entry.walletAddress}
-                className="grid items-center border-b border-[rgba(0,255,136,0.1)] py-2.5 sm:py-3 px-1 sm:px-2 text-xs sm:text-sm hover:bg-[rgba(0,255,136,0.05)] transition-colors"
+                className={`grid items-center border-b border-[rgba(0,255,136,0.1)] py-2.5 sm:py-3 px-1 sm:px-2 text-xs sm:text-sm hover:bg-[rgba(0,255,136,0.05)] transition-colors ${rankRowBg(entry.rank)}`}
                 style={{ gridTemplateColumns: '32px 1fr 34px 56px 40px' }}
               >
-                <span className={`font-bold ${rankColor(entry.rank)}`}>
-                  #{entry.rank}
+                <span className={`font-bold ${rankColor(entry.rank)} flex items-center gap-0.5`}>
+                  {rankMedal(entry.rank) ? (
+                    <span aria-hidden="true">{rankMedal(entry.rank)}</span>
+                  ) : (
+                    `#${entry.rank}`
+                  )}
                 </span>
                 <span className="text-null-acid font-bold truncate pr-1">
                   {entry.username}
