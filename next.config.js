@@ -8,6 +8,16 @@ const nextConfig = {
   images: {
     domains: ['pbs.twimg.com', 'abs.twimg.com'],
   },
+  // Safety net: force firebase-admin (and anything it pulls in, e.g.
+  // jwks-rsa/jose if Admin Auth is ever re-introduced) to be required()
+  // at runtime from node_modules instead of webpack-bundled. This avoids
+  // ERR_REQUIRE_ESM crashes from ESM-only deps getting bundled into a
+  // CJS serverless function. NOTE: this is Next 14 syntax
+  // (experimental.serverComponentsExternalPackages) — Next 15 renamed
+  // this to a stable top-level `serverExternalPackages` key.
+  experimental: {
+    serverComponentsExternalPackages: ['firebase-admin'],
+  },
   // NOTE: GROQ_API_KEY and TWITTER_* are server-only — never expose to client.
   // Access them via process.env inside API routes only.
   // Only NEXT_PUBLIC_* vars are exposed to the browser.
