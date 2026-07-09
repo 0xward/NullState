@@ -8,15 +8,63 @@
  */
 
 // ─── Contract Addresses ───────────────────────────────────────────────────────
+// Live & verified on Celo Mainnet. Env vars still override if set, but these
+// hardcoded values act as the source of truth so the app never silently falls
+// back to '0x'.
 
-export const PASS_SBT_ADDRESS =
-  (process.env.NEXT_PUBLIC_PASS_SBT_CONTRACT_ADDRESS as `0x${string}`) ?? '0x'
+export const PASS_SBT_ADDRESS = (process.env
+  .NEXT_PUBLIC_PASS_SBT_CONTRACT_ADDRESS ||
+  '0x5235ffBb4C02fCabf29b76Aa0011DA3E1eD96f0e') as `0x${string}`
 
-export const REWARD_CONTRACT_ADDRESS =
-  (process.env.NEXT_PUBLIC_REWARD_CONTRACT_ADDRESS as `0x${string}`) ?? '0x'
+export const REWARD_CONTRACT_ADDRESS = (process.env
+  .NEXT_PUBLIC_REWARD_CONTRACT_ADDRESS ||
+  '0x5AAd65B25F004fa953Bc3Cd9f6Bf7D04FDd5cAaC') as `0x${string}`
 
-export const TREASURE_VAULT_ADDRESS =
-  (process.env.NEXT_PUBLIC_TREASURE_VAULT_ADDRESS as `0x${string}`) ?? '0x'
+export const TREASURE_VAULT_ADDRESS = (process.env
+  .NEXT_PUBLIC_TREASURE_VAULT_ADDRESS ||
+  '0x81ba7b08fd4E618b00025d7Ec37C1a7B47e14FA9') as `0x${string}`
+
+// USDm (Mento Dollar, migrated from cUSD) — used for NULL_STRIKE fee & burn
+// rewards. Standard 18-decimal ERC20.
+export const USDM_ADDRESS = (process.env.NEXT_PUBLIC_USDM_ADDRESS ||
+  '0x765DE816845861e75A25fCA122bb6898B8B1282a') as `0x${string}`
+
+export const USDM_ABI = [
+  {
+    name: 'transfer',
+    type: 'function',
+    inputs: [
+      { name: 'to', type: 'address' },
+      { name: 'amount', type: 'uint256' },
+    ],
+    outputs: [{ name: '', type: 'bool' }],
+    stateMutability: 'nonpayable',
+  },
+  {
+    name: 'approve',
+    type: 'function',
+    inputs: [
+      { name: 'spender', type: 'address' },
+      { name: 'amount', type: 'uint256' },
+    ],
+    outputs: [{ name: '', type: 'bool' }],
+    stateMutability: 'nonpayable',
+  },
+  {
+    name: 'balanceOf',
+    type: 'function',
+    inputs: [{ name: 'account', type: 'address' }],
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    name: 'decimals',
+    type: 'function',
+    inputs: [],
+    outputs: [{ name: '', type: 'uint8' }],
+    stateMutability: 'view',
+  },
+] as const
 
 // ─── PassSBT ABI ─────────────────────────────────────────────────────────────
 
