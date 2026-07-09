@@ -18,20 +18,20 @@ const DECOR_TYPES = {
   vase:     { hp:1, w:24, h:38, label:'Glazed Vase',     loot:[['hp',6,50],['xp',12,32],['relic',1,4],['none',0,14]] },
   pot:      { hp:1, w:30, h:30, label:'Herb Pot',        loot:[['hp',8,58],['xp',10,26],['none',0,16]] },
   barrel:   { hp:2, w:30, h:40, label:'Old Barrel',      loot:[['xp',18,45],['hp',10,35],['none',0,20]] },
-  crate:    { hp:2, w:34, h:34, label:'Supply Crate',    loot:[['xp',22,55],['hp',8,30],['none',0,15]] },
-  cabinet_s:{ hp:2, w:34, h:46, label:'Scroll Cabinet',  loot:[['hp',14,42],['xp',24,38],['celo',0.01,14],['relic',1,6]] },
-  wardrobe: { hp:3, w:48, h:64, label:'Rotten Armoire',  loot:[['hp',32,40],['xp',55,40],['celo',0.01,20]] },
+  crate:    { hp:2, w:34, h:34, label:'Supply Crate',    loot:[['xp',22,45],['hp',8,25],['item',1,20],['none',0,10]] },
+  cabinet_s:{ hp:2, w:34, h:46, label:'Scroll Cabinet',  loot:[['hp',14,26],['xp',24,24],['item',2,30],['relic',1,10],['celo',0.01,10]], interactive:true },
+  wardrobe: { hp:3, w:48, h:64, label:'Rotten Armoire',  loot:[['hp',32,24],['xp',55,24],['item',2,32],['celo',0.01,20]], interactive:true },
   // ---- ancient ornaments: break them for XP, CELO, or rare relics ----
   urn:      { hp:1, w:30, h:44, label:'Burial Urn',      loot:[['xp',20,40],['hp',10,28],['relic',1,12],['none',0,20]] },
   column:   { hp:3, w:34, h:60, label:'Cracked Column',  loot:[['xp',26,50],['hp',12,26],['relic',1,8],['none',0,16]] },
   brazier:  { hp:2, w:30, h:40, label:'Bronze Brazier',  loot:[['xp',24,48],['hp',10,30],['celo',0.01,10],['none',0,12]] },
   bones:    { hp:1, w:36, h:18, label:'Bone Pile',       loot:[['xp',10,45],['hp',6,25],['relic',1,5],['none',0,25]] },
   rubble:   { hp:1, w:36, h:20, label:'Fallen Stones',   loot:[['xp',10,45],['hp',6,20],['none',0,35]] },
-  crystal:  { hp:2, w:26, h:40, label:'Cave Crystal',    loot:[['celo',0.01,35],['relic',1,20],['xp',30,30],['none',0,15]] },
-  tablet:   { hp:2, w:36, h:48, label:'Engraved Tablet', loot:[['relic',1,40],['xp',40,35],['celo',0.01,25]] },
-  statue:   { hp:3, w:36, h:62, label:'Weathered Idol',  loot:[['relic',1,45],['celo',0.02,25],['xp',50,30]] },
-  // ---- interactive containers: opened via interact (E), not combat ----
-  chest:    { hp:2, w:42, h:34, label:'Lost Cache',      loot:[['celo',0.01,40],['relic',1,20],['xp',60,25],['hp',30,15]], interactive:true },
+  crystal:  { hp:2, w:26, h:40, label:'Cave Crystal',    loot:[['celo',0.01,25],['relic',1,20],['item',2,20],['xp',30,20],['none',0,15]] },
+  tablet:   { hp:2, w:36, h:48, label:'Engraved Tablet', loot:[['relic',1,30],['item',3,25],['xp',40,25],['celo',0.01,20]] },
+  statue:   { hp:3, w:36, h:62, label:'Weathered Idol',  loot:[['relic',1,30],['item',3,30],['celo',0.02,20],['xp',50,20]] },
+  // ---- interactive containers: opened via interact/OPEN button, not combat ----
+  chest:    { hp:2, w:42, h:34, label:'Lost Cache',      loot:[['celo',0.01,25],['relic',1,15],['item',3,35],['xp',60,15],['hp',30,10]], interactive:true },
 };
 
 function rollLoot(table){
@@ -62,12 +62,38 @@ class Decor {
     if(this.hp<=0){ this.broken=true; this.brokenT=0.45; return true; }
     return false;
   }
-  // Open an interactive container (called from tryInteract).
+  // Open an interactive container (called from tryInteract / OPEN button).
   // Returns true if this interaction consumed the container (first open).
   open(){
     if(!this.interactive || this.opened) return false;
     this.opened=true; this.openT=0.6;
+    this.rollLootSlots();
     return true;
+  }
+  // Generate (once) 2-4 loot slots for the dual-panel container window.
+  // Each slot resolves 'item' draws into a concrete NS_ITEMS entry so the
+  // window can show a real name/icon/rarity/burn-value preview immediately,
+  // while non-item draws (hp/xp/celo/relic) stay as simple amount pickups.
+  rollLootSlots(){
+    if(this.lootSlots) return this.lootSlots;
+    const table=this.def.loot||[];
+    const n=2+Math.floor(Math.random()*3); // 2-4 slots
+    const slots=[];
+    for(let i=0;i<n;i++){
+      const draw=rollLoot(table);
+      if(draw.kind==='none') continue;
+      if(draw.kind==='item'){
+        const tier=draw.amt||1;
+        const it=(window.NS_ITEMS && window.NS_ITEMS.rollItemDrop(tier))||null;
+        if(!it) continue;
+        const qty=(it.rarity==='common'||it.rarity==='uncommon')?(1+Math.floor(Math.random()*3)):1;
+        slots.push({slotId:'s'+i, kind:'item', item:it, qty, taken:false});
+      } else {
+        slots.push({slotId:'s'+i, kind:draw.kind, amt:draw.amt, taken:false});
+      }
+    }
+    this.lootSlots=slots;
+    return slots;
   }
   update(dt){
     if(this.hitFlash>0) this.hitFlash-=dt;
