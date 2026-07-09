@@ -34,6 +34,8 @@ interface RawBurnItem {
   rarity?: string
   qty?: number
   burnValue?: number
+  icon?: string
+  color?: string
 }
 
 function clampItemValue(v: unknown): number {
@@ -77,12 +79,25 @@ export async function POST(req: NextRequest) {
     const validatedItems = rawItems.map(it => {
       const qty = typeof it.qty === 'number' && it.qty > 0 ? Math.floor(it.qty) : 1
       const unitValue = clampItemValue(it.burnValue)
+      // icon/color are display-only decoration for the Rewards screen's burn
+      // history (components/game/RewardsScreen.tsx) — only accept values
+      // that already match how game.js generates them (a same-origin sprite
+      // path, a short CSS color token), never an arbitrary attacker-supplied
+      // URL/string, even though React itself already escapes both safely.
+      const icon =
+        typeof it.icon === 'string' && /^\/sprites\/items\/[\w./-]+\.png$/.test(it.icon)
+          ? it.icon
+          : undefined
+      const color =
+        typeof it.color === 'string' && /^#[0-9a-fA-F]{3,8}$/.test(it.color) ? it.color : undefined
       return {
         id: it.id !== undefined ? String(it.id) : 'unknown',
         name: typeof it.name === 'string' && it.name ? it.name : 'Unknown Item',
         rarity: typeof it.rarity === 'string' ? it.rarity : undefined,
         qty,
         burnValue: unitValue,
+        icon,
+        color,
       }
     })
 
