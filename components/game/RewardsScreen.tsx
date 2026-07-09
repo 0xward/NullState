@@ -1,7 +1,30 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useCallback } from 'react'
 import { PlayerProfile } from '@/lib/contract'
+import { usePassSBT, SeasonInfo } from '@/hooks/usePassSBT'
+import SeasonPassCard from './SeasonPassCard'
+
+// 6 seasons, one per month, July-December 2026. Season id format is
+// YYYYMM per PassSBT.sol (e.g. 202607 = July 2026).
+const SEASON_IDS: bigint[] = [
+  BigInt(202607),
+  BigInt(202608),
+  BigInt(202609),
+  BigInt(202610),
+  BigInt(202611),
+  BigInt(202612),
+]
+
+function currentSeasonId(): bigint {
+  const now = new Date()
+  const ymNow = BigInt(now.getUTCFullYear() * 100 + (now.getUTCMonth() + 1))
+  // Clamp to the pass program's actual range so testing outside Jul-Dec
+  // 2026 doesn't leave zero cards marked active.
+  if (ymNow < SEASON_IDS[0]) return SEASON_IDS[0]
+  if (ymNow > SEASON_IDS[SEASON_IDS.length - 1]) return SEASON_IDS[SEASON_IDS.length - 1]
+  return ymNow
+}
 
 interface BurnItem {
   id: string
@@ -101,6 +124,52 @@ export default function RewardsScreen({ onBack, address, playerProfile }: Reward
   const unburnedTotal = useMemo(
     () => stash.reduce((sum, it) => sum + it.burnValue * it.qty, 0),
     [stash]
+  )
+
+  // ── Season Pass ────────────────────────────────────────────────────────────
+  const passSBT = usePassSBT(address)
+  const activeSeasonId = useMemo(() => currentSeasonId(), [])
+  const [seasonInfos, setSeasonInfos] = useState<Record<string, SeasonInfo | null>>({})
+  const [mintError, setMintError] = useState<string | null>(null)
+  const [mintingSeasonId, setMintingSeasonId] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    const loadAll = async () => {
+      const results = await Promise.all(SEASON_IDS.map((id) => passSBT.getSeasonInfo(id)))
+      if (cancelled) return
+      const next: Record<string, SeasonInfo | null> = {}
+      SEASON_IDS.forEach((id, i) => {
+        next[id.toString()] = results[i]
+      })
+      setSeasonInfos(next)
+    }
+    loadAll()
+    return () => {
+      cancelled = true
+    }
+    // Only re-run when the pass status itself changes (e.g. right after a
+    // mint), not on every getSeasonInfo identity change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [address, passSBT.hasPass])
+
+  const handleMintSeason = useCallback(
+    async (seasonId: bigint) => {
+      if (!address) return
+      setMintError(null)
+      setMintingSeasonId(seasonId.toString())
+      try {
+        await passSBT.mintPaidPassWithApproval(seasonId)
+        // Refresh this season's minted count after a successful mint.
+        const refreshed = await passSBT.getSeasonInfo(seasonId)
+        setSeasonInfos((prev) => ({ ...prev, [seasonId.toString()]: refreshed }))
+      } catch (err) {
+        setMintError(err instanceof Error ? err.message : 'Gagal mint Season Pass')
+      } finally {
+        setMintingSeasonId(null)
+      }
+    },
+    [address, passSBT]
   )
 
   const burns = data?.burns ?? []
@@ -254,6 +323,48 @@ export default function RewardsScreen({ onBack, address, playerProfile }: Reward
             )}
           </div>
         )}
+
+        {/* Season Pass */}
+        <div className="mt-10">
+          <div className="font-mono text-[10px] tracking-[2px] text-null-acid uppercase mb-3">
+            // Season Pass
+          </div>
+
+          {mintError && (
+            <div className="mb-3 rounded border border-[rgba(255,34,68,0.35)] bg-[rgba(255,34,68,0.08)] p-3 text-xs text-null-red font-mono break-words">
+              {mintError}
+            </div>
+          )}
+
+          <div
+            className="flex gap-3 overflow-x-auto pb-2"
+            style={{ scrollSnapType: 'x mandatory' }}
+          >
+            {SEASON_IDS.map((seasonId, idx) => {
+              const seasonNumber = idx + 1
+              const isActive = seasonId === activeSeasonId
+              const info = seasonInfos[seasonId.toString()] ?? null
+              const phase = isActive && mintingSeasonId === seasonId.toString()
+                ? passSBT.mintTxPhase
+                : 'idle'
+
+              return (
+                <SeasonPassCard
+                  key={seasonId.toString()}
+                  seasonNumber={seasonNumber}
+                  seasonId={seasonId}
+                  imageSrc={`/Season_${seasonNumber}.png`}
+                  isActive={isActive}
+                  info={info}
+                  hasPass={passSBT.hasPass}
+                  isConnected={!!address}
+                  mintPhase={phase}
+                  onMint={() => handleMintSeason(seasonId)}
+                />
+              )
+            })}
+          </div>
+        </div>
       </div>
     </div>
   )
