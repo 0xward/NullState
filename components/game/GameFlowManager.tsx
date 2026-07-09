@@ -9,8 +9,9 @@ import MainMenu from './MainMenu'
 import UsernameSetup from './UsernameSetup'
 import Leaderboard from './Leaderboard'
 import RewardsScreen from './RewardsScreen'
+import SeasonPassScreen from './SeasonPassScreen'
 
-type GamePhase = 'menu' | 'username-setup' | 'character-select' | 'game' | 'leaderboard' | 'rewards'
+type GamePhase = 'menu' | 'username-setup' | 'character-select' | 'game' | 'leaderboard' | 'rewards' | 'season-pass'
 
 /**
  * GameFlowManager orchestrates the entire NullState game flow:
@@ -104,6 +105,10 @@ export default function GameFlowManager() {
     setPhase('rewards')
   }
 
+  const handleMintPassClick = () => {
+    setPhase('season-pass')
+  }
+
   // Character classes with descriptions (would come from game config normally)
   const CHARACTER_OPTIONS = [
     {
@@ -140,6 +145,7 @@ export default function GameFlowManager() {
         onNewGame={handleNewGame}
         onLeaderboard={handleLeaderboardClick}
         onRewards={handleRewardsClick}
+        onMintPass={handleMintPassClick}
         playerProfile={playerProfile}
         isLoadingProfile={isLoadingProfile}
       />
@@ -243,6 +249,16 @@ export default function GameFlowManager() {
         onBack={handleBackToMenu}
         address={address || undefined}
         playerProfile={playerProfile}
+      />
+    )
+  }
+
+  // PHASE: SEASON PASS
+  if (phase === 'season-pass') {
+    return (
+      <SeasonPassScreen
+        onBack={handleBackToMenu}
+        address={address || undefined}
       />
     )
   }
