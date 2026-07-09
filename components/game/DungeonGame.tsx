@@ -3,12 +3,14 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { usePublicClient } from 'wagmi'
-import { useWallet, CELO_CHAIN_ID } from '@/lib/WalletProvider'
+import { useWallet, CELO_CHAIN_ID, NULL_STRIKE_FEE_USDM_WEI } from '@/lib/WalletProvider'
+import { REWARD_CONTRACT_ADDRESS } from '@/lib/contract-abi'
 import { PlayerProfile } from '@/lib/contract'
 import { loadGameSession, saveGameSession, clearGameSession } from '@/lib/gameSessionService'
 import { recordRunKills } from '@/lib/leaderboardService'
 import SettingsModal from './SettingsModal'
 import SaveConfirmModal from './SaveConfirmModal'
+import ClaimWeeklyWidget from './ClaimWeeklyWidget'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DungeonGame — real-time canvas dungeon crawler (NULL_STATE // THE FORSAKEN
@@ -68,7 +70,6 @@ function loadEngine(): Promise<void> {
   return enginePromise
 }
 
-const clampU32 = (n: number) => Math.max(0, Math.min(4294967295, Math.round(n || 0)))
 const wait = (ms: number) => new Promise(r => setTimeout(r, ms))
 const isNoWallet = (e: any) => {
   const m = (e?.message || e?.shortMessage || '').toString().toLowerCase()
@@ -174,6 +175,14 @@ export default function DungeonGame({ playerProfile, setPlayerUsername }: Dungeo
   walletRef.current = wallet
   clientRef.current = publicClient
 
+  // Keep the engine's WALLET_ADDRESS in sync so the 'nullstate-items-burned'
+  // event always carries the correct address, even if the wallet connects
+  // (or switches accounts) after the engine has already mounted.
+  useEffect(() => {
+    const NSG = (window as any).NullStateGame
+    NSG?.setWalletAddress?.(wallet.address ?? null)
+  }, [wallet.address])
+
   useEffect(() => {
     let cancelled = false
 
@@ -189,25 +198,16 @@ export default function DungeonGame({ playerProfile, setPlayerUsername }: Dungeo
     }
 
     // The chain bridge handed to the engine. Mirrors the original
-    // NS_CHAIN.ultiTx({ damage, xp, killed, onStatus }) -> { ok, demo, hash }.
+    // NS_CHAIN.ultiTx({ onStatus }) -> { ok, demo, hash }. NULL_STRIKE is now
+    // a flat 0.005 USDm ERC20 transfer to the reward contract (funds the
+    // weekly pool) instead of an on-chain executeAction — see
+    // NULL_STRIKE_FEE_USDM_WEI / payUsdmFee in WalletProvider.tsx.
     const chain = {
-      async ultiTx({
-        damage,
-        xp,
-        killed,
-        onStatus,
-      }: {
-        damage: number
-        xp: number
-        killed: boolean
-        onStatus?: (s: string) => void
-      }) {
+      async ultiTx({ onStatus }: { onStatus?: (s: string) => void }) {
         try {
-          // 1) Ensure wallet connected
           if (!walletRef.current.isConnected) {
             onStatus?.('connecting')
             await walletRef.current.connect()
-            // poll for connection (wagmi updates state across renders)
             let waited = 0
             while (!walletRef.current.isConnected && waited < 30000) {
               await wait(400)
@@ -218,30 +218,11 @@ export default function DungeonGame({ playerProfile, setPlayerUsername }: Dungeo
             }
           }
 
-          // 2) Ensure the Walker is registered on-chain
-          onStatus?.('registering')
-          try {
-            const player = await walletRef.current.readPlayer()
-            if (!player || !player.exists) {
-              const regHash = await walletRef.current.registerPlayer()
-              await waitForTx(regHash)
-            }
-          } catch {
-            /* registration read failed — attempt the action anyway */
-          }
-
-          // 3) Sign the NULL_STRIKE (executeAction, 0.01 CELO fee handled in provider)
           onStatus?.('signing')
-          const hash = await walletRef.current.executeAction({
-            actionType: 1,
-            // NullState.sol requires damageDealt <= 150 and xpGained <= 200 —
-            // clamp so a high-HP boss NULL_STRIKE can never revert on-chain.
-            damageDealt: Math.min(150, clampU32(damage)),
-            damageReceived: 0,
-            xpGained: Math.min(200, Math.max(0, Math.round(xp || 0))),
-            enemyKilled: !!killed,
-          })
-
+          const hash = await walletRef.current.payUsdmFee(
+            NULL_STRIKE_FEE_USDM_WEI,
+            REWARD_CONTRACT_ADDRESS
+          )
           onStatus?.('pending')
           await waitForTx(hash)
           return { ok: true, demo: false, hash }
@@ -302,6 +283,7 @@ export default function DungeonGame({ playerProfile, setPlayerUsername }: Dungeo
             : null,
           savedSession,
         })
+        NSG.setWalletAddress?.(walletRef.current.address ?? null)
         setSoundMuted(!!NSG.isSoundMuted?.())
         // Engine's audio module already defaults musicVolume to 0.75 and sfx
         // to enabled, so just read them back to keep React state in sync
@@ -372,6 +354,10 @@ export default function DungeonGame({ playerProfile, setPlayerUsername }: Dungeo
         >
           ◂ EXIT
         </button>
+
+        {/* Compact weekly-claim overlay — only renders once there's
+            something claimable for the connected wallet. */}
+        <ClaimWeeklyWidget walletAddress={wallet.address} />
 
         {/* HUD */}
         <div id="hud" className="hidden">
@@ -451,6 +437,8 @@ export default function DungeonGame({ playerProfile, setPlayerUsername }: Dungeo
             <div id="invItems" className="inv-items">
               <div className="inv-empty" id="invEmpty">No items yet — explore the depths.</div>
             </div>
+            <div id="burnSummary" className="burn-summary" />
+            <button id="burnConfirm" className="big-btn burn-confirm" disabled>BURN SELECTED</button>
           </div>
 
           <div id="touchControls" className="touch hidden">
@@ -553,19 +541,33 @@ export default function DungeonGame({ playerProfile, setPlayerUsername }: Dungeo
           </div>
         </div>
 
-        {/* Ultimate / on-chain strike popup */}
-        <div id="ulti" className="overlay hidden">
-          <div className="ulti-inner">
-            <div className="ulti-tag">⚡ NULL_STRIKE AVAILABLE</div>
-            <div className="ulti-target" id="ultiTarget">ELITE</div>
-            <p className="ulti-desc" id="ultiDesc">Sign an on-chain strike to channel the chain&apos;s wrath — devastating damage that leaves your foe near death.</p>
-            <div className="ulti-fee">FEE <b>0.01 CELO</b> · Celo Mainnet</div>
-            <div className="ulti-status" id="ultiStatus" />
-            <div className="ulti-btns">
-              <button id="ultiTx" className="big-btn">⚡ SIGN TX</button>
-              <button id="ultiSkip" className="ghost-btn">SKIP ▾</button>
+        {/* Context-sensitive action button — shows "⚡ NULL_STRIKE" near a
+            boss in range, or "▤ OPEN" near a clear-room container. Driven
+            every frame by updateActionButton() in game.js. */}
+        <button id="actionBtn" className="action-btn hidden" />
+
+        {/* Dual-panel container window (loot on the left, your stash on
+            the right — mirrors renderContainerSlots()/renderStashPanel()
+            in game.js). */}
+        <div id="containerWindow" className="overlay hidden">
+          <div className="container-inner">
+            <div id="containerTitle" className="container-title" />
+            <div className="container-panels">
+              <div>
+                <div className="container-panel-label">LOOT</div>
+                <div id="containerItems" className="inv-items container-items" />
+                <div id="containerEmpty" className="inv-empty">Empty.</div>
+              </div>
+              <div>
+                <div className="container-panel-label">YOUR STASH</div>
+                <div id="containerPlayerItems" className="inv-items container-items" />
+                <div id="containerPlayerEmpty" className="inv-empty">No items yet.</div>
+              </div>
             </div>
-            <div className="ulti-note" id="ultiNote" />
+            <div className="container-btns">
+              <button id="containerTakeAll" className="big-btn">TAKE ALL</button>
+              <button id="containerClose" className="ghost-btn">▾ close</button>
+            </div>
           </div>
         </div>
 
