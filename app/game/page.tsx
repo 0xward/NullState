@@ -1,20 +1,19 @@
 import type { Metadata } from 'next'
 import GameFlowManager from '@/components/game/GameFlowManager'
-import GameDashboard from '@/components/game/GameDashboard'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
 export const metadata: Metadata = {
-  title: 'NullState Game Dashboard',
-  description: 'Vault quests, leaderboard rankings, profile inventory, and reward claims for NullState.',
+  title: 'NullState // Play',
+  description: 'Continue your run, start a new game, check the leaderboard, or review your rewards in NullState.',
 }
 
-export default function GamePage({
-  searchParams,
-}: {
-  searchParams?: { mode?: string }
-}) {
-  if (searchParams?.mode === 'play') return <GameFlowManager />
-  return <GameDashboard />
+// /game always drops straight into the in-game MainMenu (Continue / New
+// Game / Leaderboard / Rewards) — there is no separate "dashboard" landing
+// step anymore. The old GameDashboard (Player Profile / Vault Quest / Season
+// Leaderboard cards) is still in the codebase but is no longer routed to by
+// default; nothing links to it any more.
+export default function GamePage() {
+  return <GameFlowManager />
 }
