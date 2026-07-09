@@ -68,7 +68,7 @@ export default function SeasonPassCard({
             Season {seasonNumber}
           </div>
           <div className="text-null-white/70 text-xs mb-3">
-            {notAnnounced ? 'Belum diumumkan' : 'Belum dimulai'}
+            {notAnnounced ? 'Not announced yet' : 'Not started yet'}
           </div>
           <button
             disabled
@@ -87,21 +87,25 @@ export default function SeasonPassCard({
   const supply = info?.supply ?? BigInt(0)
   const days = info ? daysRemaining(info.endDate) : null
 
+  // NOTE: `endDate` is purely informational here. PassSBT.sol's mintPaidPass()
+  // / mintFreePass() never check seasonEndDate — only seasonStartDate != 0,
+  // seasonMinted < seasonSupply, and userPassSeason == 0. So an elapsed
+  // countdown must NOT disable the mint button; it only changes the status
+  // text shown to the player.
   let statusLine: string
   if (!info) {
     statusLine = '// fetching season data…'
   } else if (days === null) {
-    statusLine = 'Belum diumumkan'
+    statusLine = 'Not announced yet'
   } else if (days < 0) {
-    statusLine = 'Season berakhir'
+    statusLine = 'Season ended'
   } else if (days === 0) {
-    statusLine = 'Berakhir hari ini'
+    statusLine = 'Ends today'
   } else {
-    statusLine = `${days} hari lagi`
+    statusLine = `${days} day${days === 1 ? '' : 's'} left`
   }
 
   const soldOut = info ? minted >= supply && supply > BigInt(0) : false
-  const seasonEnded = days !== null && days < 0
 
   let buttonLabel = MINT_LABEL[mintPhase]
   let buttonDisabled = mintPhase !== 'idle' || !isConnected
@@ -112,9 +116,6 @@ export default function SeasonPassCard({
       buttonDisabled = true
     } else if (soldOut) {
       buttonLabel = 'SOLD OUT'
-      buttonDisabled = true
-    } else if (seasonEnded) {
-      buttonLabel = 'SEASON BERAKHIR'
       buttonDisabled = true
     } else if (!isConnected) {
       buttonLabel = 'CONNECT WALLET'
@@ -146,7 +147,7 @@ export default function SeasonPassCard({
           </span>
         </div>
         <div className="flex items-center justify-between text-[11px] mb-3">
-          <span className="text-null-muted uppercase tracking-[1px]">Ends in</span>
+          <span className="text-null-muted uppercase tracking-[1px]">Status</span>
           <span className="text-null-amber">{statusLine}</span>
         </div>
 
