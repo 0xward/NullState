@@ -574,7 +574,14 @@ function renderContainerSlots(){
       const labelMap={hp:'HP',xp:'XP',celo:'USDm',relic:'RELIC'};
       row.innerHTML=`<span class="inv-item-name">+${s.amt}${typeof s.amt==='number'&&s.amt<1?'':''} ${labelMap[s.kind]||s.kind.toUpperCase()}</span>`;
     }
-    row.addEventListener('click', ()=>takeContainerSlot(s.slotId));
+    // Item slots open the zoom overlay (TAKE button) for a deliberate,
+    // one-at-a-time confirmation. Non-item loot (hp/xp/celo/relic) has no
+    // icon/name to zoom on, so those keep the old instant-take behavior.
+    if(s.kind==='item'){
+      row.addEventListener('click', ()=>openItemZoom({mode:'container-loot', slotId:s.slotId, item:s.item, qty:s.qty}));
+    } else {
+      row.addEventListener('click', ()=>takeContainerSlot(s.slotId));
+    }
     host.appendChild(row);
   }
 }
@@ -1695,9 +1702,14 @@ function persistStashSnapshot(){
   }catch(e){ /* localStorage unavailable/full — non-critical, just skip */ }
 }
 // Generic stash renderer, reused for both the player's own inventory panel
-// (#invItems, selectable — click an item to queue/unqueue it for burning)
-// and the read-only reference panel inside the container window
+// (#invItems) and the read-only reference panel inside the container window
 // (#containerPlayerItems, opts.readonly:true — no selection, no burn bar).
+// Non-readonly rows now have TWO independent interactions:
+//   - tap the item body (icon/name)  -> openItemZoom() -> instant single BURN
+//   - tap the small circle in the corner (.inv-item-select) -> toggleBurnQueue()
+//     -> adds/removes from the multi-select queue for "BURN SELECTED" below.
+// They're separate hit targets (checkbox uses stopPropagation) so neither
+// flow interferes with the other.
 function renderStashPanel(targetId, emptyId, opts){
   opts=opts||{};
   const host=$(targetId), empty=emptyId?$(emptyId):null;
@@ -1726,12 +1738,29 @@ function renderStashPanel(targetId, emptyId, opts){
     row.style.borderColor=it.color;
     const queued = !opts.readonly && G.burnQueue.has(it.id);
     if(queued) row.classList.add('queued');
-    row.innerHTML=`<img class="inv-item-icon" src="${it.icon}" alt="${it.name}" draggable="false">`+
+    const selectHtml = opts.readonly ? '' : `<span class="inv-item-select${queued?' checked':''}" data-select-id="${it.id}"></span>`;
+    row.innerHTML=selectHtml+
+      `<img class="inv-item-icon" src="${it.icon}" alt="${it.name}" draggable="false">`+
       `<span class="inv-item-name" style="color:${it.color}">${it.name}</span>`+
       `<span class="inv-item-count">×${entry.qty}</span>`+
       `<span class="inv-item-value">${it.burnValue.toFixed(3)}</span>`;
+    // Non-readonly (#invItems, the player's own stash): tapping the item
+    // body (icon/name/count/value) opens the zoom overlay for an instant
+    // single-item BURN. The small corner checkbox (.inv-item-select) is a
+    // SEPARATE hit target that toggles the item in/out of the multi-select
+    // burn queue, so "BURN SELECTED" below keeps working independently of
+    // the zoom flow. The readonly reference panel inside #containerWindow
+    // (#containerPlayerItems) intentionally gets no click handler at all —
+    // it's just a "what's already in your stash" reference while looting.
     if(!opts.readonly){
-      row.addEventListener('click', ()=>toggleBurnQueue(it.id));
+      row.addEventListener('click', (ev)=>{
+        if(ev.target.closest('.inv-item-select')) return; // handled separately below
+        openItemZoom({mode:'stash', itemId:it.id});
+      });
+      const selectEl=row.querySelector('.inv-item-select');
+      if(selectEl){
+        selectEl.addEventListener('click', (ev)=>{ ev.stopPropagation(); toggleBurnQueue(it.id); });
+      }
     }
     host.appendChild(row);
   }
@@ -1778,6 +1807,63 @@ function confirmBurn(){
     }));
     log(`◆ ${items.length} item(s) sent to the weekly burn pool.`, 'reward');
   }
+  updateInventoryPanel();
+}
+
+// ---- item zoom overlay (Task 2: replaces per-slot instant-take / burn-queue
+// toggle with a single "tap slot -> zoom -> confirm action" step) ----
+// ctx shapes:
+//   {mode:'container-loot', slotId, item, qty}  -> shows TAKE
+//   {mode:'stash', itemId}                      -> shows BURN
+function openItemZoom(ctx){
+  const overlay=$('itemZoom'); if(!overlay || !G) return;
+  const icon=$('itemZoomIcon'), name=$('itemZoomName'), qtyEl=$('itemZoomQty'),
+    valEl=$('itemZoomValue'), takeBtn=$('itemZoomTake'), burnBtn=$('itemZoomBurn');
+  let item, qty;
+  if(ctx.mode==='container-loot'){
+    item=ctx.item; qty=ctx.qty;
+  } else if(ctx.mode==='stash'){
+    const entry=G.inventory.items[ctx.itemId]; if(!entry) return;
+    item=entry.item; qty=entry.qty;
+  } else return;
+  if(icon){ icon.src=item.icon; icon.alt=item.name; }
+  if(name){ name.textContent=item.name; name.style.color=item.color||''; }
+  if(qtyEl) qtyEl.textContent=`×${qty}`;
+  if(valEl) valEl.textContent=`${item.burnValue.toFixed(3)} USDm each`;
+  if(takeBtn) takeBtn.classList.toggle('hidden', ctx.mode!=='container-loot');
+  if(burnBtn) burnBtn.classList.toggle('hidden', ctx.mode!=='stash');
+  G._zoomCtx=ctx;
+  overlay.classList.remove('hidden');
+}
+function closeItemZoom(){
+  const overlay=$('itemZoom'); if(overlay) overlay.classList.add('hidden');
+  if(G) G._zoomCtx=null;
+}
+function onItemZoomTake(){
+  if(!G || !G._zoomCtx || G._zoomCtx.mode!=='container-loot') return;
+  takeContainerSlot(G._zoomCtx.slotId);
+  closeItemZoom();
+}
+function onItemZoomBurn(){
+  if(!G || !G._zoomCtx || G._zoomCtx.mode!=='stash') return;
+  burnSingleItem(G._zoomCtx.itemId);
+  closeItemZoom();
+}
+// Burns exactly one stash entry (all of its qty) immediately — no queue,
+// no multi-select. Mirrors confirmBurn()'s event shape/dispatch exactly
+// (same 'nullstate-items-burned' CustomEvent) so it lands in Rewards
+// History the same way a queued burn would, just with a single-item array.
+function burnSingleItem(itemId){
+  if(!G) return;
+  const entry=G.inventory.items[itemId]; if(!entry) return;
+  const items=[{ id:itemId, name:entry.item.name, rarity:entry.item.rarity, qty:entry.qty, burnValue:entry.item.burnValue }];
+  const totalValue=entry.item.burnValue*entry.qty;
+  delete G.inventory.items[itemId];
+  G.burnQueue.delete(itemId);
+  window.dispatchEvent(new CustomEvent('nullstate-items-burned', {
+    detail: { wallet: WALLET_ADDRESS, items, totalValue: Math.round(totalValue*1000)/1000, timestamp: Date.now() }
+  }));
+  log(`◆ ${entry.item.name} sent to the weekly burn pool.`, 'reward');
   updateInventoryPanel();
 }
 function onInvToggle(){
@@ -2067,6 +2153,9 @@ function attach(){
   $('containerClose').addEventListener('click', closeContainerWindow);
   $('containerTakeAll').addEventListener('click', takeAllContainerSlots);
   $('burnConfirm').addEventListener('click', confirmBurn);
+  $('itemZoomTake').addEventListener('click', onItemZoomTake);
+  $('itemZoomBurn').addEventListener('click', onItemZoomBurn);
+  $('itemZoomClose').addEventListener('click', closeItemZoom);
   document.querySelectorAll('.ns-game-root .char-btn').forEach(b=>b.addEventListener('click', onCharBtn));
   $('startBtn').addEventListener('click', onStart);
   $('invBtn').addEventListener('click', onInvToggle);
