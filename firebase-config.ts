@@ -46,9 +46,20 @@ function initAdmin(): App | null {
   try {
     return initializeApp({
       credential: cert(serviceAccount as Parameters<typeof cert>[0]),
+      // NOTE: this project's Realtime Database lives in the asia-southeast1
+      // region (regional RTDB instances get a *.<region>.firebasedatabase.app
+      // host, NOT the legacy default-region *.firebaseio.com host). If
+      // FIREBASE_DATABASE_URL isn't set in the environment, falling back to
+      // the legacy-style host here would point the Admin SDK at a database
+      // that doesn't exist for this project — every read/write then hangs
+      // until the request times out, which Vercel surfaces as a raw
+      // platform-level 500 (not JSON), instead of a normal caught error.
+      // Always set FIREBASE_DATABASE_URL explicitly in production; this
+      // fallback exists only so local/dev usage fails the same documented
+      // way rather than silently pointing at the wrong host.
       databaseURL:
         process.env.FIREBASE_DATABASE_URL ??
-        'https://nullstate-35b2e-default-rtdb.firebaseio.com',
+        'https://nullstate-35b2e-default-rtdb.asia-southeast1.firebasedatabase.app',
     })
   } catch (err) {
     console.error('[firebase-config] Failed to initialize Firebase Admin app:', err)
@@ -61,7 +72,12 @@ const adminApp = initAdmin()
 /** Firebase Admin Realtime Database instance (or null if unconfigured) */
 export function getAdminDb(): ReturnType<typeof getDatabase> | null {
   if (!adminApp) return null
-  return getDatabase(adminApp)
+  try {
+    return getDatabase(adminApp)
+  } catch (err) {
+    console.error('[firebase-config] getDatabase() failed — check FIREBASE_DATABASE_URL:', err)
+    return null
+  }
 }
 
 /** Firebase Admin Auth instance (or null if unconfigured) */
