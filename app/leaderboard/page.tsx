@@ -1,5 +1,5 @@
 import Navbar from '@/components/ui/Navbar'
-import LeaderboardDisplay from '@/components/game/LeaderboardDisplay'
+import LeaderboardPageClient from '@/components/game/LeaderboardPageClient'
 
 export const metadata = {
   title: 'NullState Leaderboard',
@@ -11,7 +11,7 @@ export default function LeaderboardPage() {
     <>
       <Navbar />
       <main className="relative z-[2] mx-auto max-w-5xl px-6 pb-16 pt-28">
-        <LeaderboardDisplay />
+        <LeaderboardPageClient />
       </main>
     </>
   )
