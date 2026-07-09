@@ -571,6 +571,24 @@ export default function DungeonGame({ playerProfile, setPlayerUsername }: Dungeo
           </div>
         </div>
 
+        {/* Item zoom overlay — opened by tapping a slot in #invPanel (stash,
+            shows BURN) or the LOOT side of #containerWindow (container slot,
+            shows TAKE). Only one of the two action buttons is ever visible
+            at a time; toggled in game.js via openItemZoom()/closeItemZoom(). */}
+        <div id="itemZoom" className="overlay hidden">
+          <div className="item-zoom-inner">
+            <img id="itemZoomIcon" className="item-zoom-icon" src="" alt="" draggable={false} />
+            <div id="itemZoomName" className="item-zoom-name" />
+            <div id="itemZoomQty" className="item-zoom-qty" />
+            <div id="itemZoomValue" className="item-zoom-value" />
+            <div className="item-zoom-btns">
+              <button id="itemZoomTake" className="item-zoom-btn take hidden">TAKE</button>
+              <button id="itemZoomBurn" className="item-zoom-btn burn hidden">BURN</button>
+            </div>
+            <button id="itemZoomClose" className="item-zoom-close">▾ close</button>
+          </div>
+        </div>
+
         {/* Death screen */}
         <div id="death" className="overlay hidden">
           <div className="death-inner">
