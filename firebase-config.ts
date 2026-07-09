@@ -23,7 +23,6 @@
 
 import { initializeApp, getApps, cert, type App } from 'firebase-admin/app'
 import { getDatabase } from 'firebase-admin/database'
-import { getAuth } from 'firebase-admin/auth'
 
 function initAdmin(): App | null {
   const existing = getApps()
@@ -80,10 +79,20 @@ export function getAdminDb(): ReturnType<typeof getDatabase> | null {
   }
 }
 
-/** Firebase Admin Auth instance (or null if unconfigured) */
-export function getAdminAuth(): ReturnType<typeof getAuth> | null {
-  if (!adminApp) return null
-  return getAuth(adminApp)
-}
+// NOTE: getAdminAuth()/firebase-admin/auth was intentionally removed.
+// No API route in this project uses Firebase Admin Auth (only
+// getAdminDb() / Realtime Database is used). Importing
+// 'firebase-admin/auth' pulls in jwks-rsa -> jose (an ESM-only package),
+// which Next.js bundles into the serverless function even though it's
+// never called. At runtime on Vercel's CJS function runtime, that
+// produces a hard crash BEFORE our try/catch can run:
+//   Error [ERR_REQUIRE_ESM]: require() of ES Module .../jose/dist/webapi/index.js
+//   from .../jwks-rsa/src/utils.js not supported.
+// This is why /api/player/profile and /api/burn/record returned raw
+// HTML/platform error pages ("Unexpected token '<'") instead of JSON —
+// the function crashed entirely, not just the handler logic.
+// If Admin Auth is ever actually needed again, re-add the import behind
+// serverExternalPackages in next.config.js (see below) so it's required
+// at runtime instead of bundled by webpack.
 
 export default adminApp
