@@ -12,7 +12,7 @@
 
 NULL_STATE is a pixel-art dungeon crawler that runs directly in the browser — no installs, no app store. Pick a class, descend into a procedurally generated bunker, fight your way through Orc and Skeleton crews, and ride the lift between floors as you push deeper into the depths.
 
-Every dungeon action costs **0.01 CELO**, sent as a real transaction on Celo Mainnet. There's no separate in-game currency to buy — your wallet balance *is* your resource bar.
+Every NULL_STRIKE costs **0.005 USD Mento*, sent as a real transaction on Celo Mainnet. There's no separate in-game currency to buy — your wallet balance *is* your resource bar.
 
 ---
 
