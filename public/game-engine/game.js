@@ -541,6 +541,22 @@ function tryInteract(){
   if(G.action.mode==='open' && G.action.target) onOpenButtonTap();
 }
 
+// ---- shared grid helpers ----
+// All three item grids (#invItems, #containerItems/LOOT, #containerPlayerItems/
+// YOUR INVENTORY) are laid out as a fixed 5-column CSS grid (see .inv-items /
+// .container-items in globals.css). Padding every grid out to a full 5x5
+// (25 slots) with empty placeholder cells — instead of only rendering rows
+// for populated slots — keeps the grid shape constant whether it holds 1
+// item or 20, matching the reference "always show the grid" screenshots.
+const GRID_SLOT_COUNT = 25;
+function fillGridPlaceholders(host, count){
+  for(let i=0;i<count;i++){
+    const cell=document.createElement('div');
+    cell.className='inv-item inv-item-empty';
+    host.appendChild(cell);
+  }
+}
+
 // ---- container loot window (dual-panel: container slots + player stash) ----
 function openContainerWindow(decor){
   const win=$('containerWindow'); if(!win) return;
@@ -551,14 +567,24 @@ function openContainerWindow(decor){
   renderStashPanel('containerPlayerItems','containerPlayerEmpty',{readonly:true});
   win.classList.remove('hidden');
 }
+// Non-item loot kinds that DO have a real sprite/icon representation (same
+// files used by renderStashPanel's addRow() for the persistent counters).
+// hp/xp/celo are instant stat pickups with no persistent icon, so those
+// stay text-only — only 'relic' gets an image here.
+const CONTAINER_LOOT_ICONS = { relic:'/sprites/items/relic.png' };
+
 function renderContainerSlots(){
   const decor=G._openContainer; if(!decor) return;
   const host=$('containerItems'), empty=$('containerEmpty');
   if(!host) return;
   host.innerHTML='';
   const slots=(decor.lootSlots||[]).filter(s=>!s.taken);
-  if(!slots.length){ if(empty) empty.style.display=''; return; }
+  // As with renderStashPanel(), the grid itself (now always padded to a
+  // fixed 5x5) visually communicates "nothing here" via empty placeholder
+  // cells, so the old "Empty." text is kept hidden rather than shown
+  // alongside/instead of the grid.
   if(empty) empty.style.display='none';
+  if(!slots.length){ fillGridPlaceholders(host,GRID_SLOT_COUNT); return; }
   for(const s of slots){
     const row=document.createElement('div');
     row.className='inv-item container-slot';
@@ -572,7 +598,9 @@ function renderContainerSlots(){
         `<span class="inv-item-value">${it.burnValue.toFixed(3)} USDm</span>`;
     } else {
       const labelMap={hp:'HP',xp:'XP',celo:'USDm',relic:'RELIC'};
-      row.innerHTML=`<span class="inv-item-name">+${s.amt}${typeof s.amt==='number'&&s.amt<1?'':''} ${labelMap[s.kind]||s.kind.toUpperCase()}</span>`;
+      const iconSrc=CONTAINER_LOOT_ICONS[s.kind];
+      row.innerHTML=(iconSrc?`<img class="inv-item-icon" src="${iconSrc}" alt="${labelMap[s.kind]||s.kind}" draggable="false">`:'')+
+        `<span class="inv-item-name">+${s.amt}${typeof s.amt==='number'&&s.amt<1?'':''} ${labelMap[s.kind]||s.kind.toUpperCase()}</span>`;
     }
     // Item slots open the zoom overlay (TAKE button) for a deliberate,
     // one-at-a-time confirmation. Non-item loot (hp/xp/celo/relic) has no
@@ -584,6 +612,7 @@ function renderContainerSlots(){
     }
     host.appendChild(row);
   }
+  fillGridPlaceholders(host,Math.max(0,GRID_SLOT_COUNT-slots.length));
 }
 function takeContainerSlot(slotId){
   const decor=G._openContainer; if(!decor) return;
@@ -1720,13 +1749,18 @@ function renderStashPanel(targetId, emptyId, opts){
   const shardCount = G.inventory.shards||0;
   const itemEntries = Object.values(G.inventory.items||{});
   const anything = keyCount+relicCount+shardCount+itemEntries.length>0;
-  if(!anything){ if(empty) empty.style.display=''; if(!opts.readonly) updateBurnBar(); return; }
+  // The grid itself is always shown as a fixed 5x5 (25-slot) layout, filled
+  // out with empty placeholder cells — see fillGridPlaceholders(). The
+  // "nothing here yet" text is redundant with a visibly empty grid, so it
+  // only appears now if the grid host itself is missing from the DOM.
   if(empty) empty.style.display='none';
+  let rowCount=0;
   const addRow=(id,iconSrc,name,count)=>{
     if(count<=0) return;
     const row=document.createElement('div'); row.className='inv-item'; row.dataset.id=id;
     row.innerHTML=`<img class="inv-item-icon" src="${iconSrc}" alt="${name}" draggable="false"><span class="inv-item-name">${name}</span><span class="inv-item-count">×${count}</span>`;
     host.appendChild(row);
+    rowCount++;
   };
   addRow('goldkey','/sprites/items/golden_key.png','Golden Key',keyCount);
   addRow('relic','/sprites/items/relic.png','Relic',relicCount);
@@ -1763,7 +1797,9 @@ function renderStashPanel(targetId, emptyId, opts){
       }
     }
     host.appendChild(row);
+    rowCount++;
   }
+  fillGridPlaceholders(host, Math.max(0, GRID_SLOT_COUNT-rowCount));
   if(!opts.readonly) updateBurnBar();
 }
 function toggleBurnQueue(itemId){
@@ -1796,7 +1832,8 @@ function confirmBurn(){
   const items=[]; let totalValue=0;
   for(const id of [...G.burnQueue]){
     const entry=G.inventory.items[id]; if(!entry) continue;
-    items.push({ id, name:entry.item.name, rarity:entry.item.rarity, qty:entry.qty, burnValue:entry.item.burnValue });
+    items.push({ id, name:entry.item.name, rarity:entry.item.rarity, qty:entry.qty, burnValue:entry.item.burnValue,
+      icon:entry.item.icon, color:entry.item.color });
     totalValue += entry.item.burnValue*entry.qty;
     delete G.inventory.items[id];
   }
@@ -1856,7 +1893,8 @@ function onItemZoomBurn(){
 function burnSingleItem(itemId){
   if(!G) return;
   const entry=G.inventory.items[itemId]; if(!entry) return;
-  const items=[{ id:itemId, name:entry.item.name, rarity:entry.item.rarity, qty:entry.qty, burnValue:entry.item.burnValue }];
+  const items=[{ id:itemId, name:entry.item.name, rarity:entry.item.rarity, qty:entry.qty, burnValue:entry.item.burnValue,
+    icon:entry.item.icon, color:entry.item.color }];
   const totalValue=entry.item.burnValue*entry.qty;
   delete G.inventory.items[itemId];
   G.burnQueue.delete(itemId);
