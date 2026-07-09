@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect } from 'react'
 import { useWallet } from '@/lib/WalletProvider'
-import { useContractPlayer } from '@/lib/useContractPlayer'
+import { recordRunKills } from '@/lib/leaderboardService'
 import { PlayerProfile } from '@/lib/contract'
 import DungeonGame from './DungeonGame'
 
@@ -13,49 +13,50 @@ interface DungeonGameWrapperProps {
 
 /**
  * DungeonGameWrapper
- * 
- * Wraps DungeonGame and hooks into game events to save player progress to the blockchain.
- * Listens for death events and writes final stats (XP, level, kills) to the smart contract.
+ *
+ * Wraps DungeonGame and hooks into game events that need to reach outside
+ * the vanilla-JS engine:
+ *  - 'nullstate-player-death': fold this life's kill count into the
+ *    off-chain Firestore leaderboard (recordRunKills is dedup-safe, see
+ *    leaderboardService.ts). This is intentionally FREE — it does NOT call
+ *    useContractPlayer/executeAction on-chain. Automatic on-death syncing
+ *    must never cost the player gas; on-chain writes only ever happen from
+ *    an explicit player action (NULL_STRIKE fee, manual claim, etc).
+ *  - 'nullstate-items-burned': forward the burn payload to the backend so
+ *    it can validate it and record it (Firestore + on-chain recordBurn via
+ *    the backend signer — see app/api/burn/record/route.ts).
  */
 export default function DungeonGameWrapper({ playerProfile, setPlayerUsername }: DungeonGameWrapperProps) {
   const { address } = useWallet()
-  const { updatePlayerProgress } = useContractPlayer(address || undefined)
-  const updateProgressRef = useRef(updatePlayerProgress)
-  
-  // Keep updatePlayerProgress in ref for use in event listeners
-  useEffect(() => {
-    updateProgressRef.current = updatePlayerProgress
-  }, [updatePlayerProgress])
 
-  // Listen for game stats updates and save to contract
   useEffect(() => {
-    const handleGameDeath = async (event: Event) => {
-      const customEvent = event as CustomEvent
-      const { xp, level, kills } = customEvent.detail
-      
-      if (!address || !updateProgressRef.current) {
-        console.log('[v0] Game death event received but wallet not connected, skipping save')
-        return
-      }
-
-      console.log('[v0] Player died - saving progress to contract:', { xp, level, kills })
-      
-      try {
-        await updateProgressRef.current(xp, level, kills)
-        console.log('[v0] Progress saved successfully!')
-      } catch (err) {
-        console.error('[v0] Failed to save progress to contract:', err)
-        // Don't throw - let the game continue even if saving fails
-      }
+    const handleGameDeath = (event: Event) => {
+      const { kills } = (event as CustomEvent).detail ?? {}
+      if (!address || typeof kills !== 'number') return
+      recordRunKills(address, kills).catch(err => {
+        console.error('[nullstate-player-death] failed to record kills:', err)
+      })
     }
-
-    // Listen for custom death event from game engine
     window.addEventListener('nullstate-player-death', handleGameDeath)
-
-    return () => {
-      window.removeEventListener('nullstate-player-death', handleGameDeath)
-    }
+    return () => window.removeEventListener('nullstate-player-death', handleGameDeath)
   }, [address])
+
+  useEffect(() => {
+    const handleBurn = async (event: Event) => {
+      const detail = (event as CustomEvent).detail
+      try {
+        await fetch('/api/burn/record', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(detail),
+        })
+      } catch (err) {
+        console.error('[nullstate-items-burned] failed to record burn:', err)
+      }
+    }
+    window.addEventListener('nullstate-items-burned', handleBurn)
+    return () => window.removeEventListener('nullstate-items-burned', handleBurn)
+  }, [])
 
   return (
     <DungeonGame playerProfile={playerProfile} setPlayerUsername={setPlayerUsername} />
