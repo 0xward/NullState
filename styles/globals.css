@@ -664,7 +664,7 @@ body::before {
   color:#5c4d33;font-weight:700;text-transform:uppercase;
   border-bottom:1px solid rgba(80,65,40,.25);padding-bottom:6px;margin-bottom:10px;}
 .ns-game-root .container-items{min-height:120px;max-height:38vh;overflow-y:auto;touch-action:pan-y;
-  grid-template-columns:repeat(5,1fr);}
+  grid-template-columns:repeat(5,minmax(0,1fr));}
 .ns-game-root .container-btns{display:flex;gap:14px;justify-content:center;align-items:center;margin-top:20px;flex-wrap:wrap;}
 @media (orientation:portrait){
   .ns-game-root .container-panels{grid-template-columns:1fr;}
@@ -759,11 +759,17 @@ body::before {
 }
 
 /* ════════════════════════════════════════════════════════════════════════
-   INVENTORY — button + panel. The button sits directly under the
-   canvas-drawn minimap (top-right corner; minimap is drawn at
-   top:78px/size:108px/pad:12px from the canvas itself, see MM in game.js),
-   so its position here is hand-tuned to land just below that, not derived
-   from a shared constant (the minimap is canvas-drawn, this is DOM).
+   INVENTORY — small trigger button + centered modal panel.
+   The .inv-btn trigger sits directly under the canvas-drawn minimap
+   (top-right corner; minimap is drawn at top:78px/size:108px/pad:12px from
+   the canvas itself, see MM in game.js), so its position here is
+   hand-tuned to land just below that, not derived from a shared constant
+   (the minimap is canvas-drawn, this is DOM).
+   #invPanel itself is an .overlay (same centered-modal pattern as
+   #containerWindow/#itemZoom below) rather than a small anchored corner
+   box, so opening it never gets clipped by the minimap/settings gear and
+   always has enough width for a clean, fully-visible 5-column item grid
+   (see .inv-panel-inner + .inv-items).
    ════════════════════════════════════════════════════════════════════════ */
 .ns-game-root .inv-btn{position:absolute;top:200px;right:12px;z-index:7;pointer-events:auto;
   width:34px;height:34px;border-radius:8px;cursor:pointer;
@@ -772,11 +778,12 @@ body::before {
   transition:.15s;}
 .ns-game-root .inv-btn:hover{border-color:var(--green);background:rgba(0,255,136,.1);color:var(--green);}
 
-.ns-game-root .inv-panel{position:absolute;top:200px;right:12px;z-index:8;pointer-events:auto;
-  width:266px;max-height:min(64vh,440px);overflow-y:auto;touch-action:pan-y;
+.ns-game-root #invPanel.overlay{pointer-events:auto;}
+.ns-game-root .inv-panel-inner{width:min(92vw,420px);max-height:min(78vh,560px);
+  overflow-y:auto;touch-action:pan-y;pointer-events:auto;
   border:1px solid rgba(80,65,40,.35);border-radius:8px;
-  box-shadow:0 12px 36px rgba(0,0,0,.55), inset 0 0 30px rgba(80,65,40,.1);
-  padding:12px;animation:ns-fadeUp .25s ease;
+  box-shadow:0 24px 60px rgba(0,0,0,.55), inset 0 0 40px rgba(80,65,40,.12);
+  padding:20px 18px;animation:ns-fadeUp .25s ease;
   color:#3a3226;font-family:'Share Tech Mono',monospace;
   background-color:#e9e2d0;
   background-image:
@@ -795,16 +802,22 @@ body::before {
   padding-bottom:10px;border-bottom:1px dashed rgba(80,65,40,.3);}
 .ns-game-root .inv-vital-row{display:flex;align-items:center;gap:8px;}
 .ns-game-root .inv-vital-row .bar{flex:1;height:14px;}
-.ns-game-root .inv-items{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;}
+/* grid-template-columns:repeat(5,1fr) alone leaves each track's minimum
+   width at "auto" (the item's min-content size), so a long item name or
+   the fixed-size icon can force a track — and with it the whole grid —
+   wider than the panel, spilling item cards past the visible edge instead
+   of shrinking to fit 5-across. minmax(0,1fr) removes that auto-minimum so
+   the 5 columns always divide the available width evenly on any screen. */
+.ns-game-root .inv-items{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;}
 .ns-game-root .inv-empty{grid-column:1/-1;color:#7a6c52;font-size:11px;letter-spacing:.5px;text-align:center;padding:14px 4px;}
 .ns-game-root .inv-item{position:relative;display:flex;flex-direction:column;align-items:center;
-  justify-content:center;gap:3px;aspect-ratio:1/1;background:rgba(255,255,255,.35);
+  justify-content:center;gap:3px;aspect-ratio:1/1;min-width:0;overflow:hidden;background:rgba(255,255,255,.35);
   border:1px solid rgba(80,65,40,.25);border-radius:7px;padding:5px 2px 4px;cursor:pointer;transition:.12s;}
 .ns-game-root .inv-item:hover{background:rgba(255,255,255,.55);border-color:rgba(80,65,40,.4);}
-.ns-game-root .inv-item-icon{width:24px;height:24px;image-rendering:pixelated;
+.ns-game-root .inv-item-icon{width:60%;height:auto;max-width:32px;image-rendering:pixelated;
   filter:drop-shadow(0 1px 2px rgba(0,0,0,.25));}
 .ns-game-root .inv-item-name{font-size:7.5px;line-height:1.15;color:#5c4d33;letter-spacing:.3px;
-  text-align:center;text-transform:uppercase;}
+  text-align:center;text-transform:uppercase;max-width:100%;overflow-wrap:anywhere;word-break:break-word;}
 .ns-game-root .inv-item-count{position:absolute;top:3px;right:4px;font-size:9px;color:#e9e2d0;
   background:#2b2620;border-radius:5px;padding:0 4px;font-weight:700;line-height:1.4;}
 
@@ -852,8 +865,8 @@ body::before {
 .ns-game-root .loading-fade-text.show{opacity:1;}
 
 @media (orientation:portrait){
-  .ns-game-root .inv-btn,.ns-game-root .inv-panel{top:170px;}
-  .ns-game-root .inv-panel{width:min(74vw,240px);}
+  .ns-game-root .inv-btn{top:170px;}
+  .ns-game-root .inv-panel-inner{width:min(94vw,380px);padding:16px 14px;}
 }
 
 /* ════════════════════════════════════════════════════════════════════════
