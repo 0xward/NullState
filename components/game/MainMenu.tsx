@@ -9,6 +9,7 @@ interface MainMenuProps {
   onNewGame: () => void
   onLeaderboard: () => void
   onRewards: () => void
+  onMintPass: () => void
   playerProfile: PlayerProfile | null
   isLoadingProfile: boolean
 }
@@ -18,11 +19,12 @@ export default function MainMenu({
   onNewGame,
   onLeaderboard,
   onRewards,
+  onMintPass,
   playerProfile,
   isLoadingProfile,
 }: MainMenuProps) {
   const { address, isConnected } = useWallet()
-  const [selectedOption, setSelectedOption] = useState<'continue' | 'new' | 'leaderboard' | 'rewards' | null>(null)
+  const [selectedOption, setSelectedOption] = useState<'continue' | 'new' | 'leaderboard' | 'rewards' | 'season-pass' | null>(null)
 
   // Auto-enable Continue if player has a profile
   useEffect(() => {
@@ -47,6 +49,10 @@ export default function MainMenu({
 
   const handleRewards = () => {
     onRewards()
+  }
+
+  const handleMintPass = () => {
+    onMintPass()
   }
 
   return (
@@ -155,6 +161,17 @@ export default function MainMenu({
             }}
           >
             ◇ REWARDS
+          </button>
+
+          {/* MINT PASS — season pass minting screen */}
+          <button
+            onClick={handleMintPass}
+            className="w-full font-mono text-sm tracking-[2px] uppercase text-null-acid border-2 border-[rgba(168,255,62,0.4)] px-8 py-4 transition-all duration-200 hover:border-null-acid hover:bg-[rgba(168,255,62,0.05)]"
+            style={{
+              clipPath: 'polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%)',
+            }}
+          >
+            ⬢ MINT PASS
           </button>
         </div>
 
