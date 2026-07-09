@@ -8,6 +8,7 @@ interface MainMenuProps {
   onContinueGame: (profile: PlayerProfile) => void
   onNewGame: () => void
   onLeaderboard: () => void
+  onRewards: () => void
   playerProfile: PlayerProfile | null
   isLoadingProfile: boolean
 }
@@ -16,11 +17,12 @@ export default function MainMenu({
   onContinueGame,
   onNewGame,
   onLeaderboard,
+  onRewards,
   playerProfile,
   isLoadingProfile,
 }: MainMenuProps) {
   const { address, isConnected } = useWallet()
-  const [selectedOption, setSelectedOption] = useState<'continue' | 'new' | 'leaderboard' | null>(null)
+  const [selectedOption, setSelectedOption] = useState<'continue' | 'new' | 'leaderboard' | 'rewards' | null>(null)
 
   // Auto-enable Continue if player has a profile
   useEffect(() => {
@@ -41,6 +43,10 @@ export default function MainMenu({
 
   const handleLeaderboard = () => {
     onLeaderboard()
+  }
+
+  const handleRewards = () => {
+    onRewards()
   }
 
   return (
@@ -138,6 +144,17 @@ export default function MainMenu({
             }}
           >
             ◆ LEADERBOARD
+          </button>
+
+          {/* REWARDS — mining/burn history, XP, and USDm totals */}
+          <button
+            onClick={handleRewards}
+            className="w-full font-mono text-sm tracking-[2px] uppercase text-null-amber border-2 border-[rgba(255,190,11,0.4)] px-8 py-4 transition-all duration-200 hover:border-null-amber hover:bg-[rgba(255,190,11,0.05)]"
+            style={{
+              clipPath: 'polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%)',
+            }}
+          >
+            ◇ REWARDS
           </button>
         </div>
 
