@@ -9,6 +9,8 @@ interface BurnItem {
   rarity?: string
   qty: number
   burnValue: number
+  icon?: string
+  color?: string
 }
 
 interface BurnRecord {
@@ -66,7 +68,23 @@ export default function RewardsScreen({ onBack, address, playerProfile }: Reward
       setError(null)
       try {
         const res = await fetch(`/api/player/profile?walletAddress=${address}`)
-        const payload = await res.json()
+        // The API always responds with JSON (see app/api/player/profile/
+        // route.ts), but if the request never reaches it — a bad deploy, a
+        // proxy/CDN error page, an expired session redirecting to HTML —
+        // res.json() throws its own unhelpful "Unexpected token '<'..."
+        // parse error instead of surfacing what actually went wrong. Read
+        // the body as text first so a non-JSON response gets a real message.
+        const raw = await res.text()
+        let payload: any
+        try {
+          payload = JSON.parse(raw)
+        } catch {
+          throw new Error(
+            res.ok
+              ? 'Rewards service returned an unexpected response — try again shortly.'
+              : `Rewards service error (HTTP ${res.status})`
+          )
+        }
         if (!res.ok) throw new Error(payload.error ?? 'Failed to load rewards')
         setData(payload)
       } catch (loadError) {
@@ -187,23 +205,46 @@ export default function RewardsScreen({ onBack, address, playerProfile }: Reward
           </div>
         )}
 
-        {/* Unburned stash list */}
+        {/* Unburned stash list — mirrors the in-game inventory grid
+            (fixed 5 columns, real item icons) instead of a plain text list,
+            so items read the same way here as they do in #invItems/
+            #containerPlayerItems inside the live dungeon canvas. */}
         {!isLoading && stash.length > 0 && (
           <div className="mb-8">
             <div className="font-mono text-[10px] tracking-[2px] text-null-amber uppercase mb-2">
               // Not Yet Burned ({stash.length})
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
               {stash.map((it) => (
                 <div
                   key={it.id}
-                  className="border rounded p-2.5 font-mono text-xs"
+                  className="relative flex flex-col items-center justify-center gap-1 border rounded p-2 pt-3 font-mono text-xs aspect-square"
                   style={{ borderColor: it.color || 'rgba(255,190,11,0.3)' }}
                 >
-                  <div className="text-null-white truncate" style={{ color: it.color }}>
-                    {it.name} <span className="text-null-muted">×{it.qty}</span>
+                  <span
+                    className="absolute top-1 right-1.5 text-[9px] font-bold rounded px-1"
+                    style={{ background: it.color || '#ffbe0b', color: '#0a0a0a' }}
+                  >
+                    ×{it.qty}
+                  </span>
+                  {it.icon ? (
+                    <img
+                      src={it.icon}
+                      alt={it.name}
+                      draggable={false}
+                      className="w-1/2 h-auto"
+                      style={{ imageRendering: 'pixelated' }}
+                    />
+                  ) : (
+                    <div className="w-1/2 aspect-square rounded bg-white/5" />
+                  )}
+                  <div
+                    className="text-null-white text-center text-[9px] uppercase leading-tight truncate w-full"
+                    style={{ color: it.color }}
+                  >
+                    {it.name}
                   </div>
-                  <div className="text-null-amber mt-1">{it.burnValue.toFixed(3)} USDm</div>
+                  <div className="text-null-amber text-[9px]">{it.burnValue.toFixed(3)} USDm</div>
                 </div>
               ))}
             </div>
@@ -234,10 +275,19 @@ export default function RewardsScreen({ onBack, address, playerProfile }: Reward
                       </span>
                       <span className="text-null-green font-bold">{b.totalValue.toFixed(3)} USDm</span>
                     </div>
-                    <div className="text-null-white/80 flex flex-wrap gap-x-3 gap-y-1">
+                    <div className="text-null-white/80 flex flex-wrap gap-x-3 gap-y-1.5">
                       {b.items.map((it, i) => (
-                        <span key={i}>
-                          {it.name} ×{it.qty}
+                        <span key={i} className="inline-flex items-center gap-1.5">
+                          {it.icon && (
+                            <img
+                              src={it.icon}
+                              alt={it.name}
+                              draggable={false}
+                              className="w-4 h-4"
+                              style={{ imageRendering: 'pixelated' }}
+                            />
+                          )}
+                          <span style={{ color: it.color }}>{it.name}</span> ×{it.qty}
                         </span>
                       ))}
                     </div>
