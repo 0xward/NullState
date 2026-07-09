@@ -1,6 +1,5 @@
 'use client'
 
-import Link from 'next/link'
 import CustomCursor from '@/components/ui/CustomCursor'
 import Navbar from '@/components/ui/Navbar'
 import HeroSection from '@/components/landing/HeroSection'
@@ -27,17 +26,6 @@ export default function Home() {
       {/* Main content — just the hero, fills the viewport, no scroll */}
       <main className="h-[100dvh] overflow-hidden">
         <HeroSection />
-        <div className="relative z-[2] -mt-24 flex justify-center gap-3 pb-10">
-          <Link href="/game" className="rounded border border-null-green px-4 py-2 font-mono text-xs uppercase tracking-[2px] text-null-green hover:bg-null-green hover:text-black">
-            Dashboard
-          </Link>
-          <Link href="/leaderboard" className="rounded border border-null-blue px-4 py-2 font-mono text-xs uppercase tracking-[2px] text-null-blue hover:bg-null-blue hover:text-black">
-            Leaderboard
-          </Link>
-          <Link href="/profile" className="rounded border border-null-amber px-4 py-2 font-mono text-xs uppercase tracking-[2px] text-null-amber hover:bg-null-amber hover:text-black">
-            Profile
-          </Link>
-        </div>
       </main>
     </>
   )
