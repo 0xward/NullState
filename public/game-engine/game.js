@@ -1676,6 +1676,23 @@ function updateInventoryPanel(){
   if(xpFill){ xpFill.style.width=(p.xp/p.xpForNext()*100)+'%'; }
   if(xpText){ xpText.textContent=`${p.xp}/${p.xpForNext()}`; }
   renderStashPanel('invItems','invEmpty',{readonly:false});
+  persistStashSnapshot();
+}
+// Mirror the player's current (unburned) stash into localStorage so the
+// out-of-game Rewards screen (components/game/RewardsScreen.tsx) can show
+// "items not yet burned" even though it renders outside this live canvas
+// session and has no direct access to the G.inventory object. Keyed per
+// wallet so it doesn't leak between accounts on a shared device.
+function persistStashSnapshot(){
+  if(!G || !WALLET_ADDRESS || typeof localStorage==='undefined') return;
+  try{
+    const itemEntries = Object.values(G.inventory.items||{}).map(e=>({
+      id: e.item.id, name: e.item.name, rarity: e.item.rarity, color: e.item.color,
+      icon: e.item.icon, qty: e.qty, burnValue: e.item.burnValue,
+    }));
+    const snapshot = { items: itemEntries, updatedAt: Date.now() };
+    localStorage.setItem('nullstate-stash-'+WALLET_ADDRESS.toLowerCase(), JSON.stringify(snapshot));
+  }catch(e){ /* localStorage unavailable/full — non-critical, just skip */ }
 }
 // Generic stash renderer, reused for both the player's own inventory panel
 // (#invItems, selectable — click an item to queue/unqueue it for burning)
