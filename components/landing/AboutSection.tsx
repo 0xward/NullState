@@ -26,7 +26,7 @@ export default function AboutSection() {
     { icon: '🗡️', title: 'Real-Time Dungeon Crawler', description: 'Move with WASD or the joystick, auto-attack roaming monsters, smash loot, and descend procedurally generated floors. Pure action — no menus.', tag: 'ACTION_RPG',  color: 'null-green' },
     { icon: '⛓️', title: 'On-Chain Everything',     description: 'Every kill, death, and artifact is minted or burned on Celo. Your wallet IS your character sheet. The chain never forgets.', tag: 'CELO_L1',       color: 'null-blue'  },
     { icon: '💀', title: 'Permadeath Protocol',     description: "When you die, your progress resets. No restores unless you hold a Resurrection SBT. Death is a mechanic, not a message.", tag: 'HIGH_STAKES',  color: 'null-red'   },
-    { icon: '📱', title: 'Mobile-First via MiniPay',description: "Play inside MiniPay — no seed phrases, instant CELO wallet. Built for Africa and Southeast Asia's fastest-growing crypto app.", tag: 'MINIPAY_NATIVE',color: 'null-amber' },
+    { icon: '📱', title: 'Mobile-First via MiniPay',description: "Play inside MiniPay — no seed phrases, instant CELO wallet. Built for Africa and Southeast Asia's fastest-growing digital payments app.", tag: 'MINIPAY_NATIVE',color: 'null-amber' },
     { icon: '🌐', title: 'Social Combat',           description: 'Raid Bosses require collective action. Tweet to deal damage. The community fights together or falls together.', tag: 'X_SOCIAL',      color: 'null-green' },
     { icon: '🔮', title: 'Artifact NFTs',           description: 'Legendary drops are real NFTs — tradeable, burnable, transferable. Your weapons exist on-chain as Soul-Bound Tokens.', tag: 'ERC-721 SBT',  color: 'null-acid'  },
   ]

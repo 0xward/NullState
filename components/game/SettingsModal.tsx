@@ -239,7 +239,6 @@ export default function SettingsModal({
           <div className="ns-settings-footer-logos">
             <a
               href="https://github.com/0xward/NullState"
-              target="_blank"
               rel="noopener noreferrer"
               aria-label="GitHub Repository"
               className="ns-settings-footer-logo-link"
@@ -248,7 +247,6 @@ export default function SettingsModal({
             </a>
             <a
               href="https://celoscan.io/address/0xe6c471dd3c715db8b10457113867885afa12ec13"
-              target="_blank"
               rel="noopener noreferrer"
               aria-label="Celoscan"
               className="ns-settings-footer-logo-link"
@@ -257,7 +255,6 @@ export default function SettingsModal({
             </a>
             <a
               href="https://talent.app/~/projects/86c0509c-3167-46cd-8a58-36bb9c5b9777"
-              target="_blank"
               rel="noopener noreferrer"
               aria-label="Talent Protocol"
               className="ns-settings-footer-logo-link"

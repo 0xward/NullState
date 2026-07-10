@@ -302,7 +302,6 @@ export default function TermsPage() {
               <p>
                 <a
                   href="https://t.me/nullstate_id"
-                  target="_blank"
                   rel="noopener noreferrer"
                   className="text-null-green hover:text-null-acid transition-colors font-mono text-sm"
                 >

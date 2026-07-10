@@ -108,7 +108,7 @@ export default function CTASection() {
             }}>
             <span>⬡</span> LAUNCH APP
           </a>
-          <a href="https://github.com" target="_blank" rel="noopener noreferrer"
+          <a href="https://github.com" rel="noopener noreferrer"
             className="font-mono text-[13px] tracking-[2px] uppercase text-null-green border border-[rgba(0,255,136,0.4)] px-10 py-[15px] inline-flex items-center gap-2 transition-all duration-200 no-underline hover:border-null-green hover:bg-[rgba(0,255,136,0.05)]"
             style={{ clipPath: 'polygon(12px 0, 100% 0, calc(100% - 12px) 100%, 0 100%)' }}>
             <span>◈</span> VIEW SOURCE
