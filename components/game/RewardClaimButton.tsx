@@ -49,19 +49,26 @@ interface StashItem {
 }
 
 interface RewardsScreenProps {
-  onBack: () => void
+  onBack?: () => void
   address?: string
-  playerProfile: PlayerProfile | null
+  walletAddress?: string
+  playerProfile?: PlayerProfile | null
 }
 
-export default function RewardsScreen({ onBack, address, playerProfile }: RewardsScreenProps) {
+export default function RewardsScreen({
+  onBack,
+  address,
+  walletAddress,
+  playerProfile = null,
+}: RewardsScreenProps) {
+  const resolvedAddress = address ?? walletAddress
   const [data, setData] = useState<ProfileResponse | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [stash, setStash] = useState<StashItem[]>([])
 
   useEffect(() => {
-    if (!address) {
+    if (!resolvedAddress) {
       setData(null)
       return
     }
@@ -69,7 +76,7 @@ export default function RewardsScreen({ onBack, address, playerProfile }: Reward
       setIsLoading(true)
       setError(null)
       try {
-        const res = await fetch(`/api/player/profile?walletAddress=${address}`)
+        const res = await fetch(`/api/player/profile?walletAddress=${resolvedAddress}`)
         // The API always responds with JSON (see app/api/player/profile/
         // route.ts), but if the request never reaches it — a bad deploy, a
         // proxy/CDN error page, an expired session redirecting to HTML —
@@ -96,7 +103,7 @@ export default function RewardsScreen({ onBack, address, playerProfile }: Reward
       }
     }
     load()
-  }, [address])
+  }, [resolvedAddress])
 
   // The unburned stash only ever lives client-side inside the live dungeon
   // canvas (game.js's G.inventory), which isn't running on this screen — so
@@ -104,9 +111,9 @@ export default function RewardsScreen({ onBack, address, playerProfile }: Reward
   // won't exist until the player has opened their in-game inventory at
   // least once this browser.
   useEffect(() => {
-    if (!address || typeof window === 'undefined') return
+    if (!resolvedAddress || typeof window === 'undefined') return
     try {
-      const raw = localStorage.getItem('nullstate-stash-' + address.toLowerCase())
+      const raw = localStorage.getItem('nullstate-stash-' + resolvedAddress.toLowerCase())
       if (raw) {
         const parsed = JSON.parse(raw)
         setStash(Array.isArray(parsed?.items) ? parsed.items : [])
@@ -116,7 +123,7 @@ export default function RewardsScreen({ onBack, address, playerProfile }: Reward
     } catch {
       setStash([])
     }
-  }, [address])
+  }, [resolvedAddress])
 
   const unburnedTotal = useMemo(
     () => stash.reduce((sum, it) => sum + it.burnValue * it.qty, 0),
@@ -137,11 +144,11 @@ export default function RewardsScreen({ onBack, address, playerProfile }: Reward
     isLoading: rewardLoading,
     error: rewardError,
     claimWeeklyRewards,
-  } = useReward(address)
+  } = useReward(resolvedAddress)
   const [claiming, setClaiming] = useState(false)
   const [claimStatus, setClaimStatus] = useState<string | null>(null)
 
-  const canClaim = Boolean(address) && weeklyClaimable > BigInt(0)
+  const canClaim = Boolean(resolvedAddress) && weeklyClaimable > BigInt(0)
 
   const handleClaim = async () => {
     setClaiming(true)
@@ -165,7 +172,7 @@ export default function RewardsScreen({ onBack, address, playerProfile }: Reward
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-[rgba(0,0,0,0.95)] p-4 sm:p-6 overflow-y-auto">
+    <div className={`${onBack ? 'fixed inset-0 z-50 bg-[rgba(0,0,0,0.95)]' : 'rounded-xl border border-[rgba(0,255,136,0.2)] bg-[rgba(0,0,0,0.7)]'} flex flex-col p-4 sm:p-6 overflow-y-auto`}>
       <div
         className="absolute pointer-events-none inset-0"
         style={{
@@ -188,13 +195,15 @@ export default function RewardsScreen({ onBack, address, playerProfile }: Reward
             </h2>
           </div>
 
-          <button
-            onClick={onBack}
-            className="shrink-0 inline-flex items-center justify-center min-h-11 font-mono text-[10px] sm:text-xs tracking-[1px] sm:tracking-[2px] uppercase text-null-green border border-[rgba(0,255,136,0.4)] px-3 sm:px-4 py-2 transition-all duration-200 hover:border-null-green hover:bg-[rgba(0,255,136,0.05)]"
-            style={{ clipPath: 'polygon(4px 0, 100% 0, calc(100% - 4px) 100%, 0 100%)' }}
-          >
-            ✕ CLOSE
-          </button>
+          {onBack ? (
+            <button
+              onClick={onBack}
+              className="shrink-0 inline-flex items-center justify-center min-h-11 font-mono text-[10px] sm:text-xs tracking-[1px] sm:tracking-[2px] uppercase text-null-green border border-[rgba(0,255,136,0.4)] px-3 sm:px-4 py-2 transition-all duration-200 hover:border-null-green hover:bg-[rgba(0,255,136,0.05)]"
+              style={{ clipPath: 'polygon(4px 0, 100% 0, calc(100% - 4px) 100%, 0 100%)' }}
+            >
+              ✕ CLOSE
+            </button>
+          ) : null}
         </div>
 
         {/* Player identity card */}
@@ -217,7 +226,7 @@ export default function RewardsScreen({ onBack, address, playerProfile }: Reward
           </div>
           <div className="mt-3 pt-3 border-t border-[rgba(255,190,11,0.15)]">
             <span className="text-null-muted uppercase tracking-[1px] text-[10px]">Wallet</span>
-            <div className="text-null-white break-all">{address || 'NOT CONNECTED'}</div>
+            <div className="text-null-white break-all">{resolvedAddress || 'NOT CONNECTED'}</div>
           </div>
         </div>
 
@@ -232,7 +241,7 @@ export default function RewardsScreen({ onBack, address, playerProfile }: Reward
                 Claimable This Week
               </div>
               <div className="font-display font-black text-null-green text-2xl">
-                {address ? formatUnits(weeklyClaimable, 18) : '0.0'} USDm
+                {resolvedAddress ? formatUnits(weeklyClaimable, 18) : '0.0'} USDm
               </div>
             </div>
             <button
@@ -249,7 +258,7 @@ export default function RewardsScreen({ onBack, address, playerProfile }: Reward
           {!claimStatus && rewardError && (
             <div className="mt-2 text-[11px] font-mono text-null-amber">{rewardError}</div>
           )}
-          {!address && (
+          {!resolvedAddress && (
             <div className="mt-2 text-[11px] font-mono text-null-muted">
               Connect your wallet to check claimable rewards.
             </div>

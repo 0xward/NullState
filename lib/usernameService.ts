@@ -9,6 +9,7 @@ import {
   getDocs,
 } from 'firebase/firestore'
 import { db } from './firebase'
+import { usernameSchema, walletAddressSchema } from './validation'
 
 export interface UsernameRecord {
   walletAddress: string
@@ -56,18 +57,8 @@ export async function setUsername(
   isAutoAssigned: boolean = false
 ): Promise<string> {
   try {
-    const normalizedAddr = walletAddress.toLowerCase()
-    const normalizedUsername = username.trim()
-
-    // Validate username
-    if (normalizedUsername.length < 3 || normalizedUsername.length > 32) {
-      throw new Error('Username must be 3-32 characters')
-    }
-
-    // Only allow alphanumeric, underscore, hyphen
-    if (!/^[a-zA-Z0-9_-]+$/.test(normalizedUsername)) {
-      throw new Error('Username can only contain letters, numbers, underscore, hyphen')
-    }
+    const normalizedAddr = walletAddressSchema.parse(walletAddress).toLowerCase()
+    const normalizedUsername = usernameSchema.parse(username)
 
     // Check if username is already taken (by someone else)
     const q = query(

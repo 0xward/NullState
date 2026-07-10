@@ -1,20 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAdminDb } from '@/firebase-config'
+import { walletAddressSchema, weekIdInputSchema } from '@/lib/validation'
 import { getISOWeekId } from '@/lib/web3-client'
 import { getAttemptsRemaining, parseWeekId, normalizeWalletAddress } from '@/lib/vault-utils'
 
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url)
-    const walletAddress = String(searchParams.get('walletAddress') ?? '').trim()
-    const weekIdInput = searchParams.get('weekId') ?? String(getISOWeekId())
-
-    if (!walletAddress) {
-      return NextResponse.json({ error: 'walletAddress is required' }, { status: 400 })
+    const walletAddressResult = walletAddressSchema.safeParse(searchParams.get('walletAddress') ?? '')
+    if (!walletAddressResult.success) {
+      return NextResponse.json(
+        { error: walletAddressResult.error.issues[0]?.message ?? 'Invalid wallet address' },
+        { status: 400 },
+      )
     }
 
-    const weekId = parseWeekId(weekIdInput)
-    const normalizedWallet = normalizeWalletAddress(walletAddress)
+    const weekIdResult = weekIdInputSchema.safeParse(searchParams.get('weekId') ?? String(getISOWeekId()))
+    if (!weekIdResult.success) {
+      return NextResponse.json(
+        { error: weekIdResult.error.issues[0]?.message ?? 'Invalid weekId' },
+        { status: 400 },
+      )
+    }
+
+    const weekId = parseWeekId(weekIdResult.data)
+    const normalizedWallet = normalizeWalletAddress(walletAddressResult.data)
 
     const db = getAdminDb()
     if (!db) {

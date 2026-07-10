@@ -1,7 +1,9 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Image from 'next/image'
 import { PlayerProfile } from '@/lib/contract'
+import { usernameSchema } from '@/lib/validation'
 
 interface SessionStats {
   depth: number
@@ -59,11 +61,12 @@ export default function SettingsModal({
     setUsernameStatus('saving')
     setUsernameError(null)
     try {
-      await setPlayerUsername(usernameInput.trim())
+      const parsedUsername = usernameSchema.parse(usernameInput)
+      await setPlayerUsername(parsedUsername)
       setUsernameStatus('saved')
     } catch (err) {
       setUsernameStatus('error')
-      setUsernameError((err as any)?.message || 'Failed to update username')
+      setUsernameError(err instanceof Error ? err.message : 'Failed to update username')
     }
   }
 
@@ -77,9 +80,11 @@ export default function SettingsModal({
     <div className="ns-settings-overlay" role="dialog" aria-label="Settings">
       <div className="ns-settings-panel">
         <div className="ns-settings-header">
-          <img
+          <Image
             src="/NullState_Logo_Transparent.png"
             alt="NullState"
+            width={106}
+            height={26}
             className="ns-settings-logo-corner"
           />
 
@@ -243,7 +248,7 @@ export default function SettingsModal({
               aria-label="GitHub Repository"
               className="ns-settings-footer-logo-link"
             >
-              <img src="/footer-logos/github.png" alt="GitHub" />
+              <Image src="/footer-logos/github.png" alt="GitHub" width={26} height={26} />
             </a>
             <a
               href="https://celoscan.io/address/0xe6c471dd3c715db8b10457113867885afa12ec13"
@@ -251,7 +256,7 @@ export default function SettingsModal({
               aria-label="Celoscan"
               className="ns-settings-footer-logo-link"
             >
-              <img src="/footer-logos/celoscan.png" alt="Celoscan" />
+              <Image src="/footer-logos/celoscan.png" alt="Celoscan" width={26} height={26} />
             </a>
             <a
               href="https://talent.app/~/projects/86c0509c-3167-46cd-8a58-36bb9c5b9777"
@@ -259,7 +264,7 @@ export default function SettingsModal({
               aria-label="Talent Protocol"
               className="ns-settings-footer-logo-link"
             >
-              <img src="/footer-logos/talent-protocol.jpg" alt="Talent Protocol" />
+              <Image src="/footer-logos/talent-protocol.jpg" alt="Talent Protocol" width={26} height={26} />
             </a>
           </div>
         </div>
