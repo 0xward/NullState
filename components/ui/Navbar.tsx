@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
-import { ConnectButton } from '@rainbow-me/rainbowkit'
 import { useWallet } from '@/lib/WalletProvider'
 
 const logoJitter = {
@@ -90,38 +89,15 @@ export default function Navbar() {
           ))}
         </ul>
 
-        {wallet.isMiniPay && wallet.isConnected ? (
+        {wallet.isConnected ? (
           <div className="flex items-center gap-2 font-mono text-[11px] border border-[rgba(0,255,136,0.3)] px-4 py-2 text-null-green">
             <div className="w-1.5 h-1.5 rounded-full bg-null-green animate-pulse" />
             <span>{wallet.address?.slice(0, 6)}...{wallet.address?.slice(-4)}</span>
-            <span className="text-[8px] text-null-muted ml-1">MiniPay</span>
+            {wallet.isMiniPay && <span className="text-[8px] text-null-muted ml-1">MiniPay</span>}
           </div>
-        ) : (
-          <ConnectButton.Custom>
-            {({ account, chain, openConnectModal, openAccountModal, mounted }) => {
-              const connected = mounted && account && chain
-              return (
-                <div {...(!mounted && { 'aria-hidden': true, style: { opacity: 0, pointerEvents: 'none', userSelect: 'none' } })}>
-                  {connected ? (
-                    <button onClick={openAccountModal}
-                      className="flex items-center gap-2 font-mono text-[11px] border border-[rgba(0,255,136,0.3)] px-4 py-2 text-null-green hover:border-null-green transition-colors">
-                      <div className="w-1.5 h-1.5 rounded-full bg-null-green animate-pulse" />
-                      <span>{account.displayName}</span>
-                      <span className="text-null-muted">·</span>
-                      <span className="text-null-amber">{wallet.celoBalance} CELO</span>
-                    </button>
-                  ) : (
-                    <button onClick={openConnectModal}
-                      className="font-mono text-[11px] tracking-[2px] text-null-green border border-null-green px-5 py-2 uppercase hover:bg-null-green hover:text-null-bg transition-all duration-200"
-                      style={{ clipPath: 'polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%)' }}>
-                      ⬡ CONNECT WALLET
-                    </button>
-                  )}
-                </div>
-              )
-            }}
-          </ConnectButton.Custom>
-        )}
+        ) : wallet.error ? (
+          <span className="font-mono text-[10px] text-null-red tracking-widest uppercase">CONNECTION_ERROR</span>
+        ) : null}
 
         <a href="/game"
           className="font-mono text-[11px] tracking-[2px] text-null-green border border-null-green px-5 py-2 uppercase clip-button-sm hover:bg-null-green hover:text-null-bg transition-all duration-200 no-underline">
@@ -144,23 +120,14 @@ export default function Navbar() {
               {link.label}
             </a>
           ))}
-          {!wallet.isConnected && (
-            <ConnectButton.Custom>
-              {({ openConnectModal, mounted }) => (
-                <button disabled={!mounted}
-                  onClick={() => { openConnectModal(); setMenuOpen(false) }}
-                  className="font-mono text-[11px] tracking-[2px] text-null-green border border-null-green px-4 py-2 uppercase text-center hover:bg-null-green hover:text-null-bg transition-all">
-                  ⬡ CONNECT WALLET
-                </button>
-              )}
-            </ConnectButton.Custom>
-          )}
-          {wallet.isConnected && (
+          {wallet.isConnected ? (
             <div className="font-mono text-[11px] text-null-green border border-[rgba(0,255,136,0.3)] px-4 py-2 flex items-center gap-2">
               <div className="w-1.5 h-1.5 rounded-full bg-null-green animate-pulse" />
               <span>{wallet.address?.slice(0, 6)}...{wallet.address?.slice(-4)}</span>
             </div>
-          )}
+          ) : wallet.error ? (
+            <span className="font-mono text-[10px] text-null-red tracking-widest uppercase">CONNECTION_ERROR</span>
+          ) : null}
           <a href="/game" onClick={() => setMenuOpen(false)}
             className="font-mono text-[11px] tracking-[2px] text-null-green border border-null-green px-4 py-2 uppercase clip-button-sm text-center hover:bg-null-green hover:text-null-bg transition-all no-underline mt-2">
             PLAY NOW

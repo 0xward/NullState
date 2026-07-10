@@ -226,14 +226,15 @@ function WalletExtrasProvider({ children }: { children: ReactNode }) {
     typeof window !== 'undefined' &&
     !!(window as unknown as { ethereum?: { isMiniPay?: boolean } }).ethereum?.isMiniPay
 
-  // MiniPay guideline: auto-connect the injected connector on load — MiniPay
-  // users must never be shown a manual "connect wallet" step.
+  // MiniPay requirement: always auto-connect the injected connector on load.
+  // Never show a manual "connect wallet" button — connection must be silent.
+  // isMiniPay is kept for display/analytics purposes but does NOT gate connection.
   const { connect, connectors } = useConnect()
   useEffect(() => {
-    if (!isMiniPay || isConnected) return
-    const injected = connectors.find(c => c.id === 'injected') ?? connectors[0]
-    if (injected) connect({ connector: injected, chainId: CELO_CHAIN_ID })
-  }, [isMiniPay, isConnected, connect, connectors])
+    if (isConnected) return
+    const injectedConnector = connectors.find(c => c.id === 'injected') ?? connectors[0]
+    if (injectedConnector) connect({ connector: injectedConnector, chainId: CELO_CHAIN_ID })
+  }, [isConnected, connect, connectors])
 
   const celoBalance = balanceData
     ? (Number(balanceData.value) / 10 ** balanceData.decimals).toFixed(2)
