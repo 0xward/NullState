@@ -304,6 +304,16 @@ export default function PrivacyPage() {
                   https://t.me/nullstate_id
                 </a>
               </p>
+              <p>
+                You can also reach us on X (Twitter):{' '}
+                <a
+                  href="https://x.com/nullstate_id"
+                  rel="noopener noreferrer"
+                  className="text-null-green hover:text-null-acid transition-colors font-mono text-sm"
+                >
+                  https://x.com/nullstate_id
+                </a>
+              </p>
             </div>
           </section>
 

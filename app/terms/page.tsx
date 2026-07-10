@@ -1,4 +1,4 @@
-{/* DRAFT: reviewed against docs/data-safety.md and app data flows. Legal review by 0xward recommended before final submission, especially the Governing Law / Jurisdiction section. */}
+{/* Terms of Service — Governing Law, Dispute Resolution, IP, Anti-Cheat, and Web3 Risk sections finalized per content provided directly by 0xward (repo owner) on 2026-07-10. */}
 
 import Navbar from '@/components/ui/Navbar'
 import Footer from '@/components/ui/Footer'
@@ -8,7 +8,7 @@ export const metadata = {
   description: 'Terms of Service for NULL_STATE, a Web3 RPG on Celo. Operated by 0xward.',
 }
 
-const LAST_UPDATED = 'July 10, 2025'
+const LAST_UPDATED = 'July 10, 2026'
 
 export default function TermsPage() {
   return (
@@ -180,15 +180,48 @@ export default function TermsPage() {
           {/* 6 */}
           <section>
             <h2 className="font-display font-bold text-null-white text-xl mb-3 border-l-2 border-null-green pl-4">
-              6. Prohibited Conduct
+              6. Web3, Stablecoin, and Blockchain Network Risks
             </h2>
-            <div className="pl-4">
-              <p className="mb-3">You agree not to:</p>
+            <div className="pl-4 flex flex-col gap-3">
+              <p>
+                <strong className="text-null-white">Blockchain Infrastructure:</strong>{' '}
+                The Game operates on the Celo blockchain network. 0xward is not liable for
+                financial losses caused by Celo network congestion, fork events, network
+                downtime, or smart contract vulnerabilities.
+              </p>
+              <p>
+                <strong className="text-null-white">Stablecoin Moneyflow Risk:</strong>{' '}
+                The Game uses digital stablecoins including but not limited to USDm, USDT,
+                and USDC for in-game transactions, rewards, and moneyflows. 0xward does not
+                control the issuance, backing, liquidity, or stability of these third-party
+                tokens and is not liable for losses arising from de-pegging, smart contract
+                failure, freeze functions, or collapse of USDm, USDT, or USDC.
+              </p>
+              <p>
+                <strong className="text-null-white">MiniPay Integration &amp; Non-Custodial Status:</strong>{' '}
+                NULL_STATE is listed on MiniPay, a third-party non-custodial wallet interface.
+                0xward does not control, manage, or hold custody of your digital assets, private
+                keys, or seed phrases. You are solely responsible for securing your wallet, and
+                0xward is not liable for wallet-level technical failures, unauthorized access, or
+                loss of assets within MiniPay.
+              </p>
+            </div>
+          </section>
+
+          {/* 7 */}
+          <section>
+            <h2 className="font-display font-bold text-null-white text-xl mb-3 border-l-2 border-null-green pl-4">
+              7. Anti-Cheat, Exploitation, and Prohibited Behaviors
+            </h2>
+            <div className="pl-4 flex flex-col gap-3">
+              <p>You agree not to:</p>
               <ul className="flex flex-col gap-2 font-mono text-sm">
                 {[
-                  'Exploit bugs, glitches, or vulnerabilities in the Game or smart contracts.',
-                  'Use bots, scripts, or automated tools to interact with the Service.',
-                  'Attempt to reverse-engineer, decompile, or tamper with smart contract logic in ways not permitted by the open-source licence.',
+                  'Use cheat scripts, macros, bots, hacks, mods, or unauthorized third-party software to interact with the Service.',
+                  'Exploit, abuse, or share bugs, glitches, or vulnerabilities to gain unfair gameplay advantages or unauthorized economic rewards (including USDm, USDT, or USDC distributions).',
+                  'Reverse-engineer, decompile, disassemble, scrape, or tamper with frontend code, client scripts, APIs, or proprietary game data beyond permissions granted by applicable licences.',
+                  'Conduct Sybil attacks, malicious multi-account behavior, or automated manipulation of leaderboards, rewards, or airdrops.',
+                  'Bypass the frontend to maliciously interact with deployed smart contracts, including any flash loan, reentrancy, or math-bug exploitation.',
                   'Harass, threaten, or abuse other users.',
                   'Use the Service for money laundering, fraud, or any illegal purpose.',
                   'Impersonate 0xward, MiniPay, Celo, or any other entity.',
@@ -199,13 +232,23 @@ export default function TermsPage() {
                   </li>
                 ))}
               </ul>
+              <p>
+                If 0xward determines or reasonably suspects that you violated this section,
+                0xward may, without prior notice, permanently blacklist or ban your wallet
+                address from the frontend and related services.
+              </p>
+              <p>
+                0xward may also revoke or freeze licensed off-chain virtual assets and nullify
+                pending economic rewards, distributions, or balances obtained through prohibited
+                means.
+              </p>
             </div>
           </section>
 
-          {/* 7 */}
+          {/* 8 */}
           <section>
             <h2 className="font-display font-bold text-null-white text-xl mb-3 border-l-2 border-null-green pl-4">
-              7. Intellectual Property
+              8. Intellectual Property
             </h2>
             <div className="pl-4 flex flex-col gap-3">
               <p>
@@ -219,13 +262,39 @@ export default function TermsPage() {
                 Pass NFTs) is public by nature of the Celo blockchain and is not the exclusive
                 property of 0xward or any other party.
               </p>
+              <p>
+                <strong className="text-null-white">Developer Ownership:</strong>{' '}
+                Except for User Content and decentralized blockchain data, all right, title, and
+                interest in the Game are owned exclusively by 0xward, including code, themes,
+                characters, names, stories, dialogue, artwork, animations, sounds, music,
+                audio-visual effects, methods of operation, moral rights, and related
+                documentation.
+              </p>
+              <p>
+                <strong className="text-null-white">In-Game Items and Virtual Assets:</strong>{' '}
+                Virtual items, skins, equipment, and currencies, whether represented on-chain
+                as NFTs or off-chain on Game servers, are licensed to you by 0xward solely for
+                gameplay purposes under these Terms.
+              </p>
+              <p>
+                <strong className="text-null-white">Blockchain Assets (NFTs):</strong>{' '}
+                To the extent the Game permits minting Digital Assets or NFTs on Celo, you own
+                the underlying cryptographic token, but this ownership does not grant intellectual
+                property rights in underlying artwork, brands, trademarks, or proprietary code
+                owned by 0xward, unless expressly stated in a separate NFT License Agreement.
+              </p>
+              <p>
+                <strong className="text-null-white">Secondary Market Disclaimer:</strong>{' '}
+                0xward does not guarantee that any in-game asset or NFT will maintain financial
+                value. Any trading on third-party marketplaces is at your own risk.
+              </p>
             </div>
           </section>
 
-          {/* 8 */}
+          {/* 9 */}
           <section>
             <h2 className="font-display font-bold text-null-white text-xl mb-3 border-l-2 border-null-green pl-4">
-              8. Limitation of Liability
+              9. Limitation of Liability
             </h2>
             <div className="pl-4 flex flex-col gap-3">
               <p>
@@ -241,13 +310,20 @@ export default function TermsPage() {
                 CONSEQUENTIAL OR INCIDENTAL DAMAGES, THE ABOVE LIMITATIONS SHALL APPLY TO THE
                 FULLEST EXTENT PERMITTED BY LAW.
               </p>
+              <p>
+                TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, 0XWARD&apos;S TOTAL AGGREGATE
+                LIABILITY FOR ALL CLAIMS ARISING OUT OF OR RELATING TO THE SERVICE SHALL BE
+                LIMITED TO THE LESSER OF: (I) THE TOTAL FEES OR IN-GAME PURCHASES ACTUALLY PAID
+                BY YOU TO 0XWARD IN THE THREE (3) MONTHS PRECEDING THE EVENT GIVING RISE TO THE
+                LIABILITY; OR (II) USD $100.
+              </p>
             </div>
           </section>
 
-          {/* 9 */}
+          {/* 10 */}
           <section>
             <h2 className="font-display font-bold text-null-white text-xl mb-3 border-l-2 border-null-green pl-4">
-              9. Modifications to Terms
+              10. Modifications to Terms
             </h2>
             <div className="pl-4">
               <p>
@@ -259,10 +335,10 @@ export default function TermsPage() {
             </div>
           </section>
 
-          {/* 10 */}
+          {/* 11 */}
           <section>
             <h2 className="font-display font-bold text-null-white text-xl mb-3 border-l-2 border-null-green pl-4">
-              10. Termination / Suspension of Access
+              11. Termination / Suspension of Access
             </h2>
             <div className="pl-4">
               <p>
@@ -275,29 +351,64 @@ export default function TermsPage() {
             </div>
           </section>
 
-          {/* 11 */}
+          {/* 12 */}
           <section>
             <h2 className="font-display font-bold text-null-white text-xl mb-3 border-l-2 border-null-green pl-4">
-              11. Governing Law
+              12. Governing Law
             </h2>
-            <div className="pl-4">
-              <p className="text-null-amber font-mono text-sm border border-[rgba(255,170,0,0.3)] px-4 py-3">
-                [Governing Law / Jurisdiction — TBD by 0xward legal. This section must be
-                completed with the appropriate jurisdiction before final submission to any
-                app store or platform, including MiniPay.]
+            <div className="pl-4 flex flex-col gap-3">
+              <p>
+                These Terms are governed by and construed in accordance with the laws of
+                Singapore, without regard to conflict of law principles.
+              </p>
+              <p>
+                The United Nations Convention on Contracts for the International Sale of Goods
+                does not apply to these Terms and is expressly excluded.
               </p>
             </div>
           </section>
 
-          {/* 12 */}
+          {/* 13 */}
           <section>
             <h2 className="font-display font-bold text-null-white text-xl mb-3 border-l-2 border-null-green pl-4">
-              12. Contact
+              13. Dispute Resolution &amp; Binding Arbitration
+            </h2>
+            <div className="pl-4 flex flex-col gap-3">
+              <p>
+                <strong className="text-null-white">Amicable Resolution:</strong>{' '}
+                You and 0xward agree to notify each other in writing of any dispute within
+                thirty (30) days of it arising and to attempt informal resolution for at least
+                thirty (30) days before starting formal arbitration.
+              </p>
+              <p>
+                <strong className="text-null-white">Binding Arbitration:</strong>{' '}
+                Any dispute not resolved informally shall be referred to and finally resolved by
+                arbitration administered by the Singapore International Arbitration Centre (SIAC)
+                under the SIAC Arbitration Rules in force at the time arbitration is commenced.
+              </p>
+              <p>
+                <strong className="text-null-white">Seat and Language:</strong>{' '}
+                The seat of arbitration is Singapore. The tribunal shall consist of one (1)
+                arbitrator. The language of arbitration shall be English.
+              </p>
+              <p>
+                <strong className="text-null-white">Class Action Waiver:</strong>{' '}
+                To the maximum extent permitted by law, all arbitration or legal proceedings must
+                be conducted only on an individual basis, and not as a class, collective, or
+                representative action.
+              </p>
+            </div>
+          </section>
+
+          {/* 14 */}
+          <section>
+            <h2 className="font-display font-bold text-null-white text-xl mb-3 border-l-2 border-null-green pl-4">
+              14. Contact
             </h2>
             <div className="pl-4 flex flex-col gap-3">
               <p>
                 For questions about these Terms or for general support, reach the 0xward team via
-                our official support channel:
+                our official channels:
               </p>
               <p>
                 <a
@@ -306,6 +417,16 @@ export default function TermsPage() {
                   className="text-null-green hover:text-null-acid transition-colors font-mono text-sm"
                 >
                   https://t.me/nullstate_id
+                </a>
+              </p>
+              <p>
+                You can also reach us on X (Twitter):{' '}
+                <a
+                  href="https://x.com/nullstate_id"
+                  rel="noopener noreferrer"
+                  className="text-null-green hover:text-null-acid transition-colors font-mono text-sm"
+                >
+                  https://x.com/nullstate_id
                 </a>
               </p>
             </div>

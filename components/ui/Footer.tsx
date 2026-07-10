@@ -2,7 +2,7 @@
 
 export default function Footer() {
   const links = [
-    { href: 'https://twitter.com/NullStateRPG', label: 'TWITTER' },
+    { href: 'https://x.com/nullstate_id', label: 'TWITTER' },
     { href: 'https://t.me/nullstate_id', label: 'SUPPORT' },
     { href: 'https://github.com', label: 'GITHUB' },
     { href: '/docs', label: 'DOCS' },
