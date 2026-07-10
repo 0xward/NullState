@@ -2,7 +2,7 @@
 /**
  * scripts/generate-icon.js
  *
- * Generates app icons from public/NullState_Logo_Transparent.png:
+ * Generates app icons from public/NullState_Logo.png:
  *   - public/icon-512.png  → 512×512 px, optimised PNG  (MiniPay submission)
  *   - app/icon.png         → 512×512 px, optimised PNG  (Next.js App Router)
  *   - public/favicon.ico   → 32×32 px ICO               (browser tab / bookmarks)
@@ -18,7 +18,7 @@ const path  = require('path')
 const fs    = require('fs')
 
 const root   = path.resolve(__dirname, '..')
-const source = path.join(root, 'public', 'NullState_Logo_Transparent.png')
+const source = path.join(root, 'public', 'NullState_Logo.png')
 
 async function main () {
   // ── 1. Read source dimensions ──────────────────────────────────────────────

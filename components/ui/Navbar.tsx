@@ -106,7 +106,7 @@ export default function Navbar() {
       </div>
 
       {/* Mobile hamburger */}
-      <button className="md:hidden font-mono text-null-green text-xs tracking-widest"
+      <button className="md:hidden inline-flex items-center justify-center min-h-11 min-w-11 px-2 py-2 font-mono text-null-green text-xs tracking-widest"
         onClick={() => setMenuOpen(!menuOpen)}>
         {menuOpen ? '[ CLOSE ]' : '[ MENU ]'}
       </button>

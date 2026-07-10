@@ -43,7 +43,7 @@ export default function LiveStatsTicker() {
     { label: 'RAID BOSS HP',   value: `${raidHp.toLocaleString()} / 10,000`, color: 'var(--null-red)'    },
     { label: 'TOTAL TXS',      value: txCount.toLocaleString(),              color: 'var(--null-amber)'  },
     { label: 'ACTION COST',    value: '0.01 CELO',                           color: 'var(--null-blue)'   },
-    { label: 'GAS FEE',        value: '~$0.001',                             color: 'var(--null-green)'  },
+    { label: 'NETWORK FEE',    value: '~$0.001',                             color: 'var(--null-green)'  },
     { label: 'ENGINE',        value: 'REAL-TIME',                            color: 'var(--null-acid)'   },
     { label: 'NETWORK',        value: 'CELO L1',                             color: 'var(--null-green)'  },
   ]

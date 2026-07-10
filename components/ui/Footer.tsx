@@ -16,7 +16,7 @@ export default function Footer() {
       <div className="border-b border-[rgba(0,255,136,0.06)] mb-6 pb-4 ticker-wrap overflow-hidden">
         <div className="ticker-inner font-mono text-[9px] text-null-muted tracking-[3px] uppercase">
           {Array(3).fill(
-            '// NULLSTATE LIVE :: BLOCK #28,441,902 :: 247 PLAYERS ACTIVE :: RAID BOSS HP: 8,750 :: NEXT DROP: 47H :: GAS: $0.001 :: BUILT ON CELO :: MINIPAY NATIVE :: REAL-TIME DUNGEON CRAWLER :: '
+            '// NULLSTATE LIVE :: BLOCK #28,441,902 :: 247 PLAYERS ACTIVE :: RAID BOSS HP: 8,750 :: NEXT DROP: 47H :: NETWORK FEE: $0.001 :: BUILT ON CELO :: MINIPAY NATIVE :: REAL-TIME DUNGEON CRAWLER :: '
           ).join('')}
         </div>
       </div>
@@ -31,9 +31,8 @@ export default function Footer() {
             <li key={link.label}>
               <a
                 href={link.href}
-                target={link.href.startsWith('http') ? '_blank' : undefined}
                 rel={link.href.startsWith('http') ? 'noopener noreferrer' : undefined}
-                className="font-mono text-[10px] tracking-[2px] text-null-muted hover:text-null-green transition-colors duration-200 uppercase no-underline"
+                className="inline-flex items-center min-h-11 px-2 font-mono text-[10px] tracking-[2px] text-null-muted hover:text-null-green transition-colors duration-200 uppercase no-underline"
               >
                 {link.label}
               </a>

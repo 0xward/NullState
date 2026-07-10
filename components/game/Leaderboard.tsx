@@ -85,7 +85,7 @@ export default function Leaderboard({
 
           <button
             onClick={onBack}
-            className="shrink-0 font-mono text-[10px] sm:text-xs tracking-[1px] sm:tracking-[2px] uppercase text-null-green border border-[rgba(0,255,136,0.4)] px-2.5 sm:px-4 py-1.5 sm:py-2 transition-all duration-200 hover:border-null-green hover:bg-[rgba(0,255,136,0.05)]"
+            className="shrink-0 inline-flex items-center justify-center min-h-11 font-mono text-[10px] sm:text-xs tracking-[1px] sm:tracking-[2px] uppercase text-null-green border border-[rgba(0,255,136,0.4)] px-3 sm:px-4 py-2 transition-all duration-200 hover:border-null-green hover:bg-[rgba(0,255,136,0.05)]"
             style={{
               clipPath: 'polygon(4px 0, 100% 0, calc(100% - 4px) 100%, 0 100%)',
             }}

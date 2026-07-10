@@ -207,7 +207,6 @@ export default function PrivacyPage() {
                   data on our behalf subject to Google&apos;s standard data processing terms. See{' '}
                   <a
                     href="https://firebase.google.com/support/privacy"
-                    target="_blank"
                     rel="noopener noreferrer"
                     className="text-null-green hover:text-null-acid transition-colors"
                   >
@@ -299,7 +298,6 @@ export default function PrivacyPage() {
               <p>
                 <a
                   href="https://t.me/nullstate_id"
-                  target="_blank"
                   rel="noopener noreferrer"
                   className="text-null-green hover:text-null-acid transition-colors font-mono text-sm"
                 >
