@@ -3,10 +3,11 @@
 export default function Footer() {
   const links = [
     { href: 'https://twitter.com/NullStateRPG', label: 'TWITTER' },
-    { href: '#', label: 'DISCORD' },
+    { href: 'https://t.me/nullstate_id', label: 'SUPPORT' },
     { href: 'https://github.com', label: 'GITHUB' },
     { href: '/docs', label: 'DOCS' },
-    { href: '#', label: 'WHITEPAPER' },
+    { href: '/terms', label: 'TERMS' },
+    { href: '/privacy', label: 'PRIVACY' },
   ]
 
   return (
@@ -41,7 +42,7 @@ export default function Footer() {
         </ul>
 
         <div className="font-mono text-[10px] tracking-wider" style={{ color: 'rgba(42,74,53,0.6)' }}>
-          © 2025 NULLSTATE :: BUILT ON CELO
+          © 2025 NULLSTATE :: Operated by 0xward :: BUILT ON CELO
         </div>
       </div>
 
