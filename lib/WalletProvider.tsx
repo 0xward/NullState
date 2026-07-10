@@ -18,7 +18,7 @@ import { USDM_ADDRESS, USDM_ABI } from './contract-abi'
 
 export const NULLSTATE_ADDRESS  = '0xE6C471DD3C715DB8B10457113867885AFA12eC13' as `0x${string}`
 export const CELO_CHAIN_ID      = 42220
-export const ALFAJORES_CHAIN_ID = 44787
+export const CELO_SEPOLIA_CHAIN_ID = 11142220
 export const ACTION_COST_WEI   = BigInt('10000000000000000') // 0.01 CELO
 // NULL_STRIKE fee: 0.005 USDm (18 decimals), sent as a plain ERC20 transfer
 // to the NullStateReward contract address (funds the weekly pool). This is
