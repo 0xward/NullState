@@ -8,6 +8,7 @@ export const metadata: Metadata = {
   title: 'NULL_STATE // Web3 RPG on Celo',
   description: 'A real-time dungeon crawler on Celo. Descend the Forsaken Depths, sign on-chain NULL_STRIKEs, and survive. Every death is permanent. Your wallet is your weapon.',
   keywords: ['Celo', 'Web3', 'RPG', 'MiniPay', 'blockchain game', 'AI RPG'],
+  authors: [{ name: '0xward' }],
   openGraph: {
     title: 'NULL_STATE // Web3 RPG on Celo',
     description: 'A real-time dungeon crawler on Celo. Every NULL_STRIKE costs 0.01 CELO.',
