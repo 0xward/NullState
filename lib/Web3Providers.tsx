@@ -12,7 +12,7 @@
 
 import { ReactNode } from 'react'
 import { WagmiProvider, createConfig, http } from 'wagmi'
-import { celo } from 'wagmi/chains'
+import { celo, celoSepolia } from 'wagmi/chains'
 import { injected } from 'wagmi/connectors'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import WalletProvider from '@/lib/WalletProvider'
@@ -20,10 +20,11 @@ import WalletProvider from '@/lib/WalletProvider'
 // ─── Wagmi config ─────────────────────────────────────────────────────────────
 
 const config = createConfig({
-  chains:    [celo],
+  chains:    [celo, celoSepolia],
   connectors: [injected()],
   transports: {
     [celo.id]: http('https://forno.celo.org'),
+    [celoSepolia.id]: http(),
   },
 })
 
