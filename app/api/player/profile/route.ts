@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentSeasonId } from '@/lib/web3-client'
 import { getAdminDb } from '@/firebase-config'
+import { seasonIdInputSchema, walletAddressSchema } from '@/lib/validation'
 import { normalizeWalletAddress } from '@/lib/vault-utils'
 
 // Fails fast with a normal, catchable error instead of letting a hung
@@ -21,14 +22,28 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url)
-    const walletAddress = String(searchParams.get('walletAddress') ?? '').trim()
-
-    if (!walletAddress) {
-      return NextResponse.json({ error: 'walletAddress is required' }, { status: 400 })
+    const walletAddressResult = walletAddressSchema.safeParse(searchParams.get('walletAddress') ?? '')
+    if (!walletAddressResult.success) {
+      return NextResponse.json(
+        { error: walletAddressResult.error.issues[0]?.message ?? 'Invalid wallet address' },
+        { status: 400 },
+      )
     }
 
-    const seasonId = Number(searchParams.get('seasonId') ?? getCurrentSeasonId())
-    const normalizedWallet = normalizeWalletAddress(walletAddress)
+    const seasonIdInput = searchParams.get('seasonId')
+    const seasonIdResult =
+      seasonIdInput == null
+        ? { success: true as const, data: String(getCurrentSeasonId()) }
+        : seasonIdInputSchema.safeParse(seasonIdInput)
+    if (!seasonIdResult.success) {
+      return NextResponse.json(
+        { error: seasonIdResult.error.issues[0]?.message ?? 'Invalid seasonId' },
+        { status: 400 },
+      )
+    }
+
+    const seasonId = Number(seasonIdResult.data)
+    const normalizedWallet = normalizeWalletAddress(walletAddressResult.data)
 
     const db = getAdminDb()
     if (!db) {

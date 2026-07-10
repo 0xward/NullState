@@ -37,6 +37,7 @@ files.
 
 ## Notes
 
+- Run https://pagespeed.web.dev/ against the production URL after this PR merges and deploys, and record the score for the MiniPay submission form (which requires this score). Do not record a placeholder or guessed score before deployment.
 - **Firebase domains**: NullState uses Firebase Firestore (`lib/firebase.ts`) and Firebase Admin
   SDK (`firebase-admin` via server API routes). The specific Google API hostnames contacted
   depend on the Firebase project region and services active. The domains listed above cover all

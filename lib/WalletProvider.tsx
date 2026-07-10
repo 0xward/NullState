@@ -13,6 +13,7 @@ import {
 import { celo } from 'wagmi/chains'
 import { encodeFunctionData } from 'viem'
 import { USDM_ADDRESS, USDM_ABI } from './contract-abi'
+import { getUserFriendlyError, MINIPAY_ADD_CASH_URL } from './errorUtils'
 
 // ─── Contract config ─────────────────────────────────────────────────────────
 
@@ -151,6 +152,8 @@ interface WalletExtras {
   isMiniPay: boolean
   celoBalance: string
   error: string | null
+  insufficientFunds: boolean
+  addCashUrl: string | null
   executeAction: (params: ExecuteActionParams) => Promise<string>
   attackRaid: (damage: number) => Promise<string>
   readPlayer: (addr?: string) => Promise<PlayerData | null>
@@ -198,6 +201,8 @@ export function useWallet() {
     isMiniPay:    extras.isMiniPay,
     celoBalance:  extras.celoBalance,
     error:        extras.error,
+    insufficientFunds: extras.insufficientFunds,
+    addCashUrl:   extras.addCashUrl,
     connect:      connectWallet,
     disconnect,
     switchToCelo,
@@ -220,6 +225,7 @@ function WalletExtrasProvider({ children }: { children: ReactNode }) {
   const { data: balanceData }  = useBalance({ address, chainId: CELO_CHAIN_ID })
 
   const [error, setError] = useState<string | null>(null)
+  const [insufficientFunds, setInsufficientFunds] = useState(false)
 
   // Detect MiniPay (injected wallet with isMiniPay flag)
   const isMiniPay =
@@ -246,6 +252,7 @@ function WalletExtrasProvider({ children }: { children: ReactNode }) {
     async (data: `0x${string}`, value?: bigint): Promise<string> => {
       if (!walletClient || !address) throw new Error('Wallet not connected')
       setError(null)
+      setInsufficientFunds(false)
       try {
         const hash = await walletClient.sendTransaction({
           account: address,
@@ -258,8 +265,9 @@ function WalletExtrasProvider({ children }: { children: ReactNode }) {
         })
         return hash
       } catch (e: unknown) {
-        const msg = (e as Error).message ?? 'Transaction failed'
-        setError(msg)
+        const friendlyError = getUserFriendlyError(e)
+        setError(friendlyError.message)
+        setInsufficientFunds(friendlyError.insufficientFunds)
         throw e
       }
     },
@@ -323,6 +331,7 @@ function WalletExtrasProvider({ children }: { children: ReactNode }) {
         throw new Error('Invalid USDm fee amount')
       }
       setError(null)
+      setInsufficientFunds(false)
       const data = encodeFunctionData({
         abi:          USDM_ABI,
         functionName: 'transfer',
@@ -338,8 +347,9 @@ function WalletExtrasProvider({ children }: { children: ReactNode }) {
         })
         return hash
       } catch (e: unknown) {
-        const msg = (e as Error).message ?? 'USDm transfer failed'
-        setError(msg)
+        const friendlyError = getUserFriendlyError(e)
+        setError(friendlyError.message)
+        setInsufficientFunds(friendlyError.insufficientFunds)
         throw e
       }
     },
@@ -421,6 +431,8 @@ function WalletExtrasProvider({ children }: { children: ReactNode }) {
     isMiniPay,
     celoBalance,
     error,
+    insufficientFunds,
+    addCashUrl: insufficientFunds ? MINIPAY_ADD_CASH_URL : null,
     executeAction,
     attackRaid,
     readPlayer,

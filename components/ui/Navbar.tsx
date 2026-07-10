@@ -90,13 +90,32 @@ export default function Navbar() {
         </ul>
 
         {wallet.isConnected ? (
-          <div className="flex items-center gap-2 font-mono text-[11px] border border-[rgba(0,255,136,0.3)] px-4 py-2 text-null-green">
-            <div className="w-1.5 h-1.5 rounded-full bg-null-green animate-pulse" />
-            <span>{wallet.address?.slice(0, 6)}...{wallet.address?.slice(-4)}</span>
-            {wallet.isMiniPay && <span className="text-[8px] text-null-muted ml-1">MiniPay</span>}
+          <div className="flex flex-col items-end gap-1">
+            <div className="flex items-center gap-2 font-mono text-[11px] border border-[rgba(0,255,136,0.3)] px-4 py-2 text-null-green">
+              <div className="w-1.5 h-1.5 rounded-full bg-null-green animate-pulse" />
+              <span>{wallet.address?.slice(0, 6)}...{wallet.address?.slice(-4)}</span>
+              {wallet.isMiniPay && <span className="text-[8px] text-null-muted ml-1">MiniPay</span>}
+            </div>
+            {wallet.error && (
+              <div className="flex items-center gap-2 text-[10px] font-mono text-null-amber">
+                <span>{wallet.error}</span>
+                {wallet.addCashUrl && (
+                  <a href={wallet.addCashUrl} className="text-null-green no-underline underline-offset-2 hover:underline">
+                    Add Cash
+                  </a>
+                )}
+              </div>
+            )}
           </div>
         ) : wallet.error ? (
-          <span className="font-mono text-[10px] text-null-red tracking-widest uppercase">CONNECTION_ERROR</span>
+          <div className="flex items-center gap-2 text-[10px] font-mono text-null-red">
+            <span>{wallet.error}</span>
+            {wallet.addCashUrl && (
+              <a href={wallet.addCashUrl} className="text-null-green no-underline underline-offset-2 hover:underline">
+                Add Cash
+              </a>
+            )}
+          </div>
         ) : null}
 
         <a href="/game"
@@ -121,12 +140,31 @@ export default function Navbar() {
             </a>
           ))}
           {wallet.isConnected ? (
-            <div className="font-mono text-[11px] text-null-green border border-[rgba(0,255,136,0.3)] px-4 py-2 flex items-center gap-2">
-              <div className="w-1.5 h-1.5 rounded-full bg-null-green animate-pulse" />
-              <span>{wallet.address?.slice(0, 6)}...{wallet.address?.slice(-4)}</span>
+            <div className="flex flex-col gap-1">
+              <div className="font-mono text-[11px] text-null-green border border-[rgba(0,255,136,0.3)] px-4 py-2 flex items-center gap-2">
+                <div className="w-1.5 h-1.5 rounded-full bg-null-green animate-pulse" />
+                <span>{wallet.address?.slice(0, 6)}...{wallet.address?.slice(-4)}</span>
+              </div>
+              {wallet.error && (
+                <div className="flex items-center gap-2 text-[10px] font-mono text-null-amber">
+                  <span>{wallet.error}</span>
+                  {wallet.addCashUrl && (
+                    <a href={wallet.addCashUrl} className="text-null-green no-underline underline-offset-2 hover:underline">
+                      Add Cash
+                    </a>
+                  )}
+                </div>
+              )}
             </div>
           ) : wallet.error ? (
-            <span className="font-mono text-[10px] text-null-red tracking-widest uppercase">CONNECTION_ERROR</span>
+            <div className="flex items-center gap-2 text-[10px] font-mono text-null-red">
+              <span>{wallet.error}</span>
+              {wallet.addCashUrl && (
+                <a href={wallet.addCashUrl} className="text-null-green no-underline underline-offset-2 hover:underline">
+                  Add Cash
+                </a>
+              )}
+            </div>
           ) : null}
           <a href="/game" onClick={() => setMenuOpen(false)}
             className="font-mono text-[11px] tracking-[2px] text-null-green border border-null-green px-4 py-2 uppercase clip-button-sm text-center hover:bg-null-green hover:text-null-bg transition-all no-underline mt-2">

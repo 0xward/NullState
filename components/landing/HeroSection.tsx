@@ -61,11 +61,17 @@ const ps1JitterLight = {
 
 export default function HeroSection() {
   const [videoLoaded, setVideoLoaded] = useState(false)
+  const [shouldLoadVideo, setShouldLoadVideo] = useState(false)
 
   useEffect(() => {
     document.body.style.overflow = 'hidden'
+    const enableVideo = () => setShouldLoadVideo(true)
+    const idleCallback = window.requestIdleCallback?.(enableVideo)
+    const timeoutId = idleCallback === undefined ? window.setTimeout(enableVideo, 0) : undefined
     return () => {
       document.body.style.overflow = ''
+      if (idleCallback !== undefined) window.cancelIdleCallback?.(idleCallback)
+      if (timeoutId !== undefined) window.clearTimeout(timeoutId)
     }
   }, [])
 
@@ -73,11 +79,11 @@ export default function HeroSection() {
     <section className="relative h-[100dvh] w-full flex flex-col items-center justify-center text-center px-6 overflow-hidden">
       {/* Background video loop */}
       <video
-        autoPlay
+        autoPlay={shouldLoadVideo}
         muted
         loop
         playsInline
-        preload="auto"
+        preload="none"
         onCanPlay={() => setVideoLoaded(true)}
         className="absolute inset-0 w-full h-full object-cover"
         style={{
@@ -86,7 +92,7 @@ export default function HeroSection() {
           transition: 'opacity 1.2s ease',
         }}
       >
-        <source src="/video/hero-bg.mp4" type="video/mp4" />
+        {shouldLoadVideo && <source src="/video/hero-bg.mp4" type="video/mp4" />}
       </video>
 
       {/* Dark overlay so text stays readable over the footage */}

@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createPublicClient, createWalletClient, http, parseUnits, isAddress } from 'viem'
+import { createPublicClient, createWalletClient, http, parseUnits } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { celo } from 'viem/chains'
 import { REWARD_ABI, REWARD_CONTRACT_ADDRESS, USDM_ADDRESS } from '@/lib/contract-abi'
 import { getAdminDb } from '@/firebase-config'
+import { burnRecordBodySchema } from '@/lib/validation'
 import { normalizeWalletAddress } from '@/lib/vault-utils'
 import { getCurrentSeasonId } from '@/lib/web3-client'
 
@@ -45,21 +46,20 @@ function clampItemValue(v: unknown): number {
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json()
-    const wallet = String(body?.wallet ?? '')
-    const rawItems = Array.isArray(body?.items) ? (body.items as RawBurnItem[]) : []
+    const parsedBody = burnRecordBodySchema.safeParse(await req.json())
+    if (!parsedBody.success) {
+      return NextResponse.json(
+        { error: parsedBody.error.issues[0]?.message ?? 'Invalid request body' },
+        { status: 400 },
+      )
+    }
+
+    const { wallet, items, timestamp: rawTimestamp } = parsedBody.data
+    const rawItems = items as RawBurnItem[]
     const timestamp =
-      typeof body?.timestamp === 'number' && Number.isFinite(body.timestamp)
-        ? body.timestamp
+      typeof rawTimestamp === 'number' && Number.isFinite(rawTimestamp)
+        ? rawTimestamp
         : Date.now()
-
-    if (!wallet || !isAddress(wallet)) {
-      return NextResponse.json({ error: 'Missing or invalid wallet address' }, { status: 400 })
-    }
-
-    if (rawItems.length === 0) {
-      return NextResponse.json({ error: 'items must be a non-empty array' }, { status: 400 })
-    }
 
     // Reject oversized batches outright — a legit burn only ever queues a
     // handful of stash items at once; anything bigger is almost certainly

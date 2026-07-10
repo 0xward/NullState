@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import { SeasonInfo } from '@/hooks/usePassSBT'
 
 export interface SeasonPassCardProps {
@@ -53,10 +54,12 @@ export default function SeasonPassCard({
         style={cardStyle}
       >
         <div className="relative aspect-square w-full">
-          <img
+          <Image
             src={imageSrc}
             alt={`Season ${seasonNumber}`}
-            className="w-full h-full object-cover"
+            fill
+            sizes="(max-width: 640px) 78vw, 300px"
+            className="object-cover"
             style={{ filter: 'blur(6px) brightness(0.4)' }}
           />
           <div className="absolute inset-0 flex items-center justify-center bg-black/40">
@@ -129,7 +132,13 @@ export default function SeasonPassCard({
       style={cardStyle}
     >
       <div className="relative aspect-square w-full">
-        <img src={imageSrc} alt={`Season ${seasonNumber}`} className="w-full h-full object-cover" />
+        <Image
+          src={imageSrc}
+          alt={`Season ${seasonNumber}`}
+          fill
+          sizes="(max-width: 640px) 86vw, 320px"
+          className="object-cover"
+        />
         <div className="absolute top-2 left-2 font-mono text-[10px] tracking-[2px] uppercase bg-black/70 text-null-green px-2 py-1 border border-[rgba(0,255,136,0.4)]">
           ● ACTIVE
         </div>

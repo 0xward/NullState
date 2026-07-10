@@ -4,28 +4,25 @@ import { privateKeyToAccount } from 'viem/accounts'
 import { celo } from 'viem/chains'
 import { TREASURE_VAULT_ABI, TREASURE_VAULT_ADDRESS } from '@/lib/contract-abi'
 import { getAdminDb } from '@/firebase-config'
+import { vaultSubmitBodySchema } from '@/lib/validation'
 import {
   getAttemptsRemaining,
   parseWeekId,
-  validateVaultCode,
   normalizeWalletAddress,
 } from '@/lib/vault-utils'
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json()
-    const walletAddress = String(body.walletAddress ?? '')
-    const code = String(body.code ?? '').trim()
-
-    if (!walletAddress || !body.weekId || !code) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+    const parsedBody = vaultSubmitBodySchema.safeParse(await req.json())
+    if (!parsedBody.success) {
+      return NextResponse.json(
+        { error: parsedBody.error.issues[0]?.message ?? 'Invalid request body' },
+        { status: 400 },
+      )
     }
 
-    if (!validateVaultCode(code)) {
-      return NextResponse.json({ error: 'Code must be 4 digits' }, { status: 400 })
-    }
-
-    const weekId = parseWeekId(body.weekId)
+    const { walletAddress, weekId: rawWeekId, code } = parsedBody.data
+    const weekId = parseWeekId(rawWeekId)
     const normalizedWallet = normalizeWalletAddress(walletAddress)
 
     const db = getAdminDb()
