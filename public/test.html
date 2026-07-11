@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>LPC Harness</title>
+<style>
+  html,body{margin:0;background:#222;color:#0f0;font-family:monospace;}
+  canvas{background:#334;display:block;image-rendering:pixelated;}
+  #log{white-space:pre-wrap;padding:8px;font-size:12px;}
+</style>
+</head>
+<body>
+<canvas id="cv" width="256" height="256"></canvas>
+<div id="log"></div>
+
+<script src="/game-engine/assets.js"></script>
+<script src="/game-engine/entities.js"></script>
+<script>
+const logEl = document.getElementById('log');
+function log(s){ logEl.textContent += s + "\n"; console.log(s); }
+
+window.NS_ASSETS = {
+  LPC_DIRS, LPC_BASE, LPC_HERO, LPC_ARMOR, LPC_WEAPON, preloadLPCHero,
+  loadImg, img, preloadAll, preloadHeroPreviews
+};
+
+const ctx = document.getElementById('cv').getContext('2d');
+
+// fake dungeon collision object (no walls)
+const fakeDun = { isWall: () => false };
+
+async function run(){
+  log('preloading LPC assets...');
+  await preloadLPCHero();
+  log('preload done.');
+
+  const player = new Player('knight', HERO.knight);
+  player.useLPCHero = true;
+  player.equippedArmorId = 'iron_plate';
+  player.equippedWeaponId = 'war_axe';
+  player.x = 128; player.y = 128;
+
+  window.__player = player;
+  window.__renderFrame = function(state){
+    ctx.clearRect(0,0,256,256);
+    if(state === 'idle'){
+      player.update(1/60, {left:false,right:false,up:false,down:false}, fakeDun);
+    } else if(state === 'walk_right'){
+      player.update(1/60, {left:false,right:true,up:false,down:false}, fakeDun);
+    } else if(state === 'walk_down'){
+      player.update(1/60, {left:false,right:false,up:false,down:true}, fakeDun);
+    } else if(state === 'attack_start'){
+      player.startAttack();
+      player.update(1/60, {}, fakeDun);
+    } else if(state === 'attack_mid'){
+      // advance atkTime into strike window (~0.20s)
+      for(let i=0;i<12;i++) player.update(1/60, {}, fakeDun);
+    }
+    player.draw(ctx);
+    window.__lastDraw = { dir: player._lpcDir, frame: player._lpcFrame, animKey: player._lpcAnimKey, attacking: player.attacking };
+  };
+  log('ready.');
+  window.__ready = true;
+}
+run().catch(e=>log('ERROR: '+e.message+'\n'+e.stack));
+</script>
+</body>
+</html>

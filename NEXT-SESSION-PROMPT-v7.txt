@@ -1,0 +1,156 @@
+# NullState — Phase 5.3 Continuation Prompt (v7)
+# UPLOAD THIS ZIP: NullState-Phase5_3-Task5-LPCPlan-v7.zip
+# SCOPE: this session did the browser verification v6 flagged as the
+# #1 priority, found and FIXED two real bugs via that verification, and
+# recalibrated the placeholder scale with actual pixel measurements.
+# Read this before touching LPC code again — some of v6's "still owed"
+# items are now DONE, don't redo them.
+
+## What THIS session verified (real Playwright, real screenshots)
+v6 confirmed Playwright/Chromium launches in-sandbox but had NOT yet
+built the standalone harness or looked at a real render. This session
+did both:
+
+1. Built `public/test.html` — loads `assets.js`+`entities.js` via plain
+   `<script>` tags (no Next.js/bundler), constructs a real `Player`,
+   exposes `window.__renderFrame(state)` to drive idle/walk/attack
+   states from outside, and draws to a `<canvas>`. Served with
+   `python3 -m http.server` from `public/`, driven with Playwright,
+   screenshotted, and the images were actually viewed with the `view`
+   tool — not just "should work," actually looked at pixel-for-pixel.
+   **Keep this file for future QA, but delete it (or move it outside
+   `public/`) before any real production deploy** — it's a dev-only
+   harness, not something that should ship to users.
+
+2. **Found and FIXED a direction bug.** The old code:
+   ```js
+   const lx=this._lastMove&&Math.abs(this._lastMove.x)>0.2?this._lastMove.x:this.facing;
+   const ly=this._lastMove&&Math.abs(this._lastMove.y)>0.2?this._lastMove.y:0;
+   ```
+   fell back to `this.facing` (a left/right-only flag, defaults to 1,
+   NEVER becomes 0) whenever `|_lastMove.x| <= 0.2`. That meant **pure
+   vertical movement (walking straight up or straight down) always
+   substituted facing=1 for lx**, and `lpcDirFromVec`'s `>=` tie-break
+   then always resolved to horizontal. Confirmed via harness: a fresh
+   player given ONLY `{down:true}` input rendered `_lpcDir=3` (right),
+   not `2` (down) — screenshot showed the right-facing walk row instead
+   of a down-facing pose. **This directly broke the "full 4-directional"
+   decision v6 locked in — up/down never actually worked.**
+   Fixed in `entities.js` (`Player.update()`) by just using
+   `this._lastMove.x/.y` directly with no facing fallback — `_lastMove`
+   already holds the correct persisted last-movement vector (only
+   updates while actually moving, so it's still valid during idle
+   frames too). Re-verified after the fix: fresh down-only → dir 2,
+   fresh up-only → dir 0, then-right → dir 3. All correct now.
+
+3. **NOT fixed, flagged for you to decide:** `Player.hitZone()` has the
+   exact same `facing`-fallback pattern:
+   ```js
+   const lx=this._lastMove&&Math.abs(this._lastMove.x)>0.2?this._lastMove.x:this.facing;
+   const ly=this._lastMove&&Math.abs(this._lastMove.y)>0.2?this._lastMove.y:0;
+   ```
+   This determines where the melee hit-zone lands relative to the
+   player. If the same bug applies here (untested this session —
+   didn't want to touch live combat hit-detection as a side effect of
+   a visual-layering task without being asked), attacking while walking
+   straight up/down could register the hit to the side instead of
+   up/down. This is a **pre-existing combat-code bug, unrelated to LPC
+   visuals** — decide whether to fix it the same way (just drop the
+   `facing` fallback) or leave it, since it changes real gameplay hit
+   registration, not just rendering. Quick to fix if you want it: same
+   one-line change as the update() fix above.
+
+4. **Recalibrated `LPC_HERO.scale`.** It was a placeholder `2.2`
+   ("first estimate," never checked). Measured with PIL (not just
+   frame size — actual opaque-pixel bounding box):
+   - Old `knight_idle` frame: 29px-tall opaque content inside a 32px
+     frame. At the old `scale:1.93`, that's `29*1.93 = 55.97px` on
+     screen — confirms the code comment's "~56px" target is real.
+   - LPC `BODY_male` walkcycle frame (down-facing row): 47px-tall
+     opaque content inside its 64px frame.
+   - Matching scale: `56/47 ≈ 1.19`, rounded to **1.2**. The old `2.2`
+     was rendering the LPC hero at ~140px tall (measured via screenshot
+     bbox: ~122px including anti-aliasing/shadow) — nearly 2.5x too big.
+   - `foot:1.0` confirmed CORRECT as-is, no change needed: both sprites
+     have their feet essentially flush with the frame's bottom edge
+     (0px gap for old, 2px gap for LPC) — the ~56px is basically the
+     entire drawn height, not shifted up (this was inferred to be
+     safe in v6, now measured and confirmed).
+   - Re-verified visually post-fix: idle frame now renders at a
+     proportional size, and the `war_axe` slash overlay is still
+     pixel-aligned to the body at the new scale (weapon/body/armor all
+     share the same `dx/dy/dw/dh` math in `drawLPCComposite`, so scale
+     changes apply uniformly — confirmed by screenshot, no separate
+     weapon-anchor fix was needed).
+
+## Everything else from v6 is UNCHANGED — still true, still owed
+Don't re-investigate these; they were correct in v6 and nothing this
+session touched them:
+- `war_axe`/`void_reaper` assets: found, downscaled, license-cleared.
+  Don't re-search.
+- Direct-stack compositing (no rotation math for weapons): confirmed
+  correct again this session via the attack screenshot.
+- Armor/weapon file paths in `LPC_ARMOR`/`LPC_WEAPON`: correct, all
+  referenced files exist in every relevant animation folder (spot-
+  checked `slash`/`thrust` folders this session, all armor part files
+  present).
+- `preloadLPCHero()` folded into `preloadAll()`: still correct, no
+  change needed.
+
+## Still open — must resolve before calling this feature done
+(unchanged from v6 except #2 below is now DONE)
+1. **`twin_daggers` (double_hit) and `hunters_bow` (ranged) have NO
+   `LPC_WEAPON` entry.** Same plan as v6: twin_daggers reuses
+   `base/slash/WEAPON_dagger.png` drawn twice off the existing
+   double_hit FX timing; hunters_bow needs a decision (dedicated
+   `LPC_HERO.bow` entry with its own 13-frame body sheet, vs. keeping
+   the existing particle-only ranged FX and skipping a bow-draw pose).
+   Ask the user if genuinely unsure.
+2. ~~scale/foot calibration~~ — **DONE this session**, see above.
+3. **`drawPreview()`/`paintPreview()` in `game.js` is UNTOUCHED.** Still
+   gear-unaware. Refactor to call `drawLPCComposite()` — same as v6
+   flagged, now with a correct `scale` to use.
+4. **`DungeonGame.tsx`'s 3-button char-select UI (~line 484-500) is
+   UNTOUCHED.** Simplify only after #3 is done.
+5. **`GameFlowManager.tsx`'s orphaned "SELECT CHARACTER" screen
+   (~line 117-227) is STILL untouched, STILL not asked about.** Ask
+   the user directly what it's for before deleting or wiring it up.
+6. **Old Pixel Crawler `HERO.knight/rogue/wizzard` fallback stays
+   intact** — correct, don't remove until LPC is verified in the real
+   Next.js app (not just this standalone harness).
+7. **Full CREDITS file** covering every LPC asset actually wired into
+   `LPC_HERO`/`LPC_ARMOR`/`LPC_WEAPON` — straightforward grep-and-copy
+   from the cloned generator repo's `CREDITS.csv`, not done yet.
+8. **The real Next.js app has still not been tested.** This session
+   only verified the standalone `test.html` harness. Next step up the
+   verification ladder: try `npm run dev` in the actual project; if it
+   fails on missing Firebase/wagmi env vars, check `.env.example` /
+   `.env.local.example` and either stub safe dummy values for local
+   rendering or report exactly which env var blocked it.
+9. **`Player.hitZone()` facing-fallback bug** — flagged above, not
+   fixed, needs your decision since it's combat logic not visuals.
+
+## Files changed this session
+- `public/game-engine/entities.js` — fixed the direction-fallback bug
+  in `Player.update()` (LPC dir calc only, `hitZone()` left untouched
+  and flagged).
+- `public/game-engine/assets.js` — `LPC_HERO.scale` corrected from
+  `2.2` to `1.2` with measured justification in the comment.
+- `public/test.html` — NEW, standalone browser verification harness.
+  Keep for future QA; remove/relocate before production deploy.
+
+## Explicitly out of scope (unchanged from v5/v6)
+- Marketplace payment flow / `/api/marketplace/*` / `WalletProvider.tsx`.
+- Unused monster attack sprites, real attack sheets for Orc/Skeleton crew.
+- MiniPay compliance / ToS / dependency-pinning.
+
+## Working style reminders (unchanged, still true)
+- Ship complete files, not diffs, when returning code for review.
+- Keep changes additive/defensive.
+- **Verify before building more** — this session proved that principle
+  pays off immediately: the very first real render caught a bug (broken
+  vertical facing) that would have shipped invisibly, and the scale
+  placeholder was off by ~2.5x. Don't skip the equivalent step next
+  session (npm run dev / real app verification) just because the
+  standalone harness looks good now — the standalone harness is a
+  necessary checkpoint, not a substitute for the real app.

@@ -1,0 +1,164 @@
+# NullState — Phase 5.3 Continuation Prompt (v9)
+# UPLOAD THIS ZIP: NullState-Phase5_3-Task5-LPCPlan-v9.zip
+# SCOPE: this session had NO network access in bash at all (no
+# npm install, no npm run dev, no Playwright, no git clone — every
+# outbound host was blocked by the sandbox's egress proxy). So this
+# session could NOT touch v8's #2 (wallet-mocked Playwright pass
+# through DungeonGame). Everything that follows was done either via
+# static file edits + `node --check` (syntax only, no runtime) or via
+# offline PIL composites of the actual sprite sheets on disk (same
+# frames, same draw order as drawLPCComposite(), rendered outside the
+# browser) as the best available substitute for a real canvas
+# screenshot. Read this before touching LPC code again.
+
+## What THIS session did
+
+1. **hunters_bow: WIRED — user chose Option A (dedicated archer pose)**
+   when asked directly (v8 explicitly deferred this design call).
+   Turned out the asset work was already done for us: the LPC source
+   tree already ships a complete `bow/` animation folder —
+   `BODY_animation.png` (13 frames x 4 dirs, same 64x64 grid as
+   walk/slash/thrust), `WEAPON_bow.png`, `WEAPON_arrow.png`, and every
+   armor-tier part filename (leather/chain/plate torso+legs+feet,
+   plate helmet) already present under that folder — it just hadn't
+   been referenced in `assets.js` yet. Added:
+   - `LPC_HERO.shoot` (assets.js) pointing at `bow/BODY_animation.png`
+   - `LPC_WEAPON.hunters_bow` = `{ anim:'shoot', src: bow/WEAPON_bow.png }`
+   - `shoot:'bow'` added to both `animFolders` maps in
+     `preloadLPCHero()` and `preloadAll()` (every other anim's folder
+     name matches its key — walk/idle->walkcycle, hurt/slash/thrust
+     literal — but the bow animation's folder is named after the
+     weapon, not the anim, so this needed an explicit exception)
+   - `drawLPCComposite()` in entities.js: the armor-overlay folder
+     lookup was `animKey === 'idle'||'walk' ? 'walkcycle' : animKey`
+     — added a `animKey==='shoot' ? 'bow'` branch for the same reason.
+   No other code changes needed — `Player.update()`/`draw()` already
+   generically resolve `animKey = wDef.anim` from whichever weapon is
+   equipped and look up `LPC_HERO[animKey]`, so `shoot` slotted in
+   without touching that logic. marketplace-items.js already tagged
+   `hunters_bow` with `behavior:'ranged'` for the separate arrow/FX
+   system in game.js — untouched, still fires arrows same as before,
+   this only adds the visual draw-pose+bow overlay under it.
+   **Verified via offline PIL composite** (frame extraction + alpha
+   stacking in the exact same order as drawLPCComposite: body, then
+   legs/torso/feet/head armor, then weapon overlay) — down-facing,
+   mid-draw frame, leather armor: renders as an archer holding a
+   drawn bow, armor layers align correctly, no obvious mis-registration.
+   **NOT YET verified inside the real canvas/game loop** (no
+   npm/browser access this session) — this is the top item for next
+   session's verification ladder, see below.
+
+2. **twin_daggers offset bumped 3x→6x scale, backed by real evidence**
+   (v8's #7 flagged this as an unverified "didn't throw an error" gap).
+   Built an offline PIL composite of the actual slash/WEAPON_dagger.png
+   frame stacked at both the old offset (3×scale ≈ 3.6px) and several
+   candidates. At 3x the two blades almost fully overlapped and read
+   as one slightly-blurred dagger, not two — a real bug, not just an
+   unconfirmed guess. 6x (≈7.2px) clearly reads as two overlapping
+   blades without looking like two separate disconnected weapons; 8x
+   started to look like two distinct daggers rather than a dual-wield
+   overlap. Changed `entities.js`'s `drawLPCComposite()` double-blade
+   offset from `3*scale` to `6*scale`. Comment in code documents the
+   before/after and that it's from a static composite, not a live
+   canvas — worth a quick glance next session once `npm run dev`
+   works again, but the static evidence is solid enough this is no
+   longer a guess.
+
+3. **CREDITS.md written** (`public/sprites/lpc_source/CREDITS.md`) —
+   v8's #6, outstanding for 3 sessions running. Covers every LPC sheet
+   wired into `LPC_HERO`/`LPC_ARMOR`/`LPC_WEAPON`, including the new
+   hunters_bow entry from this session. Compiled by cross-referencing
+   the LPC generator's own CREDITS.csv (fetched from GitHub — network
+   access via the web_search/web_fetch tools was available even though
+   bash had none) against the specific filenames used here, NOT by
+   running the actual generator tool's own export feature. Flagged
+   inside the file: the `long_spear` (frost_spear) attribution line is
+   the one worth a 2-minute double-check against the live generator's
+   own credits export if you get a working browser session — everything
+   else is standard, widely-reused LPC base/armor/weapon sheets and
+   very likely exactly right as written.
+
+## Still open — must resolve before calling this feature done
+
+1. **Full wallet-mocked Playwright pass through `DungeonGame`'s real
+   char-select title screen still NOT done** (carried over from v8,
+   completely untouched this session — no network available at all).
+   This is now the single biggest remaining gap: essentially nothing
+   in Phase 5.3 Task 5 has been confirmed inside the actual live
+   Next.js app since the original `npm run dev` boot-check two
+   sessions ago. Next step up the ladder, unchanged from v8: mock
+   `useWallet()` (`lib/WalletProvider.tsx`) to return a fake connected
+   address, or find/add a dev-only bypass, so Playwright can screenshot
+   the ACTUAL `#prevKnight` canvas inside `DungeonGame.tsx` end-to-end.
+2. **hunters_bow needs the same live-canvas confirmation** as #1 above
+   — the PIL composite this session is solid evidence the asset
+   wiring is *correct on disk*, but has never been driven through the
+   real `Player.update()`/`draw()` loop, the real attack-timing state
+   machine, or an actual browser canvas. Once #1's wallet-mock harness
+   exists, equip `hunters_bow` and confirm the draw-pose triggers
+   correctly during the ranged attack window and lines up with when
+   arrows actually fire.
+3. **`DungeonGame.tsx`'s 3-button char-select UI (~line 484-500)** —
+   still untouched structurally, unchanged from v7/v8.
+4. **`GameFlowManager.tsx`'s separate `'character-select'` GamePhase**
+   — still untouched, still not asked about. Ask Yurk directly what
+   this second character-select screen is for before touching it.
+5. **Old Pixel Crawler `HERO.knight/rogue/wizzard` fallback stays
+   intact** — don't remove until LPC is verified end-to-end in the
+   real Next.js app per #1 above.
+6. **CREDITS.md long_spear line** — see note in item 3 above, quick
+   double-check against the live generator's export, not urgent.
+7. **rogue/wizzard still have no LPC sheets** — unchanged from all
+   prior sessions, still using the old alpha-bbox-normalize preview
+   path and old Pixel Crawler sprites in-dungeon. Not in scope unless
+   Yurk asks for it.
+
+## Everything else from v6/v7/v8 is UNCHANGED — still true, still owed
+- `war_axe`/`void_reaper` assets: found, downscaled, license-cleared
+  (v7). `expansion2/credits/waraxe_scythe_CREDITS.csv` still accurate.
+- Direct-stack compositing (no rotation math for weapons): confirmed
+  correct in v7's screenshot check, unaffected by anything since.
+- `drawLPCPreview()` (v8's char-select thumbnail fix): unaffected by
+  this session's changes — knight thumbnail still routes through
+  `drawLPCComposite()` correctly per v8's fix.
+- `Player.hitZone()` facing-fallback fix (v8): unaffected, still correct.
+- `LPC_HERO.scale: 1.2, foot: 1.0` calibration (v7): unaffected.
+
+## Files changed this session
+- `public/game-engine/assets.js` — added `LPC_HERO.shoot`, added
+  `LPC_WEAPON.hunters_bow`, added `shoot:'bow'` to both `animFolders`
+  maps (preloadLPCHero + preloadAll) and `'shoot'` to both anim-key
+  iteration arrays.
+- `public/game-engine/entities.js` — added `shoot`->`'bow'` folder
+  mapping in `drawLPCComposite()`'s armor-overlay lookup; bumped
+  twin_daggers double-blade offset from `3*scale` to `6*scale` with
+  a comment explaining the PIL-composite evidence behind the change.
+- `public/sprites/lpc_source/CREDITS.md` — new file, full attribution
+  for every LPC sheet currently wired in, see item 3 above.
+- No `.env.local`/`node_modules`/`.next` were created this session
+  (impossible without network) — nothing to clean up before zipping.
+
+## Explicitly out of scope (unchanged from v5-v8)
+- Marketplace payment flow / `/api/marketplace/*` / `WalletProvider.tsx`
+  (except mocking it for verification purposes, which is testing
+  infrastructure, not changing real wallet logic).
+- Unused monster attack sprites, real attack sheets for Orc/Skeleton crew.
+- MiniPay compliance / ToS / dependency-pinning.
+
+## Working style reminders (unchanged, still true)
+- Ship complete files, not diffs, when returning code for review.
+- Keep changes additive/defensive.
+- Measure, don't just glance — this session's own dagger-offset
+  gutcheck is proof of why: the earlier 3x offset genuinely looked
+  wrong once actually composited and viewed, not just theoretically
+  fine. When you can't run the real app (no network, no browser),
+  a static composite of the real asset files in the real draw order
+  is a legitimate substitute for "I looked at it and it's fine" — but
+  it is still not the same as the real canvas, and should be
+  re-confirmed there once possible. Say which kind of verification you
+  actually did, every time — "PIL composite" and "live Playwright
+  screenshot" are not interchangeable claims.
+- Individual `.txt` files, never zips, when delivering code for manual
+  review — Yurk manages the repo manually via GitHub from Termux (this
+  full-project zip is only for continuation-prompt handoff between
+  sessions, not for pasting into the repo).

@@ -1,0 +1,520 @@
+
+### Checkpoint — 2026-06-12T06:15:17Z
+
+| Field | Value |
+|-------|-------|
+| Celo Block | `69344157` |
+| Gas Price (wei) | `202500000000` |
+| Network | Celo Mainnet |
+| Date | 2026-06-12 |
+
+
+### Checkpoint — 2026-06-12T10:46:03Z
+
+| Field | Value |
+|-------|-------|
+| Celo Block | `69360402` |
+| Gas Price (wei) | `202500000000` |
+| Network | Celo Mainnet |
+| Date | 2026-06-12 |
+
+
+### Checkpoint — 2026-06-12T17:43:37Z
+
+| Field | Value |
+|-------|-------|
+| Celo Block | `69385456` |
+| Gas Price (wei) | `202500000000` |
+| Network | Celo Mainnet |
+| Date | 2026-06-12 |
+
+
+### Checkpoint — 2026-06-12T21:41:37Z
+
+| Field | Value |
+|-------|-------|
+| Celo Block | `69399738` |
+| Gas Price (wei) | `202500000000` |
+| Network | Celo Mainnet |
+| Date | 2026-06-12 |
+
+
+### Checkpoint — 2026-06-13T01:37:50Z
+
+| Field | Value |
+|-------|-------|
+| Celo Block | `69413910` |
+| Gas Price (wei) | `202500000000` |
+| Network | Celo Mainnet |
+| Date | 2026-06-13 |
+
+
+### Checkpoint — 2026-06-13T06:14:13Z
+
+| Field | Value |
+|-------|-------|
+| Celo Block | `69430493` |
+| Gas Price (wei) | `202500000000` |
+| Network | Celo Mainnet |
+| Date | 2026-06-13 |
+
+
+### Checkpoint — 2026-06-13T11:56:35Z
+
+| Field | Value |
+|-------|-------|
+| Celo Block | `69451035` |
+| Gas Price (wei) | `202500000000` |
+| Network | Celo Mainnet |
+| Date | 2026-06-13 |
+
+
+### Checkpoint — 2026-06-14T01:43:17Z
+
+| Field | Value |
+|-------|-------|
+| Celo Block | `69500636` |
+| Gas Price (wei) | `202500000000` |
+| Network | Celo Mainnet |
+| Date | 2026-06-14 |
+
+
+### Checkpoint — 2026-06-14T06:37:48Z
+
+| Field | Value |
+|-------|-------|
+| Celo Block | `69518309` |
+| Gas Price (wei) | `202500000000` |
+| Network | Celo Mainnet |
+| Date | 2026-06-14 |
+
+
+### Checkpoint — 2026-06-14T10:01:37Z
+
+| Field | Value |
+|-------|-------|
+| Celo Block | `69530538` |
+| Gas Price (wei) | `202500000000` |
+| Network | Celo Mainnet |
+| Date | 2026-06-14 |
+
+
+### Checkpoint — 2026-06-14T16:52:11Z
+
+| Field | Value |
+|-------|-------|
+| Celo Block | `69555171` |
+| Gas Price (wei) | `202500000000` |
+| Network | Celo Mainnet |
+| Date | 2026-06-14 |
+
+
+### Checkpoint — 2026-06-15T12:47:17Z
+
+| Field | Value |
+|-------|-------|
+| Celo Block | `69626876` |
+| Gas Price (wei) | `202500000000` |
+| Network | Celo Mainnet |
+| Date | 2026-06-15 |
+
+
+### Checkpoint — 2026-06-15T15:49:50Z
+
+| Field | Value |
+|-------|-------|
+| Celo Block | `69637831` |
+| Gas Price (wei) | `202500000000` |
+| Network | Celo Mainnet |
+| Date | 2026-06-15 |
+
+
+### Checkpoint — 2026-06-16T02:07:12Z
+
+| Field | Value |
+|-------|-------|
+| Celo Block | `69674872` |
+| Gas Price (wei) | `203407509916` |
+| Network | Celo Mainnet |
+| Date | 2026-06-16 |
+
+
+### Checkpoint — 2026-06-16T11:39:22Z
+
+| Field | Value |
+|-------|-------|
+| Celo Block | `69709201` |
+| Gas Price (wei) | `202500000000` |
+| Network | Celo Mainnet |
+| Date | 2026-06-16 |
+
+
+### Checkpoint — 2026-06-17T02:01:40Z
+
+| Field | Value |
+|-------|-------|
+| Celo Block | `69760935` |
+| Gas Price (wei) | `202500000000` |
+| Network | Celo Mainnet |
+| Date | 2026-06-17 |
+
+
+### Checkpoint — 2026-06-17T11:20:14Z
+
+| Field | Value |
+|-------|-------|
+| Celo Block | `69794454` |
+| Gas Price (wei) | `202500000000` |
+| Network | Celo Mainnet |
+| Date | 2026-06-17 |
+
+
+### Checkpoint — 2026-06-17T18:01:14Z
+
+| Field | Value |
+|-------|-------|
+| Celo Block | `69818515` |
+| Gas Price (wei) | `202500000000` |
+| Network | Celo Mainnet |
+| Date | 2026-06-17 |
+
+
+### Checkpoint — 2026-06-17T21:58:53Z
+
+| Field | Value |
+|-------|-------|
+| Celo Block | `69832773` |
+| Gas Price (wei) | `202500000000` |
+| Network | Celo Mainnet |
+| Date | 2026-06-17 |
+
+
+### Checkpoint — 2026-06-18T06:49:37Z
+
+| Field | Value |
+|-------|-------|
+| Celo Block | `69864617` |
+| Gas Price (wei) | `202500000000` |
+| Network | Celo Mainnet |
+| Date | 2026-06-18 |
+
+
+### Checkpoint — 2026-06-18T10:51:35Z
+
+| Field | Value |
+|-------|-------|
+| Celo Block | `69879135` |
+| Gas Price (wei) | `202500000000` |
+| Network | Celo Mainnet |
+| Date | 2026-06-18 |
+
+
+### Checkpoint — 2026-06-29T11:29:07Z
+
+| Field | Value |
+|-------|-------|
+| Celo Block | `70831787` |
+| Gas Price (wei) | `202500000000` |
+| Network | Celo Mainnet |
+| Date | 2026-06-29 |
+
+
+### Checkpoint — 2026-06-29T21:23:19Z
+
+| Field | Value |
+|-------|-------|
+| Celo Block | `70867439` |
+| Gas Price (wei) | `202500000000` |
+| Network | Celo Mainnet |
+| Date | 2026-06-29 |
+
+
+### Checkpoint — 2026-06-30T01:30:08Z
+
+| Field | Value |
+|-------|-------|
+| Celo Block | `70882248` |
+| Gas Price (wei) | `202500000000` |
+| Network | Celo Mainnet |
+| Date | 2026-06-30 |
+
+
+### Checkpoint — 2026-06-30T06:08:19Z
+
+| Field | Value |
+|-------|-------|
+| Celo Block | `70898939` |
+| Gas Price (wei) | `202500000000` |
+| Network | Celo Mainnet |
+| Date | 2026-06-30 |
+
+
+### Checkpoint — 2026-06-30T17:20:45Z
+
+| Field | Value |
+|-------|-------|
+| Celo Block | `70939285` |
+| Gas Price (wei) | `202500000000` |
+| Network | Celo Mainnet |
+| Date | 2026-06-30 |
+
+
+### Checkpoint — 2026-06-30T21:25:55Z
+
+| Field | Value |
+|-------|-------|
+| Celo Block | `70953996` |
+| Gas Price (wei) | `202500000000` |
+| Network | Celo Mainnet |
+| Date | 2026-06-30 |
+
+
+### Checkpoint — 2026-07-01T01:39:58Z
+
+| Field | Value |
+|-------|-------|
+| Celo Block | `70969238` |
+| Gas Price (wei) | `202500000000` |
+| Network | Celo Mainnet |
+| Date | 2026-07-01 |
+
+
+### Checkpoint — 2026-07-01T06:23:35Z
+
+| Field | Value |
+|-------|-------|
+| Celo Block | `70986255` |
+| Gas Price (wei) | `204448354918` |
+| Network | Celo Mainnet |
+| Date | 2026-07-01 |
+
+
+### Checkpoint — 2026-07-01T10:27:08Z
+
+| Field | Value |
+|-------|-------|
+| Celo Block | `71000868` |
+| Gas Price (wei) | `202500000000` |
+| Network | Celo Mainnet |
+| Date | 2026-07-01 |
+
+
+### Checkpoint — 2026-07-01T12:37:18Z
+
+| Field | Value |
+|-------|-------|
+| Celo Block | `71008678` |
+| Gas Price (wei) | `202500000000` |
+| Network | Celo Mainnet |
+| Date | 2026-07-01 |
+
+
+### Checkpoint — 2026-07-01T21:25:06Z
+
+| Field | Value |
+|-------|-------|
+| Celo Block | `71040346` |
+| Gas Price (wei) | `202500000000` |
+| Network | Celo Mainnet |
+| Date | 2026-07-01 |
+
+
+### Checkpoint — 2026-07-02T01:32:45Z
+
+| Field | Value |
+|-------|-------|
+| Celo Block | `71055205` |
+| Gas Price (wei) | `202500000000` |
+| Network | Celo Mainnet |
+| Date | 2026-07-02 |
+
+
+### Checkpoint — 2026-07-02T05:56:28Z
+
+| Field | Value |
+|-------|-------|
+| Celo Block | `71071029` |
+| Gas Price (wei) | `202500000000` |
+| Network | Celo Mainnet |
+| Date | 2026-07-02 |
+
+
+### Checkpoint — 2026-07-02T12:11:07Z
+
+| Field | Value |
+|-------|-------|
+| Celo Block | `71093506` |
+| Gas Price (wei) | `202500000000` |
+| Network | Celo Mainnet |
+| Date | 2026-07-02 |
+
+
+### Checkpoint — 2026-07-02T17:07:48Z
+
+| Field | Value |
+|-------|-------|
+| Celo Block | `71111308` |
+| Gas Price (wei) | `202500000000` |
+| Network | Celo Mainnet |
+| Date | 2026-07-02 |
+
+
+### Checkpoint — 2026-07-02T21:02:05Z
+
+| Field | Value |
+|-------|-------|
+| Celo Block | `71125366` |
+| Gas Price (wei) | `202500000000` |
+| Network | Celo Mainnet |
+| Date | 2026-07-02 |
+
+
+### Checkpoint — 2026-07-03T01:09:43Z
+
+| Field | Value |
+|-------|-------|
+| Celo Block | `71140223` |
+| Gas Price (wei) | `202500000000` |
+| Network | Celo Mainnet |
+| Date | 2026-07-03 |
+
+
+### Checkpoint — 2026-07-03T05:50:59Z
+
+| Field | Value |
+|-------|-------|
+| Celo Block | `71157100` |
+| Gas Price (wei) | `202500000000` |
+| Network | Celo Mainnet |
+| Date | 2026-07-03 |
+
+
+### Checkpoint — 2026-07-03T12:11:29Z
+
+| Field | Value |
+|-------|-------|
+| Celo Block | `71179929` |
+| Gas Price (wei) | `202500000000` |
+| Network | Celo Mainnet |
+| Date | 2026-07-03 |
+
+
+### Checkpoint — 2026-07-04T09:03:36Z
+
+| Field | Value |
+|-------|-------|
+| Celo Block | `71255056` |
+| Gas Price (wei) | `202500000000` |
+| Network | Celo Mainnet |
+| Date | 2026-07-04 |
+
+
+### Checkpoint — 2026-07-04T11:36:30Z
+
+| Field | Value |
+|-------|-------|
+| Celo Block | `71264230` |
+| Gas Price (wei) | `202500000000` |
+| Network | Celo Mainnet |
+| Date | 2026-07-04 |
+
+
+### Checkpoint — 2026-07-04T20:53:33Z
+
+| Field | Value |
+|-------|-------|
+| Celo Block | `71297653` |
+| Gas Price (wei) | `202500000000` |
+| Network | Celo Mainnet |
+| Date | 2026-07-04 |
+
+
+### Checkpoint — 2026-07-05T20:55:50Z
+
+| Field | Value |
+|-------|-------|
+| Celo Block | `71384190` |
+| Gas Price (wei) | `202500000000` |
+| Network | Celo Mainnet |
+| Date | 2026-07-05 |
+
+
+### Checkpoint — 2026-07-06T01:15:14Z
+
+| Field | Value |
+|-------|-------|
+| Celo Block | `71399753` |
+| Gas Price (wei) | `202500000000` |
+| Network | Celo Mainnet |
+| Date | 2026-07-06 |
+
+
+### Checkpoint — 2026-07-06T06:25:25Z
+
+| Field | Value |
+|-------|-------|
+| Celo Block | `71418365` |
+| Gas Price (wei) | `208503531774` |
+| Network | Celo Mainnet |
+| Date | 2026-07-06 |
+
+
+### Checkpoint — 2026-07-06T11:10:24Z
+
+| Field | Value |
+|-------|-------|
+| Celo Block | `71435464` |
+| Gas Price (wei) | `202500000000` |
+| Network | Celo Mainnet |
+| Date | 2026-07-06 |
+
+
+### Checkpoint — 2026-07-06T17:56:29Z
+
+| Field | Value |
+|-------|-------|
+| Celo Block | `71459830` |
+| Gas Price (wei) | `202500000000` |
+| Network | Celo Mainnet |
+| Date | 2026-07-06 |
+
+
+### Checkpoint — 2026-07-06T21:26:30Z
+
+| Field | Value |
+|-------|-------|
+| Celo Block | `71472431` |
+| Gas Price (wei) | `202500000000` |
+| Network | Celo Mainnet |
+| Date | 2026-07-06 |
+
+
+### Checkpoint — 2026-07-07T01:16:23Z
+
+| Field | Value |
+|-------|-------|
+| Celo Block | `71486223` |
+| Gas Price (wei) | `202500000000` |
+| Network | Celo Mainnet |
+| Date | 2026-07-07 |
+
+
+### Checkpoint — 2026-07-07T10:04:30Z
+
+| Field | Value |
+|-------|-------|
+| Celo Block | `71517910` |
+| Gas Price (wei) | `202500000000` |
+| Network | Celo Mainnet |
+| Date | 2026-07-07 |
+
+
+### Checkpoint — 2026-07-07T12:29:23Z
+
+| Field | Value |
+|-------|-------|
+| Celo Block | `71526604` |
+| Gas Price (wei) | `202500000000` |
+| Network | Celo Mainnet |
+| Date | 2026-07-07 |
+

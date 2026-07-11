@@ -1,0 +1,171 @@
+# NullState — Phase 5.3 Continuation Prompt (v2)
+# Floor Scaling ✅ · Ranged/Slow behaviors ✅ · Weapon FX ⏳ · Hero Attack Anim ⏳
+
+You are continuing work on **NullState**, a real-time top-down dungeon crawler on Celo Mainnet
+(Next.js 14 App Router + wagmi/viem + Firebase + a vanilla-JS canvas engine in `public/game-engine/`).
+
+This is the SECOND handoff on this specific task list (Phase 5.3). The previous session completed
+Tasks 1–3 below and verified them as far as static analysis allows (no live browser available in
+that session — Termux/mobile constraints). **You must load the game and manually verify Tasks 1–3
+still work before starting Task 4**, since they were never actually run in a browser.
+
+Same discipline as before: **do ONE task at a time, verify it, then checkpoint** (zip + a fresh
+continuation prompt) if you're running low on budget. Don't start Task 5 unless you're confident
+you can finish AND verify it in the budget remaining.
+
+---
+
+## ✅ DONE THIS SESSION (Tasks 1–3) — verify these live before moving on
+
+### Task 1 — Floor scaling wired in
+**File:** `public/game-engine/entities.js`, `Enemy` constructor (~line 227).
+Added a `window.NS_FLOOR_SCALE(depth)` call (defensive `|| {hpMul:1,dmgMul:1,xpMul:1}` guard,
+matching the `window.NS_MONSTER_CONFIG||{}` style already used in `game.js`). The result multiplies
+the existing `hpMul`/`dmgMul`/`xpMul` locals (which already carry elite/boss multipliers) — it
+stacks, it does not replace.
+
+**Design decision made (per the original task's "read carefully, don't guess" instruction):** the
+pre-existing per-depth linear curves — `scale = 1+(depth-1)*0.14` (used only for `maxHp`), the
+inline `(1+(depth-1)*0.12)` for `dmg`, and `(1+(depth-1)*0.1)` for `xp` — were left untouched and
+independent. They represent each stat's own hand-tuned baseline growth curve (they were never
+literally "the same scale" despite the misleading variable name `scale`; each stat had its own rate
+already). The new floor-config layer (`+8%/floor` compounding, with fixed overrides at floors
+5/10/15/20) is applied as an ADDITIONAL multiplicative layer on top of all of that. `rMul` (physical
+size) was left alone entirely — it's driven only by elite/boss flags, not floor depth, and the task
+didn't ask for monsters to visually grow every floor.
+
+**Verified so far (Node, not browser):** ran `monster-config.js` in isolation and confirmed
+`getFloorScale(f)` returns the right numbers — floor 1 → `{1,1,1}`, floor 5 → the Boss-Floor-I
+overrides `{2.2, 1.8, 2.5}`, floor 6 → back to compounding `~1.469`, floor 10/20 → the bigger boss
+overrides. Math checks out. **Not yet verified:** actually loading the game in a browser and
+confirming floor 5/10/15/20 enemies visibly hit much harder/tankier than floor 4/6/etc, and that
+normal enemy stats aren't now absurdly high by floor 20 (13x HP might be too much combined with the
+pre-existing 0.14/floor curve — check `maxHp` numbers at floor 20 aren't fully unkillable; if they
+are, that's a balance call for the project owner, not something to silently "fix" — flag it instead).
+
+### Task 2 — `ranged` weapon behavior (Hunter's Bow) implemented
+**Files:** `public/game-engine/game.js` (new `spawnProjectile()`, `updateProjectiles()`,
+`drawProjectiles()`, plus `G.projectiles` added to game state init in `newGame()` and cleared on
+floor change in `descend()` alongside `G.particles`/`G.dmgNums`), `hitTest()` restructured to branch
+on `beh==='ranged'`.
+
+**How it works:** when Hunter's Bow is equipped and the player attacks, `hitTest()` calls
+`spawnProjectile(p, dmg)` instead of running the melee AoE loop at all — no phantom melee hit, and
+(as a side effect of the branch) no decor-smashing sweep either for this weapon specifically. The
+arrow travels in `p._lastMove` direction at 640px/s, max range 560px, drawn with plain canvas
+primitives (rotated rect shaft + triangle arrowhead + two fletching marks — no new sprite files).
+On first enemy touched it calls the new shared `applyHitToEnemy()` helper (extracted from the old
+inline melee hit code so melee and ranged hits get IDENTICAL hit-stop/particle/knockback/shake
+treatment — see refactor note below) and despawns. Arrows also despawn on hitting a wall
+(`dun.isWall`) or exceeding max range.
+
+**Refactor note:** `applyHitToEnemy(e, dmg, fromX, fromY, beh)` is now the single source of truth
+for "deal damage + hit-stop + particles + knockback + shake + onEnemyKilled" — both the melee loop
+in `hitTest()` and `updateProjectiles()` call it. This was a deliberate, scoped extraction (not a
+big refactor) to satisfy the original task's "reuse existing helpers so it feels consistent"
+requirement without duplicating ~20 lines of FX glue code twice. Double-check this didn't
+subtly change melee behavior — the logic should be byte-for-byte equivalent to before, just moved
+into a function.
+
+**Not yet verified live:** equip Hunter's Bow, attack at range, confirm the arrow visibly travels,
+connects, deals `p.atkDmg`-ish damage, and that other weapons are completely unaffected (still do
+normal melee). Also confirm arrows don't visually clip through walls before `isWall` catches them
+(640px/s at 60fps = ~10.6px/frame, should be fine but eyeball it).
+
+### Task 3 — `slow` weapon behavior (Frost Spear) implemented
+**Files:** `game.js` (`hitTest()`'s melee branch — Frost Spear's `slow` case now sets
+`e._slowMul = 1 - slowPct` and `e._slowT = 3.0` seconds on hit, reading `slowPct` from the equipped
+weapon's config, defaulting to 0.5 if missing), `entities.js` (`Enemy.update()` ticks `_slowT` down
+and applies `_slowMul` to both the chase-speed calc and the walk-back-to-post calc;
+`Enemy.draw()` adds a light-blue tint overlay (`source-atop` composite, tinting only the sprite's
+own drawn pixels) plus a pulsing icy ring while `_slowT>0`).
+
+**Design decision:** refreshing the timer on repeated hits (not stacking multiplier) was implemented
+exactly as specced — a second Frost Spear hit resets `_slowT` back to 3.0 at the same `1-slowPct`
+strength, it does not compound to make the enemy slower than `slowPct`.
+
+**Not yet verified live:** equip Frost Spear, hit an enemy, confirm it visibly moves slower with the
+blue tint/ring, and returns to normal speed + normal color after ~3s.
+
+---
+
+## ⏳ NOT STARTED — Task 4 (Weapon-differentiated swing FX)
+
+**Problem:** `Player.draw()`'s `swingFlash` block (`entities.js`, inside the `if(this.swingFlash>0)`
+block, roughly lines 176–222) only branches on `this.char` (`wizzard`/`rogue`/knight-default). Every
+equipped weapon still looks visually identical when swung — `p._fxTier` (set in `applyEquipment()`
+in `game.js`, values 1/2/3 per item) is computed but never read anywhere. `p._weaponBehavior` is
+available on the player object at draw time (same place `_fxTier` lives).
+
+**What to do (unchanged from original spec):**
+1. Inside that same `if(this.char===...)` branching, ALSO branch/modulate using
+   `this._weaponBehavior` and/or `this._fxTier` — layer weapon intensity on top of the existing
+   per-class look, don't replace the class branch.
+2. Scale particle/arc count, size, alpha, accent color by `fxTier` (1=subtle, 2=brighter/bigger,
+   3=more dramatic). Reuse `pixelArc()` — don't invent a new rendering style.
+3. All 7 behaviors (`slash`, `double_hit`, `knockback`, `triple_slash`, `aoe`, `ranged`, `slow`)
+   should read as at least subtly distinguishable, scaled by tier. This is a polish pass — the
+   melee ones already have real mechanical differences (Task 2/3 aside), this task is purely visual.
+4. **Special case worth thinking about:** `ranged` (Hunter's Bow) no longer triggers a melee
+   `hitZone()`/swingFlash in the same way as before — check whether `p.swingFlash` still gets set
+   for ranged attacks (it's set in `startAttack()`, unconditionally, so it should still fire) and
+   decide what a "bow release" swingFlash should look like (a small draw-and-release flash makes
+   more sense than a slash arc, given the arrow itself is now the main visual). Don't just leave it
+   drawing a sword-slash arc for a bow — that would look wrong. This is a genuinely open design
+   question the previous session did not resolve; use your judgment and state your choice.
+5. Test: equip each of the 10 weapons (3 armor pieces don't have swing FX, only the 7 weapons
+   matter here), confirm swing FX visibly differs by tier/behavior while the base class look is
+   still recognizable underneath.
+
+---
+
+## ⏳ NOT STARTED — Task 5 (Real hero attack animation)
+
+Completely untouched from the original spec. Re-read the original Task 5 description carefully
+(investigate `public/sprites/hero/` — `idle.png`, `run.png`, `attack.png`, `female_idle.png`,
+`female_walk.png`, `female_attack.png` — before assuming it's usable; compare native resolution and
+art style against the currently-used `public/sprites/player/` set; `hero/attack.png` was measured at
+2304×240px vs. `player/knight_idle.png` at 128×32px in the original investigation, which is a strong
+signal of a different pack, but the previous two sessions never actually opened the images to look
+at the art style — **you must visually inspect them with the `view` tool before deciding**, do not
+carry forward the "strongly suggests incompatible" note as a foregone conclusion without looking).
+
+If usable → wire into `HERO` config in `assets.js` (mirror how `skel_reaper`/`vampire` have an
+`attack` entry) and make `Player.update()`/`draw()` in `entities.js` actually play it during the
+attack window, keeping the Task 4 particle FX layered on top (FX = weapon identity, sprite = body
+motion — don't remove one for the other).
+
+If not usable → stop, report the visual mismatch clearly (what you saw, why it won't work), and
+recommend next steps. This is a legitimate stopping point — don't force it.
+
+---
+
+## Codebase orientation notes carried forward (still accurate)
+
+- `public/game-engine/marketplace-items.js` — weapon/armor config, `effect.behavior` field.
+- `public/game-engine/entities.js` — `Player`/`Enemy`/`Anim` classes, `pixelArc()` helper, swing FX.
+- `public/game-engine/game.js` — `hitTest()`, `applyEquipment()`, `equipItem()`, now also
+  `applyHitToEnemy()`, `spawnProjectile()`, `updateProjectiles()`, `drawProjectiles()`.
+- `public/game-engine/monster-config.js` — `MONSTER_FLOOR_CONFIG`, `getFloorScale()` (now wired in).
+- `public/game-engine/assets.js` — `HERO`/`MON` sprite sheet configs.
+- The unused `public/sprites/hero/` folder and the unused monster-attack sprites
+  (`boss_attack.png` etc., leftovers from a removed monster roster) are both still exactly as
+  described in the previous handoff — nobody has touched them.
+
+## Explicitly out of scope (unchanged)
+
+- Marketplace payment flow / `/api/marketplace/*` / `WalletProvider.tsx` buy logic.
+- A physical weapon-overlay system on the hero's hand/body (deferred in favor of Task 4's FX).
+- The unused monster attack sprites (separate future task, not this one).
+- Real attack sheets for Orc/Skeleton-crew monsters (separate future task).
+- MiniPay compliance / ToS / dependency-pinning.
+
+## Working style reminders (solo dev, mobile Termux environment)
+
+- Ship complete files, not diffs, when returning code for review.
+- Keep changes additive and defensive (`window.X || {}` guards), matching existing style.
+- After each task, state clearly: what changed, which files, exact manual verification steps.
+- **Actually load the game in a browser this time to verify Tasks 1–3 before trusting them**, since
+  this session could only verify via static reading + isolated Node math, not a live canvas.
+- Follow the Session Handoff Protocol (zip + this-style continuation prompt) the moment you're
+  running low on budget — don't try to cram Task 5 in if you're not confident you can finish it.

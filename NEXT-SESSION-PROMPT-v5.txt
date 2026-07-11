@@ -1,0 +1,183 @@
+# NullState — Phase 5.3 Continuation Prompt (v5)
+# SCOPE LOCKED IN: single hero (LPC), remove Pick Hero UI, weapon+armor visual
+# layering (dungeon AND outdoor preview), FX from Task 4 stays on top of all of it.
+
+You are continuing work on **NullState**, a real-time top-down dungeon crawler on Celo Mainnet
+(Next.js 14 App Router + wagmi/viem + Firebase + a vanilla-JS canvas engine in `public/game-engine/`).
+
+This is the FIFTH handoff on this task list. **Still zero live-browser verification across all five
+sessions.** If your environment can't run a real browser either, say so plainly to the project owner
+immediately — don't add a sixth "still owed" note, either actually get a real answer this session or
+tell them the constraint is structural and they need to verify manually on their end.
+
+## Decisions locked in this session (discussed and confirmed with the user — execute, don't re-ask)
+
+1. **Single hero, not three.** Confirmed via code: `Player` constructor in `entities.js` gives
+   identical base stats (speed=188, maxHp=120, atkDmg=22) regardless of `charKey` — class was ALWAYS
+   cosmetic-only (sprite choice + which FX branch fires: fire/dagger/sword). Zero gameplay impact from
+   removing it. Going forward: one LPC-based hero body, keeping the `knight` key name in code (see
+   why below), no more character choice.
+
+2. **Remove the "Pick Hero" flow — but there are TWO separate UIs, both need attention:**
+   - `components/game/DungeonGame.tsx` (~line 484-500): the REAL one, actually wired to gameplay.
+     Has a `char-select` block with 3 buttons (`data-char="knight/rogue/wizzard"`) and 3 preview divs
+     (`prevKnight`/`prevRogue`/`prevWizzard`) populated by `paintPreview()` in `game.js`. This is the
+     "outdoor, before descending into the bunker" screen the user specifically flagged — see section
+     below, don't just delete it blind, it needs to become a single gear-aware preview, not just
+     disappear.
+   - `components/game/GameFlowManager.tsx` (~line 117-227): a SEPARATE "SELECT CHARACTER" screen
+     (Warrior/Mage/Rogue/Paladin, from on-chain `CHARACTER_CLASSES` enum) that runs BEFORE username
+     setup. **Verified this session: `selectedCharacterClass` state is set here but never passed to
+     `DungeonGameWrapper`** (checked the props DungeonGameWrapper actually accepts — only
+     `playerProfile` and `setPlayerUsername`). This selector currently has ZERO effect on gameplay.
+     **Don't assume this is dead code and delete it** — it might be intentionally decoupled (e.g. an
+     on-chain cosmetic/identity flag unrelated to the dungeon sprite, or a half-built feature). Ask the
+     user directly what this screen is for before touching it. Flag it, don't silently remove.
+
+3. **Keep the code keys `knight`/`rogue`/`wizzard` even though there's only 1 body now** — these
+   strings are referenced in `DungeonGame.tsx` (buttons), `game.js` (`selectedChar` default,
+   `SAVED_SESSION.charKey`), and `entities.js` (`this.char==='wizzard'`/`'rogue'` FX branch logic).
+   Renaming ripples into save-compatibility and FX branching for no benefit. Practical approach:
+   collapse the picker so `selectedChar` is hardcoded to `'knight'` (or whichever key ends up as the
+   canonical one), and only that key's HERO config actually gets used going forward. Existing saves
+   with `charKey:'rogue'`/`'wizzard'` will just silently resolve through the same single body — that's
+   fine, no migration needed, confirmed there's no stat tied to charKey.
+
+## The "outdoor preview" requirement — read carefully, this is new scope this session
+
+The user explicitly wants the pre-dungeon preview (in `DungeonGame.tsx`'s title screen, rendered by
+`drawPreview()`/`paintPreview()` in `game.js`) to **not go stale/disconnected** once gear visuals
+exist. Concretely:
+
+- `drawPreview(elId, cfg)` currently does: grab the idle sheet's first frame → auto-crop to the
+  sprite's opaque bounding box → scale into an 88x88 box → stamp it into a small canvas → done. It's
+  a static single-frame snapshot, not animated, and has ZERO awareness of equipped gear (makes sense,
+  since gear currently has no visual representation at all — see below).
+- Once the weapon/armor layering system (next section) exists, **this preview needs to call the same
+  layering/compositing function** used in the dungeon's `Player.draw()`, not a separate reimplementation. Concretely: refactor whatever composes body+armor+weapon in `entities.js` into a
+  function that takes a canvas context + position + scale and just draws the composed result — call
+  that same function from both `Player.draw()` (dungeon, animated) and `drawPreview()` (outdoor,
+  static single frame). This keeps them in sync automatically instead of two divergent code paths that
+  drift out of sync over time (which is exactly the "kaku"/disconnected feeling the user is trying to
+  avoid).
+- Since there's only 1 hero now, `paintPreview()` collapses to a single call, but it should still show
+  **whatever the player currently has equipped** (mainhand + body slot from `G.equipment.equipped`),
+  not just a bare body. Read `eq.mainhand`/`eq.body` the same way `applyEquipment()` does.
+- This preview needs to read equipment BEFORE `G` (the live game state) necessarily exists yet (it's
+  the title screen, pre-descend) — check how `G.equipment`/owned gear is currently loaded/persisted at
+  boot (likely Firebase load happens before title screen paints, but verify, don't assume) so the
+  preview shows accurate gear and doesn't flash bare-body-then-pop-in-gear.
+
+## Weapon + Armor visual layering system (dungeon rendering) — the core build
+
+This was investigated and staged last session but NOT built yet. Read
+`public/sprites/lpc_source/README_LPC_INTEGRATION.md` first — full technical breakdown of the LPC
+asset packs, what's confirmed, what's still open. Don't re-derive from scratch. Summary of what's
+settled vs. still open:
+
+**Settled:**
+- LPC packs (base + expansion) are genuine, verified, and staged at `public/sprites/lpc_source/`.
+- 3 oversized expansion weapons (`WEAPON_longsword`, `WEAPON_rapier`, `WEAPON_long_spear`) already
+  downscaled from 192px to 64px to match the base pack's grid — verified same frame layout at 3x
+  scale via Python/PIL, not a different rig. Files in `public/sprites/lpc_source/expansion/normalized_64px/`.
+- Rendering approach: **armor pieces = direct layered stack** (LPC pre-aligns TORSO/HEAD/LEGS/FEET/
+  HANDS/BELT to identical grid position as BODY_male in every animation folder — draw at same (0,0)
+  offset, same frame index, should need zero anchor math). **Weapons = anchor-point + rotation**
+  (reuse the aim-angle math already in `entities.js`'s `swingFlash` block from Task 4) since weapons
+  need to track swing/aim direction across all facings, which the fixed-pose sheets don't encode
+  per-behavior.
+- `applyEquipment()` in `game.js` is currently 100% stat-only (atk bonus, hp multiplier) — confirmed
+  by reading the function. No visual hook exists yet. This is the gap being closed.
+
+**Still open — do these BEFORE writing the full system:**
+1. **Alignment test first.** Composite `BODY_male.png` + one matching armor part (e.g.
+   `TORSO_leather_armor_torso.png`) from the SAME animation folder (`walkcycle/`) at identical (0,0)
+   offset per frame, using Python/PIL or a throwaway HTML canvas. View the result with the `view`
+   tool. Confirm it actually aligns with zero extra math before building the real system on top of an
+   unverified assumption.
+2. **Body variant decision still pending image-gen availability.** Last session had no image-gen
+   tool. Check what's available to you this session. If still nothing: the user already accepted
+   "gpp kalo cuma pake 1 hero" (fine with just 1 body) — so this is no longer a blocker, just confirm
+   that's still their preference before spending effort on multi-body sourcing.
+3. **2 of 7 weapons still have no matching LPC asset:** `war_axe` (knockback behavior) and
+   `void_reaper` (aoe behavior) — no axe or scythe/reaper sheet in either provided pack. Flag to user,
+   don't silently substitute.
+4. **Armor tier → LPC flavor mapping still tentative, not visually confirmed:**
+   `leather_guard`→leather_armor, `iron_plate`→chain_armor, `rune_armor`→plate_armor-or-robe (ask which,
+   genuinely ambiguous between "heavy metal" and "magic cloth" reading of "rune").
+5. **License:** LPC is historically CC-BY-SA/GPL dual-licensed, attribution required (Johannes
+   Sjölund). No license file ships in the zips. Verify exact current terms from OpenGameArt.org before
+   production ship — not reachable from this sandbox's network.
+
+**Build order once the above is resolved:**
+1. Wire a new hero body config into `assets.js` pointing at the LPC `BODY_male` sheets (walkcycle,
+   slash, thrust, bow, hurt as needed) — keep the OLD `HERO` config intact and switchable until the
+   new one is verified working, don't delete it yet (same "don't stack unverified work" lesson from
+   every prior handoff).
+2. Write the shared compositing function described above (body + armor stack + weapon anchor/rotate),
+   used by both `Player.draw()` (animated, in-dungeon) and `drawPreview()` (static, outdoor/title).
+3. Extend `applyEquipment()` (or wherever makes sense) so the currently-equipped weapon/armor ids are
+   readable by the compositing function — it already knows `eq.mainhand`/`eq.body`, just needs to map
+   those ids to which LPC sprite files to draw, probably a small lookup table in `marketplace-items.js`
+   or a new adjacent config (e.g. add `lpcAsset: {...}` fields to each equipment entry).
+4. Keep Task 4's particle swing FX layered ON TOP of the new weapon sprite — don't remove it, the two
+   are complementary (sprite = what's being held, particles = impact/behavior flavor).
+5. Update `DungeonGame.tsx`'s title screen: remove the 3-button `char-select`, keep a single
+   `char-prev` div, call the (now gear-aware) preview function.
+6. Ask the user about the GameFlowManager.tsx orphaned selector (point 2 above) before touching it.
+7. Live-browser verification. Actually attempt it or explicitly tell the user your environment can't.
+
+## Also still true from prior sessions (re-verify lightly, don't re-litigate)
+
+- Floor scaling, ranged/slow, Task 4 swing FX: code-complete, static-verified multiple sessions
+  running. Floor-20 HP stacking (~47.6x, `3.66 scale × 13.0 hpMul`) is STILL an open balance question
+  for the project owner, not silently changed.
+- `_getTintCtx()` Frost Spear tint fix: math re-verified against `Anim.draw()`'s own positioning
+  formula, should be correct, still not visually confirmed in a real browser.
+
+## Files changed in the session that produced this prompt
+
+- Investigation + documentation only. No game code touched. Files added:
+  `public/sprites/lpc_source/` (LPC assets, staged), `README_LPC_INTEGRATION.md`,
+  `NEXT-SESSION-PROMPT-v4-LPC.txt` (superseded by this v5 prompt — v4 can be deleted/ignored, its
+  content is folded into this file).
+
+## What to upload to the next Claude session
+
+Re-zip the `NullState-main` project folder as it stands (already contains
+`public/sprites/lpc_source/` fully staged). No need to re-upload the raw LPC zips or v4 prompt
+separately — everything is already inside the project structure.
+
+## Codebase orientation notes (still accurate)
+
+- `public/game-engine/marketplace-items.js` — weapon/armor config (`effect.behavior`, `fxTier`);
+  will likely need an `lpcAsset` field added per item as part of this build.
+- `public/game-engine/entities.js` — `Player`/`Enemy`, `pixelArc()`, swing FX, `_getTintCtx()`. Will
+  gain the new compositing function here.
+- `public/game-engine/game.js` — `applyEquipment()` (stat-only today, gains visual hookup),
+  `equipItem()`/`unequipSlot()`, `drawPreview()`/`paintPreview()` (outdoor title-screen preview, needs
+  gear-awareness per this prompt), `selectedChar` (collapses to a single hardcoded value).
+- `public/game-engine/assets.js` — `HERO`/`MON` configs; gains the new LPC body config alongside the
+  existing Pixel Crawler one.
+- `public/sprites/lpc_source/` — staged LPC assets + integration README from last session.
+- `components/game/DungeonGame.tsx` — the REAL char-select UI (~line 484-500), needs simplifying to a
+  single gear-aware preview.
+- `components/game/GameFlowManager.tsx` — a SEPARATE, currently-disconnected character-class selector
+  (~line 117-227) — flag to user, don't assume it's dead code.
+
+## Explicitly out of scope (unchanged)
+
+- Marketplace payment flow / `/api/marketplace/*` / `WalletProvider.tsx` buy logic.
+- Unused monster attack sprites (`boss_attack.png` etc.), real attack sheets for Orc/Skeleton-crew —
+  separate future tasks.
+- MiniPay compliance / ToS / dependency-pinning.
+
+## Working style reminders (solo dev, mobile Termux environment)
+
+- Ship complete files, not diffs, when returning code for review.
+- Keep changes additive/defensive (`window.X || {}` guards), matching existing style.
+- State clearly after each task: what changed, which files, exact manual verification steps.
+- Be honest immediately about tool/environment limits (browser, image-gen, external asset access)
+  rather than rediscovering and re-disclosing them session after session.
+- Checkpoint (zip + continuation prompt) the moment you're running low on budget — don't cram
+  unverified work in if you can't finish AND verify it.

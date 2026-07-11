@@ -1,0 +1,221 @@
+# NullState — Phase 5.3 Continuation Prompt (v8)
+# UPLOAD THIS ZIP: NullState-Phase5_3-Task5-LPCPlan-v8.zip
+# SCOPE: this session did the #1 priority v7 flagged (real Next.js app
+# boot via `npm run dev`, not just the standalone test.html harness),
+# found and FIXED a real rendering bug that only existed in the
+# drawPreview() refactor (not in v7's other fixes), fixed the
+# hitZone() facing-fallback bug v7 explicitly deferred, and wired
+# twin_daggers into LPC_WEAPON. Read this before touching LPC code
+# again — several v7 "still owed" items are now DONE, don't redo them.
+
+## What THIS session verified (real `npm run dev`, real Playwright)
+v7 confirmed the standalone `public/test.html` harness worked but had
+NOT yet tried running the actual Next.js app. This session did that:
+
+1. Ran `npm install` (987 packages, clean) then `npm run dev`. Copied
+   `.env.example` to `.env.local` and stubbed dummy Firebase values
+   (`NEXT_PUBLIC_FIREBASE_*=dummy-...`) since real credentials aren't
+   available in this environment. **App boots and compiles clean —
+   `GET /` and `GET /game` both returned HTTP 200, no crash, no build
+   error.** Confirmed via Playwright screenshot of `/game`: renders the
+   MainMenu (NEW GAME / LEADERBOARD / REWARDS / MINT PASS, wallet "NOT
+   CONNECTED"). Two `403` console errors appeared, almost certainly
+   from the dummy Firebase project rejecting requests — expected with
+   fake credentials, not a real app bug. **Not yet tested:** actually
+   getting past MainMenu into `DungeonGame` itself (the screen that
+   hosts `#prevKnight` / the char-select title overlay) requires a
+   connected wallet, which needs mocking a wallet provider in
+   Playwright — didn't attempt this session, flagged below as the next
+   verification step up the ladder.
+   **Remember to `rm -rf node_modules .next .env.local` before your
+   own session ends too if you reinstall — this zip ships clean
+   without them, they're multiple hundred MB and regenerate from
+   `package.json` + `.env.example` in under 2 minutes.**
+
+2. **Fixed `drawPreview()`/added `drawLPCPreview()` in `game.js`** —
+   this was v7's item #3 ("still gear-unaware, refactor to call
+   drawLPCComposite()"). Knight's char-select thumbnail now composites
+   through the SAME `drawLPCComposite()` used by in-dungeon
+   `Player.draw()`, instead of drawing the old Pixel Crawler
+   `knight_idle` sprite. rogue/wizzard are UNCHANGED (still the old
+   alpha-bbox-normalize path — they have no LPC sheets).
+   **Caught a real bug via measurement, not just visual inspection:**
+   my first version of `drawLPCPreview()`'s `cy` math was
+   `(BOX-6)+dh*hero.foot` — but `drawLPCComposite()` already subtracts
+   `dh*foot` internally to get the sprite's top edge from `cy`, so this
+   was double-applying the foot offset and pushed the entire sprite
+   below the visible 88px preview box. Confirmed via a Playwright
+   `getImageData()` pixel scan of the actual canvas (not the DOM
+   screenshot, which can look deceptively fine if a red debug outline
+   is the only visible thing) — `found: false`, completely empty
+   canvas. Fixed by using `cy = BOX-6` directly (the desired feet
+   baseline) and letting `drawLPCComposite()` handle the foot
+   subtraction itself. Re-verified after the fix: alpha bbox height on
+   the actual canvas came back **74px** — exactly `TARGET`, confirmed
+   correct. Screenshot also visually confirmed: down-facing LPC knight,
+   correctly centered and sized in the thumbnail box.
+   **Takeaway for next session: when verifying a canvas render, read
+   the canvas's own pixel data via `getImageData()` in-page, don't just
+   screenshot the DOM — a screenshot of an empty canvas inside a
+   bordered/styled div can still "look like something's there" if you
+   don't check the alpha channel directly.**
+
+3. **Fixed `Player.hitZone()`'s facing-fallback bug** — this was v7's
+   item #9, explicitly left for this session's judgment since it's
+   combat logic, not rendering. Applied the same one-line-pattern fix
+   as v7's `update()` fix: dropped the `this.facing` fallback, use
+   `this._lastMove.x/.y` directly. Verified via the `test.html`
+   harness: gave a fresh player `_lastMove={x:0,y:1}` (straight down),
+   ran `startAttack()` + advanced into the strike window, called
+   `hitZone()`. Before this session's fix this would have returned a
+   hit zone offset to the side (`x: player.x+38`); after the fix it
+   correctly returns `{x: player.x, y: player.y+30}` — pure downward
+   offset, no horizontal drift. Melee hit registration on vertical
+   attacks is now correct.
+
+4. **Wired `twin_daggers` into `LPC_WEAPON`** (v7's item #1, the easy
+   half — reuses the existing plan, no new asset needed). Added:
+   ```js
+   twin_daggers: { anim:'slash', src:`${LPC_BASE}/slash/WEAPON_dagger.png`, double:true },
+   ```
+   and taught `drawLPCComposite()` (`entities.js`) to check the new
+   `wDef.double` flag and draw the overlay a second time at a small
+   scaled pixel offset (`dx+3*scale, dy-1.8*scale`) so it reads as two
+   blades instead of one. Verified via `test.html`: equipped
+   `twin_daggers`, ran an attack cycle, called `player.draw()` — no
+   errors, `_lpcAnimKey` correctly resolves to `'slash'`. **Not
+   independently confirmed by eye that the offset "looks like two
+   daggers" and not just a blur** — the render call didn't throw and
+   the math is deliberate, but a visual gut-check screenshot of just
+   this weapon mid-swing would be worth 30 seconds next session before
+   calling it fully done.
+   **`hunters_bow` is STILL NOT wired — this needs your input, not an
+   engineering guess:**
+
+## ⚠️ Needs Yurk's decision: hunters_bow
+Same open question as v6/v7 — genuinely a design call, not something
+to guess at:
+- **Option A — dedicated ranged pose:** give `hunters_bow` its own
+  `LPC_HERO`-style entry with a real bow-draw body sheet (LPC packs do
+  have archer animations, would need sourcing/downscaling like
+  `war_axe`/`void_reaper` were this session's predecessor). More work,
+  more visually correct (player actually looks like they're firing a
+  bow).
+- **Option B — keep current particle-only ranged FX, no bow-draw pose:**
+  cheapest, ships now, the character just doesn't visually hold a bow
+  during the ranged attack (arrows/particles still fire correctly via
+  the existing FX system, unrelated to LPC compositing).
+Tell me which one you want next session and I'll execute it — no need
+to re-explain the trade-off, just say "A" or "B" (or something else).
+
+## Everything else from v6/v7 is UNCHANGED — still true, still owed
+Don't re-investigate these; nothing this session touched them:
+- `war_axe`/`void_reaper` assets: found, downscaled, license-cleared.
+- Direct-stack compositing (no rotation math for weapons): confirmed
+  correct again in v7's screenshot check, unaffected by this session's
+  changes.
+- Armor/weapon file paths in `LPC_ARMOR`/`LPC_WEAPON`: correct.
+- `preloadLPCHero()` folded into `preloadAll()`: still correct.
+- `LPC_HERO.scale: 1.2, foot: 1.0` calibration from v7: still correct,
+  unaffected by this session (only the SEPARATE preview-box scale/cy
+  math in `drawLPCPreview()` had a bug, not the in-dungeon gameplay
+  scale — those are two different scale calculations by design, since
+  the preview box normalizes to a fixed TARGET height like the old
+  code did, while gameplay uses a fixed absolute scale).
+
+## Still open — must resolve before calling this feature done
+1. **`hunters_bow` — awaiting your decision, see above.** Ask if
+   unsure; don't guess.
+2. **Full wallet-mocked Playwright pass through `DungeonGame`'s real
+   char-select title screen has NOT been done.** This session verified
+   MainMenu (pre-wallet) boots clean and separately verified the new
+   `drawLPCPreview()` logic via an extracted-snippet harness (copied
+   the function bodies out of `game.js` into a scratch test file,
+   loaded them against real `assets.js`/`entities.js`, called them
+   directly) — NOT by actually reaching `#prevKnight` inside the live
+   React tree via wallet connection, since `GameFlowManager`'s `'game'`
+   phase requires `isConnected`. Next step up the ladder: mock
+   `useWallet()` (in `lib/WalletProvider.tsx`) to return a fake
+   connected address, or find/add a dev-only bypass, so Playwright can
+   screenshot the ACTUAL `#prevKnight` canvas inside `DungeonGame.tsx`
+   end-to-end, not just the extracted logic. This is the last rung
+   before this whole feature is genuinely fully verified in the real
+   app rather than in harnesses that faithfully reproduce it.
+3. **`DungeonGame.tsx`'s 3-button char-select UI (~line 484-500)** —
+   still untouched structurally (knight button now shows the correct
+   LPC preview per fix #2 above, but the 3-button layout itself,
+   rogue/wizzard buttons, etc. haven't been simplified/reconsidered).
+   Revisit once #2 above is verified end-to-end.
+4. **`GameFlowManager.tsx`'s separate `'character-select'` GamePhase
+   (~line 117-227 in the earlier v6/v7 numbering) is STILL untouched,
+   STILL not asked about.** This looks like it may be dead/orphaned
+   code, separate from the title-screen char-select that actually
+   lives inside `DungeonGame.tsx`'s canvas overlay (the one with
+   `#prevKnight`) — but this has not been confirmed, only observed.
+   **Ask Yurk directly what this second character-select screen is
+   for** before deleting or wiring it up to anything.
+5. **Old Pixel Crawler `HERO.knight/rogue/wizzard` fallback stays
+   intact** — correct, don't remove until LPC is verified end-to-end
+   in the real Next.js app per #2 above (not just harnesses).
+6. **Full CREDITS file** covering every LPC asset wired into
+   `LPC_HERO`/`LPC_ARMOR`/`LPC_WEAPON` — straightforward grep-and-copy
+   from the cloned LPC generator repo's `CREDITS.csv`. Still not done,
+   3 sessions running now — worth just knocking out next session
+   before it's forgotten, it's not blocked on anything else.
+7. **twin_daggers offset visual gut-check** — see note in item 4 above,
+   quick screenshot would close this out with real confidence instead
+   of "didn't throw an error."
+
+## Files changed this session
+- `public/game-engine/game.js` — refactored `drawPreview()` to route
+  the knight thumbnail through `drawLPCComposite()`; added new
+  `drawLPCPreview()` helper (with the cy-math bug found+fixed mid-
+  session, see #2 above). rogue/wizzard path unchanged.
+- `public/game-engine/entities.js` — fixed `Player.hitZone()`'s
+  facing-fallback bug (same fix pattern as v7's `update()` fix).
+  Added `wDef.double` handling to `drawLPCComposite()`'s weapon-overlay
+  draw for twin_daggers' second-blade offset.
+- `public/game-engine/assets.js` — added `twin_daggers` entry to
+  `LPC_WEAPON`.
+- `.env.local`, `node_modules/`, `.next/` — created during this
+  session's `npm run dev` verification, **deleted before zipping**;
+  not part of this deliverable, regenerate with `npm install` +
+  `cp .env.example .env.local` (+ dummy Firebase values, or your real
+  ones) if you need to re-verify locally.
+- `public/test.html` — UNCHANGED from v7, still kept intentionally for
+  future QA (loads `assets.js`+`entities.js` standalone, drives
+  idle/walk/attack states, exposes `window.__player`/`__renderFrame`).
+  This session's scratch extraction-harness for `drawLPCPreview()` was
+  NOT kept (it duplicated code out of `game.js` at test time rather
+  than being a standalone reusable file) — if you want to re-verify
+  `drawPreview()`/`drawLPCPreview()` next session, either extend
+  `test.html` to also exercise them (they're closed over inside the
+  `NullStateGame` IIFE, not on `window`, so you'll need the same
+  extract-the-function-body-into-a-scratch-file approach, or
+  temporarily expose them via `window` in a throwaway copy) or do the
+  full wallet-mock pass from item 2 above instead, which sidesteps the
+  problem entirely by testing the real thing.
+
+## Explicitly out of scope (unchanged from v5/v6/v7)
+- Marketplace payment flow / `/api/marketplace/*` / `WalletProvider.tsx`
+  (except possibly mocking it for verification purposes per item 2 —
+  that's testing infrastructure, not changing real wallet logic).
+- Unused monster attack sprites, real attack sheets for Orc/Skeleton
+  crew.
+- MiniPay compliance / ToS / dependency-pinning.
+
+## Working style reminders (unchanged, still true)
+- Ship complete files, not diffs, when returning code for review.
+- Keep changes additive/defensive.
+- **Measure, don't just glance** — this session's own preview-box bug
+  is the proof: a DOM screenshot of the div looked plausible at a
+  glance (red debug outline visible, box the right size) but the
+  canvas inside it was completely empty until pixel data was actually
+  read back via `getImageData()`. The v7 direction-bug and this
+  session's cy-math bug are the same lesson twice now: assumptions
+  about "the math should just work" need an actual read-back check,
+  not just "the function returned without throwing."
+- Individual `.txt` files, never zips, when delivering code for manual
+  review — Yurk manages the repo manually via GitHub from Termux (this
+  full-project zip is only for continuation-prompt handoff between
+  sessions, not for pasting into the repo).
