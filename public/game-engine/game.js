@@ -634,8 +634,13 @@ function spawnDecorInto(floor, d){
   // than a sci-fi monitor ever did.
   // v75: table_w + bench join the commons (user sprite decor); safe joins
   // the rare interactive containers alongside wardrobe/chest.
-  const common=['vase','pot','barrel','crate','cabinet_s','cabinet_s','urn','bones','table_w','table_w','bench'];
-  const rare=['wardrobe','chest','safe'];
+  // v80 (owner: "maps cenderung kosong"): the LPC sprite props join the pool —
+  // 12 new breakables + 4 new interactive containers (see props.js). Weights
+  // stay flat; the list-length itself is the weighting.
+  const common=['vase','pot','barrel','crate','cabinet_s','urn','bones','table_w','bench',
+    'oak_barrel','barrel_stack','bucket','bucket_water','boulder','hay_pile','chalice',
+    'basin','plaque_sword','plaque_coin','skull_heap','cot'];
+  const rare=['wardrobe','chest','safe','footlocker','shelf_stocked','dresser','cabinet_ornate'];
   const g=d.grid, W=d.W, H=d.H;
   const isWall=(x,y)=> !(x>=0&&y>=0&&x<W&&y<H) || g[y][x]===0;
   for(const r of d.rooms){
@@ -674,21 +679,58 @@ function spawnDecorInto(floor, d){
     // shuffle candidates
     for(let i=cand.length-1;i>0;i--){ const j=(Math.random()*(i+1))|0; const t=cand[i]; cand[i]=cand[j]; cand[j]=t; }
     const area=r.w*r.h;
-    const n=Math.min(cand.length, Math.min(3, Math.max(1, Math.round(area/20))));
+    // v80: denser dressing (owner: "maps cenderung kosong") — cap 3 -> 5 per
+    // room, area divisor 20 -> 14, min spacing 1.3 -> 1.15 tiles.
+    const n=Math.min(cand.length, Math.min(5, Math.max(1, Math.round(area/14))));
     let placed=0;
     for(const c of cand){
       if(placed>=n) break;
-      if(floor.decor.some(o=>Math.hypot(o.x-c.px,o.y-c.py)<TILE*1.3)) continue;
+      if(floor.decor.some(o=>Math.hypot(o.x-c.px,o.y-c.py)<TILE*1.15)) continue;
       let t = Math.random()<0.12 ? rare[Math.floor(Math.random()*rare.length)]
                                  : common[Math.floor(Math.random()*common.length)];
-      // bench only has front-view art (user decision) — anywhere but the
-      // top wall it becomes a table instead.
-      if(t==='bench' && c.facing!=='down') t='table_w';
+      // v80: generalized from the old bench-only special case — any type
+      // flagged northOnly in DECOR_TYPES ships front-view-only art, so
+      // anywhere but the top wall it falls back to a table.
+      if(DECOR_TYPES[t] && DECOR_TYPES[t].northOnly && c.facing!=='down') t='table_w';
       // 'up'-facing slots only take the sprite-decor types that actually
       // ship a pre-cut back view; procedural props stay off the S wall.
       if(c.facing==='up' && !['cabinet_s','wardrobe','safe','table_w'].includes(t)) t='table_w';
       floor.decor.push(new Decor(t,c.px,c.py,c.facing));
       placed++;
+    }
+    // ---- v80: mid-room dressing pass ----------------------------------
+    // The wall-hug pass alone left room interiors bare. Scatter a few
+    // free-standing props (cylindrical/pile types that read correctly from
+    // any side — no boxy front-view furniture) on interior floor tiles at
+    // least one tile away from every wall, with the same keep-outs as the
+    // wall pass (start, stairs, doors) plus wider prop spacing so they
+    // never form an accidental fence across a room.
+    const MID=['oak_barrel','barrel_stack','bucket','bucket_water','boulder',
+               'hay_pile','skull_heap','vase','pot','urn','bones','crate','chalice'];
+    const midCand=[];
+    for(let ty=r.y+1; ty<r.y+r.h-1; ty++){
+      for(let tx=r.x+1; tx<r.x+r.w-1; tx++){
+        if(g[ty][tx]===0) continue;
+        if(isWall(tx,ty-1)||isWall(tx,ty+1)||isWall(tx-1,ty)||isWall(tx+1,ty)) continue;
+        const px=(tx+0.5)*TILE, py=(ty+0.7)*TILE;
+        if(Math.hypot(px-d.startPx.x,py-d.startPx.y)<TILE*1.8) continue;
+        if(Math.hypot(px-d.stairsPx.x,py-d.stairsPx.y)<TILE*1.8) continue;
+        let nearDoor=false;
+        for(const door of r.doors){
+          if(Math.hypot(px-(door.x+0.5)*TILE, py-(door.y+0.5)*TILE) < TILE*1.6){ nearDoor=true; break; }
+        }
+        if(!nearDoor) midCand.push({px,py});
+      }
+    }
+    for(let i=midCand.length-1;i>0;i--){ const j=(Math.random()*(i+1))|0; const t=midCand[i]; midCand[i]=midCand[j]; midCand[j]=t; }
+    const nm=Math.min(midCand.length, Math.min(3, Math.round(area/24)));
+    let midPlaced=0;
+    for(const c of midCand){
+      if(midPlaced>=nm) break;
+      if(floor.decor.some(o=>Math.hypot(o.x-c.px,o.y-c.py)<TILE*1.6)) continue;
+      const t=MID[Math.floor(Math.random()*MID.length)];
+      floor.decor.push(new Decor(t,c.px,c.py,'down'));
+      midPlaced++;
     }
   }
 }
