@@ -57,13 +57,14 @@ window.NS_OUTDOOR = (function(){
       // ---- LPC hero rendering state (same gate/fields as Player in
       // entities.js) — fixes the outdoor scene showing the old Pixel
       // Crawler knight sprite while the dungeon shows the LPC hero, which
-      // read as two different characters. No armor/weapon layers are
-      // passed here (outdoor scenes happen before/between bunker runs,
-      // and equipment state isn't reliably available at every call site
-      // that enters an outdoor act) — just the bare LPC body, which still
-      // matches what the player sees the instant they step into the
-      // bunker instead of contradicting it.
+      // read as two different characters.
+      // v80 (owner bug report): outdoor now ALSO wears the equipped gear —
+      // game.js passes weaponId/armorId (live G state, else the persisted
+      // per-wallet cache via currentEquippedIds()) so what the player
+      // equipped before saving/leaving stays on their back outdoors too.
       useLPCHero: opts.charKey === 'knight',
+      weaponId: opts.weaponId || null,
+      armorId: opts.armorId || null,
       _lpcDir: 2, _lpcFrame: 0, _lpcT: 0, _lpcAnimKey: 'idle',
     };
     state.anim.set(state.heroCfg.idle, 'idle');
@@ -199,6 +200,10 @@ window.NS_OUTDOOR = (function(){
       const heroCfg = A && A.LPC_HERO;
       drewLPC = !!heroCfg && drawLPCComposite(ctx, px, py, heroCfg.scale, s._lpcDir, s._lpcFrame, {
         animKey: s._lpcAnimKey || 'idle',
+        // v80: equipped gear visible outdoors (never attacking out here, so
+        // the weapon renders via the ULPC walk/idle carry overlay).
+        weaponId: s.weaponId || undefined,
+        armorId: s.armorId || undefined,
       });
     }
     if(!drewLPC){
