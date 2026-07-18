@@ -1,0 +1,150 @@
+// marketplace-items.js — NullState OFFCHAIN Marketplace + Equipment + Food config
+// ---------------------------------------------------------------------------
+// This is a CONFIG-ONLY module (no engine wiring here). It is safe to load on
+// its own and exposes everything the game + marketplace UI need via
+// window.NS_MARKET. Owner can add new equipment by appending to EQUIPMENT.
+//
+// Design (agreed in build discussion):
+//  • Purchases are paid as a plain ERC20 transfer() of USDT / USDC / USDm on
+//    Celo to the TREASURY wallet (NO smart contract needed — confirmed by
+//    MiniPay docs). Ownership is recorded OFFCHAIN (Firebase), the payment tx
+//    is the on-chain proof and is verified server-side before unlock.
+//  • Equipment is PERMANENT (never consumed), can be equipped/unequipped.
+//  • Food (loot ids 321–515) is CONSUMABLE: Eat -> heal % of maxHp by rarity.
+//  • FX tier drives attack visual richness (higher price = flashier effect).
+// ---------------------------------------------------------------------------
+
+(function () {
+  'use strict';
+
+  // ── Treasury + accepted tokens (Celo Mainnet 42220) ──────────────────────
+  var TREASURY = '0xAb73e0E942ecAAF634216EFb78786fa0F92f2eb6';
+
+  var TOKENS = {
+    USDm: { address: '0x765DE816845861e75A25fCA122bb6898B8B1282a', decimals: 18 },
+    USDC: { address: '0xcebA9300f2b948710d2653dD7B07f33A8B32118C', decimals: 6  },
+    USDT: { address: '0x48065fbBE25f71C9282ddf5e1cD6D6A887483D5e', decimals: 6  },
+  };
+
+  // ── Equipment slots ──────────────────────────────────────────────────────
+  // mainhand = weapon (affects atkDmg + attack FX/behavior)
+  // body     = armor  (affects maxHp %)
+  var SLOTS = { WEAPON: 'mainhand', ARMOR: 'body' };
+
+  // ── 10 starter items (owner can append more; list is NOT locked) ─────────
+  // sprite: path in the repo/GitHub. All 10 icons are 64x64 PNG (RGBA,
+  // transparent bg) and live in public/sprites/marketplace/ (added Phase 5.2).
+  // effect fields are read by the engine when the item is equipped.
+  var EQUIPMENT = [
+    // ── ARMOR (body) : hpBonus = fraction added to base maxHp ──
+    { id:'leather_guard', name:'Leather Guard', type:'armor', slot:SLOTS.ARMOR,
+      price:0.5, fxTier:1, effect:{ hpBonus:0.15 },
+      sprite:'/sprites/marketplace/leather_guard.png',
+      desc:'+15% Max HP. Worn hide, light but reliable.' },
+    { id:'iron_plate', name:'Iron Plate', type:'armor', slot:SLOTS.ARMOR,
+      price:1.0, fxTier:1, effect:{ hpBonus:0.25 },
+      sprite:'/sprites/marketplace/iron_plate.png',
+      desc:'+25% Max HP. Solid forged plating.' },
+    { id:'rune_armor', name:'Rune Armor', type:'armor', slot:SLOTS.ARMOR,
+      price:3.0, fxTier:2, effect:{ hpBonus:0.40 },
+      sprite:'/sprites/marketplace/rune_armor.png',
+      desc:'+40% Max HP. Etched with warding runes that shimmer on hit.' },
+
+    // ── WEAPONS (mainhand), v76 Task #7 ──
+    // Cheapest -> dearest. Every weapon has its OWN art (the marketplace icon
+    // IS the sprite in your hand), its own procedural swing (NS_WEAPON.motion)
+    // and its own attack SFX (NS_WEAPON.sfx). No two share a behavior.
+    { id:'rusty_blade', name:'Rusty Blade', type:'weapon', slot:SLOTS.WEAPON,
+      price:0.5, tokenPrice:3000, fxTier:1, fxColor:'#d8dde2', effect:{ atkBonus:10, behavior:'slash' },
+      sprite:'/sprites/marketplace/rusty_blade.png',
+      desc:'+10 ATK. A chipped old sword — better than fists.' },
+    { id:'emberwood_maul', name:'Emberwood Maul', type:'weapon', slot:SLOTS.WEAPON,
+      price:2.0, tokenPrice:12000, fxTier:2, fxColor:'#d98a4a', effect:{ atkBonus:18, behavior:'knockback' },
+      sprite:'/sprites/marketplace/emberwood_maul.png',
+      desc:'+18 ATK. Spiked emberwood — every blow sends foes flying.' },
+    { id:'ironbolt_crossbow', name:'Ironbolt Crossbow', type:'weapon', slot:SLOTS.WEAPON,
+      price:3.0, fxTier:2, fxColor:'#e0b25a', effect:{ atkBonus:24, behavior:'ranged' },
+      sprite:'/sprites/marketplace/ironbolt_crossbow.png',
+      desc:'+24 ATK, ranged. Punches a heavy bolt clean through the dark.' },
+    { id:'argent_waraxe', name:'Argent Waraxe', type:'weapon', slot:SLOTS.WEAPON,
+      price:4.0, fxTier:2, fxColor:'#cfd8e3', effect:{ atkBonus:30, behavior:'cleave' },
+      sprite:'/sprites/marketplace/argent_waraxe.png',
+      desc:'+30 ATK. A broad silver bite that cleaves everything in the arc.' },
+    { id:'ancient_blade', name:'Ancient Blade', type:'weapon', slot:SLOTS.WEAPON,
+      price:5.0, fxTier:3, fxColor:'#ffd24a', effect:{ atkBonus:40, behavior:'double_hit' },
+      sprite:'/sprites/marketplace/ancient_blade.png',
+      desc:'+40 ATK. Two blistering slashes — few foes survive.' },
+    { id:'frost_spear', name:'Frost Spear', type:'weapon', slot:SLOTS.WEAPON,
+      price:6.0, fxTier:3, fxColor:'#bdeeff', effect:{ atkBonus:35, behavior:'slow', slowPct:0.5 },
+      sprite:'/sprites/marketplace/frost_spear.png',
+      desc:'+35 ATK, chills and slows enemies.' },
+    { id:'verdant_reaper', name:'Verdant Reaper', type:'weapon', slot:SLOTS.WEAPON,
+      price:10.0, fxTier:3, fxColor:'#57e389', effect:{ atkBonus:60, behavior:'aoe' },
+      sprite:'/sprites/marketplace/verdant_reaper.png',
+      desc:'+60 ATK. A wide living arc that reaps everything around you.' },
+    { id:'void_katana', name:'Voidedge Katana', type:'weapon', slot:SLOTS.WEAPON,
+      price:12.0, fxTier:3, fxColor:'#b46bff', effect:{ atkBonus:70, behavior:'triple_slash' },
+      sprite:'/sprites/marketplace/void_katana.png',
+      desc:'+70 ATK. Three void-lit cuts land before the first is seen.' },
+    { id:'sunfire_bow', name:'Sunfire Longbow', type:'weapon', slot:SLOTS.WEAPON,
+      price:15.0, fxTier:3, fxColor:'#ffcf3d', effect:{ atkBonus:80, behavior:'volley' },
+      sprite:'/sprites/marketplace/sunfire_bow.png',
+      desc:'+80 ATK, ranged. Looses a fan of three sunfire arrows.' },
+  ];
+
+  // Pre-v76 ids for the four weapons that were re-skinned this session. Wallets
+  // that already bought the old version keep the item: this is a READ-side alias
+  // only — nothing ever writes an old id back. void_reaper/hunters_bow/
+  // ancient_aegis/warden_plate were removed outright (owner request) and so have
+  // no target to alias to.
+  var LEGACY_IDS = {
+    voidcaller_scythe: 'sunfire_bow',
+    ancient_warblade: 'void_katana',
+    war_axe: 'argent_waraxe',
+    twin_daggers: 'emberwood_maul',
+  };
+  function resolveId(id){ return LEGACY_IDS[id] || id; }
+
+  // ── FOOD (consumables) ────────────────────────────────────────────────────
+  // Any loot item whose id falls in FOOD_RANGES is edible. Eating heals a % of
+  // the player's maxHp scaled by the item's (deterministic) rarity.
+  var FOOD_RANGES = [ [321, 515] ]; // owner-tunable; see item_contact_sheet_2
+  var FOOD_OPTIONAL_RANGES = [ [1045, 1075] ]; // seafood — disabled by default
+  var FOOD_HEAL_BY_RARITY = {
+    common:    0.03,  // 3%
+    uncommon:  0.035, // 3.5%
+    rare:      0.04,  // 4%
+    epic:      0.045, // 4.5%
+    legendary: 0.05,  // 5%
+  };
+
+  function isFood(id) {
+    for (var i = 0; i < FOOD_RANGES.length; i++) {
+      if (id >= FOOD_RANGES[i][0] && id <= FOOD_RANGES[i][1]) return true;
+    }
+    return false;
+  }
+  function foodHealFraction(rarity) {
+    return FOOD_HEAL_BY_RARITY[rarity] || FOOD_HEAL_BY_RARITY.common;
+  }
+  function getEquipment(id) {
+    var rid = resolveId(id);
+    for (var i = 0; i < EQUIPMENT.length; i++) if (EQUIPMENT[i].id === rid) return EQUIPMENT[i];
+    return null;
+  }
+
+  window.NS_MARKET = {
+    TREASURY: TREASURY,
+    TOKENS: TOKENS,
+    SLOTS: SLOTS,
+    EQUIPMENT: EQUIPMENT,
+    FOOD_RANGES: FOOD_RANGES,
+    FOOD_OPTIONAL_RANGES: FOOD_OPTIONAL_RANGES,
+    FOOD_HEAL_BY_RARITY: FOOD_HEAL_BY_RARITY,
+    isFood: isFood,
+    foodHealFraction: foodHealFraction,
+    getEquipment: getEquipment,
+    LEGACY_IDS: LEGACY_IDS,
+    resolveId: resolveId,
+  };
+})();

@@ -1,0 +1,98 @@
+================================================================================
+ NULLSTATE — NEXT SESSION PROMPT (v79)
+ Sumber: v78 — sesi v78: SEMUA weapon disandang di PUNGGUNG saat idle/walk
+ (anchor disalin dari LPC BEHIND_quiver), attack pindah ke tangan + reach
+ ke arah bidik. Perbaikan dari device-test (weapon melayang di dada).
+================================================================================
+
+------------------------------------------------------------------------------
+ 0) WAJIB DIBACA DULU
+------------------------------------------------------------------------------
+  1. _agent_skills/SKILL_gameforge-dev.md
+  2. _agent_skills/SKILL_bunker-rpg-asset-integrator.md
+
+------------------------------------------------------------------------------
+ CATATAN JUJUR SOAL VERIFIKASI (penting)
+------------------------------------------------------------------------------
+Image viewer di environment TIDAK bisa menampilkan screenshot render ke
+asisten (selalu gagal render, walau file 99.9% berisi konten). Karena itu
+v77 keliru: disimpulkan "senjata di tangan OK" dari angka PIL tanpa benar2
+melihat -> di device masih melayang di dada. JANGAN ulangi. Untuk apa pun yang
+menyangkut posisi visual: (a) salin koordinat dari asset LPC yang sudah
+dibuat artist (mis. BEHIND_quiver) daripada menebak, (b) ukur jarak geometris
+ke titik referensi itu, (c) EXPORT preview JPEG ke user & MINTA user cek —
+user bisa lihat, asisten tidak.
+
+------------------------------------------------------------------------------
+ 1) SELESAI DI SESI v78
+------------------------------------------------------------------------------
+[SEMUA WEAPON DI PUNGGUNG saat idle/walk] Keputusan user: in-hand carry selalu
+  terbaca "melayang" (LPC megang dua tangan menyatu di depan perut, bukan satu
+  tangan ke samping). Solusi = sling SEMUA weapon di punggung saat tidak
+  menyerang, spt game top-down umum (CrossCode/Moonlighter/Gungeon).
+  - assets.js LPC_BACK DIGANTI dgn koordinat yg DISALIN dari
+    base/walkcycle/BEHIND_quiver.png (titik punggung pilihan artist LPC):
+      up(22,44) left(23,45) down(42,46) right(40,45), sling ang ~±0.62 rad
+      (~135deg diagonal). front:true HANYA up (hadap membelakangi -> weapon
+      tampak penuh); left/down/right front:false (di BELAKANG badan, hanya
+      ujung/gagang mengintip). Ini konvensi LPC BEHIND_ layer.
+  - entities.js drawWeaponLayer: slung = !attacking (SEMUA weapon, bukan cuma
+    carry:'back'). Saat slung: scale 0.82, pivot di TENGAH sprite (gy=0.5),
+    ang = anchor.ang. _weaponIsFront: depth dari LPC_BACK saat !attacking.
+  - Verifikasi GEOMETRIS (bukan mata): centroid weapon-slung 2-4px dari titik
+    quiver LPC (waraxe 5-7px krn kepala berat). Preview diekspor ke user:
+    weapon_back_carry_preview.jpg — MENUNGGU konfirmasi user.
+[ATTACK reach ke tangan] LPC_HAND diubah: grip per arah menjangkau KE ARAH
+  serang (up 34,34 / left 26,40 / down 34,42 / right 38,40) bukan tengah dada,
+  jadi ayunan mulai dari bahu sisi bidik. Saat attack weapon pindah ke tangan
+  (front), push+rotasi WEAPON_MOTION menyapu ke musuh (v76/v77, sudah oke).
+[carry:'back' di NS_WEAPON] kini no-op (semua weapon slung) — dibiarkan sbg
+  penanda dokumentasi, tidak dihapus.
+
+------------------------------------------------------------------------------
+ 2) MASIH DARI v77 (tetap berlaku, sudah diverifikasi numerik)
+------------------------------------------------------------------------------
+- GLOW premium (ancient/frost/verdant/void/sunfire): aura napas + flare attack
+  + impact warna di musuh (particleBurst + G.rings) + trail comet proyektil.
+- ARMOR match icon: rune=chain purple+tint+glow, leather=tint cokelat, iron
+  netral. drawLPCComposite scratch canvas _getArmorCtx (silhouette only).
+- ATTACK diperlambat: atkDur 0.62s (SATU sumber di instance).
+- HITS-TO-KILL: NS_WEAPON.htk (cheap 4 / mid 3 / top 2), game.js _weaponDmgFor
+  = maxHp/(htk*eff). double/triple dibagi jumlah hit. boss htk*6, elite *2.2.
+- RUNE ARMOR $3 (4-source konsisten).
+
+------------------------------------------------------------------------------
+ 3) MENUNGGU USER (retest device v78)
+------------------------------------------------------------------------------
+ (a) SEMUA weapon disandang di punggung saat diam & jalan (E/W/N/S), miring
+     diagonal, tidak melayang di dada, tidak kaku;
+ (b) saat menghadap kamera (south) weapon di belakang badan (cuma ujung
+     nongol), saat membelakangi (north) weapon tampak penuh di punggung;
+ (c) saat ATTACK weapon pindah ke tangan & menyapu ke musuh (lebih lambat);
+ (d) glow premium, impact musuh, armor warna match icon, htk 4/3/2, rune $3
+     (semua dari v77 — konfirmasi masih oke).
+ --> kalau posisi punggung meleset per arah: nilai ada di LPC_BACK (assets.js),
+     tinggal geser x/y/ang per baris arah.
+
+------------------------------------------------------------------------------
+ 4) ANTRIAN BERIKUTNYA
+------------------------------------------------------------------------------
+[T14] Monster art: asset FREE (CC0/OGA/PD), ukuran ~player, boss fit layar.
+
+------------------------------------------------------------------------------
+ 5) ATURAN KERJA
+------------------------------------------------------------------------------
+- BERURUTAN; default 2 task/sesi lalu STOP & tanya kecuali diminta lanjut.
+- present_files utk file user. node --check tiap JS; npm run build TSX.
+- Item marketplace sinkron 4 sumber + sprite weapons/.
+- JANGAN ubah cerita/jumlah bunker(5)/logika pembayaran.
+- Verifikasi visual: salin koordinat asset LPC + ukur geometris + EXPORT
+  preview ke user (viewer asisten tidak bisa render). Harness JANGAN di-zip.
+
+------------------------------------------------------------------------------
+ 6) STARTER PROMPT
+------------------------------------------------------------------------------
+"Lanjutkan project NullState dari ZIP v78. WAJIB baca NEXT-SESSION-PROMPT-
+v79.txt dulu. [Hasil retest device / task berikutnya]. Jangan ubah cerita/
+jumlah bunker/logika pembayaran."
+================================================================================

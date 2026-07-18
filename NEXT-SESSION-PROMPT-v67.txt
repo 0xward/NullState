@@ -1,0 +1,142 @@
+================================================================================
+ NULLSTATE — NEXT SESSION PROMPT (v67)
+ Sumber: v66 (T1-T8 selesai) — sesi ini mengerjakan T9, T10 DEFER (infra).
+================================================================================
+
+------------------------------------------------------------------------------
+ 0) WAJIB DIBACA DULU
+------------------------------------------------------------------------------
+  1. _agent_skills/SKILL_gameforge-dev.md
+  2. _agent_skills/SKILL_bunker-rpg-asset-integrator.md
+  3. Celopedia: sudah diaudit lengkap di v66 (T8), hasil BERSIH — tidak perlu
+     diulang kecuali user minta ubah sesuatu di Web3/MiniPay.
+
+------------------------------------------------------------------------------
+ 1) SELESAI DI SESI INI (v66 -> v67)
+------------------------------------------------------------------------------
+
+[T9] (#4) Obor -> lidah api, nempel tembok, semua bunker. DONE.
+  - game.js drawTorchSconces() — diganti total dari 1 ellipse statis + 1
+    rect "hot core" jadi 3 layer lidah api tapered (quadratic curve, lebar
+    di dasar meruncing ke ujung): outer glow -> mid body -> hot core.
+  - 2 osilator independen: `lean` (goyangan horizontal, 2 sinus beda
+    frekuensi digabung) dan `flick` (kedipan, 3 sinus beda fase) + `h`
+    (tinggi "bernapas" pelan). Tiap layer condong beda proporsi (core
+    paling lambat ikut goyangan = efek inersia).
+  - Fase per-obor tetap pakai l.tx/l.ty (obor2 di 1 ruangan tidak
+    berkedip serempak) — perilaku lama dipertahankan.
+  - WARNA: DEFAULT diasumsikan tetap ikut theme.torch per-bunker (perilaku
+    lama) karena user minta selesai cepat tanpa nunggu jawaban. BELUM
+    DIKONFIRMASI ke user — kalau user ternyata maunya SELALU ORANYE
+    terlepas dari tema, tinggal ganti 2 argumen warna di fungsi `tongue()`
+    (baris ada di game.js drawTorchSconces(), cari via grep) dari
+    `rgba(${theme.torch},...)` jadi rgba oranye fix, mis. `255,166,66`.
+  - Diverifikasi ke 4 theme (bluestone/catacombs/icestone/voidstone, bunker
+    4 reuse bluestone) — semua punya theme.torch valid, tidak ada
+    undefined. Smoke-test matematika osilator: no NaN di semua kombinasi.
+  - node -c bersih. BELUM di-QA visual live (lihat T10 di bawah soal
+    kenapa QA live belum jalan sesi ini).
+
+[T10] (#1) Weapon tidak terbawa saat walk — DIPINDAH KE BACKLOG, BUKAN
+  DIKERJAKAN. Alasan: task ini WAJIB QA live browser (equip 9 weapon,
+  screenshot 4 arah, baca console warning `_warnOnce('ns-weapon-...')`)
+  sebelum boleh nebak fix apa pun. Dicek infra sesi ini:
+    - Playwright + Chromium BERHASIL diinstall di container.
+    - TAPI project ini `node_modules/` KOSONG (belum pernah `npm install`)
+      — next, react, wagmi, viem, dll semua belum terpasang.
+    - Menjalankan `next dev` butuh: install penuh (bisa lama/berisiko versi),
+      plus wagmi WalletProvider auto-connect ke injected connector (di
+      browser headless Playwright tanpa wallet extension, alurnya belum
+      tentu jalan mulus — perlu stub/mock), plus kemungkinan butuh env var
+      Firebase utk beberapa API route (tidak blocking render game itu
+      sendiri, tapi perlu dicek).
+    - Effort utk bikin harness yang BENER (bukan asal jalan tapi keliru
+      simpulan) dinilai terlalu besar utk 1 sesi — user diberi pilihan
+      "T9 aja kalau T10 susah" dan memilih itu.
+  - REKOMENDASI SESI BERIKUTNYA: kalau mau coba lagi, mulai dengan
+    `npm install` dulu (cek berapa lama/apakah ada error versi), baru
+    putuskan lanjut `next dev` + Playwright, atau tetap manual (user buka
+    browser sendiri di HP/desktop, screenshot, share ke chat).
+
+------------------------------------------------------------------------------
+ 2) SELESAI DI SESI SEBELUMNYA (v65 -> v66) — RINGKASAN, jangan diulang
+------------------------------------------------------------------------------
+T1 (speed -25%), T2 (label Token->Point), T3 (panah pecah decor), T4
+(auto-attack gate ruangan+radius), T5 (fix root cause monster kejar keluar
+ruangan — .home dead code), T6 (vault door muncul dari floor-load + wall
+snap), T7 (sinkron docs — termasuk temuan penting: 5 klaim palsu "vault
+code encrypted" di Privacy Policy & data-safety.md, sudah diperbaiki), T8
+(audit Celopedia/MiniPay — hasil bersih, tidak ada gap).
+Detail lengkap tiap item: lihat NEXT-SESSION-PROMPT-v66.txt (masih ada di
+ZIP ini).
+
+CATATAN BELUM DI-PLAYTEST LIVE (menumpuk dari v66, makin penting sekarang):
+T1, T3, T4, T5, T6, T9 semuanya perubahan yang butuh dilihat langsung di
+browser. Kalau ada kesempatan sesi berikutnya untuk npm install + jalanin
+dev server (baik oleh agent via Playwright atau oleh user manual), SANGAT
+disarankan itu jadi prioritas #1 sebelum nambah task baru — supaya tidak
+menumpuk lebih banyak lagi perubahan yang belum divalidasi visual.
+
+------------------------------------------------------------------------------
+ 3) PERTANYAAN YANG MASIH BELUM DIJAWAB USER
+------------------------------------------------------------------------------
+  Q1 (#6 — preview senjata Marketplace): A/B/C/D, lihat NEXT-SESSION-
+     PROMPT-v65.txt bagian 1 utk detail opsi lengkap.
+  Q2 (#8 — aset lemari/furniture bungker): A/B/C/D, idem.
+  Q3 (#10 — monster/boss regenerasi): A/B/C/D, idem.
+  Q4 (BARU, dari T9 sesi ini): warna api obor — tetap ikut tema per-bunker
+     (default yang dipakai sekarang) atau selalu oranye asli? Lihat catatan
+     T9 di atas kalau user pilih ganti.
+
+------------------------------------------------------------------------------
+ 4) TASK LIST YANG BELUM DIKERJAKAN
+------------------------------------------------------------------------------
+[T10] — lihat bagian 1, backlog karena butuh infra QA live.
+[T11] (#15) Ukuran weapon walk kurang besar; animasi attack + warna FX
+      per-weapon. entities.js drawLPCComposite() (scale param), effects.js.
+      Bisa dikerjakan TANPA QA live dulu (statis: tambah scale-multiplier
+      + baca warna dari marketplace.ts), tapi hasil akhirnya idealnya tetap
+      di-QA bareng T10 nanti.
+[T12/T13/T14] — masih terkunci Q1/Q2/Q3 di atas.
+
+------------------------------------------------------------------------------
+ 5) DISKUSI DULU (tidak berubah dari v65/v66)
+------------------------------------------------------------------------------
+[D1] (#3) Tema outdoor — karakter melayang. outdoor.js. JANGAN diutak-atik.
+[D2] (#16) Pencahayaan radial ikuti karakter. game.js render(). JANGAN
+     langsung coding, riset dulu.
+
+------------------------------------------------------------------------------
+ 6) ATURAN KERJA (tidak berubah)
+------------------------------------------------------------------------------
+- File untuk user WAJIB di-share (present_files).
+- node -c tiap file JS yang diubah.
+- Item/monster/decor baru: sinkronkan marketplace.ts + marketplace-items.js
+  + assets.js render + icon PNG.
+- JANGAN ubah cerita, jumlah bunker (5), atau logika pembayaran/on-chain
+  tanpa alasan eksplisit user.
+- Kalau ambigu/butuh keputusan desain: TANYA user A/B/C/D — TAPI kalau user
+  eksplisit minta cepat/tidak mau ditanya balik, boleh pakai default paling
+  aman (biasanya: pertahankan perilaku lama) dan CATAT jelas sebagai asumsi
+  yang belum dikonfirmasi (seperti Q4 di atas), bukan diam-diam diputuskan.
+- BATAS TASK PER SESI: default 2 task, berhenti & tanya sebelum lanjut/
+  kemas — KECUALI user eksplisit minta lanjut terus (co. jawab singkat
+  "b"/"lanjut") atau eksplisit minta "langsung bungkus" seperti sesi ini.
+- Kalau sebuah task butuh live QA (browser) dan infra tidak tersedia/berat
+  utk disiapkan dalam sesi ini: OK untuk skip & catat di prompt berikutnya
+  (seperti T10 di sesi ini), JANGAN dipaksa nebak fix tanpa bukti.
+
+------------------------------------------------------------------------------
+ 7) STARTER PROMPT
+------------------------------------------------------------------------------
+"Lanjutkan project Nullstate dari ZIP v67. WAJIB baca NEXT-SESSION-PROMPT-
+v67.txt (dokumen ini) dulu — bagian 1 & 2 berisi apa yang SUDAH selesai
+(T1-T9, jangan diulang), bagian 3 ada 1 pertanyaan baru (Q4, warna obor)
+plus Q1/Q2/Q3 lama yang masih menunggu jawaban user, bagian 4 backlog
+(T10 butuh QA live browser — coba npm install dulu kalau mau eksekusi;
+T11 bisa dikerjakan statis dulu). Install skill gameforge-dev &
+bunker-rpg-asset-integrator dari _agent_skills/ kalau sesi baru tanpa
+konteks. Kerjakan T11 dulu (tidak butuh QA live), lalu coba T10 kalau ada
+waktu/user oke npm install. node -c tiap file JS yang diubah. Jangan ubah
+cerita/jumlah bunker/logika pembayaran."
+================================================================================

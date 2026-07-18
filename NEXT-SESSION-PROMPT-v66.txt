@@ -1,0 +1,220 @@
+================================================================================
+ NULLSTATE — NEXT SESSION PROMPT (v66)
+ Sumber: v65 (17 temuan user, chat 2026-07-15) — sesi ini mengerjakan T1-T8.
+ Metodologi: SETIAP item "SUDAH" di bawah sudah diverifikasi via node -c /
+ grep / pembacaan langsung source code, bukan tebakan. File:baris disertakan
+ supaya sesi berikutnya tidak perlu investigasi ulang dari nol.
+================================================================================
+
+------------------------------------------------------------------------------
+ 0) WAJIB DIBACA DULU
+------------------------------------------------------------------------------
+Install/baca 3 skill sebelum menyentuh kode (skill sudah dibaca di sesi ini,
+tapi ulangi kalau sesi baru tidak punya konteks):
+  1. _agent_skills/SKILL_gameforge-dev.md            (ADA di ZIP)
+  2. _agent_skills/SKILL_bunker-rpg-asset-integrator.md (ADA di ZIP)
+  3. celopedia-skill — sudah diaudit lengkap di sesi ini (lihat T8 di bawah).
+     TIDAK PERLU diaudit ulang kecuali user minta ubah sesuatu di Web3/MiniPay
+     — cukup baca ringkasan T8 di bagian 5 kalau butuh konteks cepat.
+
+------------------------------------------------------------------------------
+ 1) SELESAI DI SESI INI (v65 -> v66) — JANGAN DIKERJAKAN ULANG
+------------------------------------------------------------------------------
+
+[T1] (#9) Speed karakter -25%. DONE.
+  - entities.js:289 this.speed 188->141. game.js applyLevelStats() kurva
+    level ikut di-scale (141 + 1.125*steps, dulu 188 + 1.5*steps).
+  - Balance monster (spd archetype) TIDAK disentuh — gap player-vs-monster
+    speed jadi lebih sempit dari sebelumnya. PERLU PLAYTEST rasa gerakannya.
+
+[T2] (#5) "Token NullState" -> "Point" di semua UI in-game. DONE.
+  - TokenBalanceWidget.tsx (HUD pill), FeaturesSection.tsx (landing copy),
+    RewardsScreen.tsx (temuan baru, di luar 2 file yg dicatat v65 awal).
+  - Sweep ulang: 0 sisa "Token NullState"/"NST" di seluruh repo.
+  - Field DB `nullstateTokenBalance` di swap/route.ts & burn/record/route.ts
+    SENGAJA tidak disentuh (field DB != label UI).
+
+[T3] (#2) Panah Hunter's Bow sekarang bisa hancurkan decor breakable. DONE.
+  - game.js: extracted smashDecor(o) helper dari jalur melee hitTest(),
+    dipakai juga di updateProjectiles(). Panah berhenti (no piercing) saat
+    kena decor, sama seperti kena musuh. Container interactive tetap di-skip.
+  - PERLU VERIFIKASI LIVE (belum playtest browser).
+
+[T4] (#11+#13) Auto-attack trigger diperketat. DONE.
+  - game.js: helper baru _sameRoomAsPlayer(wx,wy) — target di dalam ruangan
+    cuma bisa trigger auto-attack kalau player JUGA di ruangan yang sama
+    (bukan cuma tile explored). Radius: enemy melee 76->52, decor 54->42.
+    Hunter's Bow (ranged) dapat radius lebih jauh (150) TAPI tetap kena gate
+    ruangan yang sama (tidak lagi lintas-ruangan).
+  - Decor sebelumnya TIDAK PUNYA gate ruangan sama sekali — sekarang ada.
+  - Angka 52/42/150 masih tebakan awal — PERLU DIRASAKAN DI PLAYTEST LIVE,
+    gampang di-tune lagi kalau kerasa kurang/kelebihan pas.
+
+[T5] (#12) Monster/boss tidak lagi kejar keluar ruangan. DONE.
+  - ROOT CAUSE terkonfirmasi: entities.js sudah punya playerInHome()/
+    clampHome() lengkap SEJAK LAMA, tapi game.js TIDAK PERNAH assign
+    `.home` ke enemy manapun — jadi mekanismenya dead code sejak dibuat.
+  - Fix: ensureFloor() punya helper homeFor(wx,wy) yang convert room hasil
+    d.roomAt() jadi bounding box px, di-assign ke SEMUA enemy (termasuk
+    boss) yang spawn di dalam ruangan. Spawn di koridor tetap home=null
+    (free-roam by design).
+  - PERLU PLAYTEST: apakah "jalan balik ke pos" (branch yang baru pertama
+    kali aktif) terasa natural.
+
+[T6] (#14) Vault door: muncul sejak floor dimuat + nempel tembok. DONE.
+  - Dipindah dari onEnemyKilled() (setelah boss mati) ke ensureFloor() —
+    vault door sekarang bagian dari floor sejak awal, di act ke-5
+    (campaignActIndex===4) boss floor. Buka-tutup TETAP digerbangi
+    isRoomClear() di updateActionButton() — TIDAK DIUBAH, jadi otomatis
+    tetap terkunci selama boss hidup.
+  - Posisi: fungsi baru placeVaultDoorSpot(d, room) reuse algoritma
+    candidate wall-snap yang sama dipakai spawnDecorInto() (hug N/W/E wall,
+    hindari lift & pintu masuk, pilih candidate terdekat dari stairs).
+  - PERLU QA VISUAL LIVE di act-5 boss room (dungeon procedural, belum
+    pernah di-playtest sama sekali).
+
+[T7] (#7) Sinkronkan Terms/Privacy/docs dengan kode aktual. DONE (partial
+  audit — lihat catatan "belum tercakup" di bagian 3).
+  - docs/treasure-vault-quest.md: fix klaim timing vault door (efek T6) +
+    footnote akurasi reward (vaultReward kontrak owner-adjustable, bukan
+    konstanta hardcode, current value 1 USDm).
+  - docs/faq.md: fix "bunker 5-6" (SALAH — cuma ada 5 bunker, dicek ke
+    story_campaign.js CAMPAIGN array length=5) -> "Bunker 5".
+  - TEMUAN PENTING: app/privacy/page.tsx (2 tempat) + docs/data-safety.md
+    (2 tempat) mengklaim "vault codes encrypted/not stored in plaintext" —
+    TERBUKTI SALAH via app/api/paper/status/route.ts ensureWeeklyCode(),
+    vault code disimpan sebagai string 4-digit PLAINTEXT di Firebase, tidak
+    ada hashing/enkripsi field-level. Klaim palsu ini dihapus/diperbaiki di
+    ke-4 tempat. Section heading "Data Encryption" di data-safety.md diganti
+    "Data in Transit" biar sesuai isi yang tersisa (cuma HTTPS).
+  - Verifikasi silang lain yang SUDAH BENAR (tidak diubah): reward 1 USDm,
+    3 attempts/minggu, drop rate 16% golden key/paper, reset Senin 00:00
+    UTC, README "respawn floor sama + full HP" — semua cocok dengan kode.
+
+[T8] (#17) Audit MiniPay/Celo vs Celopedia. DONE — HASIL: TIDAK ADA GAP.
+  - Sumber live: celopedia.celo.org, docs.celo.org/build-on-celo/
+    build-with-ai/agent-skills, celo-org/minipay-minidapps,
+    celo-org/celopedia-skills (via search — GitHub blob fetch diblokir tool
+    browsing, tapi konten ter-index lengkap lewat search).
+  - Checklist (semua [x] SUDAH, diverifikasi ke source, lihat tabel penuh
+    di respons chat sesi ini kalau perlu detail file:baris):
+    [x] tidak ada EIP-1559 (maxFeePerGas/maxPriorityFeePerGas) di manapun
+    [x] tidak ada personal_sign/eth_signTypedData
+    [x] tidak ada tombol Connect Wallet manual saat isMiniPay (auto-connect,
+        WalletProvider.tsx:218-236)
+    [x] cuma Viem+wagmi, 0 ethers.js/web3.js
+    [x] feeCurrency (CIP-64) di SEMUA 4 tx yang dibayar player: registerPlayer
+        (useContractPlayer.ts:119), sendTx, payUsdmFee (NULL_STRIKE),
+        payToTreasury (marketplace+pass) — semua WalletProvider.tsx
+    [x] fee-adapter address terpisah utk USDC/USDT, bukan token address
+        langsung (tokens.ts:88-89, comment rujuk docs.minipay.xyz)
+    [x] decimals benar: USDm 18, USDC/USDT 6 (tokens.ts)
+    [x] CELO tidak pernah ditampilkan sebagai saldo di UI (celoBalance
+        dihitung tapi 0 hasil grep di komponen manapun)
+    [x] testnet pakai Celo Sepolia (11142220), 0 referensi Alfajores
+        (Web3Providers.tsx:15,23,27)
+    [x] deep link add-cash benar (errorUtils.ts:11,
+        minipay.opera.com/add_cash)
+  - TIDAK ADA PERUBAHAN KODE dari T8 — murni audit, hasilnya bersih.
+
+------------------------------------------------------------------------------
+ 2) PERTANYAAN YANG MASIH BELUM DIJAWAB USER (dari v65, masih berlaku)
+------------------------------------------------------------------------------
+Sama seperti v65 — belum dijawab, JANGAN diasumsikan sendiri:
+
+  Q1 (#6 — preview senjata Marketplace): A/B/C/D — lihat detail lengkap di
+     NEXT-SESSION-PROMPT-v65.txt bagian 1 (masih ada di ZIP ini kalau perlu
+     rujukan opsi lengkap).
+  Q2 (#8 — aset lemari/furniture bungker): A/B/C/D — idem.
+  Q3 (#10 — monster/boss regenerasi): A/B/C/D — idem.
+
+------------------------------------------------------------------------------
+ 3) TASK LIST YANG BELUM DIKERJAKAN (dari v65 Tier 4, urut termudah->tersulit)
+------------------------------------------------------------------------------
+
+--- TIER 4: visual polish, butuh QA live + keputusan kecil ---
+
+[T9] (#4) Lampu -> obor animasi lidah api, nempel tembok, semua bungker.
+     File: game.js drawTorchSconces() ~baris 1866-1892 (baris bisa geser
+     sedikit krn edit T1-T6 — cari via grep 'drawTorchSconces'), data posisi
+     di d.lamps (dungeon.js). Mekanisme wall-mount + flicker SUDAH ADA,
+     kualitas visual bentuk api yang belum sesuai (cuma 1 ellipse). PERLU
+     TANYA user: warna api ikut tema per-bunker (skrg) atau selalu oranye?
+
+[T10] (#1) Weapon tidak terbawa saat walk (terutama panah), cek weapon lain.
+      File: entities.js drawLPCComposite() ~127-265, assets.js LPC_WEAPON
+      ~160-183. WAJIB QA LIVE browser (equip tiap 9 weapon, jalan 4 arah,
+      screenshot, baca console warning _warnOnce('ns-weapon-...')) — JANGAN
+      menebak fix tanpa lihat warning ini dulu.
+
+[T11] (#15) Ukuran weapon walk kurang besar; animasi attack + warna FX
+      per-weapon. File: entities.js drawLPCComposite() (scale param),
+      effects.js (178 baris). Perlu scale-multiplier khusus weapon +
+      warna FX ikut tier/warna weapon (termasuk warna panah, skrg hardcode
+      #c98a4a/#eafff5 di game.js drawProjectiles()).
+
+------------------------------------------------------------------------------
+ 4) BUTUH GO-AHEAD USER DULU (Q1/Q2/Q3 di bagian 2)
+------------------------------------------------------------------------------
+[T12] (#6) Preview weapon Marketplace — scope ikut jawaban Q1.
+[T13] (#8) Aset lemari/furniture bungker — scope ikut jawaban Q2.
+[T14] (#10) Monster/boss regenerasi — scope ikut jawaban Q3.
+(Detail lengkap tiap task: lihat NEXT-SESSION-PROMPT-v65.txt bagian 3, masih
+valid — belum ada yang berubah dari kondisi v65 untuk ketiga task ini.)
+
+------------------------------------------------------------------------------
+ 5) DISKUSI DULU — jangan dieksekusi, user minta bahas lebih lanjut
+------------------------------------------------------------------------------
+[D1] (#3) Tema outdoor — karakter kelihatan melayang. outdoor.js. Belum
+     dibahas user, JANGAN diutak-atik.
+[D2] (#16) Pencahayaan radial mengikuti karakter (bukan soal obor/lilin
+     objek — soal radius cahaya). game.js render(), wallTex()/
+     drawWallBlock(). User minta riset dulu ke game sejenis sebelum
+     implementasi — JANGAN langsung coding.
+
+------------------------------------------------------------------------------
+ 6) ATURAN KERJA (tidak berubah dari v65)
+------------------------------------------------------------------------------
+- File untuk user WAJIB di-share (present_files).
+- Setiap ubah *.js engine: node -c <file> sampai bersih.
+- Item/monster/decor baru: sinkronkan SEMUA sumber (marketplace.ts +
+  marketplace-items.js + assets.js render + icon PNG) + verifikasi path
+  resolve.
+- JANGAN pakai createPattern+translate untuk tekstur world-anchored.
+- Kerja STEP-BY-STEP per Tier, berhenti tiap step untuk review user.
+- JANGAN ubah cerita, jumlah bunker (tetap 5), atau logika pembayaran/
+  on-chain tanpa alasan eksplisit dari user.
+- Field database (mis. nullstateTokenBalance) != label UI.
+- Kalau ambigu / butuh keputusan desain / butuh generate art baru: TANYA
+  user dengan pilihan A/B/C/D, JANGAN menebak.
+
+- BATAS TASK PER SESI (WAJIB): maksimal 2 task/item bernomor [T..] per sesi
+  (1 kalau ternyata sulit/berisiko tinggi). SETELAH itu, agent WAJIB
+  BERHENTI dan tanya ke user: mau dikemas ZIP+prompt baru sekarang, atau
+  belum. JANGAN mengasumsikan approval dari diam.
+  * CATATAN dari sesi v65->v66: user secara eksplisit meng-approve lanjut
+    task demi task sampai 8 task dalam satu sesi (T1-T8) — ini VALID karena
+    tiap kali ditanya, user menjawab "b"/"lanjut" secara eksplisit. Tapi
+    default tetap berhenti tiap 2 task kecuali user secara aktif meminta
+    lanjut lagi.
+- Di akhir sesi (setelah user approve kemas): kemas ulang SATU ZIP full +
+  naikkan versi prompt + update checklist bagian 1 (selesai) dan 3 (belum).
+
+------------------------------------------------------------------------------
+ 7) STARTER PROMPT (tempel ini ke agent sesi berikutnya)
+------------------------------------------------------------------------------
+"Lanjutkan project Nullstate dari ZIP terbaru (v66). WAJIB baca dulu
+NEXT-SESSION-PROMPT-v66.txt (dokumen ini) — bagian 1 berisi T1-T8 yang SUDAH
+selesai di sesi lalu (jangan dikerjakan ulang), bagian 3 berisi backlog
+Tier 4 (T9-T11) yang belum dikerjakan, bagian 4 masih menunggu jawaban
+Q1/Q2/Q3 user. Install skill gameforge-dev & bunker-rpg-asset-integrator dari
+_agent_skills/ jika sesi baru tanpa konteks. Celopedia sudah diaudit
+lengkap (T8, hasil: tidak ada gap) — tidak perlu diulang kecuali ada
+perubahan Web3/MiniPay baru yang diminta user, baru re-fetch celopedia live.
+Kerjakan Tier 4 (T9->T10->T11) secara berurutan, step-by-step, berhenti
+tiap step untuk review — kecuali user secara eksplisit minta lanjut lagi
+tanpa berhenti (co. jawab singkat 'lanjut'/'b'), dalam hal itu boleh
+lanjut ke task berikutnya tapi TETAP tanya ulang setelah 2 task lagi.
+node -c tiap file JS yang diubah. Jangan ubah cerita/jumlah bunker/logika
+pembayaran. T10 WAJIB QA live browser dulu sebelum nebak fix apa pun."
+================================================================================

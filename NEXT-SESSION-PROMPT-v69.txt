@@ -1,0 +1,139 @@
+================================================================================
+ NULLSTATE — NEXT SESSION PROMPT (v69)
+ Sumber: v68 — sesi ini: Q5 approved, Q6 done, T14 KOMPONEN BUG done (art
+ masih terkunci butuh image-gen), T10 DIAGNOSIS TUNTAS (hasil: negatif —
+ tidak reproduce, lihat §1). Deadline MiniPay <1 minggu.
+================================================================================
+
+------------------------------------------------------------------------------
+ 0) WAJIB DIBACA DULU
+------------------------------------------------------------------------------
+  1. _agent_skills/SKILL_gameforge-dev.md
+  2. _agent_skills/SKILL_bunker-rpg-asset-integrator.md
+  3. Celopedia: diaudit lengkap v66 (T8), BERSIH — tidak perlu diulang.
+
+------------------------------------------------------------------------------
+ 1) SELESAI DI SESI INI (v68 -> v69)
+------------------------------------------------------------------------------
+
+[Q5] Warna fxColor 9 weapon: APPROVED user ("vibes berbeda, warna boleh
+  campur"). Set final = yang ada di marketplace.ts/-items.js sekarang.
+  JANGAN ditanya ulang.
+
+[Q6] Pool cahaya LANTAI obor: KEPUTUSAN USER = ikut warna api (oranye).
+  DONE — game.js blok "warm torch pools" (~1944): theme.torch -> fix
+  rgba 255,166,66 / 255,140,50. theme.torch kini TIDAK dipakai lagi untuk
+  visual obor mana pun (masih ada di theme object utk hal lain? cek dulu
+  sebelum menghapus field-nya — JANGAN hapus tanpa grep).
+
+[T14 — KOMPONEN BUG] (#10) Facing monster. DONE (kode saja).
+  Root cause "boss/monster gerak membelakangi player": facing SELALU
+  dihitung ke arah player, padahal saat balik ke pos (branch return-to-
+  home di Enemy.update) monster bergerak MENJAUHI player -> moonwalk.
+  Fix di entities.js (6 edit):
+  - this._mvx/_mvy direkam di branch chase DAN return-home.
+  - Keputusan facing terpusat sebelum animation state machine: BERGERAK ->
+    hadap arah gerak; ATTACK/DIAM dalam aggro -> hadap player (feel combat
+    tidak berubah, chase memang bergerak ke player). Knockback tidak
+    membalik facing.
+  - Dipakai oleh KETIGA path: flat MON (this.facing flip), useLPC
+    (Corrupted Knight, _lpcDir), dirMon (cave_golem/giant_spider, _dir).
+  - Row order sheet monsters3 DIVERIFIKASI visual (PIL): standar LPC
+    0=up 1=left 2=down 3=right — bukan sumber bug.
+  - node -c bersih. Belum QA live gameplay (butuh musuh bergerak riil).
+
+[T10] (#1) "Weapon tidak terbawa saat walk" — DIAGNOSIS TUNTAS, HASIL
+  NEGATIF: TIDAK REPRODUCE di build ini.
+  Metode (bisa dipakai ulang): python3 -m http.server di public/ + halaman
+  harness memuat assets.js+entities.js ASLI + Playwright/Chromium headless.
+  await preloadLPCHero(), lalu drawLPCComposite() utk 9 weapon x 4 arah x
+  (walk frame + attack frame). Console listener menangkap diagnostik
+  _warnOnce('ns-weapon-...') dari v49.
+  HASIL: NOL warning, NOL error. Semua walkSrc terdefinisi & SEMUA sprite
+  ter-load: /sprites/lpc_source/weapon_walk/ BERISI 4 overlay (dagger/
+  longsword/spear/bow -> menutupi 7 weapon) + waraxe & scythe walk.png di
+  expansion2. Komentar "Phase 1: weapon_walk/*.png missing" di entities.js
+  SUDAH BASI — asetnya ada. Screenshot QA: semua weapon terbawa di tangan
+  saat walk 4 arah, wScale T11 terlihat, warna FX per-weapon tampil.
+  KESIMPULAN utk user: kalau bug masih terlihat di DEVICE, penyebab paling
+  mungkin = stale cached bundle /game-engine/*.js di webview MiniPay ->
+  bump BUILD_TAG di DungeonGame.tsx + hard refresh. Bukan bug kode render.
+  SISA T10 (kecil): (a) konfirmasi user masih lihat bug atau tidak setelah
+  deploy build ini; (b) kalau masih, minta screenshot + console dari
+  device; (c) opsional hapus komentar basi "Phase 1 fallback" di
+  entities.js (fallback-nya sendiri BIARKAN — harmless safety net).
+
+------------------------------------------------------------------------------
+ 2) SELESAI SESI-SESI SEBELUMNYA — RINGKASAN, jangan diulang
+------------------------------------------------------------------------------
+v67->v68: T11 (weapon wScale + fxColor 9 weapon, helper _hexMix/_fxWhite,
+arrow ikut warna), Q4 (lidah obor oranye semua bunker), T12 Q1=B (icon
+void_reaper+voidcaller regenerate, gaya war_axe), T13 Q2=A (props 4-arah:
+squish 0.82 dihapus, profil samping sungguhan utk crate/cabinet_s/
+wardrobe/chest/tablet, vault_door pengecualian vfront, hitbox/loot utuh,
+QA Chromium 16x4 bersih).
+v66->v67: T9 (obor lidah api 3-layer + osilator). v65->v66: T1-T8 (lihat
+NEXT-SESSION-PROMPT-v66/67/68.txt di ZIP).
+
+TUMPUKAN QA LIVE GAMEPLAY (render path sudah dicover harness; yang ini
+butuh GAME BERJALAN): T1 speed, T4 auto-attack gate, T5 monster keluar
+ruangan, T6 vault door spawn, T14-bug facing saat return-home, obor
+in-game (Q4+Q6), props in-game dgn lighting ruangan, icon di UI React
+marketplace. Rute: (a) npm install + next dev + Playwright (wagmi perlu
+stub), ATAU (b) user test manual di device dari deploy preview. Dengan
+deadline <1 minggu, (b) kemungkinan lebih realistis — siapkan checklist
+test manual utk user kalau memilih itu.
+
+------------------------------------------------------------------------------
+ 3) PERTANYAAN KE USER
+------------------------------------------------------------------------------
+  Q1-Q6: SEMUA SUDAH DIJAWAB (B/A/C/oranye/approved/oranye). Jangan ulang.
+  Q7 (BARU, dari T10): setelah build ini dideploy, masih lihat weapon
+     hilang saat walk di device? (Kalau ya -> screenshot + console log.)
+
+------------------------------------------------------------------------------
+ 4) TASK LIST YANG BELUM DIKERJAKAN
+------------------------------------------------------------------------------
+[T14 — KOMPONEN ART] (#10, Q3=C TERKUNCI) Full art baru SEMUA monster.
+  MASIH menunggu sesi dengan IMAGE GENERATION — dua sesi berturut container
+  tidak punya tool-nya. Spec eksekusi lengkap: lihat NEXT-SESSION-PROMPT-
+  v68.txt §4 T14 (a)-(e) — masih berlaku 100%, MINUS bug facing yang sudah
+  selesai di atas. Kalau sesi berikutnya lagi-lagi tanpa image-gen: SKIP,
+  jangan procedural, jangan tanya ulang keputusannya.
+
+[QA-LIVE] (baru, prioritas #1 sebelum fitur baru) — lihat §2 paragraf
+  terakhir. Deliverable minimal: checklist test manual utk user di device
+  (per item T1/T4/T5/T6/T9/T11/T13/T14-bug, langkah reproduksi + expected).
+
+[D1] (#3) Tema outdoor — karakter melayang. outdoor.js. JANGAN diutak-atik
+     sebelum briefing user.
+[D2] (#16) Pencahayaan radial ikuti karakter. Riset dulu, JANGAN coding.
+
+------------------------------------------------------------------------------
+ 5) ATURAN KERJA (tidak berubah)
+------------------------------------------------------------------------------
+- File untuk user WAJIB di-share (present_files).
+- node -c tiap file JS yang diubah.
+- Item/monster/decor baru: sinkronkan marketplace.ts + marketplace-items.js
+  + assets.js render + icon PNG.
+- JANGAN ubah cerita, jumlah bunker (5), logika pembayaran/on-chain.
+- Ambigu: TANYA A/B/C/D; kalau user minta cepat, default teraman + catat.
+- BATAS TASK PER SESI: default 2, berhenti & tanya — kecuali user minta
+  lanjut eksplisit.
+- Infra tidak tersedia (image-gen dsb): skip & catat, jangan dipaksa.
+- Pola harness Playwright standalone (T13/T10) SAH utk QA render tanpa
+  npm install — file harness JANGAN ikut di-commit/zip (hapus setelah QA).
+
+------------------------------------------------------------------------------
+ 6) STARTER PROMPT
+------------------------------------------------------------------------------
+"Lanjutkan project Nullstate dari ZIP v69. WAJIB baca NEXT-SESSION-PROMPT-
+v69.txt dulu — §1-2 yang sudah selesai (T10 diagnosis tuntas: TIDAK
+reproduce, kemungkinan stale cache device; T14 bug facing sudah fix, art
+masih menunggu image-gen). §3: tanya user Q7 (weapon masih hilang di
+device?). §4 prioritas: [QA-LIVE] — buat checklist test manual device utk
+user (deadline MiniPay makin dekat), lalu T14-art HANYA kalau sesi punya
+image generation. Install skill gameforge-dev & bunker-rpg-asset-integrator
+dari _agent_skills/ kalau sesi baru. node -c tiap file JS yang diubah.
+Jangan ubah cerita/jumlah bunker/logika pembayaran."
+================================================================================

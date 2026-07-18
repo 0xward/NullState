@@ -1,0 +1,384 @@
+================================================================================
+ NULLSTATE — NEXT SESSION PROMPT (v65)
+ Sumber: 17 temuan user (chat 2026-07-15) + backlog v64 yang belum selesai.
+ Metodologi: SETIAP item di bawah sudah dicek ke source code asli di ZIP
+ (NullState-Phase5_9-v57, prompt internal NEXT-SESSION-PROMPT-v64.txt) sebelum
+ ditulis di sini — bukan tebakan. Referensi file:baris disertakan supaya agent
+ sesi berikutnya tidak perlu investigasi ulang dari nol dan TIDAK BOLEH
+ halusinasi soal apa yang "sudah" atau "belum" ada di kode.
+================================================================================
+
+------------------------------------------------------------------------------
+ 0) WAJIB DIBACA DULU (tidak berubah dari v64)
+------------------------------------------------------------------------------
+Install/baca 3 skill sebelum menyentuh kode:
+  1. _agent_skills/SKILL_gameforge-dev.md            (ADA di ZIP)
+  2. _agent_skills/SKILL_bunker-rpg-asset-integrator.md (ADA di ZIP)
+  3. celopedia-skill — https://github.com/celo-org/celopedia-skills
+     (BELUM ada di ZIP — harus diambil dari GitHub. Wajib untuk item #17 di
+     bawah, dan untuk item apa pun yang menyentuh Web3/Celo/MiniPay.)
+Baca juga https://celopedia.celo.org/ sebagai referensi standar MiniPay.
+
+------------------------------------------------------------------------------
+ 1) PERTANYAAN YANG HARUS DIJAWAB USER DULU (jangan diasumsikan sendiri)
+------------------------------------------------------------------------------
+User secara eksplisit bilang "tanya dulu" untuk 3 hal ini (item #6, #8, #10).
+Agent WAJIB menanyakan ini ke user (atau memakai jawaban yang sudah diberikan
+di awal sesi ini kalau sudah dijawab) sebelum mengerjakan bagian terkait:
+
+  Q1 (#6 — preview senjata Marketplace):
+     A. Perbaiki posisi/sudut saja (samakan ke nyerong kanan-atas), tanpa
+        generate ulang art
+     B. Generate ulang art preview khusus senjata mahal ($10-15) biar lebih
+        premium, senjata murah dibiarkan
+     C. Generate ulang SEMUA preview senjata dengan tingkatan kualitas visual
+        (murah=simpel, mahal=lebih detail/efek)
+     D. Cukup ganti icon voidcaller_scythe ($15) saja, sisanya dibiarkan
+
+  Q2 (#8 — aset lemari/furniture bungker):
+     A. Generate ulang art baru (4-arah top-down proper: N/E/S/W), fungsi &
+        hitbox di kode TETAP sama
+     B. Pakai aset yang sudah ada di repo tapi belum dipakai (tiles2/,
+        catacombs_main.png, topdown_*) — tanpa generate baru
+     C. Perbaiki orientasi/hitbox dari sprite yang sekarang ada saja, tanpa
+        ganti art
+     D. Belum tahu, mau lihat contoh dulu sebelum putuskan
+
+  Q3 (#10 — monster/boss regenerasi):
+     A. Samakan semua monster ke gaya directional LPC (seperti Cave Golem /
+        Giant Spider sekarang — baris per-arah asli, bukan flip horizontal)
+     B. Tetap campuran LPC + custom seperti sekarang, HANYA perbaiki bug:
+        animasi attack, ukuran boss, arah gerak mundur
+     C. Full art baru semua monster, gaya bebas asal konsisten satu sama lain
+     D. Prioritaskan BUG FIX dulu (attack anim / ukuran boss / gerak mundur)
+        tanpa generate art baru, generate art menyusul di sesi lain
+
+Item #3 (tema outdoor) dan #16 (lighting radial) SENGAJA TIDAK dimasukkan ke
+task list eksekusi di bawah — user sendiri bilang "nanti kita bahas". Kedua
+item ini didaftar di bagian 4 sebagai "DISKUSI DULU", bukan siap-kerja.
+
+------------------------------------------------------------------------------
+ 2) TASK LIST — URUT TERMUDAH -> TERSULIT (gabungan/merge yang related)
+------------------------------------------------------------------------------
+Setiap item: [kode asli #] judul — file:baris terverifikasi — catatan.
+
+--- TIER 1: perubahan kecil, 1 file, risiko rendah ---
+
+[T1] (#9) Perlambat karakter utama ~25%.
+     File: public/game-engine/entities.js:289 → `this.speed=188`
+     Aksi: turunkan ke ~141 (188*0.75). Verifikasi tidak ada tempat lain yang
+     hardcode 188 (mis. animasi kaki/footstep timing yang di-tune ke speed
+     ini) sebelum commit.
+
+[T2] (#5) Ganti label "Token Nullstate/NULLSTATE TOKEN" -> "Point" di semua
+     tempat UI in-game (BUKAN nama field database/API — lihat catatan risiko).
+     Ditemukan sejauh ini:
+       - components/game/TokenBalanceWidget.tsx:70 → literal "TOKEN NULLSTATE"
+         (ini yang muncul persis di HUD, sesuai screenshot user)
+       - components/landing/FeaturesSection.tsx:23 → copy "Token NullState"
+     Catatan penting: README.md sendiri SUDAH memakai istilah "NullState
+     Point" (bukan Token) — jadi rename UI ini justru MENYAMAKAN ke istilah
+     yang sudah dipakai di README, bukan istilah baru. Field backend
+     `nullstateTokenBalance` (app/api/marketplace/swap/route.ts:62,
+     app/api/burn/record/route.ts:121) JANGAN diubah namanya — itu key
+     database/Firebase, ganti nama field = migrasi data, di luar scope "ganti
+     label". Sweep ulang seluruh app/ + components/ + docs/ untuk memastikan
+     tidak ada sisa "Token Nullstate"/"Nullstate Token"/"NST" lain yang
+     terlewat (pencarian awal baru mencakup 2 file UI di atas).
+
+[T3] (#2) Panah (Hunter's Bow) tidak bisa menghancurkan aset breakable.
+     File: public/game-engine/game.js — spawnProjectile()/updateProjectiles()
+     baris 1245-1276, dan hitTest() baris 1304-1308.
+     ROOT CAUSE terkonfirmasi dari komentar kode itu sendiri (baris 1305-1307):
+     proyektil panah HANYA dicek tabrakan terhadap `G.enemies` (baris 1266),
+     TIDAK PERNAH dicek terhadap `G.decor` (vas, guci, peti, dll). Ini
+     memang disengaja saat weapon ranged pertama dibuat ("no decor-smashing
+     melee sweep either") tapi user sekarang ingin panah bisa memecah decor
+     juga, sama seperti weapon lain. Aksi: tambahkan loop cek tabrakan ke
+     `G.decor` di dalam `updateProjectiles()`, panggil fungsi pecah decor
+     yang sama dipakai jalur melee (cek hitTest() bagian decor-smash untuk
+     nama fungsinya). Cek juga apakah ada weapon lain dengan `behavior`
+     custom yang punya masalah serupa (aoe/knockback/triple_slash/double_hit/
+     slow) — dari pembacaan kode, keempatnya lewat jalur melee normal
+     (baris 1310-1333) yang SUDAH include decor-smash, jadi kemungkinan besar
+     hanya `ranged` yang bermasalah — tapi verifikasi live tetap wajib.
+
+--- TIER 2: logic/gameplay, butuh tuning + playtest ---
+
+[T4] (#11 + #13, digabung — akar masalah sama) Auto-attack ke monster/barang
+     pecah kejadian terlalu jauh & sebelum benar-benar masuk ruangan.
+     File: public/game-engine/game.js, fungsi update() baris ~2296-2321.
+     Ditemukan: trigger auto-attack pakai dua syarat —
+       (a) target harus `isEntityVisibleToPlayer()` (artinya tile SUDAH
+           terbuka fog-of-war, BUKAN berarti player sudah fisik masuk
+           ruangan itu — bisa saja baru kelihatan dari ambang pintu),
+       (b) jarak `enemyInRange = nd < (76+nearest.r)` dan
+           `decorInRange = ndd < (54+nearDecor.r)`.
+     Ini kombinasi penyebab auto-attack "nembak" musuh/barang dari luar
+     ruangan / dari jarak yang secara visual belum face-to-face.
+     Aksi: (1) ganti syarat visibilitas jadi "player benar-benar di dalam
+     ruangan tsb" (cek fungsi room/tile milik player saat ini, bukan sekadar
+     explored), (2) kecilkan radius enemyInRange/decorInRange supaya attack
+     baru trigger saat benar-benar dekat/face2face — KECUALI weapon dengan
+     behavior 'ranged' (Hunter's Bow) yang menurut user boleh tetap
+     menyerang dari jarak menengah (jangan disamakan reach-nya dengan weapon
+     melee, tapi juga jangan dibiarkan sejauh sekarang).
+
+[T5] (#12) Monster/boss mengejar sampai keluar ruangan/koridor.
+     File: public/game-engine/entities.js — `playerInHome()`,`clampHome()`,
+     `home` (baris ~664-757).
+     PENTING: mekanisme "guard terikat ke ruangannya" INI SUDAH ADA di kode
+     (grace 34px, clamp posisi ke bounding box home). Jadi ini BUKAN fitur
+     yang belum dibuat — ini bug pada implementasi yang sudah ada. Kemungkinan
+     penyebab yang perlu dicek satu-satu: (a) boss/monster tertentu tidak
+     ke-assign `this.home` sama sekali (di-set dari game.js saat spawn — cari
+     semua call site yang bikin Enemy() dan pastikan selalu diberi home
+     untuk monster non-random-roam), (b) nilai grace 34px kekecilan/kebesaran
+     dibanding ukuran pintu sebenarnya, (c) bounding box `home` salah hitung
+     untuk ruangan tertentu (mis. ruangan boss/vault). Reproduce dulu di
+     live browser sebelum menebak fix-nya.
+
+[T6] (#14) Berangkas Vault muncul tiba-tiba setelah boss mati; posisi di
+     tengah ruangan, bukan nempel tembok.
+     File: public/game-engine/game.js — `killEnemy()` baris ~1408-1415
+     memanggil `spawnVaultDoor()` baris 1429-1436 SETELAH `e.isBoss` mati.
+     Komentar kode itu sendiri MENGAKUI ini: "Placement is approximate...
+     since dungeon layout is procedural and has no hand-authored 'vault
+     room' — flagged for visual QA in the next session since it hasn't been
+     playtested yet." Posisi sekarang: `stairsPx.x+70, stairsPx.y-10`
+     (offset dari tangga, bukan dari tembok). Aksi: (1) pindahkan pemanggilan
+     spawn ke saat FLOOR DIMUAT (bukan menunggu boss mati) supaya berangkas
+     sudah ada dari awal, (2) ganti logika posisi supaya nempel ke tembok
+     terdekat di ruangan boss (pakai cara yang sama dipakai dekorasi lain
+     yang sudah nempel tembok dengan benar, kalau ada — cek props.js/
+     dungeon.js untuk pola wall-snap yang sudah ada). Vault door TETAP hanya
+     bisa DIBUKA setelah boss mati (itu logic terpisah, jangan diubah) — yang
+     berubah cuma KAPAN dia MUNCUL secara visual dan DI MANA posisinya.
+
+--- TIER 3: dokumentasi & audit (bisa paralel, medium effort, risiko rendah) ---
+
+[T7] (#7) Sinkronkan Terms/Privacy/Docs landing + README + docs/*.md dengan
+     perilaku kode sebenarnya.
+     File yang ada: app/terms/page.tsx (454 baris), app/privacy/page.tsx
+     (353 baris), app/docs/, README.md, docs/index.md, docs/faq.md,
+     docs/game-mechanics.md, docs/rewards-system.md, docs/pass-system.md,
+     docs/leaderboard.md, docs/data-safety.md, docs/network-manifest.md,
+     docs/minipay-submission-draft.md, docs/sample-transactions.md,
+     docs/treasure-vault-quest.md.
+     Temuan awal (contoh nyata inkonsistensi, BUKAN dugaan): README.md sudah
+     pakai "NullState Point" sementara UI in-game masih "TOKEN NULLSTATE"
+     (lihat T2) — ini persis jenis mismatch yang harus diburu di semua
+     dokumen di atas. Aksi: baca tiap dokumen, cocokkan tiap klaim fitur
+     dengan kode aktual (story_campaign.js utk jumlah bunker, game.js utk
+     mekanik NULL_STRIKE/Vault/Lift, marketplace.ts utk harga & item),
+     perbaiki yang meleset, JANGAN mengubah cerita/jumlah bunker/logika
+     pembayaran (aturan lama dari v64 tetap berlaku).
+
+[T8] (#17) Audit kesesuaian MiniPay/Celo terhadap celopedia.
+     WAJIB: install celopedia-skill dari github.com/celo-org/celopedia-skills
+     dan baca celopedia.celo.org SECARA LANGSUNG di sesi itu (jangan
+     mengandalkan ingatan/pelatihan lama soal MiniPay — kemungkinan berubah).
+     Baseline yang sudah dikonfirmasi ADA di repo: 86 referensi "minipay" di
+     file .ts/.tsx (lib/Web3Providers.tsx, lib/WalletProvider.tsx,
+     lib/useContractPlayer.ts, dll — belum dibaca detail satu-satu isinya).
+     Aksi: buat daftar checklist celopedia (deep link handling, wallet
+     connect flow, gas/fee UX, network manifest, dsb — sesuai isi celopedia
+     yang sebenarnya, JANGAN mengarang item checklist), lalu untuk tiap item
+     tandai [x] SUDAH diterapkan (sertakan file:baris bukti) atau [ ] BELUM
+     (sertakan apa yang kurang). Laporkan ke user sebagai daftar gap, jangan
+     langsung mengubah kode Web3 tanpa konfirmasi (aturan lama v64: "JANGAN
+     ubah logika pembayaran yang sudah jalan tanpa alasan").
+
+--- TIER 4: visual polish, butuh QA live + keputusan kecil ---
+
+[T9] (#4) Lampu -> obor dengan animasi lidah api, nempel tembok, semua bungker.
+     File: public/game-engine/game.js — `drawTorchSconces()` baris
+     1866-1892, data posisi di `d.lamps` (dungeon.js).
+     PENTING: mekanisme wall-mount SUDAH ADA (`l.side` N/S/E/W dipakai untuk
+     offset ke tepi tile, baris 1876-1882) dan SUDAH ada animasi flicker
+     (`flick = 0.7+0.3*Math.sin(...)`, baris 1886) — jadi ini BUKAN fitur
+     kosong, tapi kualitas visualnya belum sesuai ekspektasi user (bentuk
+     apinya cuma satu ellipse, belum benar-benar terbaca sebagai "lidah
+     api"). Warna api sekarang ikut `theme.torch` per-bunker (bisa jadi
+     ungu/biru tergantung tema — itu sebabnya di screenshot user warnanya
+     ungu, bukan oranye). Aksi: perbaiki bentuk (multi-shape/gradient supaya
+     terbaca sebagai lidah api bergoyang, bukan blob), lalu TANYA user:
+     apakah warna api tetap ikut tema per-bunker (seperti sekarang) atau
+     mau selalu oranye/api asli terlepas dari tema? Terapkan ke kelima
+     bunker (kelima theme yang dipakai `wallTex`/`DUNGEON_THEMES` — lihat
+     catatan v64 bagian 1).
+
+[T10] (#1) Weapon tidak terbawa saat walk (terutama panah), cek weapon lain.
+     File: public/game-engine/entities.js `drawLPCComposite()` baris
+     127-265 (khusus walkSrc logic baris 198-263), assets.js `LPC_WEAPON`
+     baris 160-183.
+     PENTING: comment di kode (yang ditulis sesi-sesi sebelumnya) SUDAH
+     mengklaim bug ini "sudah diperbaiki" (mekanisme walkSrc, fallback ke
+     frame pertama attack-sheet kalau walkSrc gagal load) TAPI juga secara
+     eksplisit menulis "Verified via composite screenshot test... not yet
+     re-checked inside the live canvas game loop" — dan ini SAMA PERSIS
+     dengan item "QA LIVE belum pernah dijalankan" di checklist v64 bagian 4.
+     File walkSrc untuk hunters_bow (`WEAPON_bow_walk.png`) SECARA FISIK ADA
+     di public/sprites/lpc_source/weapon_walk/, dan sudah masuk daftar
+     preload (`preloadLPCHero`/`preloadAll`, assets.js baris 337-365) —
+     dari pembacaan kode statis TIDAK ketemu bug yang jelas untuk bow.
+     Aksi WAJIB: buka game LIVE (browser/Playwright), equip tiap 1 dari 9
+     weapon di LPC_WEAPON satu-satu (rusty_blade, ancient_blade, war_axe,
+     void_reaper, frost_spear, twin_daggers, hunters_bow, ancient_warblade,
+     voidcaller_scythe), jalan ke 4 arah, screenshot tiap arah. Console
+     browser akan otomatis print warning kalau ada weapon yang gagal load
+     asetnya (`_warnOnce('ns-weapon-...')`, sudah dipasang di kode) — baca
+     warning itu untuk tahu weapon mana yang benar-benar bermasalah dan
+     kenapa, baru perbaiki yang itu. Jangan menebak fix tanpa lihat warning
+     ini dulu.
+
+[T11] (#15) Ukuran weapon saat walk kurang besar; tiap weapon perlu animasi
+      attack berbeda & berwarna sesuai warna weapon (mis. ungu -> tebasan
+      ungu, busur ikut warna weapon).
+      File: entities.js drawLPCComposite() (scale weapon ikut `scale` param
+      yang sama dengan body — tidak ada scale terpisah per-weapon saat ini),
+      public/game-engine/effects.js (178 baris, sistem partikel/FX serangan).
+      Aksi: (1) tambah scale-multiplier khusus weapon (independen dari body
+      scale) supaya weapon lebih besar saat digambar, (2) di effects.js,
+      buat warna FX serangan mengikuti warna/tier weapon yang di-equip
+      (bisa pakai field warna yang sudah ada di marketplace.ts per item, cek
+      ada/tidaknya field itu dulu — kalau belum ada, tambahkan), termasuk
+      warna busur untuk hunters_bow mengikuti weapon (bukan warna arrow
+      hardcode `#c98a4a`/`#eafff5` yang sekarang statis di game.js
+      drawProjectiles() baris 1277-1290).
+
+------------------------------------------------------------------------------
+ 3) TASK LIST — BUTUH GO-AHEAD USER DULU (lihat jawaban Q1/Q2/Q3 di bagian 1)
+------------------------------------------------------------------------------
+Urutan di bawah SUDAH termudah->tersulit DI DALAM grup ini, tapi ketiganya
+TIDAK BOLEH dikerjakan sebelum user menjawab Q1/Q2/Q3.
+
+[T12] (#6) Preview weapon Marketplace — file public/sprites/marketplace/*.png
+      (14 file, termasuk voidcaller_scythe.png = item $15 yang dikeluhkan).
+      Bandingkan war_axe.png (dipakai user sbg contoh "sudah benar", nyerong
+      kanan-atas) vs voidcaller_scythe.png untuk cari beda sudut/posisi yang
+      pasti sebelum menggenerate apa pun. Scope kerja ikut jawaban Q1.
+
+[T13] (#8) Aset lemari/furniture bungker — DECOR_TYPES di props.js baris
+      16-38 (vase/pot/barrel/crate/cabinet_s/wardrobe/urn/column/brazier/
+      bones/rubble/crystal/tablet/statue/chest). Fungsi & loot table di
+      objek ini TIDAK BOLEH berubah (itu logic gameplay) — kalau di-generate
+      ulang, HANYA sprite art-nya yang boleh diganti, field hp/w/h/loot/
+      interactive/containerMaterial harus tetap. Scope kerja ikut jawaban Q2.
+
+[T14] (#10) Monster/boss regenerasi — MON{} + directional monsters3/ di
+      assets.js baris ~192-260, ARCHETYPES stats sesudahnya. Bug spesifik
+      yang sudah dikonfirmasi ada laporannya (belum diverifikasi live):
+      boss tidak punya animasi attack (beberapa archetype flat MON memang
+      tidak punya sheet attack sama sekali — cuma flash+partikel, lihat
+      komentar header assets.js baris 1-15), boss kadang gerak
+      membelakangi karakter (kemungkinan terkait `facing` yang cuma dihitung
+      dari `dx` horizontal di entities.js baris ~696, tidak benar2 hadap ke
+      player untuk sprite directional). Scope kerja ikut jawaban Q3 — kalau
+      user pilih opsi D (bug-fix dulu tanpa art baru), task ini pecah jadi
+      dua: fix bug dulu (masuk Tier 2 di atas), baru regenerasi art menyusul.
+
+------------------------------------------------------------------------------
+ 4) DISKUSI DULU — jangan dieksekusi, user minta bahas lebih lanjut
+------------------------------------------------------------------------------
+[D1] (#3) Beberapa tema outdoor bikin karakter kelihatan melayang/tidak
+     napak. File terkait: public/game-engine/outdoor.js (277 baris). User
+     bilang eksplisit "nanti kita bahas" — JANGAN diutak-atik sebelum
+     briefing lanjutan dari user (tema mana saja yang dimaksud, referensi
+     visual yang benar).
+
+[D2] (#16) Pencahayaan ruangan terlalu kaku; mau efek cahaya melingkar
+     mengikuti karakter (vibes obor/lilin di tangan, TAPI user menegaskan
+     ini BUKAN tentang objek obor/lilin — soal radius cahaya di sekitar
+     player), dengan refleksi lembut ke tembok/monster/aset, area lain tidak
+     harus gelap total. File terkait sebagai titik awal: void/fog rendering
+     di game.js (`render()` — clear ke #000 di luar ring dinding, lihat
+     catatan v64 bagian 1 soal "VOID HITAM MURNI"), `wallTex()`/
+     `drawWallBlock()` untuk cara reflection dinding sekarang dibangun.
+     User minta riset dulu ke game sejenis untuk teknik lighting-nya sebelum
+     implementasi — JANGAN langsung coding, bahas pendekatan dulu (mis.
+     radial gradient light-mask per-frame vs precomputed lightmap vs
+     WebGL-style multiply layer di atas canvas 2D).
+
+------------------------------------------------------------------------------
+ 5) YANG SUDAH SELESAI DARI v64 (tidak berubah, jangan dikerjakan ulang)
+------------------------------------------------------------------------------
+Lihat NEXT-SESSION-PROMPT-v64.txt bagian 3 (di dalam ZIP) untuk daftar
+lengkap Fase 1-4 yang sudah "DONE" secara statis. CATATAN PENTING: semua
+"DONE" itu masih berstatus verifikasi statis (node -c / PIL / node-canvas
+harness) — QA LIVE browser BELUM PERNAH dijalankan sama sekali di project
+ini sampai sekarang. Beberapa laporan bug user di atas (T10 khususnya)
+kemungkinan besar adalah efek dari QA-live-belum-pernah-jalan ini, bukan
+fitur yang benar-benar belum dibuat. Prioritaskan QA live SEDINI mungkin di
+sesi berikutnya supaya tidak salah diagnosa ulang.
+
+Belum dikerjakan dari v64 (tetap berlaku, gabungkan dengan T9 di atas):
+[ ] Art lantai tema kuno (flagstone worn/earth) — masih flat checker+speckle.
+[ ] Props/pintu variasi dari tiles2/ yang sudah ada di repo.
+[ ] Fase 2b — restyle karakter default ke tema kuno (perlu konfirmasi user).
+
+------------------------------------------------------------------------------
+ 6) ATURAN KERJA (tidak berubah dari v64)
+------------------------------------------------------------------------------
+- File untuk user WAJIB di-share (present_files/export_to_user).
+- Setiap ubah *.js engine: `node -c <file>` sampai bersih.
+- Item/monster/decor baru: sinkronkan SEMUA sumber (marketplace.ts +
+  marketplace-items.js + assets.js render + icon PNG) + verifikasi path
+  resolve, sama seperti aturan lama.
+- JANGAN pakai createPattern+translate untuk tekstur world-anchored.
+- Kerja STEP-BY-STEP per Tier, berhenti tiap step untuk review user.
+- JANGAN ubah cerita, jumlah bunker (tetap 5), atau logika pembayaran/on-chain
+  tanpa alasan eksplisit dari user.
+- Field database (mis. `nullstateTokenBalance`) ≠ label UI — jangan
+  disamakan/di-rename bersamaan kecuali user minta migrasi data eksplisit.
+- Kalau ambigu / butuh keputusan desain / butuh generate art baru: TANYA
+  user dengan pilihan A/B/C/D, JANGAN menebak atau berasumsi sendiri.
+
+- BATAS TASK PER SESI (WAJIB, ATURAN BARU v65):
+    * Kerjakan MAKSIMAL 2 task/item bernomor [T..] per sesi (mis. T1+T2, atau
+      T4+T5, dst — ikuti urutan Tier 1 -> 2 -> 3 -> 4). Kalau salah satu task
+      ternyata SULIT/berisiko tinggi/butuh banyak investigasi live, kerjakan
+      HANYA 1 task itu saja di sesi tsb (jangan dipaksa 2).
+    * SETELAH 2 task (atau 1 task sulit) selesai + sudah di-`node -c` +
+      diringkas hasilnya ke user: AGENT WAJIB BERHENTI DULU. JANGAN langsung
+      kemas ZIP, JANGAN langsung tulis prompt sesi berikutnya, JANGAN lanjut
+      ke task berikutnya.
+    * Di titik berhenti itu, agent WAJIB tanya ke user secara eksplisit:
+      apakah mau (a) dikemas jadi ZIP full + dibuatkan
+      NEXT-SESSION-PROMPT versi baru sekarang, atau (b) tidak usah dulu
+      (mis. user mau lanjut ke task berikutnya dulu di sesi yang sama, atau
+      mau membatalkan/reject perubahan yang barusan dibuat).
+    * Agent BARU BOLEH lanjut (baik lanjut ke ZIP+prompt baru, atau lanjut ke
+      task berikutnya, atau rollback) setelah user memberi jawaban
+      approve/tolak yang jelas. Jangan mengasumsikan approval dari diam/tidak
+      dijawab.
+- Di akhir sesi (setelah user approve untuk paket/kemas): kemas ulang SATU
+  ZIP full + naikkan versi prompt + update checklist bagian 5 (mana yang
+  selesai, mana yang masih jalan).
+
+------------------------------------------------------------------------------
+ 7) STARTER PROMPT (tempel ini ke agent sesi berikutnya)
+------------------------------------------------------------------------------
+"Lanjutkan project Nullstate dari ZIP terbaru. WAJIB baca dulu
+NEXT-SESSION-PROMPT-v65.txt (dokumen ini) — berisi 17 temuan user yang sudah
+diverifikasi ke source code + backlog v64 lama yang belum selesai. Install
+skill gameforge-dev & bunker-rpg-asset-integrator dari _agent_skills/, plus
+celopedia-skill dari github.com/celo-org/celopedia-skills (baca juga
+celopedia.celo.org) — wajib sebelum menyentuh apa pun yang terkait Web3/
+MiniPay (item T8). Kerjakan Tier 1 -> Tier 2 -> Tier 3 -> Tier 4 secara
+berurutan, step-by-step, berhenti tiap step untuk review. JANGAN kerjakan
+bagian 3 (T12/T13/T14) sebelum user menjawab Q1/Q2/Q3 di bagian 1. JANGAN
+sentuh bagian 4 (D1/D2) — itu murni bahan diskusi, tunggu arahan user. Di
+tiap task yang menyebut 'PENTING: mekanisme X sudah ada di kode' — itu
+artinya JANGAN membangun ulang dari nol, cari dan perbaiki bug pada
+implementasi yang sudah ada. node -c tiap file JS yang diubah. Jangan ubah
+cerita/jumlah bunker/logika pembayaran.
+
+BATAS SESI (WAJIB, lihat bagian 6): kerjakan MAKSIMAL 2 task bernomor [T..]
+saja (1 task kalau ternyata sulit/berisiko), lalu BERHENTI — jangan langsung
+kemas ZIP atau lanjut task berikutnya. Di titik itu, tanya ke user: mau
+dikemas jadi ZIP full + NEXT-SESSION-PROMPT versi baru sekarang, atau belum
+usah dulu. Lanjut (baik kemas ZIP, lanjut task, atau rollback) HANYA setelah
+user jawab approve/tolak dengan jelas — jangan mengasumsikan approval dari
+diam."
+================================================================================

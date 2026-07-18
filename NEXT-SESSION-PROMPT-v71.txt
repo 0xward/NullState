@@ -1,0 +1,130 @@
+================================================================================
+ NULLSTATE — NEXT SESSION PROMPT (v71)
+ Sumber: v70 — sesi ini: D1 FIXED (2 bg di-crop), D2 IMPLEMENTED (entity-
+ aware lighting, keputusan user = B), audit aset & sinkron marketplace
+ BERSIH, publisher name terverifikasi. Deadline MiniPay <1 minggu.
+================================================================================
+
+------------------------------------------------------------------------------
+ 0) WAJIB DIBACA DULU
+------------------------------------------------------------------------------
+  1. _agent_skills/SKILL_gameforge-dev.md
+  2. _agent_skills/SKILL_bunker-rpg-asset-integrator.md
+  3. Celopedia: diaudit lengkap v66 (T8), BERSIH — tidak perlu diulang.
+
+------------------------------------------------------------------------------
+ 1) SELESAI DI SESI INI (v70 -> v71)
+------------------------------------------------------------------------------
+
+[D1] DONE. User klarifikasi: hanya 2 bg yang melayang — ungu (back.webp)
+  & pasar/kendi (field.webp), fix = "ganti background aja atau generated".
+  Root cause (matematis): bg landscape 1104x621 / 1280x1024 di layar HP
+  portrait 360x640 -> cover-scale ikut TINGGI, kaki player di
+  GROUND_Y_FRAC=0.5 = tengah gambar = horizon/langit, bukan tanah.
+  Fix: kedua bg DI-CROP bagian atasnya (back.webp -38% -> 1280x635,
+  field.webp -15% -> 1104x528) sehingga y=0.5 jatuh di tanah datar.
+  Verifikasi numerik: row pixel di posisi kaki & bawahnya = warna tanah
+  (ungu datar / pasir). 3 bg lain (forest/desert/snow) TIDAK diubah.
+  GROUND_Y_FRAC & outdoor.js TIDAK disentuh — murni asset fix.
+  QA device: item B6 di QA-DEVICE-CHECKLIST.md.
+
+[D2] DONE (keputusan user: OPSI B, entity-aware). drawDarkness() di
+  game.js DIROMBAK:
+  - Darkness mask radial ikut player: radius 300 world-px, falloff
+    lembut, maxDark 0.42 (JAUH != hitam total — keputusan user lama).
+  - Warm core rgba(255,166,66) alpha 0.07 composite 'lighter' —
+    "cahaya lilin di tangan", sekaligus menghangatkan tembok sekitar
+    player (pantulan-tembok murah tanpa per-tile). Tint hijau lama
+    #00ff88 DIGANTI warm orange, konsisten keputusan Q6 (semua cahaya
+    api = oranye).
+  - Pantulan entity: monster hidup + props utuh dalam radius dapat rim
+    hangat, intensitas k^2 (kuadrat jarak), cap entMax 12/frame, culled
+    ke fog-visited tiles.
+  - Flicker lilin: osilator sin ganda (gaya lidah obor T9).
+  - SEMUA tunable di window.NS_LIGHT (radius/maxDark/midDark/warmCore/
+    entGlow/entMax/flicker) — bisa di-tune live dari console tanpa edit
+    kode. Kalau user minta lebih gelap/terang: ubah angka di objek
+    NS_LIGHT (game.js, di atas drawDarkness), JANGAN rombak fungsinya.
+  - QA statis: Playwright harness standalone (mock scene) + verifikasi
+    pixel numerik — falloff benar, corner 42% darkened bukan hitam,
+    rim hangat tampil di entity dekat. node -c bersih.
+  - QA device: item B7. D2-RADIAL-LIGHTING-RESEARCH.md (riset v70)
+    boleh DIHAPUS sesi depan kalau B7 lulus — sudah terimplementasi.
+
+[AUDIT] Pelajaran T10 diterapkan menyeluruh: 120 path gambar yang
+  direferensikan assets.js (LPC weapon/armor x 5 folder anim, decor,
+  backgrounds, marketplace icons) dicek EXIST + ALPHA>0 via PIL.
+  HASIL: NOL masalah — tidak ada file blank lain seperti kasus bow.
+  Sinkron 4-sumber marketplace: 14 id identik di marketplace.ts &
+  marketplace-items.js, 9 weapon semua punya LPC_WEAPON cfg, 5 armor
+  semua punya LPC_ARMOR cfg, 14 icon PNG lengkap. USDC/USDT/USDm =
+  map alamat token (bukan item), BUKAN missing icon.
+  Publisher name legal pages: sudah "1892 Studio" di semua tempat
+  (terms/privacy) — item lama itu ternyata sudah selesai, CLOSED.
+
+------------------------------------------------------------------------------
+ 2) SELESAI SESI-SESI SEBELUMNYA — RINGKASAN, jangan diulang
+------------------------------------------------------------------------------
+v69->v70: T10 closed (root cause: WEAPON_bow_walk.png blank 0-alpha,
+di-regenerate; BUKAN cache), ranged engage 150->260, arrow pakai _atkAim,
+QA-DEVICE-CHECKLIST.md dibuat, komentar basi entities.js dihapus.
+v68->v69: Q5/Q6, T14-bug facing monster. v67->v68: T11/Q4/T12/T13.
+v66->v67: T9 obor. v65->v66: T1-T8. (Detail: prompt v66..v70 di ZIP.)
+
+------------------------------------------------------------------------------
+ 3) PERTANYAAN KE USER
+------------------------------------------------------------------------------
+  Q1-Q9: SEMUA TERJAWAB (Q9 implisit: user belum komplain 260; konfirmasi
+  lewat checklist A2). Jangan ulang.
+  Q10 (BARU): hasil QA-DEVICE-CHECKLIST.md — item mana FAIL? Prioritas
+     laporan: A1-A3 (bow), B6 (outdoor ground), B7 (lighting baru,
+     termasuk FPS di device low-end), D1-D3 (premium + payment).
+  Q11 (BARU, D2 tuning): lighting default (maxDark 0.42, radius 300)
+     kegelapan/keterangan? Cukup jawab: "lebih gelap" / "lebih terang" /
+     "pas" — tinggal ubah NS_LIGHT.
+
+------------------------------------------------------------------------------
+ 4) TASK LIST YANG BELUM DIKERJAKAN
+------------------------------------------------------------------------------
+[QA-FOLLOWUP] (#1) Proses hasil checklist user (Q10). Bug FAIL =
+  prioritas tertinggi sebelum fitur apa pun (deadline MiniPay!).
+  Butuh: hasil test device dari user — TIDAK bisa dikerjakan tanpa itu.
+
+[D2-TUNE] (kecil, tunggu Q11) Sesuaikan angka NS_LIGHT sesuai feedback.
+
+[T14 — KOMPONEN ART] (#10, Q3=C TERKUNCI) Full art baru SEMUA monster.
+  MASIH menunggu sesi dengan IMAGE GENERATION — lima sesi berturut tanpa
+  tool-nya. Spec: NEXT-SESSION-PROMPT-v68.txt §4 T14 (a)-(e), minus bug
+  facing (fix v69). Tanpa image-gen: SKIP, jangan procedural, jangan
+  tanya ulang. CATATAN: fix D1 sesi ini pakai CROP asset lama (bukan
+  generate) — bg outdoor TIDAK masuk scope T14.
+
+------------------------------------------------------------------------------
+ 5) ATURAN KERJA (tidak berubah)
+------------------------------------------------------------------------------
+- File untuk user WAJIB di-share (present_files).
+- node -c tiap file JS yang diubah.
+- Item/monster/decor baru: sinkronkan marketplace.ts + marketplace-items.js
+  + assets.js render + icon PNG.
+- JANGAN ubah cerita, jumlah bunker (5), logika pembayaran/on-chain.
+- Ambigu: TANYA A/B/C/D; kalau user minta cepat, default teraman + catat.
+- BATAS TASK PER SESI: default 2, berhenti & tanya — kecuali user minta
+  lanjut eksplisit.
+- Infra tidak tersedia (image-gen dsb): skip & catat, jangan dipaksa.
+- Harness QA render: SELAIN load-check, WAJIB cek konten pixel (alpha>0
+  per frame). File harness JANGAN di-commit/zip.
+- Tool `view` gambar bisa gagal menampilkan (terjadi 2x sesi v70/v71):
+  selalu siapkan verifikasi NUMERIK (PIL pixel sampling) sebagai backup.
+
+------------------------------------------------------------------------------
+ 6) STARTER PROMPT
+------------------------------------------------------------------------------
+"Lanjutkan project Nullstate dari ZIP v71. WAJIB baca NEXT-SESSION-PROMPT-
+v71.txt dulu — §1: D1 fixed (2 bg di-crop), D2 implemented (entity-aware
+lighting, tunable via NS_LIGHT), audit aset+marketplace bersih. §3: tanya
+Q10 (hasil checklist device, item mana FAIL) & Q11 (lighting kegelapan?).
+§4: proses bug hasil QA dulu (prioritas), D2-tune kalau Q11 dijawab,
+T14-art HANYA kalau sesi punya image generation. Install skill dari
+_agent_skills/ kalau sesi baru. node -c tiap file JS yang diubah. Jangan
+ubah cerita/jumlah bunker/logika pembayaran."
+================================================================================

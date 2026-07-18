@@ -1,0 +1,125 @@
+================================================================================
+ NULLSTATE — NEXT SESSION PROMPT (v70)
+ Sumber: v69 — sesi ini: Q7 TERJAWAB & T10 ROOT CAUSE ASLI KETEMU (aset
+ blank, bukan cache!), bow walk FIXED, ranged engage 260 + aim lock arrow,
+ QA-LIVE checklist DIBUAT. Deadline MiniPay <1 minggu.
+================================================================================
+
+------------------------------------------------------------------------------
+ 0) WAJIB DIBACA DULU
+------------------------------------------------------------------------------
+  1. _agent_skills/SKILL_gameforge-dev.md
+  2. _agent_skills/SKILL_bunker-rpg-asset-integrator.md
+  3. Celopedia: diaudit lengkap v66 (T8), BERSIH — tidak perlu diulang.
+
+------------------------------------------------------------------------------
+ 1) SELESAI DI SESI INI (v69 -> v70)
+------------------------------------------------------------------------------
+
+[Q7 + T10 FINAL] User konfirmasi: bug HANYA pada bow ("walk masih belum
+  bawa panah"), weapon lain belum ditest (premium belum pernah dites di
+  testnet). ROOT CAUSE ASLI: public/sprites/lpc_source/weapon_walk/
+  WEAPON_bow_walk.png adalah file 576x256 100% TRANSPARAN (0 pixel alpha).
+  Harness v68 hanya cek load-success + warning — file blank lolos.
+  PELAJARAN utk harness berikutnya: WAJIB cek konten alpha (PIL
+  nonzero-alpha count per frame), bukan cuma onload.
+  FIX: WEAPON_bow_walk.png DI-REGENERATE dari frame-0 (relaxed hold) tiap
+  row WEAPON_bow.png (sheet shoot), direplikasi 9 kolom dgn bob offset
+  pola spear [0,0,-1,-1,-1,0,1,1,1]. 4743 px alpha. QA composite PIL
+  (BODY_male walkcycle + overlay, 4 arah x 6 frame) — bow nempel benar.
+  Overlay lain diverifikasi ADA ISI: dagger 739 / longsword 1325 /
+  spear 954 / waraxe 2853 / scythe 4841 px. T10 CLOSED.
+
+[RANGED-1] Engage radius auto-attack bow 150 -> 260 (game.js, _enemyTrig).
+  Arrow maxRange 560 jadi selalu nyampe; same-room gate T4 TETAP aktif.
+  Keputusan user: "posisi auto attack panah bisa agak jauh". Kalau user
+  bilang masih kurang/kelebihan jauh setelah test device: cukup ubah
+  angka 260 (satu tempat, ada komentar v69).
+
+[RANGED-2] spawnProjectile() kini prefer owner._atkAim (aim terkunci ke
+  target saat auto-attack mulai) sebelum fallback _lastMove. Bug lama:
+  arrow spawn di strike window 0.1-0.3s SETELAH startAttack; kalau player
+  masih jalan, _lastMove sudah balik ke arah gerakan -> panah meleset.
+  Root cause sama dgn bug aim melee yang dulu. node -c bersih (game.js,
+  entities.js, assets.js).
+
+[QA-LIVE] DONE: QA-DEVICE-CHECKLIST.md dibuat (root project) — item
+  A1-A6 combat/weapon (termasuk 3 fix baru sesi ini), B1-B5 dunia/visual,
+  C1-C2 UI/marketplace, D1-D3 premium items + payment flow. User test
+  manual di device dari deploy preview.
+
+[T10-sisa] DONE (v70): Komentar basi "Phase 1: weapon_walk/*.png missing"
+  di entities.js dihapus. Fallback logic TETAP (safety net harmless). Fix
+  efek cleanup: entities.js node -c bersih.
+
+[D2 — RISET] DONE (v70): D2-RADIAL-LIGHTING-RESEARCH.md (root project) —
+  Teknik: 4 pendekatan explored (radialGradient overlay, distance-based
+  entity tint, precomputed lightmap, WebGL). Recommended: Approach A
+  (radialGradient, 30 min prototype) → Approach B (entity-aware, post-
+  deadline). Spec implementasi sketch + 6 pertanyaan user sebelum coding.
+  JANGAN diimplementasi sesi ini — tunggu arahan user.
+
+------------------------------------------------------------------------------
+ 2) SELESAI SESI-SESI SEBELUMNYA — RINGKASAN, jangan diulang
+------------------------------------------------------------------------------
+v68->v69: Q5 approved (fxColor campur), Q6 (pool obor oranye fix rgba),
+T14-komponen-bug facing monster (moonwalk return-home) fixed di entities.js.
+v67->v68: T11 (wScale+fxColor 9 weapon), Q4, T12 (icon regenerate),
+T13 (props 4-arah). v66->v67: T9 obor. v65->v66: T1-T8.
+(Detail: NEXT-SESSION-PROMPT-v66..v69.txt di ZIP.)
+
+QA LIVE sekarang di tangan USER via QA-DEVICE-CHECKLIST.md. Tunggu
+hasilnya sebelum menganggap item T1/T4/T5/T6/T9/T11/T13/T14-bug closed.
+
+------------------------------------------------------------------------------
+ 3) PERTANYAAN KE USER
+------------------------------------------------------------------------------
+  Q1-Q7: SEMUA TERJAWAB. Jangan ulang.
+  Q8 (BARU): hasil QA-DEVICE-CHECKLIST.md — item mana yang FAIL?
+     Khususnya A1-A3 (fix bow sesi ini) dan D1-D3 (premium, belum pernah
+     dites sama sekali).
+  Q9 (BARU): jarak engage bow 260 — pas / kurang jauh / kejauhan?
+
+------------------------------------------------------------------------------
+ 4) TASK LIST YANG BELUM DIKERJAKAN
+------------------------------------------------------------------------------
+[QA-FOLLOWUP] (#1) Proses hasil checklist dari user (Q8). Bug yang FAIL
+  = prioritas tertinggi sebelum fitur apa pun (deadline MiniPay!).
+
+[T14 — KOMPONEN ART] (#10, Q3=C TERKUNCI) Full art baru SEMUA monster.
+  MASIH menunggu sesi dengan IMAGE GENERATION — empat sesi berturut tanpa
+  tool-nya. Spec: NEXT-SESSION-PROMPT-v68.txt §4 T14 (a)-(e), minus bug
+  facing (sudah fix v69). Tanpa image-gen: SKIP, jangan procedural,
+  jangan tanya ulang.
+
+[D1] (#3) Tema outdoor — karakter melayang. outdoor.js. JANGAN diutak-
+     atik sebelum briefing user.
+
+------------------------------------------------------------------------------
+ 5) ATURAN KERJA (tidak berubah)
+------------------------------------------------------------------------------
+- File untuk user WAJIB di-share (present_files).
+- node -c tiap file JS yang diubah.
+- Item/monster/decor baru: sinkronkan marketplace.ts + marketplace-items.js
+  + assets.js render + icon PNG.
+- JANGAN ubah cerita, jumlah bunker (5), logika pembayaran/on-chain.
+- Ambigu: TANYA A/B/C/D; kalau user minta cepat, default teraman + catat.
+- BATAS TASK PER SESI: default 2, berhenti & tanya — kecuali user minta
+  lanjut eksplisit.
+- Infra tidak tersedia (image-gen dsb): skip & catat, jangan dipaksa.
+- Harness QA render: SELAIN load-check, WAJIB cek konten pixel (alpha>0
+  per frame) — pelajaran T10. File harness JANGAN di-commit/zip.
+
+------------------------------------------------------------------------------
+ 6) STARTER PROMPT
+------------------------------------------------------------------------------
+"Lanjutkan project Nullstate dari ZIP v70. WAJIB baca NEXT-SESSION-PROMPT-
+v70.txt dulu — §1: bow walk sudah fix (aset blank, bukan cache), ranged
+engage 260 + arrow aim lock, QA-DEVICE-CHECKLIST.md dibuat, T10-sisa
+comment cleanup done, D2-RADIAL-LIGHTING-RESEARCH.md riset selesai (tanpa
+kode). §3: tanya Q8 (hasil checklist, item mana FAIL) & Q9 (jarak 260
+pas?). §4: proses bug hasil QA dulu (prioritas), D2 tanya user 6 pertanyaan
+sebelum implementasi, T14-art HANYA kalau sesi punya image generation.
+Install skill dari _agent_skills/ kalau sesi baru. node -c tiap file JS
+yang diubah. Jangan ubah cerita/jumlah bunker/logika pembayaran."
+================================================================================

@@ -1,0 +1,366 @@
+'use client'
+
+import { useState, useEffect } from 'react'
+import dynamic from 'next/dynamic'
+import { useWallet } from '@/lib/WalletProvider'
+import { useContractPlayer } from '@/lib/useContractPlayer'
+import { PlayerProfile, LeaderboardEntry } from '@/lib/contract'
+import { loadGameSession, clearGameSession } from '@/lib/gameSessionService'
+import MainMenu from './MainMenu'
+import NewGameConfirmModal from './NewGameConfirmModal'
+
+// ─── Code-split (PSI v58: ~96 KiB unused JS di initial load) ────────────────
+// Screen-screen ini cuma dirender setelah user klik sesuatu di MainMenu
+// (lihat switch `phase` di bawah — cuma satu phase yang aktif di satu waktu),
+// jadi gak perlu ikut ke initial JS bundle /game. `ssr:false` karena semua
+// ini 'use client' component yang gak butuh SEO/first-paint (halaman /game
+// sendiri sudah `force-dynamic`, gak di-index buat konten dalam game).
+// DungeonGameWrapper membungkus DungeonGame.tsx (808 baris, game engine —
+// komponen terberat di codebase ini), jadi men-split wrapper-nya otomatis
+// ikut men-split game engine-nya juga.
+const UsernameSetup = dynamic(() => import('./UsernameSetup'), {
+  ssr: false,
+  loading: () => <ScreenLoadingFallback label="LOADING WALKER SETUP" />,
+})
+const Leaderboard = dynamic(() => import('./Leaderboard'), {
+  ssr: false,
+  loading: () => <ScreenLoadingFallback label="LOADING LEADERBOARD" />,
+})
+const RewardsScreen = dynamic(() => import('./RewardsScreen'), {
+  ssr: false,
+  loading: () => <ScreenLoadingFallback label="LOADING REWARDS" />,
+})
+const SeasonPassScreen = dynamic(() => import('./SeasonPassScreen'), {
+  ssr: false,
+  loading: () => <ScreenLoadingFallback label="LOADING SEASON PASS" />,
+})
+const MarketplaceScreen = dynamic(() => import('./MarketplaceScreen'), {
+  ssr: false,
+  loading: () => <ScreenLoadingFallback label="LOADING MARKETPLACE" />,
+})
+const DungeonGameWrapper = dynamic(() => import('./DungeonGameWrapper'), {
+  ssr: false,
+  loading: () => <ScreenLoadingFallback label="LOADING DUNGEON" />,
+})
+
+// Fallback minimal yang cocok sama tema terminal/hijau NullState, dipakai
+// selagi chunk async di atas masih di-fetch (biasanya cuma sekejap di
+// koneksi normal — ini bukan buat dungeon engine yang beneran loading asset).
+function ScreenLoadingFallback({ label }: { label: string }) {
+  return (
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-null-bg">
+      <div className="font-mono text-[11px] tracking-[4px] text-null-green uppercase animate-pulse">
+        // {label}...
+      </div>
+    </div>
+  )
+}
+
+type GamePhase = 'menu' | 'username-setup' | 'character-select' | 'game' | 'leaderboard' | 'rewards' | 'season-pass' | 'marketplace'
+
+/**
+ * GameFlowManager orchestrates the entire NullState game flow:
+ * 1. Show MainMenu with wallet connection
+ * 2. Handle Continue/New Game/Leaderboard options
+ * 3. Show UsernameSetup for new players (Knight is the sole default character)
+ * 4. Pass to DungeonGame for actual gameplay
+ * 5. Show Leaderboard when requested
+ *
+ * All player progress is stored ON-CHAIN via the contract.
+ */
+export default function GameFlowManager() {
+  const { address, isConnected } = useWallet()
+  const { 
+    playerProfile, 
+    isLoading: isLoadingProfile, 
+    registerPlayer,
+    setPlayerUsername,
+    fetchPlayerProfile,
+    fetchLeaderboard 
+  } = useContractPlayer(address || undefined)
+
+  const [phase, setPhase] = useState<GamePhase>('menu')
+  const [leaderboardEntries, setLeaderboardEntries] = useState<LeaderboardEntry[]>([])
+  const [isLoadingLeaderboard, setIsLoadingLeaderboard] = useState(false)
+  const [selectedUsername, setSelectedUsername] = useState<string>('')
+  const [error, setError] = useState<string | null>(null)
+  // Tracks whether the current run was entered via "New Game" (true) or
+  // "Continue" (false) — threaded down to DungeonGame so its mount effect
+  // knows whether to load the saved bunker session or skip it entirely.
+  // See handleNewGame/handleContinueGame below.
+  const [isNewRun, setIsNewRun] = useState(false)
+  // True while handleNewGame is checking Firestore for an existing saved
+  // session (so the New Game button can show a brief pending state if the
+  // caller wants it — currently unused by MainMenu but kept for parity with
+  // the other loading flags here).
+  const [checkingNewGame, setCheckingNewGame] = useState(false)
+  const [showNewGameConfirm, setShowNewGameConfirm] = useState(false)
+
+  // If wallet disconnects, go back to menu
+  useEffect(() => {
+    if (!isConnected) {
+      setPhase('menu')
+    }
+  }, [isConnected])
+
+  // Actually begins a fresh run (marks isNewRun so DungeonGame's mount
+  // effect skips loading any saved bunker snapshot). v72 (user finding #2):
+  // REGISTERED players now skip the username-setup screen entirely and drop
+  // straight into the game — they already have an on-chain username, and
+  // being routed back through "SET USERNAME" on every New Game read as a
+  // blocking bug popup. Only first-time (unregistered) players see setup.
+  const proceedToNewGame = () => {
+    setIsNewRun(true)
+    setPhase(playerProfile?.isRegistered ? 'game' : 'username-setup')
+  }
+
+  const handleNewGame = async () => {
+    if (!address) {
+      proceedToNewGame()
+      return
+    }
+    setCheckingNewGame(true)
+    try {
+      const existing = await loadGameSession(address)
+      if (existing) {
+        // Don't touch/clear it yet — just ask. The save only gets erased
+        // if the player explicitly confirms below.
+        setShowNewGameConfirm(true)
+      } else {
+        proceedToNewGame()
+      }
+    } catch {
+      // Firestore unreachable etc — fail open and let the player start a
+      // fresh run rather than getting stuck, same fail-open behavior as
+      // DungeonGame's own loadGameSession() catch.
+      proceedToNewGame()
+    } finally {
+      setCheckingNewGame(false)
+    }
+  }
+
+  // v72 (user finding #2): fire-and-forget. The old version awaited
+  // clearGameSession BEFORE proceeding, which froze the modal on slow
+  // networks. isNewRun=true already guarantees DungeonGame won't load the
+  // stale save while the delete completes in the background.
+  const handleConfirmNewGame = () => {
+    setShowNewGameConfirm(false)
+    if (address) {
+      clearGameSession(address).catch(() => { /* retried implicitly: isNewRun run overwrites the save on next auto-save */ })
+    }
+    proceedToNewGame()
+  }
+
+  // v72 (user finding #2): the modal now also offers "Continue Saved Run"
+  // so the player genuinely chooses between the two paths, instead of New
+  // Game being the only actionable outcome once the popup was open.
+  const handleContinueFromModal = () => {
+    setShowNewGameConfirm(false)
+    if (playerProfile?.isRegistered) {
+      handleContinueGame(playerProfile)
+    }
+  }
+
+  const handleCancelNewGame = () => {
+    setShowNewGameConfirm(false)
+  }
+
+  const handleContinueGame = (profile: PlayerProfile) => {
+    // Jump straight into the game with their existing profile
+    setIsNewRun(false)
+    setPhase('game')
+  }
+
+  const handleUsernameSet = async (username: string) => {
+    try {
+      setError(null)
+      setSelectedUsername(username)
+      
+      // If player not registered yet, register on-chain first
+      if (!playerProfile?.isRegistered) {
+        await registerPlayer()
+      }
+      
+      // Then set username in Firebase
+      await setPlayerUsername(username)
+      
+      // Move to game
+      setPhase('game')
+    } catch (err) {
+      const message = (err as any)?.message || 'Failed to set up player'
+      setError(message)
+    }
+  }
+
+  const handleLeaderboardClick = async () => {
+    setPhase('leaderboard')
+    setIsLoadingLeaderboard(true)
+    try {
+      const entries = await fetchLeaderboard()
+      setLeaderboardEntries(entries)
+    } catch (err) {
+      console.error('[v0] Failed to load leaderboard:', err)
+    } finally {
+      setIsLoadingLeaderboard(false)
+    }
+  }
+
+  const handleBackToMenu = () => {
+    setPhase('menu')
+    setError(null)
+  }
+
+  const handleRewardsClick = () => {
+    // Re-fetch before showing Rewards: playerProfile is otherwise only
+    // fetched once on wallet connect (see useContractPlayer.ts), so without
+    // this a player who connects then plays a session would see stale
+    // xp/level here even after recordRunProgress has already synced the
+    // real numbers to Firestore on save/death.
+    fetchPlayerProfile()
+    setPhase('rewards')
+  }
+
+  const handleMintPassClick = () => {
+    setPhase('season-pass')
+  }
+
+  const handleMarketplaceClick = () => {
+    setPhase('marketplace')
+  }
+
+  // PHASE: MENU
+  if (phase === 'menu') {
+    return (
+      <>
+        <MainMenu
+          onContinueGame={handleContinueGame}
+          onNewGame={handleNewGame}
+          onLeaderboard={handleLeaderboardClick}
+          onRewards={handleRewardsClick}
+          onMintPass={handleMintPassClick}
+          onMarketplace={handleMarketplaceClick}
+          playerProfile={playerProfile}
+          isLoadingProfile={isLoadingProfile}
+        />
+        <NewGameConfirmModal
+          open={showNewGameConfirm}
+          onConfirm={handleConfirmNewGame}
+          onContinue={playerProfile?.isRegistered ? handleContinueFromModal : null}
+          onCancel={handleCancelNewGame}
+        />
+      </>
+    )
+  }
+
+  // PHASE: CHARACTER SELECT
+  if (phase === 'username-setup' && !playerProfile?.isRegistered) {
+    return (
+      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[rgba(0,0,0,0.95)] p-6">
+        {/* Glow orb */}
+        <div
+          className="absolute pointer-events-none"
+          style={{
+            width: 700,
+            height: 700,
+            borderRadius: '50%',
+            background: 'radial-gradient(circle, rgba(0,255,136,0.08) 0%, rgba(0,170,255,0.03) 40%, transparent 70%)',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+          }}
+        />
+
+        <div className="relative z-10 max-w-2xl w-full text-center">
+          {/* Title */}
+          <div className="font-mono text-[11px] tracking-[6px] text-null-green uppercase mb-8">
+            // NULLSTATE // NEW GAME
+          </div>
+
+          <h2 className="font-display font-black text-null-white mb-8" style={{ fontSize: '52px' }}>
+            NEW WALKER
+          </h2>
+
+          {/* Username setup component */}
+          <UsernameSetup
+            onUsernameSet={handleUsernameSet}
+            onCancel={handleBackToMenu}
+            isLoading={isLoadingProfile}
+          />
+
+          {error && (
+            <div className="mt-4 p-3 bg-[rgba(255,59,48,0.2)] border border-[rgba(255,59,48,0.5)] text-null-red font-mono text-xs">
+              {error}
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  // PHASE: USERNAME SETUP (shown inside above, so this is redundant, but kept for clarity)
+  if (phase === 'username-setup') {
+    return (
+      <UsernameSetup
+        onUsernameSet={handleUsernameSet}
+        onCancel={handleBackToMenu}
+        isLoading={isLoadingProfile}
+      />
+    )
+  }
+
+  // PHASE: LEADERBOARD
+  if (phase === 'leaderboard') {
+    return (
+      <Leaderboard
+        onBack={handleBackToMenu}
+        isLoading={isLoadingLeaderboard}
+        entries={leaderboardEntries}
+        currentWalletAddress={address}
+      />
+    )
+  }
+
+  // PHASE: REWARDS
+  if (phase === 'rewards') {
+    return (
+      <RewardsScreen
+        onBack={handleBackToMenu}
+        address={address || undefined}
+        playerProfile={playerProfile}
+      />
+    )
+  }
+
+  // PHASE: SEASON PASS
+  if (phase === 'season-pass') {
+    return (
+      <SeasonPassScreen
+        onBack={handleBackToMenu}
+        address={address || undefined}
+      />
+    )
+  }
+
+  // PHASE: MARKETPLACE
+  if (phase === 'marketplace') {
+    return (
+      <MarketplaceScreen
+        onBack={handleBackToMenu}
+        address={address || undefined}
+      />
+    )
+  }
+
+  // PHASE: GAME
+  if (phase === 'game') {
+    return (
+      <DungeonGameWrapper
+        playerProfile={playerProfile}
+        setPlayerUsername={setPlayerUsername}
+        isNewRun={isNewRun}
+      />
+    )
+  }
+
+  return null
+}
