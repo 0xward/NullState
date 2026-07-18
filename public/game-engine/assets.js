@@ -177,7 +177,11 @@ const NS_WPN = '/sprites/weapons';
 const NS_WEAPON = {
   rusty_blade:       { src:`${NS_WPN}/rusty_blade.png`,       anim:'slash',  motion:'slash',    gy:0.90, ln:30, sfx:'blade',     htk:4 },
   emberwood_maul:    { src:`${NS_WPN}/emberwood_maul.png`,    anim:'slash',  motion:'chop',     gy:0.94, ln:32, sfx:'wood',      htk:4 },
-  ironbolt_crossbow: { src:`${NS_WPN}/ironbolt_crossbow.png`, anim:'shoot',  motion:'crossbow', gy:0.74, ln:27, sfx:'crossbow', htk:4, carry:'back' },
+  // v79: anim shoot->thrust — the ULPC crossbow overlay sheets are drawn
+  // against the 8-frame thrust body pose (braced punch-forward shot), there is
+  // no crossbow art for the 13-frame bow-draw pose. Projectile timing is
+  // progress-based (hitZone p, not frame index) so nothing else moves.
+  ironbolt_crossbow: { src:`${NS_WPN}/ironbolt_crossbow.png`, anim:'thrust', motion:'crossbow', gy:0.74, ln:27, sfx:'crossbow', htk:4, carry:'back' },
   argent_waraxe:     { src:`${NS_WPN}/argent_waraxe.png`,     anim:'slash',  motion:'chop',     gy:0.93, ln:32, sfx:'axe',       htk:3 },
   ancient_blade:     { src:`${NS_WPN}/ancient_blade.png`,     anim:'slash',  motion:'slash',    gy:0.88, ln:33, sfx:'blade',     htk:3, glow:'#ffd24a' },
   frost_spear:       { src:`${NS_WPN}/frost_spear.png`,       anim:'thrust', motion:'thrust',   gy:0.72, ln:40, sfx:'spear',     htk:3, glow:'#bdeeff' },
@@ -185,6 +189,35 @@ const NS_WEAPON = {
   void_katana:       { src:`${NS_WPN}/void_katana.png`,       anim:'slash',  motion:'iai',      gy:0.90, ln:36, sfx:'katana',    htk:2, glow:'#b46bff' },
   sunfire_bow:       { src:`${NS_WPN}/sunfire_bow.png`,       anim:'shoot',  motion:'bow',      gy:0.50, ln:30, sfx:'bow',       htk:2, carry:'back', glow:'#ffcf3d' },
 };
+
+// ---------------------------------------------------------------------------
+// LPC_WPN_OVL — v79 (owner decision, option A): artist-drawn weapon ANIMATION
+// overlays from the Universal LPC Spritesheet Character Generator
+// (github.com/liberatedpixelcup/Universal-LPC-Spritesheet-Character-Generator,
+// attribution in weapon_ulpc/CREDITS.md). These replace the pinned-icon model
+// for the on-body render: every weapon has frame-by-frame art that sits IN the
+// hero's grip for both the walk/idle carry and the attack swing, because the
+// LPC artists drew each frame against the same body rig the game already uses.
+//
+// WHY THE OLD "holes in the sheets" problem is gone: ULPC weapons ship as TWO
+// layers per animation — a foreground sheet (the part of the weapon in front
+// of the body) and a background/behind sheet (the part occluded by the body).
+// A direction row that is empty in one layer lives in the other; the union is
+// complete for every frame of every direction (verified per-frame via PIL this
+// session for all 9 weapons — see NEXT-SESSION-PROMPT notes). The prior
+// sessions stacked only ONE layer, which is exactly why rows looked blank.
+//
+// Sheets are copied unmodified from ULPC (renamed to <id>_<phase>_<layer>.png).
+// Frame geometry is discovered at draw time: every sheet is 4 rows in LPC
+// direction order, cell size = height/4 (64 regular, 128/192 oversize with the
+// 64px body cell centered inside), columns = frames of the matching body anim
+// (atk -> NS_WEAPON.anim's frame count, walk -> 9-frame walkcycle, idle -> col 0).
+const LPC_WPN_OVL = {};
+Object.keys(NS_WEAPON).forEach(id=>{
+  const B = `/sprites/lpc_source/weapon_ulpc/${id}`;
+  LPC_WPN_OVL[id] = { atkFg:`${B}_atk_fg.png`, atkBg:`${B}_atk_bg.png`,
+                      walkFg:`${B}_walk_fg.png`, walkBg:`${B}_walk_bg.png` };
+});
 
 // Hero hand/grip anchor per facing, in 64px body-frame coords. RE-MEASURED
 // v77 off base/walkcycle BODY_male: unlike a real over-the-shoulder carry, the
@@ -384,6 +417,7 @@ async function preloadLPCHero(){
     });
   });
   Object.values(NS_WEAPON).forEach(w=>srcs.add(w.src));
+  Object.values(LPC_WPN_OVL).forEach(o=>{srcs.add(o.atkFg);srcs.add(o.atkBg);srcs.add(o.walkFg);srcs.add(o.walkBg);});
   await Promise.all([...srcs].map(loadImg));
 }
 
@@ -403,6 +437,7 @@ async function preloadAll(){
       });
     });
     Object.values(NS_WEAPON).forEach(w=>srcs.add(w.src));
+    Object.values(LPC_WPN_OVL).forEach(o=>{srcs.add(o.atkFg);srcs.add(o.atkBg);srcs.add(o.walkFg);srcs.add(o.walkBg);});
   }
   [ORC_SHAMAN_ARCH, SKEL_MAGE_ARCH, SKEL_WARRIOR_ARCH].forEach(a=>{
     const m=MON[a.mon]; ['idle','walk','death'].forEach(k=>m[k]&&srcs.add(m[k].src));
@@ -462,5 +497,5 @@ const DUNGEON_THEMES = {
 
 window.NS_ASSETS={HERO,MON,ARCHETYPES,BOSS_ARCH,ORC_SHAMAN_ARCH,SKEL_MAGE_ARCH,SKEL_WARRIOR_ARCH,
   DUNGEON_THEMES,
-  LPC_DIRS,LPC_BASE,LPC_HERO,LPC_ARMOR,NS_WEAPON,LPC_HAND,LPC_BACK,LPC_HAND_BOB,LPC_REST_ANG,preloadLPCHero,
+  LPC_DIRS,LPC_BASE,LPC_HERO,LPC_ARMOR,NS_WEAPON,LPC_WPN_OVL,LPC_HAND,LPC_BACK,LPC_HAND_BOB,LPC_REST_ANG,preloadLPCHero,
   DECOR_SPRITES,GOLDEN_KEY_SRC,backgrounds,BG_BY_KEY,loadImg,img,preloadAll,preloadHeroPreviews};
