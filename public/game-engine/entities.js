@@ -213,6 +213,73 @@ function _tintedWeapon(im, src, col, amt){
   return c;
 }
 
+// ---------------------------------------------------------------------------
+// v79 — ULPC weapon ANIMATION overlays (owner decision, option A).
+// ---------------------------------------------------------------------------
+// The pinned-icon model (drawWeaponLayer below) never read as "held": a static
+// sprite rotated at an anchor point always looks glued on, because no single
+// anchor matches where the artist drew the hands frame by frame. The ULPC
+// generator ships per-weapon sheets drawn AGAINST THIS EXACT BODY RIG — walk
+// carry and attack swing, split into a foreground layer (in front of the body)
+// and a background layer (occluded by the body). Stacking bg -> body/armor ->
+// fg, frame-matched, puts the weapon in the hero's grip in every frame of
+// every direction (per-frame union verified via PIL for all 9 weapons).
+// The icon path below is kept ONLY as a decode-race fallback.
+//
+// Draw one overlay layer. Sheets: 4 direction rows (LPC order), cell =
+// height/4 — 64 regular, 128/192 oversize with the 64px body cell centered
+// inside (LPC oversize convention), columns = frames of the matching body anim.
+// Returns false if the sheet image hasn't decoded yet.
+function _drawWpnOvlLayer(dctx, src, f, dirIndex, dx, dy, dw, dh, wDef, attacking, p, tintCol){
+  const A = window.NS_ASSETS;
+  const im = A.img(src);
+  if(!im) return false;
+  const cell = Math.floor(im.height/4);
+  const cols = Math.floor(im.width/cell) || 1;
+  if(f >= cols) return true;         // canvas wider than this anim: blank column
+  const u = dw/64, pad = (cell-64)/2;
+  const ddx = dx - pad*u, ddy = dy - pad*u, dds = cell*u;
+  const sx = f*cell, sy = dirIndex*cell;
+  dctx.save();
+  dctx.imageSmoothingEnabled = false;
+  // Premium aura — same treatment as the icon path: an additive halo of the
+  // glow colour under the sprite, breathing while carried, flaring on strike.
+  if(wDef && wDef.glow){
+    const t = (window.NS_now ? window.NS_now() : (performance.now()/1000));
+    const pulse = 0.7 + 0.3*Math.sin(t*2.4);
+    const flare = attacking ? (0.6 + 0.8*Math.sin(Math.PI*Math.min(1, p||0))) : 0;
+    const glowA = Math.min(1, 0.42*pulse + flare*0.6);
+    const halo = _tintedWeapon(im, src, wDef.glow, 1.0);
+    dctx.save();
+    dctx.globalCompositeOperation = 'lighter';
+    for(const [ox,oy,a] of [[0,0,1],[-1,0,0.7],[1,0,0.7],[0,-1,0.7],[0,1,0.7],[-2,0,0.4],[2,0,0.4],[0,-2,0.4],[0,2,0.4]]){
+      dctx.globalAlpha = glowA*a;
+      dctx.drawImage(halo, sx, sy, cell, cell, ddx+ox, ddy+oy, dds, dds);
+    }
+    dctx.restore();
+  }
+  const srcIm = tintCol ? _tintedWeapon(im, src, tintCol, 0.55) : im;
+  dctx.drawImage(srcIm, sx, sy, cell, cell, ddx, ddy, dds, dds);
+  dctx.restore();
+  return true;
+}
+// Which overlay pair should render for this composite state?
+//   {fg,bg}      draw these sheets (bg before body, fg after armor)
+//   {hide:true}  weapon intentionally not rendered (hurt = the LPC collapse
+//                anim — reads as the weapon dropping; ULPC hurt sheets don't
+//                match this pack's single-row hurt strip anyway)
+//   null         no overlay usable -> pinned-icon fallback path
+function _wpnOvlFor(A, opts, wDef, animKey){
+  const ovl = wDef && opts && opts.weaponId && A.LPC_WPN_OVL && A.LPC_WPN_OVL[opts.weaponId];
+  if(!ovl) return null;
+  let fg, bg;
+  if(opts.attacking && animKey === wDef.anim){ fg = ovl.atkFg; bg = ovl.atkBg; }
+  else if(animKey === 'walk' || animKey === 'idle'){ fg = ovl.walkFg; bg = ovl.walkBg; }
+  else return { hide:true };
+  if(!A.img(fg) && !A.img(bg)) return null;   // not decoded yet
+  return { fg, bg };
+}
+
 // v78: is the equipped weapon drawn in FRONT of the body for this facing?
 // EVERY weapon now slings on the back while idle/walking (owner spec), so when
 // not attacking the depth comes from LPC_BACK; during the attack the weapon is
@@ -335,7 +402,11 @@ function drawLPCComposite(ctx, cx, cy, scale, dirIndex, frame, opts){
   // scratch canvas by the weapon's full length so a tinted carrier (Corrupted
   // Knight) never gets its blade clipped at the rect edge.
   const _wsDef = (opts && opts.weaponId && A.NS_WEAPON[opts.weaponId]) || null;
-  const _tpad = tint && _wsDef ? Math.ceil((_wsDef.ln + 8) * (dw / 64)) : 0;
+  // v79: overlay pair for this state (null -> pinned-icon fallback).
+  const _ovl = _wpnOvlFor(A, opts, _wsDef, animKey);
+  // Pad covers the icon path's rotated reach (ln) AND the 192px oversize
+  // overlay cells, which extend up to 64 body-units past the frame edge.
+  const _tpad = tint && _wsDef ? Math.ceil(Math.max(_wsDef.ln + 8, 72) * (dw / 64)) : 0;
   const dctx = tint ? _getTintCtx(dw + _tpad*2, dh + _tpad*2) : ctx;
   dctx.save();
   dctx.imageSmoothingEnabled = false;
@@ -347,9 +418,15 @@ function drawLPCComposite(ctx, cx, cy, scale, dirIndex, frame, opts){
   //      the body for this facing (LPC_BACK.front=false, e.g. facing down)
   // v77: compute the effective depth via _weaponIsFront so a slung bow correctly
   // rides behind the torso when the hero faces the camera.
-  if(opts && opts.weaponId && A.NS_WEAPON[opts.weaponId]
-     && !_weaponIsFront(A, A.NS_WEAPON[opts.weaponId], dirIndex, !!opts.attacking)){
-    drawWeaponLayer(dctx, A.NS_WEAPON[opts.weaponId], dirIndex, f, !!opts.attacking,
+  // v79: overlay model — the ULPC background layer (the part of the weapon the
+  // body occludes) always draws before the body; the fg layer draws after the
+  // armor stack below. The anchor path only runs when no overlay is usable.
+  if(_wsDef && _ovl && !_ovl.hide){
+    _drawWpnOvlLayer(dctx, _ovl.bg, f, dirIndex, dx, dy, dw, dh, _wsDef,
+                     !!opts.attacking, opts.atkProg || 0, opts.weaponTint || null);
+  } else if(_wsDef && !_ovl
+     && !_weaponIsFront(A, _wsDef, dirIndex, !!opts.attacking)){
+    drawWeaponLayer(dctx, _wsDef, dirIndex, f, !!opts.attacking,
                     opts.atkProg || 0, (opts.aimAng != null) ? opts.aimAng : -Math.PI/2,
                     dx, dy, dw, dh, opts.weaponTint || null);
   }
@@ -432,6 +509,13 @@ function drawLPCComposite(ctx, cx, cy, scale, dirIndex, frame, opts){
     if(!wDef){
       _warnOnce('ns-weapon-unknown-'+opts.weaponId,
         '[NullState] Equipped weapon id "'+opts.weaponId+'" has no NS_WEAPON entry — marketplace id and assets.js key are out of sync.');
+    } else if(_ovl && !_ovl.hide){
+      // v79: ULPC foreground layer — the in-grip weapon art, frame-matched to
+      // the body pose that just drew (walk carry or slash/thrust attack).
+      _drawWpnOvlLayer(dctx, _ovl.fg, f, dirIndex, dx, dy, dw, dh, wDef,
+                       !!opts.attacking, opts.atkProg || 0, opts.weaponTint || null);
+    } else if(_ovl && _ovl.hide){
+      // hurt/death collapse — weapon intentionally not rendered (it "drops").
     } else if(!A.img(wDef.src)){
       _warnOnce('ns-weapon-notcached-'+wDef.src,
         '[NullState] Weapon sprite "'+wDef.src+'" was never preloaded (A.img() returned null) — check preloadLPCHero()/preloadAll() coverage or a stale cached /game-engine/*.js bundle (see BUILD_TAG cache-busting in DungeonGame.tsx).');
