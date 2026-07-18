@@ -466,7 +466,15 @@ function ensureFloor(depth){
   const floor = { dun:d, enemies:[], decor:[], cleared:false, bossAlive:false, visited:false };
   const isBoss = depth%5===0;
   if(isBoss){
-    const e=new Enemy(BOSS_ARCH, d.stairsPx.x, d.stairsPx.y-60, depth, true);
+    // v80: one distinct boss look per act (ACT_BOSSES in assets.js — minotaur
+    // warlord, vampire monarch, sutured hulk, horned tyrant, pumpkin king),
+    // all with real 4-direction attack anims. Stats are identical across the
+    // list, so act difficulty tuning is unchanged.
+    const A2 = window.NS_ASSETS;
+    const bossArch = (A2.ACT_BOSSES && A2.ACT_BOSSES.length)
+      ? A2.ACT_BOSSES[((campaignActIndex%A2.ACT_BOSSES.length)+A2.ACT_BOSSES.length)%A2.ACT_BOSSES.length]
+      : BOSS_ARCH;
+    const e=new Enemy(bossArch, d.stairsPx.x, d.stairsPx.y-60, depth, true);
     e.home = homeFor(e.x, e.y); // v65 T5: boss is bound to the stairs/boss room too
     floor.enemies.push(e); floor.bossAlive=true;
     // v65 T6: Bunker 5 "THE LAST LIGHT" (campaignActIndex===4) vault door —
@@ -491,7 +499,12 @@ function ensureFloor(depth){
         const arch = ELITE_ARCHS[(Math.random()*ELITE_ARCHS.length)|0];
         e = new Enemy(arch, s.x, s.y, depth, false, true);
       } else {
-        const arch=ARCHETYPES[(Math.random()*Math.min(ARCHETYPES.length, 1+depth))|0]||ARCHETYPES[0];
+        // v80: the roll window scales with BOTH floor depth and campaign act
+        // (each bunker opens 4 more roster slots), so every act meets new
+        // monster crews from the 24-entry LPC roster instead of the same
+        // first six forever. Early floors of act 1 keep the classic mix.
+        const _lim = Math.min(ARCHETYPES.length, 1 + depth + campaignActIndex*4);
+        const arch=ARCHETYPES[(Math.random()*_lim)|0]||ARCHETYPES[0];
         e = new Enemy(arch, s.x, s.y, depth, false, false);
       }
       e.home = homeFor(s.x, s.y); // v65 T5

@@ -397,7 +397,16 @@ function drawLPCComposite(ctx, cx, cy, scale, dirIndex, frame, opts){
   const hero = A.LPC_HERO;
   const animKey = (opts && opts.attacking && opts.weaponAnim) ? opts.weaponAnim : (opts && opts.animKey) || 'walk';
   const animCfg = hero[animKey] || hero.walk;
-  const bodyIm = A.img(animCfg.src);
+  // v80: LPC monsters — pre-baked body+head composites reuse this whole
+  // pipeline with only the BODY source swapped (geometry is the standard LPC
+  // rig, identical to the hero sheets). File names inside monBase mirror the
+  // anim keys; idle reads walk.png frame 0 exactly like the hero does.
+  let bodySrc = animCfg.src;
+  if(opts && opts.monBase){
+    const mf = (animKey==='idle' || animKey==='walk') ? 'walk' : animKey;
+    bodySrc = opts.monBase + '/' + mf + '.png';
+  }
+  const bodyIm = A.img(bodySrc);
   if(!bodyIm) return false; // not loaded yet — caller falls back to placeholder
   const {fw, fh} = animCfg;
   const rows = animCfg.rows || 1;
@@ -457,7 +466,11 @@ function drawLPCComposite(ctx, cx, cy, scale, dirIndex, frame, opts){
   // char-select preview and every dungeon run before buying armor would
   // render the character effectively undressed (punch list #9, MiniPay
   // compliance blocker). LPC_ARMOR.base is render-only, never sold.
-  const armorDef = (opts && opts.armorId && A.LPC_ARMOR[opts.armorId]) || A.LPC_ARMOR.base;
+  // v80: LPC monsters skip the armor stack entirely — their look is fully
+  // baked into the body sheet (head included), and the LPC_ARMOR.base
+  // fallback would dress an orc in the hero's shirt and pants.
+  const armorDef = (opts && (opts.noArmor || opts.monBase)) ? null
+    : ((opts && opts.armorId && A.LPC_ARMOR[opts.armorId]) || A.LPC_ARMOR.base);
   if(armorDef){
     // animKey -> actual LPC asset folder name. Most anims share their name
     // with the folder (hurt/slash/thrust); walk+idle both read from
@@ -972,7 +985,13 @@ class Enemy {
     this.hp-=dmg; this.hitFlash=0.18;
     if(this.hp<=0 && !this.dead){
       this.dead=true;
-      if(this.dirMon){
+      if(this.useLPC && this.lpc && this.lpc.monBase){
+        // v80: LPC monsters play the 6-frame LPC hurt collapse as their
+        // death anim (single-row, faces camera — reads as keeling over).
+        this._lpcAnimKey='hurt'; this._lpcPrevKey='hurt';
+        this._lpcFrame=0; this._lpcAnimT=0;
+        this.deathT=(6/10)+0.4;
+      } else if(this.dirMon){
         this._dkey='death'; this._dprev='death'; this._dframe=0; this._dt=0;
         const dc=this.cfg.death||this.cfg.walk; const fps=dc.fps||9;
         this.deathT=(dc.frames/fps)+0.35;
@@ -1002,7 +1021,17 @@ class Enemy {
   }
   update(dt, player, dun){
     if(this.spawnT>0) this.spawnT-=dt;
-    if(this.dead){ this.deathT-=dt; if(this.dirMon) this._advanceDir(dt); else this.anim.update(dt); return; }
+    if(this.dead){
+      this.deathT-=dt;
+      if(this.dirMon) this._advanceDir(dt);
+      else if(this.useLPC){
+        // v80: advance the LPC hurt collapse, holding on the last frame.
+        this._lpcAnimT+=dt;
+        if(this._lpcAnimT>=1/10){ this._lpcAnimT=0; this._lpcFrame=Math.min(5,this._lpcFrame+1); }
+      }
+      else this.anim.update(dt);
+      return;
+    }
     if(this.hitFlash>0) this.hitFlash-=dt;
     if(this.atkCd>0) this.atkCd-=dt;
     // Frost Spear slow debuff (set by hitTest() in game.js). Ticks down each
@@ -1092,14 +1121,17 @@ class Enemy {
       // aim). Frame is advanced by a tiny local clock per anim: slash holds on
       // its last frame through the swing, walk/idle loop.
       this._lpcDir = lpcDirFromVec(_fx, _fy);   // v68 T14: face movement while walking
-      const key = this.attacking ? 'slash' : (chasing ? 'walk' : 'idle');
+      // v80: attack anim key comes from the archetype (lpc.atk) — slash 6f,
+      // thrust 8f (spear/polearm monsters) or spellcast 7f (casters).
+      const atkKey = (this.lpc && this.lpc.atk) || 'slash';
+      const key = this.attacking ? atkKey : (chasing ? 'walk' : 'idle');
       if(key !== this._lpcPrevKey){ this._lpcPrevKey=key; this._lpcFrame=0; this._lpcAnimT=0; }
       this._lpcAnimKey = key;
-      const NF = {idle:1, walk:9, slash:6}[key] || 1;
-      const FP = {idle:1, walk:11, slash:14}[key] || 10;
+      const NF = {idle:1, walk:9, slash:6, thrust:8, spellcast:7}[key] || 1;
+      const FP = {idle:1, walk:11, slash:14, thrust:16, spellcast:13}[key] || 10;
       this._lpcAnimT += dt;
       if(this._lpcAnimT >= 1/FP){ this._lpcAnimT=0; this._lpcFrame++; }
-      if(key==='slash'){ if(this._lpcFrame>=NF) this._lpcFrame=NF-1; }
+      if(key!=='idle' && key!=='walk'){ if(this._lpcFrame>=NF) this._lpcFrame=NF-1; }
       else if(this._lpcFrame>=NF) this._lpcFrame=0;
     } else if(this.dirMon){
       // directional beast: face the player, pick attack/walk/idle, advance frames
@@ -1180,8 +1212,13 @@ class Enemy {
     const ft=this.cfg.foot||0.9;
     if(this.useLPC){
       const L=this.lpc||{};
+      // v80: LPC monsters pass their baked body base + attack anim key; the
+      // weapon overlay animKey must match the archetype's atk pose so the
+      // ULPC overlay sheets line up (slash/thrust; casters attack bare-handed).
+      const _atk = L.atk || 'slash';
       const drew = drawLPCComposite(ctx, this.x, this.y, scale, this._lpcDir, this._lpcFrame, {
-        animKey:this._lpcAnimKey, attacking:this.attacking, weaponAnim:'slash',
+        animKey:this._lpcAnimKey, attacking:this.attacking, weaponAnim:_atk,
+        monBase:L.monBase,
         armorId:L.armorId, weaponId:L.weaponId, tint:L.tint, tintAlpha:L.tintAlpha,
         foot:ft, alpha:a,
       });
@@ -1194,7 +1231,8 @@ class Enemy {
         // white hit-flash via the same masked-tint path (no 'lighter' double-draw
         // — LPC layers would over-brighten and misalign).
         drawLPCComposite(ctx, this.x, this.y, scale, this._lpcDir, this._lpcFrame, {
-          animKey:this._lpcAnimKey, attacking:this.attacking, weaponAnim:'slash',
+          animKey:this._lpcAnimKey, attacking:this.attacking, weaponAnim:_atk,
+          monBase:L.monBase,
           armorId:L.armorId, weaponId:L.weaponId,
           tint:'#ffffff', tintAlpha:Math.min(0.85,this.hitFlash*3.5), foot:ft, alpha:a,
         });
