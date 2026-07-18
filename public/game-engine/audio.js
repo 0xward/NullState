@@ -163,61 +163,122 @@ const Audio = (() => {
     n.connect(f); f.connect(g); g.connect(sfxGain); n.start(t); n.stop(t+dur+0.02);
   }
 
+  // v80 "seram" helpers — the menace layer under every weapon voice:
+  // _sub = a deep sine drop you feel more than hear (60->30Hz territory);
+  // _crackle = sparse random resonant pops (embers, splintering ice, sparks).
+  function _sub(t, f0, f1, dur, peak, delay){
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    const st = t + (delay||0);
+    o.type='sine';
+    o.frequency.setValueAtTime(f0, st);
+    o.frequency.exponentialRampToValueAtTime(Math.max(18,f1), st+dur);
+    env(g, st, 0.006, dur, peak);
+    o.connect(g); g.connect(sfxGain); o.start(st); o.stop(st+dur+0.03);
+  }
+  function _crackle(t, count, baseFreq, spread, peak, delay){
+    const st = t + (delay||0);
+    for(let i=0;i<count;i++){
+      const d = Math.random()*spread;
+      _body(st+d, baseFreq*(0.7+Math.random()*0.9), 14, 0.03, peak*(0.5+Math.random()*0.5));
+    }
+  }
+
+  // v80: every weapon gets its OWN voice (owner spec: "suara seram, berbeda-
+  // beda setiap senjata"). Shared DNA: a sub-bass menace layer + downward
+  // pitch bends; on top each weapon keeps a signature the ear can name.
   const WEAPON_SFX = {
-    // sword: bright air-cut then a ringing steel "sing"
+    // RUSTY BLADE: dull gritty steel — a rasping scrape instead of a clean
+    // sing (rust doesn't sing), with a low growl under the cut.
     blade(t){
-      _whoosh(t, 2400, 520, 0.20, 0.42);
-      _tone(t, 'triangle', 1850, 900, 0.16, 0.16, 0.02);
-      _tone(t, 'sine',     2600, 1500, 0.20, 0.10, 0.03);
+      _whoosh(t, 1900, 380, 0.22, 0.40);
+      _body(t+0.02, 950, 3.2, 0.16, 0.26);          // gritty scrape band
+      _tone(t+0.02, 'sawtooth', 640, 260, 0.14, 0.09);
+      _tone(t, 'triangle', 1450, 700, 0.14, 0.11, 0.03); // dull half-sing
+      _sub(t, 95, 42, 0.20, 0.20, 0.04);
     },
-    // katana: same family as blade, faster and cleaner — a thinner, higher sing
+    // ANCIENT BLADE: ceremonial and huge — slow heavy cut, a two-tone golden
+    // sing (open fifth), and a cathedral-deep sub drop.
+    ancient(t){
+      _whoosh(t, 2100, 420, 0.26, 0.42);
+      _tone(t+0.03, 'triangle', 1560, 820, 0.30, 0.15);
+      _tone(t+0.03, 'sine',     2340, 1230, 0.34, 0.10);  // fifth above
+      _tone(t+0.07, 'sine',     3120, 1640, 0.30, 0.05);  // octave shimmer
+      _sub(t, 110, 34, 0.34, 0.30, 0.05);
+      _body(t+0.05, 520, 9.0, 0.20, 0.12);          // bronze bell body
+    },
+    // VOID KATANA: the iai draw-cut — instant hiss, thin glassy sing, and an
+    // unsettling detuned void-growl swallowing the tail.
     katana(t){
-      _whoosh(t, 3200, 800, 0.14, 0.40);
-      _tone(t, 'triangle', 2700, 1400, 0.22, 0.17, 0.015);
-      _tone(t, 'sine',     3900, 2300, 0.26, 0.09, 0.03);
-      _tone(t, 'sine',     5200, 3600, 0.14, 0.05, 0.05); // shimmer tail
+      _whoosh(t, 3400, 900, 0.12, 0.42);
+      _tone(t+0.01, 'triangle', 2700, 1400, 0.20, 0.16);
+      _tone(t+0.02, 'sine',     3900, 2300, 0.24, 0.08);
+      _tone(t+0.04, 'sine',     5200, 3600, 0.14, 0.05);  // shimmer
+      _tone(t+0.06, 'sawtooth', 150, 46, 0.28, 0.11);     // void growl
+      _tone(t+0.06, 'sawtooth', 157, 49, 0.28, 0.11);     // detuned twin (beating)
+      _sub(t+0.05, 68, 26, 0.30, 0.26);
     },
-    // war axe biting into wood: heavy swing, deep bite, splintering crack
+    // ARGENT WARAXE: heavy swing, brutal bite, silver ring — the axe you hear
+    // coming a room away.
     axe(t){
-      _whoosh(t, 1300, 300, 0.17, 0.34);
-      _thud(t+0.12, 900, 90, 0.16, 0.55);          // the bite
-      _body(t+0.12, 620, 5.0, 0.13, 0.34);         // timber resonance
-      _tone(t+0.12, 'triangle', 190, 62, 0.16, 0.34);
-      _body(t+0.16, 1500, 9.0, 0.06, 0.16);        // splinter crack
+      _whoosh(t, 1300, 260, 0.20, 0.36);
+      _sub(t, 85, 36, 0.22, 0.24, 0.02);             // shoulder-drop menace
+      _thud(t+0.12, 900, 80, 0.16, 0.55);            // the bite
+      _body(t+0.12, 620, 5.0, 0.13, 0.32);           // timber resonance
+      _body(t+0.13, 2400, 12.0, 0.10, 0.18);         // argent ring
+      _tone(t+0.12, 'triangle', 190, 58, 0.18, 0.34);
+      _body(t+0.17, 1500, 9.0, 0.06, 0.14);          // splinter crack
     },
-    // wooden club/maul: dull knock, no metal at all
+    // EMBERWOOD MAUL: smouldering timber — dull crushing knock plus a spray
+    // of ember crackles and a furnace-deep boom.
     wood(t){
-      _whoosh(t, 900, 240, 0.15, 0.26);
-      _thud(t+0.11, 620, 70, 0.15, 0.5);
-      _body(t+0.11, 330, 6.5, 0.16, 0.4);          // hollow wood body
-      _tone(t+0.11, 'triangle', 150, 55, 0.17, 0.3);
+      _whoosh(t, 900, 210, 0.17, 0.28);
+      _thud(t+0.11, 620, 60, 0.16, 0.52);
+      _body(t+0.11, 330, 6.5, 0.16, 0.38);           // hollow wood body
+      _tone(t+0.11, 'triangle', 150, 50, 0.18, 0.28);
+      _sub(t+0.11, 100, 32, 0.26, 0.30);             // furnace boom
+      _crackle(t, 5, 2600, 0.22, 0.10, 0.13);        // embers spitting
     },
-    // longbow: string twang, then the arrow whistling away
+    // SUNFIRE BOW: string creak, fiery release — the arrow leaves burning
+    // (flame rumble + sizzling sparks trailing the whistle).
     bow(t){
-      _tone(t, 'sawtooth', 230, 140, 0.12, 0.22);  // string release
-      _body(t, 700, 7.0, 0.07, 0.22);              // limb snap
+      _tone(t, 'sawtooth', 230, 140, 0.12, 0.22);    // string release
+      _body(t, 700, 7.0, 0.07, 0.22);                // limb snap
       _tone(t+0.05, 'sine', 3000, 1300, 0.26, 0.07); // arrow whistle
-      _whoosh(t+0.04, 3000, 1200, 0.18, 0.14);
+      _whoosh(t+0.04, 3000, 1200, 0.18, 0.13);
+      _thud(t+0.04, 420, 120, 0.24, 0.16);           // flame rumble
+      _crackle(t, 6, 3400, 0.24, 0.08, 0.06);        // sparks sizzling off
+      _sub(t+0.03, 80, 36, 0.20, 0.16);
     },
-    // crossbow: mechanical clack, hard thunk, short bolt hiss
+    // IRONBOLT CROSSBOW: all machine — ratchet clacks, a punishing stock
+    // thunk you feel in the floor, short bolt hiss.
     crossbow(t){
-      _body(t, 2600, 12.0, 0.03, 0.30);            // trigger clack
-      _tone(t+0.01, 'square', 320, 110, 0.09, 0.22); // stock thunk
+      _body(t, 2600, 12.0, 0.03, 0.30);              // trigger clack
+      _body(t+0.03, 2100, 12.0, 0.025, 0.20);        // ratchet echo clack
+      _tone(t+0.01, 'square', 320, 100, 0.09, 0.22); // stock thunk
       _body(t+0.01, 480, 8.0, 0.07, 0.24);
-      _whoosh(t+0.05, 2400, 1100, 0.12, 0.13);     // bolt
+      _sub(t+0.01, 120, 40, 0.18, 0.30);             // the kick in the floor
+      _whoosh(t+0.05, 2400, 1100, 0.12, 0.13);       // bolt
     },
-    // scythe: long airy reap with an eerie low ring
+    // VERDANT REAPER: the scariest of the lot — a long hungry reap, two
+    // dissonant tones a quarter-step apart beating against each other,
+    // whispering air, and a grave-deep sub swallowing the tail.
     scythe(t){
-      _whoosh(t, 1600, 260, 0.34, 0.40);
-      _tone(t+0.06, 'sine',     420, 210, 0.30, 0.13);
-      _tone(t+0.06, 'triangle', 1250, 620, 0.24, 0.09);
-      _tone(t+0.10, 'sine',     880, 300, 0.22, 0.06);
+      _whoosh(t, 1600, 220, 0.40, 0.40);             // long hungry reap
+      _whoosh(t+0.16, 700, 140, 0.30, 0.14);         // second whispering pass
+      _tone(t+0.05, 'sine', 622, 300, 0.36, 0.12);   // dissonant pair —
+      _tone(t+0.05, 'sine', 660, 318, 0.36, 0.12);   //   beats ~-> unease
+      _tone(t+0.10, 'triangle', 1250, 480, 0.28, 0.07);
+      _sub(t+0.08, 64, 24, 0.42, 0.30);              // the grave under it
     },
-    // spear: tight thrust hiss + icy point tick
+    // FROST SPEAR: tight thrust hiss ending in glassy ice — crystalline tick
+    // plus splintering frost crackles.
     spear(t){
       _whoosh(t, 2000, 900, 0.12, 0.30);
-      _tone(t+0.08, 'sine', 3200, 2400, 0.09, 0.10);
+      _tone(t+0.08, 'sine', 3200, 2400, 0.09, 0.10); // glassy point
       _body(t+0.08, 2200, 10.0, 0.05, 0.16);
+      _crackle(t, 5, 4200, 0.16, 0.09, 0.09);        // ice splintering
+      _tone(t+0.10, 'sine', 5100, 3400, 0.14, 0.04); // cold shimmer
+      _sub(t+0.02, 90, 40, 0.16, 0.16);
     },
   };
   // kind -> sound. Falls back to the generic whoosh for unknown/no weapon.

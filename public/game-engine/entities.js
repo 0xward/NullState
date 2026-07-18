@@ -258,7 +258,25 @@ function _drawWpnOvlLayer(dctx, src, f, dirIndex, dx, dy, dw, dh, wDef, attackin
     }
     dctx.restore();
   }
-  const srcIm = tintCol ? _tintedWeapon(im, src, tintCol, 0.55) : im;
+  // v80: masked colour wash so the in-hand weapon matches the marketplace
+  // icon's palette (ovlTint per weapon in assets.js). An explicit tintCol
+  // (e.g. the frost slow-tell) still wins over the cosmetic icon tint.
+  const eTint = tintCol || (wDef && wDef.ovlTint) || null;
+  const eAmt  = tintCol ? 0.55 : ((wDef && wDef.ovlTintA != null) ? wDef.ovlTintA : 0.3);
+  const srcIm = eTint ? _tintedWeapon(im, src, eTint, eAmt) : im;
+  // v80 swing polish: motion-trail afterimages — the two previous overlay
+  // frames ghosted under the live one read as motion blur, no new art needed.
+  if(attacking){
+    const baseA = dctx.globalAlpha;
+    for(const [back, ga] of [[2,0.14],[1,0.32]]){
+      const pf = f - back;
+      if(pf >= 0 && pf < cols){
+        dctx.globalAlpha = baseA * ga;
+        dctx.drawImage(srcIm, pf*cell, sy, cell, cell, ddx, ddy, dds, dds);
+      }
+    }
+    dctx.globalAlpha = baseA;
+  }
   dctx.drawImage(srcIm, sx, sy, cell, cell, ddx, ddy, dds, dds);
   dctx.restore();
   return true;

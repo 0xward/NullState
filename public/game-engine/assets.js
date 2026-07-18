@@ -173,21 +173,29 @@ const LPC_ARMOR = {
 //          the priciest 2. Damage per swing = ceil(enemy.maxHp / htk), so it
 //          holds regardless of the enemy's raw HP. Bosses/elites take more (see
 //          HTK_BOSS_MUL in game.js). Unarmed falls back to flat atkDmg.
+//   ovlTint/ovlTintA — v80 polish: masked colour wash applied to the ULPC
+//          overlay sheets (weapon pixels only, source-atop) so the thing in
+//          your hand matches the marketplace icon's palette. Values sampled
+//          from each icon's dominant hue this session (PIL HSV-weighted):
+//          rust brown / ember orange / dark iron / argent silver / gold /
+//          ice blue / verdant green / void violet / sunfire amber.
 const NS_WPN = '/sprites/weapons';
 const NS_WEAPON = {
-  rusty_blade:       { src:`${NS_WPN}/rusty_blade.png`,       anim:'slash',  motion:'slash',    gy:0.90, ln:30, sfx:'blade',     htk:4 },
-  emberwood_maul:    { src:`${NS_WPN}/emberwood_maul.png`,    anim:'slash',  motion:'chop',     gy:0.94, ln:32, sfx:'wood',      htk:4 },
+  rusty_blade:       { src:`${NS_WPN}/rusty_blade.png`,       anim:'slash',  motion:'slash',    gy:0.90, ln:30, sfx:'blade',     htk:4, ovlTint:'#7a4a28', ovlTintA:0.30 },
+  emberwood_maul:    { src:`${NS_WPN}/emberwood_maul.png`,    anim:'slash',  motion:'chop',     gy:0.94, ln:32, sfx:'wood',      htk:4, ovlTint:'#b4551e', ovlTintA:0.34 },
   // v79: anim shoot->thrust — the ULPC crossbow overlay sheets are drawn
   // against the 8-frame thrust body pose (braced punch-forward shot), there is
   // no crossbow art for the 13-frame bow-draw pose. Projectile timing is
   // progress-based (hitZone p, not frame index) so nothing else moves.
-  ironbolt_crossbow: { src:`${NS_WPN}/ironbolt_crossbow.png`, anim:'thrust', motion:'crossbow', gy:0.74, ln:27, sfx:'crossbow', htk:4, carry:'back' },
-  argent_waraxe:     { src:`${NS_WPN}/argent_waraxe.png`,     anim:'slash',  motion:'chop',     gy:0.93, ln:32, sfx:'axe',       htk:3 },
-  ancient_blade:     { src:`${NS_WPN}/ancient_blade.png`,     anim:'slash',  motion:'slash',    gy:0.88, ln:33, sfx:'blade',     htk:3, glow:'#ffd24a' },
-  frost_spear:       { src:`${NS_WPN}/frost_spear.png`,       anim:'thrust', motion:'thrust',   gy:0.72, ln:40, sfx:'spear',     htk:3, glow:'#bdeeff' },
-  verdant_reaper:    { src:`${NS_WPN}/verdant_reaper.png`,    anim:'slash',  motion:'reap',     gy:0.96, ln:38, sfx:'scythe',    htk:3, glow:'#57e389' },
-  void_katana:       { src:`${NS_WPN}/void_katana.png`,       anim:'slash',  motion:'iai',      gy:0.90, ln:36, sfx:'katana',    htk:2, glow:'#b46bff' },
-  sunfire_bow:       { src:`${NS_WPN}/sunfire_bow.png`,       anim:'shoot',  motion:'bow',      gy:0.50, ln:30, sfx:'bow',       htk:2, carry:'back', glow:'#ffcf3d' },
+  ironbolt_crossbow: { src:`${NS_WPN}/ironbolt_crossbow.png`, anim:'thrust', motion:'crossbow', gy:0.74, ln:27, sfx:'crossbow', htk:4, carry:'back', ovlTint:'#4a3c2e', ovlTintA:0.24 },
+  argent_waraxe:     { src:`${NS_WPN}/argent_waraxe.png`,     anim:'slash',  motion:'chop',     gy:0.93, ln:32, sfx:'axe',       htk:3, ovlTint:'#aebbd0', ovlTintA:0.22 },
+  // ancient_blade: sfx 'blade'->'ancient' (v80) — owner wants every weapon to
+  // sound distinct; rusty and ancient shared the generic steel sing before.
+  ancient_blade:     { src:`${NS_WPN}/ancient_blade.png`,     anim:'slash',  motion:'slash',    gy:0.88, ln:33, sfx:'ancient',   htk:3, glow:'#ffd24a', ovlTint:'#e0aa4f', ovlTintA:0.34 },
+  frost_spear:       { src:`${NS_WPN}/frost_spear.png`,       anim:'thrust', motion:'thrust',   gy:0.72, ln:40, sfx:'spear',     htk:3, glow:'#bdeeff', ovlTint:'#7ac8ff', ovlTintA:0.30 },
+  verdant_reaper:    { src:`${NS_WPN}/verdant_reaper.png`,    anim:'slash',  motion:'reap',     gy:0.96, ln:38, sfx:'scythe',    htk:3, glow:'#57e389', ovlTint:'#3f9c38', ovlTintA:0.34 },
+  void_katana:       { src:`${NS_WPN}/void_katana.png`,       anim:'slash',  motion:'iai',      gy:0.90, ln:36, sfx:'katana',    htk:2, glow:'#b46bff', ovlTint:'#8a2fd0', ovlTintA:0.34 },
+  sunfire_bow:       { src:`${NS_WPN}/sunfire_bow.png`,       anim:'shoot',  motion:'bow',      gy:0.50, ln:30, sfx:'bow',       htk:2, carry:'back', glow:'#ffcf3d', ovlTint:'#ffb440', ovlTintA:0.28 },
 };
 
 // ---------------------------------------------------------------------------
