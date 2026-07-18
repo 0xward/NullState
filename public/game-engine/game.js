@@ -3772,8 +3772,16 @@ function drawPreview(elId, cfg){
   // below) so the char-select thumbnail can never drift out of sync with
   // the in-dungeon LPC hero. rogue/wizzard have no LPC sheets yet, so they
   // keep using the original alpha-bbox-normalize path unchanged below.
+  // v80 (owner: "harus muncul detik pertama"): only take the LPC path once
+  // the LPC body sheet has actually decoded. Before that, fall THROUGH to
+  // the legacy pixel-crawler paint below — knight_idle is one of the 3 tiny
+  // sprites preloadHeroPreviews() fetches first, so the box shows a hero
+  // within the first second even on a slow connection — and report
+  // not-done for the knight so the retry loop upgrades the box to the LPC
+  // composite (with equipped gear) as soon as the body sheet lands.
   const A = window.NS_ASSETS;
-  if(elId==='prevKnight' && A && A.LPC_HERO){
+  const _lpcBodyReady = A && A.LPC_HERO && A.img(A.LPC_HERO.idle.src);
+  if(elId==='prevKnight' && _lpcBodyReady){
     return drawLPCPreview(elId);
   }
   const im = window.NS_ASSETS.img(cfg.idle.src);
@@ -3798,7 +3806,9 @@ function drawPreview(elId, cfg){
   g.drawImage(im, minX,minY,cW,cH, (BOX-dw)/2, BOX-dh-6, dw,dh);
   host.innerHTML=''; host.appendChild(c);
   host.style.cssText=`width:${BOX}px;height:${BOX}px;`;
-  return true;
+  // v80: the legacy sprite is only a stand-in for the knight while the LPC
+  // body sheet decodes — keep the retry loop alive so it upgrades in place.
+  return elId!=='prevKnight';
 }
 // Knight-only LPC preview path. Mirrors the old function's alpha-bbox
 // normalization (so knight/rogue/wizzard thumbnails all land at the same
@@ -3834,6 +3844,11 @@ function drawLPCPreview(elId){
   if(weaponId){
     const wDef = A.NS_WEAPON && A.NS_WEAPON[weaponId];
     if(wDef && wDef.src && !A.img(wDef.src)) gearReady = false;
+    // v80: the in-hand render now prefers the ULPC walk-carry overlay —
+    // keep retrying until it decodes so the preview shows the same held
+    // weapon the dungeon does (icon fallback would show meanwhile).
+    const ovl = A.LPC_WPN_OVL && A.LPC_WPN_OVL[weaponId];
+    if(ovl && !A.img(ovl.walkFg) && !A.img(ovl.walkBg)) gearReady = false;
   }
   if(armorId){
     const aDef = A.LPC_ARMOR && A.LPC_ARMOR[armorId];
@@ -3869,9 +3884,13 @@ function drawLPCPreview(elId){
 // spin forever. Each successful body-only pass still paints (never blank),
 // the retries just let late-decoding gear overlays pop in.
 let _previewTries = 0;
-function paintPreview(){
+function paintPreview(reset){
+  // v80: `reset` restarts the retry budget — boot() passes true so a
+  // re-mount (exit game -> open again) can never inherit an exhausted
+  // counter from the previous session and leave the box permanently blank.
+  if(reset === true) _previewTries = 0;
   const done = drawPreview('prevKnight', HERO.knight);
-  if(!done && !destroyed && _previewTries < 40){
+  if(!done && !destroyed && _previewTries < 60){
     _previewTries++;
     setTimeout(paintPreview, 250);
   }
@@ -3918,11 +3937,25 @@ function enterSavedSession(){
 }
 
 // ---- campaign / outdoor flow ----
+// v80 (owner bug report): the outdoor hero rendered with NO equipped
+// armor/weapon — Outdoor.enter() was never given the equipment ids, so the
+// character contradicted what the player had equipped before saving/leaving.
+// One source of truth, in priority order: the live in-run state (G) when a
+// session exists, else the persisted per-wallet cache — the exact same cache
+// newGame()/the char-select preview read, so all three always agree.
+function currentEquippedIds(){
+  const eq = (G && G.equipment && G.equipment.equipped)
+    ? G.equipment.equipped
+    : loadPersistedEquipment().equipped;
+  return { weaponId: eq.mainhand || null, armorId: eq.body || null };
+}
 function enterOutdoorAct(actIndex, resumeAtDoor){
   const heroCfg = HERO[selectedChar];
   resetInput(); // #7 fix — one-time clear on entry, see render()'s Outdoor branch for why this moved here
+  const _eq = currentEquippedIds();
   Outdoor.enter(actIndex, CAMPAIGN, {
     heroCfg, charKey: selectedChar, resumeAtDoor, canvasWidth: cw,
+    weaponId: _eq.weaponId, armorId: _eq.armorId,
     onReachDoor: onOutdoorReachedDoor,
   });
   if(atkBtn) atkBtn.classList.add('hidden');
@@ -3968,10 +4001,14 @@ function onActBunkerCleared(){
     // Exit" already relies on — so the shape is guaranteed compatible with
     // applyRestoredState() with zero new plumbing.
     CARRY_OVER_SNAPSHOT = getSaveSnapshot();
+    // v80: capture equipment while G is still alive (currentEquippedIds
+    // prefers the live session state), THEN tear G down.
+    const _eq = currentEquippedIds();
     G = null;
     resetInput(); // #7 fix — one-time clear on entry, see render()'s Outdoor branch for why this moved here
     Outdoor.enter(campaignActIndex, CAMPAIGN, {
       heroCfg: HERO[selectedChar], charKey: selectedChar, canvasWidth: cw,
+      weaponId: _eq.weaponId, armorId: _eq.armorId,
       resumeAtDoor: true, // skip arrival speech bubbles, this act was already greeted
       bunkerCleared: true, // door now advances to the next act instead of re-entering
       onReachDoor: onOutdoorAdvanceToNextAct,
@@ -4101,9 +4138,16 @@ async function boot(){
   // before the player even sees a hero. loadImg() caches by src, so this
   // doesn't re-fetch anything preloadAll() is already fetching.
   await preloadHeroPreviews();
-  try{ await preloadLPCHero(); }catch(e){}
   if(destroyed) return;
-  paintPreview();
+  // v80 (owner: preview "harus muncul detik pertama"): paint NOW with the
+  // tiny knight_idle stand-in — do NOT await the big preloadLPCHero()
+  // sweep (LPC body + every armor anim folder + weapon overlays, easily
+  // several seconds on mobile). It runs in the background instead; the
+  // paintPreview retry loop (and the explicit repaint below, in case the
+  // retry budget ran out on a very slow connection) upgrade the box to the
+  // full LPC composite with equipped gear the moment those sheets decode.
+  paintPreview(true);
+  preloadLPCHero().then(()=>{ if(!destroyed) paintPreview(true); }).catch(()=>{});
   rafId=requestAnimationFrame(frame);
 }
 
