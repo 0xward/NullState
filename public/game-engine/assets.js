@@ -72,6 +72,10 @@ const LPC_HERO = {
   // for all 3 tiers and its own WEAPON_bow.png — nothing needed sourcing,
   // it was already in the shipped asset tree, just not referenced yet.
   shoot:  { src:`${LPC_BASE}/bow/BODY_animation.png`,   fw:64, fh:64, frames:13, rows:4, fps:20, loop:false },
+  // v80: spellcast pose — used by the LPC caster MONSTERS (orc_shaman /
+  // skel_mage / troll_shaman play it as their attack anim). Geometry is the
+  // standard LPC 7x4 spellcast block; the hero never plays it (yet).
+  spellcast:{ src:`${LPC_BASE}/spellcast/BODY_male.png`, fw:64, fh:64, frames:7, rows:4, fps:12, loop:false },
   // on-screen scale/foot anchor — CALIBRATED this session via a Playwright
   // harness + pixel measurement (PIL bbox on actual alpha content, not just
   // frame size): old knight_idle frame0 has a 29px-tall opaque region inside
@@ -273,54 +277,23 @@ const LPC_HAND_BOB = [0, 0, -1, -1, -1, 0, 1, 1, 1];
 // diagonal so a weapon that momentarily has no back anchor still reads sane.
 const LPC_REST_ANG = [-0.62, -0.62, 0.62, 0.62];
 
-// monster sprite sheets — idle/run share geometry across all variants;
-// death frame count/width differ per-variant (see header note above).
+// monster sprite sheets.
+// v80: the whole Pixel Crawler crew (orc_*/skel_*, monsters2 vampire/reaper)
+// and the Cave Golem were RETIRED from this table — none of them had a
+// 4-direction walk, and most had no attack anim at all. Their archetypes now
+// render through the LPC monster pipeline above (lpc_monsters/ composites).
+// Their PNG files stay on disk (unreferenced) in case a future enemy wants
+// them back. Only the Giant Spider survives: its sheet already carries a
+// real row per direction plus a true attack anim.
 const MON = {
-  skel_reaper: { idle:{src:'/sprites/monsters2/skel2_idle.png',   fw:32,fh:32,frames:6},
-                 walk:{src:'/sprites/monsters2/skel2_walk.png',   fw:32,fh:32,frames:10},
-                 attack:{src:'/sprites/monsters2/skel2_attack.png', fw:32,fh:32,frames:9},
-                 death:{src:'/sprites/monsters2/skel2_death.png', fw:32,fh:32,frames:17}, scale:3.73, foot:1.0 },
-  vampire:     { idle:{src:'/sprites/monsters2/vampire_idle.png',   fw:32,fh:32,frames:6},
-                 walk:{src:'/sprites/monsters2/vampire_walk.png',   fw:32,fh:32,frames:8},
-                 attack:{src:'/sprites/monsters2/vampire_attack.png', fw:32,fh:32,frames:16},
-                 death:{src:'/sprites/monsters2/vampire_death.png', fw:32,fh:32,frames:14}, scale:3.5, foot:1.0 },
-  orc_base:    { idle:{src:'/sprites/monsters/orc_base_idle.png',   fw:32,fh:32,frames:4},
-                 walk:{src:'/sprites/monsters/orc_base_run.png',    fw:64,fh:64,frames:6},
-                 death:{src:'/sprites/monsters/orc_base_death.png', fw:64,fh:64,frames:6}, scale:1.87, foot:1.0 },
-  orc_rogue:   { idle:{src:'/sprites/monsters/orc_rogue_idle.png',  fw:32,fh:32,frames:4},
-                 walk:{src:'/sprites/monsters/orc_rogue_run.png',   fw:64,fh:64,frames:6},
-                 death:{src:'/sprites/monsters/orc_rogue_death.png',fw:64,fh:64,frames:6}, scale:1.87, foot:1.0 },
-  orc_shaman:  { idle:{src:'/sprites/monsters/orc_shaman_idle.png', fw:32,fh:32,frames:4},
-                 walk:{src:'/sprites/monsters/orc_shaman_run.png',  fw:64,fh:64,frames:6},
-                 death:{src:'/sprites/monsters/orc_shaman_death.png',fw:64,fh:64,frames:7}, scale:2.24, foot:1.0 },
-  orc_warrior: { idle:{src:'/sprites/monsters/orc_warrior_idle.png', fw:32,fh:32,frames:4},
-                 walk:{src:'/sprites/monsters/orc_warrior_run.png',  fw:64,fh:64,frames:6},
-                 death:{src:'/sprites/monsters/orc_warrior_death.png',fw:96,fh:80,frames:6}, scale:1.75, foot:1.0 },
-  skel_base:   { idle:{src:'/sprites/monsters/skel_base_idle.png',  fw:32,fh:32,frames:4},
-                 walk:{src:'/sprites/monsters/skel_base_run.png',   fw:64,fh:64,frames:6},
-                 death:{src:'/sprites/monsters/skel_base_death.png',fw:64,fh:64,frames:12}, scale:1.87, foot:1.0 },
-  skel_mage:   { idle:{src:'/sprites/monsters/skel_mage_idle.png',  fw:32,fh:32,frames:4},
-                 walk:{src:'/sprites/monsters/skel_mage_run.png',   fw:64,fh:64,frames:6},
-                 death:{src:'/sprites/monsters/skel_mage_death.png',fw:64,fh:64,frames:6}, scale:1.75, foot:1.0 },
-  skel_rogue:  { idle:{src:'/sprites/monsters/skel_rogue_idle.png', fw:32,fh:32,frames:4},
-                 walk:{src:'/sprites/monsters/skel_rogue_run.png',  fw:64,fh:64,frames:6},
-                 death:{src:'/sprites/monsters/skel_rogue_death.png',fw:64,fh:64,frames:6}, scale:1.75, foot:1.0 },
-  skel_warrior:{ idle:{src:'/sprites/monsters/skel_warrior_idle.png', fw:32,fh:32,frames:4},
-                 walk:{src:'/sprites/monsters/skel_warrior_run.png',  fw:64,fh:64,frames:6},
-                 death:{src:'/sprites/monsters/skel_warrior_death.png',fw:64,fh:48,frames:6}, scale:1.87, foot:1.0 },
-  // Phase 3b "beasts" — DIRECTIONAL monsters (LPC-format, OGA CC-BY, see
-  // monsters3/CREDITS.md). Unlike the Pixel Crawler crew above (single row,
-  // faces left, engine flips for right), these sheets have a real row PER
-  // direction (0=up 1=left 2=down 3=right) and are drawn by the directional
-  // path in entities.js (Enemy.dirMon) — NO horizontal flip. Each anim block:
+  // Phase 3b "beast" — DIRECTIONAL monster (LPC-format, OGA CC-BY, see
+  // monsters3/CREDITS.md): a real row PER direction (0=up 1=left 2=down
+  // 3=right), drawn by the directional path in entities.js (Enemy.dirMon) —
+  // NO horizontal flip. Each anim block:
   //   cols  = column stride of the sheet (frames-per-row on disk)
   //   col0  = first column of THIS animation within that row
   //   frames= how many columns this animation spans
   //   oneDir+row = animation lives on a single fixed row (death), not per-dir
-  cave_golem: { dir:true, scale:1.9, foot:0.92,
-    idle:  {src:'/sprites/monsters3/golem-walk.png', fw:64,fh:64, cols:7, col0:0, frames:1, fps:1},
-    walk:  {src:'/sprites/monsters3/golem-walk.png', fw:64,fh:64, cols:7, col0:0, frames:7, fps:8},
-    death: {src:'/sprites/monsters3/golem-die.png',  fw:64,fh:64, cols:7, col0:0, frames:7, fps:9, oneDir:true, row:0} },
   giant_spider: { dir:true, scale:1.7, foot:0.83,
     idle:  {src:'/sprites/monsters3/spider.png', fw:64,fh:64, cols:10, col0:0, frames:1, fps:1},
     walk:  {src:'/sprites/monsters3/spider.png', fw:64,fh:64, cols:10, col0:4, frames:6, fps:10},
@@ -339,34 +312,97 @@ const MON = {
 // 'mummy'/'boss' keys are gone — replaced by the Orc/Skeleton crews. Any
 // code that gated logic on `arch.key==='mummy'` (e.g. the lift's floor-clear
 // check) now keys off `isUndead` (skeleton crew) instead — see game.js.
+// ---------------------------------------------------------------------------
+// v80 — LPC monster roster (owner request: replace every monster/boss that
+// lacked an attack anim or 4-direction walk; 20+ distinct looks for variety).
+// Each monster is a pre-baked composite (ULPC body + monster head, tinted,
+// see /sprites/lpc_monsters/<id>/{walk,hurt,slash|thrust|spellcast}.png and
+// lpc_monsters/CREDITS.md) rendered through the SAME LPC pipeline as the hero
+// and Corrupted Knight — so every one of them has a real 9-frame 4-direction
+// walk, a real 4-direction attack (slash 6f / thrust 8f / spellcast 7f), and
+// a 6-frame death collapse (the LPC hurt anim). Weapons ride on top at
+// runtime via the ULPC weapon overlays (incl. glow), exactly like the hero.
+const LPC_MON_DIR = '/sprites/lpc_monsters';
+function _lpcMon(id, atk, weaponId, scale){
+  return { monBase:`${LPC_MON_DIR}/${id}`, atk:atk||'slash', weaponId:weaponId||undefined, scale:scale||1.25 };
+}
 const ARCHETYPES = [
-  { key:'orc_base',    mon:'orc_base',    name:'Orc Raider',       hp:92, dmg:9,  spd:28, xp:38, color:'#7fae5a', r:15 },
-  { key:'orc_rogue',   mon:'orc_rogue',   name:'Orc Skulker',      hp:80, dmg:11, spd:36, xp:44, color:'#6a9650', r:14 },
-  { key:'orc_warrior',  mon:'orc_warrior',  name:'Orc Warrior',      hp:126, dmg:13, spd:24, xp:52, color:'#5c8a46', r:17, isUndead:false },
-  { key:'skel_base',    mon:'skel_base',    name:'Restless Bones',   hp:76, dmg:8,  spd:29, xp:36, color:'#cbb98e', r:14, isUndead:true },
-  // Phase 3b beast — Giant Spider (directional MON, walk/attack/death). Fast,
-  // fragile; a "beast", not undead (does not gate the floor-clear lift).
+  { key:'orc_base',    name:'Orc Raider',       hp:92, dmg:9,  spd:28, xp:38, color:'#7fae5a', r:15,
+    useLPC:true, lpc:_lpcMon('orc_raider','slash','rusty_blade',1.24) },
+  { key:'orc_rogue',   name:'Orc Skulker',      hp:80, dmg:11, spd:36, xp:44, color:'#6a9650', r:14,
+    useLPC:true, lpc:_lpcMon('orc_skulker','slash',null,1.14) },
+  { key:'orc_warrior', name:'Orc Warrior',      hp:126, dmg:13, spd:24, xp:52, color:'#5c8a46', r:17, isUndead:false,
+    useLPC:true, lpc:_lpcMon('orc_warrior','slash','argent_waraxe',1.34) },
+  { key:'skel_base',   name:'Restless Bones',   hp:76, dmg:8,  spd:29, xp:36, color:'#cbb98e', r:14, isUndead:true,
+    useLPC:true, lpc:_lpcMon('skel_base','slash',null,1.22) },
+  // Phase 3b beast — Giant Spider: KEPT as-is, its sheet already has a real
+  // 4-direction walk + attack (the only old monster that met the v80 bar).
   { key:'giant_spider', mon:'giant_spider', name:'Giant Spider',     hp:88, dmg:12, spd:38, xp:52, color:'#5a3a2a', r:15, isUndead:false },
-  { key:'skel_rogue',   mon:'skel_rogue',   name:'Bone Skulker',     hp:68, dmg:10, spd:39, xp:42, color:'#b3a378', r:14, isUndead:true },
-  { key:'skel_reaper',  mon:'skel_reaper',  name:'Reaper Skeleton',  hp:100, dmg:12, spd:31, xp:50, color:'#cfd6e6', r:15, isUndead:true },
-  // Phase 3b beast — Cave Golem (directional MON, walk/death; uses the engine
-  // swing FX for its attack). Slow, very tanky bruiser; a "beast", not undead.
-  { key:'cave_golem',   mon:'cave_golem',   name:'Cave Golem',       hp:210, dmg:19, spd:20, xp:88, color:'#8a8f9a', r:18, isUndead:false },
-  { key:'vampire',      mon:'vampire',      name:'Crypt Vampire',    hp:116, dmg:14, spd:34, xp:55, color:'#8a2f4a', r:15, isUndead:true },
-  // Phase 3a — Corrupted Knight: a heavy humanoid rendered through the LPC
-  // compositing pipeline (body+plate+helm+longsword, all 4 directions + slash),
-  // NOT a flat MON spritesheet. `useLPC` + `lpc{}` tell Enemy to composite +
-  // tint it (see entities.js). Appended last so the depth-gated spawn picker
-  // (ARCHETYPES[rand*min(len,1+depth)] in game.js) only rolls it on deeper
-  // floors, where a tanky armoured knight fits. isUndead:true so it counts as a
-  // required kill for the floor-clear/lift gate, same as the skeleton crew.
+  { key:'skel_rogue',  name:'Bone Skulker',     hp:68, dmg:10, spd:39, xp:42, color:'#b3a378', r:14, isUndead:true,
+    useLPC:true, lpc:_lpcMon('skel_rogue','slash','rusty_blade',1.16) },
+  { key:'skel_reaper', name:'Reaper Skeleton',  hp:100, dmg:12, spd:31, xp:50, color:'#cfd6e6', r:15, isUndead:true,
+    useLPC:true, lpc:_lpcMon('skel_reaper','slash','verdant_reaper',1.26) },
+  // v80: the old Cave Golem sheet had no attack anim — recast as a Cave Troll
+  // (same key so depth-gating/spawn logic is untouched, stats identical).
+  { key:'cave_golem',  name:'Cave Troll',       hp:210, dmg:19, spd:20, xp:88, color:'#8a8f9a', r:18, isUndead:false,
+    useLPC:true, lpc:_lpcMon('cave_troll','slash',null,1.52) },
+  { key:'vampire',     name:'Crypt Vampire',    hp:116, dmg:14, spd:34, xp:55, color:'#8a2f4a', r:15, isUndead:true,
+    useLPC:true, lpc:_lpcMon('vampire_lord','slash',null,1.28) },
   { key:'corrupted_knight', name:'Corrupted Knight', hp:150, dmg:16, spd:27, xp:72, color:'#6a3a8a', r:16, isUndead:true,
     useLPC:true, lpc:{ armorId:'knight_corrupt', weaponId:'ancient_blade', tint:'#3a1350', tintAlpha:0.34, scale:1.34 } },
+  // ---- v80 new crews (appended; the act-sliding spawn window in game.js
+  // brings a different slice of this list into each bunker) ----
+  { key:'goblin_stalker', name:'Goblin Stalker',   hp:72, dmg:9,  spd:40, xp:40, color:'#79a352', r:13,
+    useLPC:true, lpc:_lpcMon('goblin_stalker','slash','rusty_blade',1.10) },
+  { key:'lizard_raider',  name:'Lizard Raider',    hp:98, dmg:12, spd:30, xp:48, color:'#5a9a5a', r:15,
+    useLPC:true, lpc:_lpcMon('lizard_raider','thrust','frost_spear',1.26) },
+  { key:'wolf_prowler',   name:'Wolfkin Prowler',  hp:90, dmg:12, spd:38, xp:50, color:'#7d7768', r:15,
+    useLPC:true, lpc:_lpcMon('wolf_prowler','slash',null,1.26) },
+  { key:'rat_scavenger',  name:'Rat Scavenger',    hp:64, dmg:8,  spd:41, xp:34, color:'#8a8478', r:13,
+    useLPC:true, lpc:_lpcMon('rat_scavenger','slash',null,1.10) },
+  { key:'zombie_shambler',name:'Shambling Corpse', hp:132, dmg:11, spd:18, xp:50, color:'#9aa77a', r:15, isUndead:true,
+    useLPC:true, lpc:_lpcMon('zombie_shambler','slash',null,1.26) },
+  { key:'mouse_skulker',  name:'Vermin Skulker',   hp:60, dmg:8,  spd:42, xp:32, color:'#857f72', r:12,
+    useLPC:true, lpc:_lpcMon('mouse_skulker','slash','rusty_blade',1.06) },
+  { key:'boar_charger',   name:'Boarman Charger',  hp:140, dmg:15, spd:30, xp:62, color:'#a5705c', r:17,
+    useLPC:true, lpc:_lpcMon('boar_charger','slash','emberwood_maul',1.36) },
+  { key:'alien_husk',     name:'Pale Husk',        hp:86, dmg:11, spd:31, xp:46, color:'#9aa7b0', r:14,
+    useLPC:true, lpc:_lpcMon('alien_husk','slash',null,1.22) },
+  { key:'troll_shaman',   name:'Troll Shaman',     hp:110, dmg:14, spd:26, xp:60, color:'#6f8f7a', r:16,
+    useLPC:true, lpc:_lpcMon('troll_shaman','spellcast',null,1.30) },
+  { key:'pig_butcher',    name:'Sty Butcher',      hp:150, dmg:15, spd:26, xp:64, color:'#c58a7a', r:17,
+    useLPC:true, lpc:_lpcMon('pig_butcher','slash','argent_waraxe',1.36) },
+  { key:'jack_reaper',    name:'Hollow Jack',      hp:118, dmg:14, spd:29, xp:62, color:'#e07b28', r:15, isUndead:true,
+    useLPC:true, lpc:_lpcMon('jack_reaper','slash','verdant_reaper',1.28) },
+  { key:'wartotaur',      name:'Wartotaur Guard',  hp:160, dmg:16, spd:24, xp:70, color:'#8a6f4a', r:17,
+    useLPC:true, lpc:_lpcMon('wartotaur','thrust','frost_spear',1.40) },
+  { key:'minotaur_brute', name:'Minotaur Brute',   hp:185, dmg:18, spd:23, xp:80, color:'#7d5a3a', r:18,
+    useLPC:true, lpc:_lpcMon('minotaur_brute','slash','emberwood_maul',1.46) },
+  { key:'frank_hulk',     name:'Sutured Hulk',     hp:220, dmg:19, spd:19, xp:92, color:'#7fae7a', r:18, isUndead:true,
+    useLPC:true, lpc:_lpcMon('frank_hulk','slash',null,1.50) },
 ];
-const ORC_SHAMAN_ARCH = { key:'orc_shaman', mon:'orc_shaman', name:'Orc Shaman', hp:104, dmg:14, spd:27, xp:60, color:'#4a7a3a', r:16 };
-const SKEL_MAGE_ARCH   = { key:'skel_mage',  mon:'skel_mage',  name:'Bone Caster', hp:88, dmg:15, spd:27, xp:58, color:'#8f9bb8', r:15, isUndead:true };
-const SKEL_WARRIOR_ARCH= { key:'skel_warrior', mon:'skel_warrior', name:'Bone Warrior', hp:138, dmg:14, spd:23, xp:56, color:'#9c8f6e', r:17, isUndead:true };
-const BOSS_ARCH = { key:'orc_warrior', mon:'orc_warrior', name:'THE WARLORD', hp:1100, dmg:20, spd:25, xp:600, color:'#ff3b5c', r:30, isBossScale:true };
+const ORC_SHAMAN_ARCH = { key:'orc_shaman', name:'Orc Shaman', hp:104, dmg:14, spd:27, xp:60, color:'#4a7a3a', r:16,
+  useLPC:true, lpc:_lpcMon('orc_shaman','spellcast',null,1.26) };
+const SKEL_MAGE_ARCH   = { key:'skel_mage', name:'Bone Caster', hp:88, dmg:15, spd:27, xp:58, color:'#8f9bb8', r:15, isUndead:true,
+  useLPC:true, lpc:_lpcMon('skel_mage','spellcast',null,1.26) };
+const SKEL_WARRIOR_ARCH= { key:'skel_warrior', name:'Bone Warrior', hp:138, dmg:14, spd:23, xp:56, color:'#9c8f6e', r:17, isUndead:true,
+  useLPC:true, lpc:_lpcMon('skel_warrior','slash','emberwood_maul',1.34) };
+const BOSS_ARCH = { key:'orc_warrior', name:'THE WARLORD', hp:1100, dmg:20, spd:25, xp:600, color:'#ff3b5c', r:30, isBossScale:true,
+  useLPC:true, lpc:_lpcMon('warlord','slash','argent_waraxe',1.6) };
+// v80: one distinct boss look per campaign act (all with real attack anims).
+// game.js picks ACT_BOSSES[campaignActIndex % length], falling back to
+// BOSS_ARCH. Stats mirror THE WARLORD so act difficulty tuning is unchanged.
+const ACT_BOSSES = [
+  BOSS_ARCH,
+  { key:'orc_warrior', name:'GRAVE MONARCH',  hp:1100, dmg:20, spd:25, xp:600, color:'#8a2f4a', r:30, isBossScale:true,
+    useLPC:true, lpc:_lpcMon('vampire_lord','slash','void_katana',1.6) },
+  { key:'orc_warrior', name:'THE SUTURED ONE',hp:1100, dmg:20, spd:25, xp:600, color:'#7fae7a', r:30, isBossScale:true,
+    useLPC:true, lpc:_lpcMon('frank_hulk','slash',null,1.7) },
+  { key:'orc_warrior', name:'HORNED TYRANT',  hp:1100, dmg:20, spd:25, xp:600, color:'#8a6f4a', r:30, isBossScale:true,
+    useLPC:true, lpc:_lpcMon('wartotaur','thrust','frost_spear',1.65) },
+  { key:'orc_warrior', name:'THE PUMPKIN KING',hp:1100, dmg:20, spd:25, xp:600, color:'#e07b28', r:30, isBossScale:true,
+    useLPC:true, lpc:_lpcMon('jack_reaper','slash','verdant_reaper',1.65) },
+];
 
 const backgrounds = ['/backgrounds/forest.webp','/backgrounds/desert.webp',
   '/backgrounds/snow.webp','/backgrounds/field.webp','/backgrounds/back.webp'];
@@ -447,8 +483,19 @@ async function preloadAll(){
     Object.values(NS_WEAPON).forEach(w=>srcs.add(w.src));
     Object.values(LPC_WPN_OVL).forEach(o=>{srcs.add(o.atkFg);srcs.add(o.atkBg);srcs.add(o.walkFg);srcs.add(o.walkBg);});
   }
-  [ORC_SHAMAN_ARCH, SKEL_MAGE_ARCH, SKEL_WARRIOR_ARCH].forEach(a=>{
-    const m=MON[a.mon]; ['idle','walk','death'].forEach(k=>m[k]&&srcs.add(m[k].src));
+  // v80: LPC monster sheets — every archetype (incl. elites and the per-act
+  // bosses) that renders through the LPC monster pipeline preloads its walk,
+  // hurt (death collapse) and attack sheets, so an enemy can never pop in as
+  // the fallback silhouette on first aggro.
+  [...ARCHETYPES, ORC_SHAMAN_ARCH, SKEL_MAGE_ARCH, SKEL_WARRIOR_ARCH, BOSS_ARCH, ...ACT_BOSSES].forEach(a=>{
+    const m=a.mon && MON[a.mon];
+    if(m) ['idle','walk','attack','death'].forEach(k=>m[k]&&srcs.add(m[k].src));
+    const L=a.lpc;
+    if(L && L.monBase){
+      srcs.add(`${L.monBase}/walk.png`);
+      srcs.add(`${L.monBase}/hurt.png`);
+      srcs.add(`${L.monBase}/${L.atk||'slash'}.png`);
+    }
   });
   backgrounds.forEach(b=>srcs.add(b));
   srcs.add(GOLDEN_KEY_SRC);
@@ -503,7 +550,7 @@ const DUNGEON_THEMES = {
   },
 };
 
-window.NS_ASSETS={HERO,MON,ARCHETYPES,BOSS_ARCH,ORC_SHAMAN_ARCH,SKEL_MAGE_ARCH,SKEL_WARRIOR_ARCH,
+window.NS_ASSETS={HERO,MON,ARCHETYPES,BOSS_ARCH,ACT_BOSSES,ORC_SHAMAN_ARCH,SKEL_MAGE_ARCH,SKEL_WARRIOR_ARCH,
   DUNGEON_THEMES,
   LPC_DIRS,LPC_BASE,LPC_HERO,LPC_ARMOR,NS_WEAPON,LPC_WPN_OVL,LPC_HAND,LPC_BACK,LPC_HAND_BOB,LPC_REST_ANG,preloadLPCHero,
   DECOR_SPRITES,GOLDEN_KEY_SRC,backgrounds,BG_BY_KEY,loadImg,img,preloadAll,preloadHeroPreviews};

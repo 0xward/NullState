@@ -36,6 +36,28 @@ const DECOR_TYPES = {
   safe:     { hp:2, w:40, h:44, label:'Rusted Strongbox', loot:[['relic',1,18],['item',3,32],['xp',55,18],['hp',26,12]], interactive:true, containerMaterial:'iron' },
   table_w:  { hp:1, w:36, h:30, label:'Wooden Table',     loot:[['xp',14,45],['hp',8,25],['none',0,30]] },
   bench:    { hp:2, w:52, h:26, label:'Waiting Bench',    loot:[['xp',16,45],['hp',8,25],['none',0,30]], northOnly:true },
+  // ---- v80 LPC sprite props (18 new PNGs in /sprites/decor2, cut from the
+  // Liberated Pixel Cup contest tilesets — Sharm, Janna, Skyler R. Collady,
+  // Lanea Zimmerman et al., CC-BY-SA 3.0 / GPL 3.0, see decor2/CREDITS.md).
+  // Owner request: maps felt empty — more breakable & lootable dressing.
+  // ---- breakables ----
+  oak_barrel:   { hp:2, w:30, h:40, label:'Oak Barrel',      loot:[['xp',16,42],['hp',10,34],['item',1,8],['none',0,16]] },
+  barrel_stack: { hp:3, w:46, h:56, label:'Barrel Stack',    loot:[['xp',26,42],['hp',14,30],['item',1,14],['none',0,14]] },
+  bucket:       { hp:1, w:22, h:24, label:'Wooden Pail',     loot:[['hp',6,50],['xp',8,26],['none',0,24]] },
+  bucket_water: { hp:1, w:22, h:24, label:'Water Pail',      loot:[['hp',12,62],['xp',6,18],['none',0,20]] },
+  boulder:      { hp:2, w:32, h:30, label:'Fallen Boulder',  loot:[['xp',14,45],['hp',6,20],['relic',1,4],['none',0,31]] },
+  hay_pile:     { hp:1, w:44, h:50, label:'Straw Bedding',   loot:[['hp',8,44],['xp',10,28],['item',1,8],['none',0,20]] },
+  chalice:      { hp:1, w:26, h:40, label:'Ritual Chalice',  loot:[['relic',1,16],['xp',24,38],['hp',10,22],['none',0,24]] },
+  basin:        { hp:1, w:30, h:26, label:'Wash Basin',      loot:[['hp',10,52],['xp',10,24],['none',0,24]] },
+  plaque_sword: { hp:1, w:24, h:26, label:'Armory Plaque',   loot:[['xp',20,52],['item',1,16],['none',0,32]], northOnly:true },
+  plaque_coin:  { hp:1, w:24, h:26, label:'Treasury Plaque', loot:[['xp',22,40],['relic',1,10],['item',1,16],['none',0,34]], northOnly:true },
+  skull_heap:   { hp:1, w:32, h:16, label:'Skull Heap',      loot:[['xp',12,44],['relic',1,7],['hp',6,20],['none',0,29]] },
+  cot:          { hp:2, w:26, h:56, label:'Rotten Cot',      loot:[['hp',12,36],['xp',14,30],['item',1,12],['none',0,22]], northOnly:true },
+  // ---- interactive containers (opened via OPEN button, like cabinet_s) ----
+  footlocker:     { hp:2, w:34, h:30, label:'Iron Footlocker', loot:[['item',2,32],['xp',30,26],['hp',16,20],['relic',1,10]], interactive:true, containerMaterial:'iron' },
+  shelf_stocked:  { hp:2, w:52, h:52, label:'Stocked Shelf',   loot:[['item',1,34],['hp',14,26],['xp',22,26],['relic',1,6]], interactive:true, containerMaterial:'wood', northOnly:true },
+  dresser:        { hp:2, w:48, h:40, label:'Old Dresser',     loot:[['item',1,30],['xp',20,28],['hp',12,26],['relic',1,6]], interactive:true, containerMaterial:'wood', northOnly:true },
+  cabinet_ornate: { hp:2, w:46, h:52, label:'Ornate Cabinet',  loot:[['item',2,30],['xp',26,26],['hp',14,22],['relic',1,10]], interactive:true, containerMaterial:'wood', northOnly:true },
   // ---- Bunker 5 "THE LAST LIGHT" weekly Vault door (Phase 5.5 #9C/#10) ----
   // Not a loot container — loot:[] means open() always yields zero slots.
   // isVaultDoor flags it for game.js's onOpenButtonTap()/updateActionButton()
@@ -66,8 +88,33 @@ const DECOR_SPRITE_SETS = {
   safe:    { n:'safe_n',    e:'safe_e',    s:'safe_s',    w:'safe_w' },
   table_w: { n:'table_n',   e:'table_e',   s:'table_s',   w:'table_w' },
   bench:   { n:'bench_n' },
+  // v80 LPC props — single front view each (the draw path falls back to `n`
+  // for any missing direction, and the cylindrical ones read fine from every
+  // wall; boxy front-view-only types carry northOnly in DECOR_TYPES so the
+  // spawner keeps them on the top wall). footlocker/shelf get a real
+  // opened/looted state image via `broken`, same mechanism as the cabinet.
+  oak_barrel:     { n:'oak_barrel' },
+  barrel_stack:   { n:'barrel_stack' },
+  bucket:         { n:'bucket' },
+  bucket_water:   { n:'bucket_water' },
+  boulder:        { n:'boulder' },
+  hay_pile:       { n:'hay_pile' },
+  chalice:        { n:'chalice' },
+  basin:          { n:'basin' },
+  plaque_sword:   { n:'plaque_sword' },
+  plaque_coin:    { n:'plaque_coin' },
+  skull_heap:     { n:'skull_heap' },
+  cot:            { n:'cot' },
+  footlocker:     { n:'footlocker', broken:'footlocker_open' },
+  shelf_stocked:  { n:'shelf_stocked', broken:'shelf_empty' },
+  dresser:        { n:'dresser' },
+  cabinet_ornate: { n:'cabinet_ornate' },
 };
-const DECOR_TYPE_TO_SET = { cabinet_s:'cabinet', wardrobe:'cabinet', safe:'safe', table_w:'table_w', bench:'bench' };
+const DECOR_TYPE_TO_SET = { cabinet_s:'cabinet', wardrobe:'cabinet', safe:'safe', table_w:'table_w', bench:'bench',
+  oak_barrel:'oak_barrel', barrel_stack:'barrel_stack', bucket:'bucket', bucket_water:'bucket_water',
+  boulder:'boulder', hay_pile:'hay_pile', chalice:'chalice', basin:'basin',
+  plaque_sword:'plaque_sword', plaque_coin:'plaque_coin', skull_heap:'skull_heap', cot:'cot',
+  footlocker:'footlocker', shelf_stocked:'shelf_stocked', dresser:'dresser', cabinet_ornate:'cabinet_ornate' };
 const _decorImgs = {};
 function _decorImg(name){
   if(!name) return null;
