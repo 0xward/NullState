@@ -28,8 +28,17 @@ window.NS_OUTDOOR = (function(){
 
   function enter(actIndex, campaign, opts){
     const act = campaign[actIndex];
+    // Phase 7: thread a quiet weapon-evolution bark into this act's arrival
+    // beat — only on a FRESH arrival (skipped on a post-bunker resume, where
+    // arrival doesn't play), and only once per newly-reached tier (game.js's
+    // NS_takeEvolveBark tracks acknowledgement + returns [] when nothing new).
+    let _evoBark = [];
+    if(!opts.resumeAtDoor){
+      try{ _evoBark = (window.NS_takeEvolveBark && window.NS_takeEvolveBark(actIndex)) || []; }catch(e){ _evoBark = []; }
+    }
+    const arrivalLines = (act.arrival || []).concat(_evoBark);
     state = {
-      act, actIndex, campaign,
+      act, actIndex, campaign, arrivalLines,
       heroCfg: opts.heroCfg, charKey: opts.charKey,
       // x is a SCREEN-space position (0..cw), not world-space — there is
       // no camera to scroll, the screen width IS the walkable strip.
@@ -98,7 +107,7 @@ window.NS_OUTDOOR = (function(){
   }
 
   function showNextArrival(){
-    const lines = state.act.arrival;
+    const lines = state.arrivalLines || state.act.arrival;
     if(state.arrivalIdx >= lines.length){
       state.phase = 'free';
       state.bubble = null;

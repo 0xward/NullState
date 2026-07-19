@@ -21,6 +21,14 @@
                  This is where the layered mystery escalates
                  (corrupted villagers, the Old Warden, the
                  infection) — each act peels back a little more.
+     onWeaponEvolve — (Phase 7) 1-2 arrival-style speech-bubble
+                 lines, appended to this act's arrival beat the first
+                 time the player enters an act carrying a weapon that
+                 has reached a NEW evolution tier. Reframes evolved
+                 weapons as partial "decryption tools" that thread the
+                 EXISTING Golden Key / corruption arc — NOT a separate
+                 mythology. Fired via window.NS_takeEvolveBark (game.js),
+                 which marks each tier acknowledged so a line shows once.
 
    The overall arc (Act I, 5 bunkers):
      1. Surface story: monsters took the villagers, hero is the
@@ -58,6 +66,10 @@ const CAMPAIGN = [
       "And the things I fought... one of them was wearing my neighbor's scarf.",
       "I told myself it didn't mean anything.",
     ],
+    onWeaponEvolve: [
+      "The blade's humming now — the same note as the key in my pack.",
+      "Like it's learning to read something I'm not meant to.",
+    ],
   },
 
   // ── Act 2 — Sunken Field ────────────────────────────────────
@@ -82,6 +94,10 @@ const CAMPAIGN = [
       "\"Subjects do not become monsters. Subjects are overwritten by what already lived in the chain. We only gave it a door.\"",
       "I don't know who wrote that. I don't know if I want to.",
     ],
+    onWeaponEvolve: [
+      "Sharper — and not just the edge.",
+      "It's started reading what the NULL_STATE overwrites into things. One line at a time.",
+    ],
   },
 
   // ── Act 3 — Frostline ───────────────────────────────────────
@@ -104,6 +120,10 @@ const CAMPAIGN = [
       "Third key. It's warmer than the other two combined, like it's the closest to finishing something.",
       "Down in the frost chamber, the walls weren't stone under the ice. They were screens — dead ones, but screens. Old machines that this whole bunker was built around, not in.",
       "Whatever NULL_STATE actually is, it didn't choose these places. We built the doors for it a long time ago. We just forgot we did.",
+    ],
+    onWeaponEvolve: [
+      "The keys are fragments of a lock. This is starting to feel like the other half —",
+      "a tool for reading what they were built to seal.",
     ],
   },
 
@@ -129,6 +149,10 @@ const CAMPAIGN = [
       "The voice didn't come back down there. But something did watch me. I felt it the way you feel a held breath in a quiet room.",
       "Whoever — whatever — is trying to keep this sealed, they're not the enemy I came here for. But I don't think they're on my side either.",
       "One more bunker. One more key, maybe. And then I find out what door four fragments actually opens.",
+    ],
+    onWeaponEvolve: [
+      "The voice told me to stop collecting fragments.",
+      "It said nothing about forging one of my own. Good.",
     ],
   },
 
@@ -156,6 +180,10 @@ const CAMPAIGN = [
       "Something is still down at the very bottom of this place, behind a door my keys don't open. Not yet.",
       "I keep flexing my hand, watching for the moment it stops feeling like mine.",
       "End of what I know. Whatever's next, I'm not walking into it blind again.",
+    ],
+    onWeaponEvolve: [
+      "It answers before I swing now — like it already knows the shape of this place.",
+      "My hand and the blade, agreeing on something I never said out loud.",
     ],
   },
 ];
