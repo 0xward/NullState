@@ -98,20 +98,19 @@
   // higher-value containers (chest/statue/tablet = tier 3, crate/cabinet = 1-2).
   function rollItemDrop(tier){
     tier = Math.max(1, Math.min(3, tier|0 || 1));
-    // Bias: at higher tier, re-roll once and keep the better rarity.
-    var id1 = 1 + Math.floor(Math.random() * ITEM_COUNT);
-    var item1 = getItem(id1);
-    if (tier === 1) return item1;
-
-    var id2 = 1 + Math.floor(Math.random() * ITEM_COUNT);
-    var item2 = getItem(id2);
+    // Bias: at higher tier, re-roll and keep the better rarity (tier N =
+    // N total rolls). Phase 3 (blueprint §2.6): while a Drop-Rate Elixir is
+    // active — game.js mirrors the wallet's server-side `activeUntil` into
+    // window.NS_DROPBUFF_UNTIL — every roll gets ONE extra keep-the-better
+    // reroll, which is exactly "tier feels one step higher" for 30 minutes
+    // without ever exceeding the legendary ceiling or touching drop COUNTS.
+    var rolls = tier;
+    if (Date.now() < (window.NS_DROPBUFF_UNTIL || 0)) rolls += 1;
     var rank = function(it){ return RARITY_ORDER.indexOf(it.rarity); };
-    var best = rank(item2) > rank(item1) ? item2 : item1;
-
-    if (tier === 3){
-      var id3 = 1 + Math.floor(Math.random() * ITEM_COUNT);
-      var item3 = getItem(id3);
-      if (rank(item3) > rank(best)) best = item3;
+    var best = null;
+    for (var i = 0; i < rolls; i++){
+      var it = getItem(1 + Math.floor(Math.random() * ITEM_COUNT));
+      if (!best || rank(it) > rank(best)) best = it;
     }
     return best;
   }

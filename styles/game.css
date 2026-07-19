@@ -53,9 +53,10 @@
    changes across breakpoints (it goes from a single row on desktop to a
    taller stacked column in portrait) — a fixed top:56px cleared the EXIT
    button but sat directly on top of the HP/XP/LV row on narrower screens. */
-.ns-game-root .ns-token-widget{top:68px;left:12px;}
+/* v81: position now lives inline in TokenBalanceWidget.tsx (compact "POINT"
+   chip under the EXIT button) — these rules only kept the old wide box in
+   place and are intentionally no longer needed. */
 @media (orientation:portrait){
-  .ns-game-root .ns-token-widget{top:112px;}
 }
 
 /* ---------- HUD ---------- */
@@ -1015,3 +1016,27 @@
 .ns-game-root .inv-materials .mat-v b{color:#3a2a52;}
 .ns-game-root .inv-materials .mat-v i{color:#8a4dcf;font-style:normal;font-size:10px;}
 .ns-game-root .inv-materials .mat-note{margin-left:auto;font-size:9px;color:#9a8ab0;letter-spacing:1px;}
+
+/* Phase 3 — Drop-Rate Elixir trigger, third button in the right-hand
+   control cluster (under inventory + settings). Violet pixel skin to match
+   the shard/buff color family. Badge shows owned count or live countdown. */
+.ns-game-root .ns-elixir-trigger{position:absolute;top:304px;right:12px;z-index:7;pointer-events:auto;
+  width:44px;height:44px;border-radius:0;cursor:pointer;border:0;
+  background:linear-gradient(180deg,#7a4db0 0%,#5c3690 55%,#412066 100%);color:#f0e4ff;
+  display:flex;align-items:center;justify-content:center;
+  clip-path:polygon(0 5px,5px 0,calc(100% - 5px) 0,100% 5px,100% calc(100% - 5px),calc(100% - 5px) 100%,5px 100%,0 calc(100% - 5px));
+  box-shadow:inset 0 0 0 2px #2e1848, inset 0 3px 0 2px rgba(240,228,255,.18), inset 0 -4px 0 2px rgba(0,0,0,.4);
+  transition:.15s;}
+.ns-game-root .ns-elixir-trigger:hover{background:linear-gradient(180deg,#8c5fc4 0%,#6b44a0 55%,#4c2a76 100%);color:#fff;
+  box-shadow:inset 0 0 0 2px #b46bff, inset 0 3px 0 2px rgba(240,228,255,.22), inset 0 -4px 0 2px rgba(0,0,0,.4);}
+.ns-game-root .ns-elixir-trigger:active{transform:translateY(1px);
+  box-shadow:inset 0 0 0 2px #2e1848, inset 0 4px 0 2px rgba(0,0,0,.35);}
+.ns-game-root .ns-elixir-badge{position:absolute;top:-5px;right:-5px;min-width:16px;height:16px;
+  padding:0 3px;display:flex;align-items:center;justify-content:center;
+  font-family:var(--font-mono),monospace;font-size:9px;font-weight:700;line-height:1;
+  color:#1a0f2a;background:#ffd166;border:1px solid #2e1848;border-radius:8px;}
+.ns-game-root .ns-elixir-badge-timer{background:#b46bff;color:#fff;min-width:30px;border-radius:6px;
+  box-shadow:0 0 8px rgba(180,107,255,.6);}
+@media (orientation:portrait){
+  .ns-game-root .ns-elixir-trigger{top:274px;}
+}

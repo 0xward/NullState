@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { attachLiveStatsBridge } from '@/lib/liveStatsBridge'
 import { useRouter } from 'next/navigation'
 import { usePublicClient } from 'wagmi'
@@ -130,11 +130,31 @@ export default function DungeonGame({ playerProfile, setPlayerUsername, isNewRun
   // Phase 2: banked Glitch Shard cache (ref, not state — read by the engine
   // via the materials bridge on its own repaint schedule, never re-renders React).
   const materialsRef = useRef<{ t1: number; t2: number; t3: number } | null>(null)
+  // Phase 3 (blueprint §2.6): Drop-Rate Elixir. owned = unused elixirs,
+  // activeUntil = ms epoch the 2x-drop buff expires. window.NS_DROPBUFF_UNTIL
+  // (read by items.js rollItemDrop) is mirrored from activeUntil.
+  const [elixir, setElixir] = useState<{ owned: number; activeUntil: number }>({ owned: 0, activeUntil: 0 })
+  const [elixirModal, setElixirModal] = useState(false)
+  const [elixirBusy, setElixirBusy] = useState(false)
+  const [elixirMsg, setElixirMsg] = useState<string | null>(null)
+  const [uiNow, setUiNow] = useState(Date.now())
   useEffect(() => {
     if (!energyModal) return
     const t = setInterval(() => setEnergyNow(Date.now()), 1000)
     return () => clearInterval(t)
   }, [energyModal])
+  // 1Hz tick while an elixir buff is active or its modal is open (for the
+  // countdown), otherwise idle.
+  const elixirActive = elixir.activeUntil > uiNow
+  useEffect(() => {
+    if (!elixirActive && !elixirModal) return
+    const t = setInterval(() => setUiNow(Date.now()), 1000)
+    return () => clearInterval(t)
+  }, [elixirActive, elixirModal])
+  // Mirror the buff expiry into the engine global rollItemDrop() reads.
+  useEffect(() => {
+    ;(window as unknown as { NS_DROPBUFF_UNTIL?: number }).NS_DROPBUFF_UNTIL = elixir.activeUntil
+  }, [elixir.activeUntil])
 
   const isDevWallet =
     !!wallet.address &&
@@ -169,6 +189,73 @@ export default function DungeonGame({ playerProfile, setPlayerUsername, isNewRun
       setEnergyMsg(e instanceof Error ? e.message : 'Refill failed')
     } finally {
       setEnergyBusy(false)
+    }
+  }
+
+  // Phase 3: refresh elixir state from the server (owned + active buff).
+  const refreshElixir = useCallback(async () => {
+    const addr = walletRef.current.address
+    if (!addr) return
+    try {
+      const r = await fetch(`/api/elixir?wallet=${addr}`)
+      const d = await r.json()
+      if (r.ok && typeof d?.owned === 'number') {
+        setElixir({ owned: d.owned, activeUntil: d.activeUntil || 0 })
+      }
+    } catch { /* offline — keep last known */ }
+  }, [])
+
+  const handleElixirBuy = async () => {
+    if (elixirBusy) return
+    const addr = walletRef.current.address
+    if (!addr) return
+    setElixirBusy(true)
+    setElixirMsg(isDevWallet ? 'DEV: requesting free elixir…' : 'Sending $1…')
+    try {
+      let txHash = ''
+      if (!isDevWallet) {
+        txHash = await walletRef.current.buyMarketplaceItem(1, 'USDm')
+        setElixirMsg('Payment sent — verifying on-chain…')
+      }
+      const res = await fetch('/api/elixir/buy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(
+          isDevWallet ? { wallet: addr, devBypass: true } : { wallet: addr, txHash, token: 'USDm' },
+        ),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Purchase failed')
+      setElixir({ owned: data.owned ?? 0, activeUntil: data.activeUntil ?? 0 })
+      setElixirMsg('✓ Elixir added — drink it to start the 2× drop buff.')
+    } catch (e: unknown) {
+      setElixirMsg(e instanceof Error ? e.message : 'Purchase failed')
+    } finally {
+      setElixirBusy(false)
+    }
+  }
+
+  const handleElixirUse = async () => {
+    if (elixirBusy) return
+    const addr = walletRef.current.address
+    if (!addr) return
+    setElixirBusy(true)
+    setElixirMsg('Drinking…')
+    try {
+      const res = await fetch('/api/elixir/use', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ wallet: addr }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Use failed')
+      if (!data.ok) { setElixirMsg('No elixirs to drink — buy one first.'); return }
+      setElixir({ owned: data.owned ?? 0, activeUntil: data.activeUntil ?? 0 })
+      setElixirMsg('✦ Loot sharpens. 2× drop chance is active.')
+    } catch (e: unknown) {
+      setElixirMsg(e instanceof Error ? e.message : 'Use failed')
+    } finally {
+      setElixirBusy(false)
     }
   }
 
@@ -507,6 +594,7 @@ export default function DungeonGame({ playerProfile, setPlayerUsername, isNewRun
                 }
               })
               .catch(() => { /* display-only cache — offline is fine */ })
+            refreshElixir() // Phase 3: seed elixir state + mirror the buff global
           }
         }
         NSG.setWalletAddress?.(walletRef.current.address ?? null)
@@ -633,9 +721,9 @@ export default function DungeonGame({ playerProfile, setPlayerUsername, isNewRun
               <div className="stat"><span className="stat-k">LV</span><span id="lvl" className="stat-v">1</span></div>
               <div className="stat"><span className="stat-k">FLOOR</span><span id="floor" className="stat-v">1</span></div>
               <div className="stat"><span className="stat-k">KILLS</span><span id="kills" className="stat-v">0</span></div>
-              {/* Phase 1: live run timer — updated at 1Hz from game.js's
-                  update loop while a RunSession is in progress. */}
-              <div className="stat"><span className="stat-k">TIME</span><span id="runTime" className="stat-v">0:00</span></div>
+              {/* Phase 1 run timer moved INTO the minimap's status plate
+                  (v81 owner fix: the TIME stat here overlapped the minimap
+                  panel on portrait screens). See drawMinimap() in game.js. */}
             </div>
           </div>
 
@@ -679,6 +767,34 @@ export default function DungeonGame({ playerProfile, setPlayerUsername, isNewRun
                 stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"
               />
             </svg>
+          </button>
+          {/* Phase 3 — Drop-Rate Elixir button. Sits under the settings gear
+              in the same right-hand control cluster. Shows a live countdown
+              badge while the 2× buff is active, or an owned-count badge when
+              elixirs are stocked but not yet drunk. */}
+          <button
+            type="button"
+            className="ns-elixir-trigger"
+            aria-label="Drop-Rate Elixir"
+            onClick={() => { setElixirModal(true); setElixirMsg(null); refreshElixir() }}
+          >
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M10 3h4M10 3v4.5L6.2 15a3 3 0 0 0 2.7 4.3h6.2a3 3 0 0 0 2.7-4.3L14 7.5V3"
+                stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round"/>
+              <path d="M7.4 13h9.2" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+            </svg>
+            {elixirActive ? (
+              <span className="ns-elixir-badge ns-elixir-badge-timer">
+                {(() => {
+                  const ms = Math.max(0, elixir.activeUntil - uiNow)
+                  const m = Math.floor(ms / 60000)
+                  const s = Math.floor((ms % 60000) / 1000)
+                  return `${m}:${String(s).padStart(2, '0')}`
+                })()}
+              </span>
+            ) : elixir.owned > 0 ? (
+              <span className="ns-elixir-badge">{elixir.owned}</span>
+            ) : null}
           </button>
           {/* Inventory — a centered modal (like #containerWindow/#itemZoom)
               rather than a small corner panel, so it never sits under the
@@ -765,6 +881,67 @@ export default function DungeonGame({ playerProfile, setPlayerUsername, isNewRun
                 onClick={() => { setEnergyModal(null); setEnergyMsg(null) }}
               >
                 ▾ wait for free energy
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Phase 3 — DROP-RATE ELIXIR modal. Drink an owned elixir to start
+            the 30-min 2× drop buff, or buy one for $1. The free path (playing
+            without the buff) is inherent — this only sweetens loot, never
+            gates it — so no "wait" CTA is needed here. */}
+        {elixirModal && (
+          <div className="overlay" style={{ zIndex: 40 }}>
+            <div className="lift-inner" style={{ textAlign: 'center' }}>
+              <div className="logo" style={{ fontSize: '20px' }}>DROP-RATE ELIXIR</div>
+              <div className="subtitle">// SHARPEN THE LOOT</div>
+              {elixirActive ? (
+                <p style={{ fontSize: 13, color: '#b46bff', margin: '14px 0 4px' }}>
+                  ✦ Buff active —{' '}
+                  <b>
+                    {(() => {
+                      const ms = Math.max(0, elixir.activeUntil - uiNow)
+                      const m = Math.floor(ms / 60000)
+                      const s = Math.floor((ms % 60000) / 1000)
+                      return `${m}:${String(s).padStart(2, '0')}`
+                    })()}
+                  </b>{' '}
+                  left
+                </p>
+              ) : (
+                <p style={{ fontSize: 13, lineHeight: 1.6, color: '#cfeede', margin: '14px 0 4px' }}>
+                  Doubles your chance at rarer loot for {GAME_CONFIG.elixir.durationMin} minutes.
+                </p>
+              )}
+              <p style={{ fontSize: 12, color: '#9db4c4', margin: '0 0 12px' }}>
+                In stock: <b style={{ color: '#eafff5' }}>{elixir.owned}</b>
+              </p>
+              {elixirMsg && (
+                <p style={{ fontSize: 12, color: '#9df5cf', margin: '0 0 10px' }}>{elixirMsg}</p>
+              )}
+              <button
+                className="big-btn"
+                style={{ width: '100%' }}
+                disabled={elixirBusy || elixir.owned < 1}
+                onClick={handleElixirUse}
+              >
+                ✦ DRINK ELIXIR{elixir.owned > 0 ? ` (${elixir.owned})` : ''}
+              </button>
+              <button
+                className="big-btn"
+                style={{ width: '100%', marginTop: 10 }}
+                disabled={elixirBusy}
+                onClick={handleElixirBuy}
+              >
+                ⚗ BUY ELIXIR — ${GAME_CONFIG.elixir.priceUSD}
+              </button>
+              <button
+                className="ghost-btn"
+                style={{ marginTop: 10 }}
+                disabled={elixirBusy}
+                onClick={() => { setElixirModal(false); setElixirMsg(null) }}
+              >
+                ▾ close
               </button>
             </div>
           </div>

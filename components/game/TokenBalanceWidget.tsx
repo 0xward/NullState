@@ -48,28 +48,32 @@ export default function TokenBalanceWidget({ walletAddress, hidden }: TokenBalan
   if (!address || !balance || hidden) return null
 
   return (
+    // v81 (owner): the old wide "NULLSTATE POINT" box blocked too much of the
+    // playfield. Now a compact one-line "POINT <n>" chip pinned just under
+    // the EXIT button (top-left), inline-positioned so no stylesheet cascade
+    // can push it back into the middle of the screen.
     <div
       className="ns-token-widget"
       style={{
         position: 'fixed',
+        top: 56,
+        left: 12,
         zIndex: 30,
         pointerEvents: 'none',
         display: 'flex',
         alignItems: 'center',
-        gap: 10,
-        padding: '8px 12px',
-        borderRadius: 10,
+        gap: 6,
+        padding: '4px 8px',
+        borderRadius: 6,
         border: '1px solid rgba(0,255,136,0.25)',
-        background: 'rgba(6,10,13,0.88)',
-        boxShadow: '0 8px 24px rgba(0,0,0,0.45)',
-        fontFamily: "var(--font-mono), monospace",
-        maxWidth: 220,
+        background: 'rgba(6,10,13,0.82)',
+        fontFamily: 'var(--font-mono), monospace',
+        fontSize: 10,
+        lineHeight: 1.2,
       }}
     >
-      <div style={{ fontSize: 10, lineHeight: 1.4 }}>
-        <div style={{ color: '#00ff88', letterSpacing: 1 }}>NULLSTATE POINT</div>
-        <div style={{ color: '#eafff5', fontSize: 11 }}>{Math.round(balance)}</div>
-      </div>
+      <span style={{ color: '#00ff88', letterSpacing: 1 }}>POINT</span>
+      <span style={{ color: '#eafff5', fontSize: 11 }}>{Math.round(balance)}</span>
     </div>
   )
 }
