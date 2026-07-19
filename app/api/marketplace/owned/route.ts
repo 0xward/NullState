@@ -5,7 +5,8 @@ import { getAdminDb } from '@/firebase-config'
 // GET /api/marketplace/owned?wallet=0x...
 // Returns the list of marketplace equipment ids the wallet owns (offchain),
 // plus which of those (if any) is currently equipped in each slot.
-// Response: { owned: string[], equipped: { mainhand: string|null, body: string|null } }
+// Response: { owned: string[], equipped: { mainhand: string|null, body: string|null, outfit: string|null } }
+// `outfit` (Phase 9) is the cosmetic-skin slot — purely visual, no stats.
 export async function GET(req: NextRequest) {
   try {
     const wallet = req.nextUrl.searchParams.get('wallet') || ''
@@ -16,7 +17,7 @@ export async function GET(req: NextRequest) {
     try { normalized = getAddress(wallet).toLowerCase() } catch { /* keep lowercased */ }
 
     const db = getAdminDb()
-    if (!db) return NextResponse.json({ owned: [], equipped: { mainhand: null, body: null } })
+    if (!db) return NextResponse.json({ owned: [], equipped: { mainhand: null, body: null, outfit: null } })
 
     const [ownedSnap, equippedSnap] = await Promise.all([
       db.ref(`marketplaceOwned/${normalized}`).get(),
@@ -29,9 +30,10 @@ export async function GET(req: NextRequest) {
     const equipped = {
       mainhand: equippedVal.mainhand && owned.includes(equippedVal.mainhand) ? equippedVal.mainhand : null,
       body: equippedVal.body && owned.includes(equippedVal.body) ? equippedVal.body : null,
+      outfit: equippedVal.outfit && owned.includes(equippedVal.outfit) ? equippedVal.outfit : null, // Phase 9
     }
     return NextResponse.json({ owned, equipped })
   } catch {
-    return NextResponse.json({ owned: [], equipped: { mainhand: null, body: null } })
+    return NextResponse.json({ owned: [], equipped: { mainhand: null, body: null, outfit: null } })
   }
 }

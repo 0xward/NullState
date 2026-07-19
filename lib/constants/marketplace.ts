@@ -12,8 +12,12 @@
  */
 import { MARKETPLACE_TOKENS, TREASURY_WALLET, type MarketplaceTokenSymbol } from './tokens'
 
-export type EquipmentType = 'weapon' | 'armor'
-export type EquipmentSlot = 'mainhand' | 'body'
+// Phase 9 adds a THIRD equipment slot for pure cosmetics ('outfit'). Outfits
+// change ONLY how the Knight looks (an LPC sprite layer — see assets.js
+// LPC_OUTFIT) and carry ZERO gameplay effect; the discriminated union below
+// enforces "no stats on an outfit" at COMPILE TIME.
+export type EquipmentType = 'weapon' | 'armor' | 'outfit'
+export type EquipmentSlot = 'mainhand' | 'body' | 'outfit'
 
 // Weapon Evolution (Phase 4, blueprint §3). A weapon is bought once at its
 // base tier (tier 1) then leveled with Glitch Shards. Each entry describes ONE
@@ -29,17 +33,25 @@ export interface WeaponEvolutionTier {
   unlockUtility?: 'grapple' | 'melt_wall' // DEFER to Phase 8 — data only, no runtime effect yet
 }
 
-export interface MarketplaceItem {
+// Fields common to every marketplace entry (weapon, armor, or cosmetic outfit).
+interface MarketplaceItemBase {
   id: string
   name: string
-  type: EquipmentType
-  slot: EquipmentSlot
   price: number          // USD
   tokenPrice?: number    // NullState Point price (off-chain swap) — only set
                          // for items $0.5–$2 (Phase 5.5 #8). Items without
                          // this field can only be bought with real
                          // USDm/USDC/USDT, never swapped for tokens.
-  fxTier: 1 | 2 | 3
+  fxTier: 1 | 2 | 3      // drives shop-card glow richness (higher price = flashier)
+  sprite: string
+  desc: string
+}
+
+// Weapons & armor: they carry gameplay stats, and weapons carry an evolution
+// ladder (Phase 4). This is the ONLY item shape allowed to hold an `effect`.
+export interface GearItem extends MarketplaceItemBase {
+  type: 'weapon' | 'armor'
+  slot: 'mainhand' | 'body'
   fxColor?: string       // v67 T11: per-weapon attack-FX color (hex). Read by
                          // the engine (entities.js swing arcs, game.js arrows)
                          // via the marketplace-items.js mirror. Weapons only.
@@ -49,10 +61,25 @@ export interface MarketplaceItem {
     behavior?: string
     slowPct?: number
   }
-  sprite: string
-  desc: string
   evolutionTiers?: WeaponEvolutionTier[] // weapons only; empty for armor
 }
+
+// Phase 9 — Cosmetic Skin. A skin is a NEW LPC sprite LAYER (assets.js
+// LPC_OUTFIT, keyed by the item id) with ZERO gameplay effect: the HP-100 cap
+// and combat balance are untouched, there is no pay-to-win. The type FORBIDS
+// atkBonus/hpBonus/behavior — `effect` is the empty object and `fxColor`/
+// `evolutionTiers` are `never`, so TS rejects any attempt to give a skin stats.
+// `skinTint` is a purely-cosmetic flex colour (UI only, never combat).
+export interface OutfitItem extends MarketplaceItemBase {
+  type: 'outfit'
+  slot: 'outfit'
+  effect: Record<string, never> // no stats — enforced by the type
+  skinTint?: string
+  fxColor?: never
+  evolutionTiers?: never
+}
+
+export type MarketplaceItem = GearItem | OutfitItem
 
 // ── Phase 4 evolution tuning (owner decisions 2026-07-19) ────────────────────
 // Q1: shard cost per upgrade step (tier1->2, tier2->3), paid in shards of the
@@ -160,6 +187,25 @@ const BASE_MARKETPLACE_ITEMS: MarketplaceItem[] = [
   { id:'sunfire_bow', name:'Sunfire Longbow', type:'weapon', slot:'mainhand', price:15.0, fxTier:3, fxColor:'#ffcf3d',
     effect:{ atkBonus:80, behavior:'volley' }, sprite:'/sprites/marketplace/sunfire_bow.png',
     desc:'+80 ATK, ranged. Looses a fan of three sunfire arrows.' },
+  // ── SKINS (outfit) — Phase 9 cosmetics ── PURE VISUALS, zero stats. Each is a
+  // distinct LPC clothing/armour layer set (assets.js LPC_OUTFIT) drawn over the
+  // body; `effect` MUST stay empty (the type forbids stats). The skin only
+  // changes how the Knight LOOKS — the game is fully playable without any of
+  // them (the FREE default outfit renders exactly as before when none is worn).
+  // Icons in public/sprites/marketplace/<id>.png are composited from the SAME
+  // LPC layers the skin renders, so the shop preview == what you wear.
+  { id:'ashen_warden', name:'Ashen Warden', type:'outfit', slot:'outfit', price:5.0, fxTier:2, skinTint:'#8f95a0',
+    effect:{}, sprite:'/sprites/marketplace/ashen_warden.png',
+    desc:'Cosmetic only. Ash-grey full plate — a silent sentinel of the bunkers.' },
+  { id:'emberguard', name:'Emberguard', type:'outfit', slot:'outfit', price:7.0, fxTier:3, skinTint:'#c85a1e',
+    effect:{}, sprite:'/sprites/marketplace/emberguard.png',
+    desc:'Cosmetic only. Ember-forged warden leathers with a warm coal glow.' },
+  { id:'voidweave', name:'Voidweave', type:'outfit', slot:'outfit', price:9.0, fxTier:3, skinTint:'#6a24b0',
+    effect:{}, sprite:'/sprites/marketplace/voidweave.png',
+    desc:'Cosmetic only. A hooded violet weave that drinks the dark around you.' },
+  { id:'sungild', name:'Sungild Regalia', type:'outfit', slot:'outfit', price:10.0, fxTier:3, skinTint:'#e0b23a',
+    effect:{}, sprite:'/sprites/marketplace/sungild.png',
+    desc:'Cosmetic only. Gilded champion regalia that catches every torchlight.' },
 ]
 
 // Attach the Phase 4 evolution ladder to every weapon (armor stays as-is).

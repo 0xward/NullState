@@ -482,8 +482,18 @@ function drawLPCComposite(ctx, cx, cy, scale, dirIndex, frame, opts){
   // v80: LPC monsters skip the armor stack entirely — their look is fully
   // baked into the body sheet (head included), and the LPC_ARMOR.base
   // fallback would dress an orc in the hero's shirt and pants.
+  // Phase 9 (Cosmetic Skins): an equipped outfit is a real LPC layer set
+  // (A.LPC_OUTFIT, same shape as LPC_ARMOR). When present it VISUALLY OVERRIDES
+  // the body-clothing layer — it wins over the equipped armor's look AND the
+  // base outfit — so the paid skin is always the thing you see (a flex). It's
+  // fed into the exact SAME armor-stack loop below (tint/glow included), so
+  // there's no separate render path. It changes ONLY visuals: the armor's HP
+  // bonus is applied in game.js applyEquipment(), independent of what renders.
+  // With no outfit equipped, opts.outfitId is unset and this resolves exactly
+  // as before (byte-identical base/armor render).
+  const skinDef = (opts && opts.outfitId && A.LPC_OUTFIT && A.LPC_OUTFIT[opts.outfitId]) || null;
   const armorDef = (opts && (opts.noArmor || opts.monBase)) ? null
-    : ((opts && opts.armorId && A.LPC_ARMOR[opts.armorId]) || A.LPC_ARMOR.base);
+    : (skinDef || (opts && opts.armorId && A.LPC_ARMOR[opts.armorId]) || A.LPC_ARMOR.base);
   if(armorDef){
     // animKey -> actual LPC asset folder name. Most anims share their name
     // with the folder (hurt/slash/thrust); walk+idle both read from
@@ -778,6 +788,9 @@ class Player {
         attacking: this.attacking,
         weaponAnim: this.equippedWeaponId && A.NS_WEAPON[this.equippedWeaponId] && A.NS_WEAPON[this.equippedWeaponId].anim,
         armorId: this.equippedArmorId,
+        // Phase 9: cosmetic skin layer (overrides the body-clothing look; set by
+        // applyEquipment in game.js). null when no skin is equipped -> unchanged.
+        outfitId: this.equippedOutfitId,
         weaponId: this.equippedWeaponId,
         // Phase 4: an evolved weapon washes its carried sprite in the tier's
         // hotter tint (set by applyEquipment in game.js). null at base tier ->

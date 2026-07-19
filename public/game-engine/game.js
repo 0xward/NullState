@@ -321,11 +321,12 @@ function applyRestoredState(G, p, snap){
 // instead of an empty slate. See the long comment in newGame() for the
 // race condition this fixes.
 function loadPersistedEquipment(){
-  const empty = { owned: [], equipped: { mainhand: null, body: null } };
+  // Phase 9: `outfit` is the cosmetic-skin slot (3rd slot). Purely visual.
+  const empty = { owned: [], equipped: { mainhand: null, body: null, outfit: null } };
   if(!WALLET_ADDRESS || typeof localStorage === 'undefined') return empty;
   const addr = WALLET_ADDRESS.toLowerCase();
   let owned = [];
-  let equipped = { mainhand: null, body: null };
+  let equipped = { mainhand: null, body: null, outfit: null };
   try{
     const raw = localStorage.getItem('nullstate-owned-'+addr);
     if(raw){ const parsed = JSON.parse(raw); if(Array.isArray(parsed)) owned = parsed; }
@@ -334,7 +335,7 @@ function loadPersistedEquipment(){
     const raw = localStorage.getItem('nullstate-equipped-'+addr);
     if(raw){
       const parsed = JSON.parse(raw) || {};
-      equipped = { mainhand: parsed.mainhand || null, body: parsed.body || null };
+      equipped = { mainhand: parsed.mainhand || null, body: parsed.body || null, outfit: parsed.outfit || null };
     }
   }catch(e){ /* corrupt/unavailable cache — fall back to empty, not fatal */ }
   // v76 Task #7: four weapons were re-skinned and given honest ids
@@ -350,11 +351,13 @@ function loadPersistedEquipment(){
     owned = owned.filter((id, i) => owned.indexOf(id) === i);
     if(equipped.mainhand) equipped.mainhand = M.resolveId(equipped.mainhand);
     if(equipped.body) equipped.body = M.resolveId(equipped.body);
+    if(equipped.outfit) equipped.outfit = M.resolveId(equipped.outfit);
   }
   // Never trust an equipped id that isn't actually in the owned list (e.g.
   // a stale equipped-cache left over from before a refund/removal).
   if(equipped.mainhand && !owned.includes(equipped.mainhand)) equipped.mainhand = null;
   if(equipped.body && !owned.includes(equipped.body)) equipped.body = null;
+  if(equipped.outfit && !owned.includes(equipped.outfit)) equipped.outfit = null;
   return { owned, equipped };
 }
 
@@ -410,7 +413,7 @@ function newGame(charKey, restoreSnapshot){
         // PERMANENT — never consumed. Populated a few lines below from
         // localStorage (see loadPersistedEquipment()) rather than left
         // empty here — see that function for why.
-        equipment:{ owned:[], equipped:{ mainhand:null, body:null } },
+        equipment:{ owned:[], equipped:{ mainhand:null, body:null, outfit:null } }, // outfit = Phase 9 cosmetic slot
         discoveredRooms:new Set(), lastRoomId:null, floorClearShown:{}, combo:{count:0,t:0},
         respawnDepth:1 };
 
@@ -3641,10 +3644,12 @@ let WEAPON_TIERS = {};
 let OWNED_SECTORS = {};
 function applyEquipment(p){
   if(!p) return;
-  const eq = (G && G.equipment) ? G.equipment.equipped : { mainhand:null, body:null };
+  const eq = (G && G.equipment) ? G.equipment.equipped : { mainhand:null, body:null, outfit:null };
   const M  = window.NS_MARKET;
   const w  = (M && eq.mainhand) ? M.getEquipment(eq.mainhand) : null;
   const a  = (M && eq.body)     ? M.getEquipment(eq.body)     : null;
+  // Phase 9: the outfit slot is READ ONLY for its render id below — it is never
+  // consulted for atk/HP, so a cosmetic skin can never affect combat.
 
   const prev = p._equipDelta || { atk:0, hpMul:1 };
   // 1) remove the previously-applied equipment delta
@@ -3718,6 +3723,9 @@ function applyEquipment(p){
   // assets.js are keyed by — see drawLPCComposite() in entities.js.
   p.equippedArmorId = eq.body || null;
   p.equippedWeaponId = eq.mainhand || null;
+  // Phase 9: cosmetic skin id -> drawLPCComposite opts.outfitId (entities.js).
+  // Purely a render key; carries no stat. null when no skin equipped.
+  p.equippedOutfitId = eq.outfit || null;
 }
 function equipItem(id){
   if(!G || !window.NS_MARKET) return false;
@@ -3829,7 +3837,10 @@ function eatFoodItem(itemId){
 //    that storage was cleared.
 window.NS_saveEquipment = function(equipment){
   const eq = (equipment && equipment.equipped) || {};
-  const payload = { mainhand: eq.mainhand || null, body: eq.body || null };
+  // Phase 9: persist the cosmetic outfit slot alongside weapon/armor in BOTH
+  // localStorage and Firebase (via /api/marketplace/equip), same as the other
+  // two slots — otherwise a chosen skin would reset on device/storage change.
+  const payload = { mainhand: eq.mainhand || null, body: eq.body || null, outfit: eq.outfit || null };
   if(WALLET_ADDRESS && typeof localStorage !== 'undefined'){
     try{
       localStorage.setItem('nullstate-equipped-'+WALLET_ADDRESS.toLowerCase(), JSON.stringify(payload));
@@ -3839,7 +3850,7 @@ window.NS_saveEquipment = function(equipment){
     fetch('/api/marketplace/equip', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ wallet: WALLET_ADDRESS, mainhand: payload.mainhand, body: payload.body }),
+      body: JSON.stringify({ wallet: WALLET_ADDRESS, mainhand: payload.mainhand, body: payload.body, outfit: payload.outfit }),
     }).catch(()=>{ /* offline — localStorage copy above still applies this session */ });
   }
 };
@@ -3865,10 +3876,12 @@ function renderEquipmentPanel(targetId){
   const M=window.NS_MARKET; const eq=G.equipment;
   const w = (eq.equipped.mainhand && M) ? M.getEquipment(eq.equipped.mainhand) : null;
   const a = (eq.equipped.body && M) ? M.getEquipment(eq.equipped.body) : null;
+  const o = (eq.equipped.outfit && M) ? M.getEquipment(eq.equipped.outfit) : null; // Phase 9 skin
   const slotLine=document.createElement('div'); slotLine.className='equip-slotline';
   slotLine.innerHTML =
     `<div class="equip-slot"><span class="equip-slot-k">\u2694 WEAPON</span><span class="equip-slot-v">${w?w.name:'\u2014 empty'}</span></div>`+
-    `<div class="equip-slot"><span class="equip-slot-k">\u26e8 ARMOR</span><span class="equip-slot-v">${a?a.name:'\u2014 empty'}</span></div>`;
+    `<div class="equip-slot"><span class="equip-slot-k">\u26e8 ARMOR</span><span class="equip-slot-v">${a?a.name:'\u2014 empty'}</span></div>`+
+    `<div class="equip-slot"><span class="equip-slot-k">\u2726 SKIN</span><span class="equip-slot-v">${o?o.name:'\u2014 empty'}</span></div>`;
   host.appendChild(slotLine);
   const owned = (eq.owned||[]);
   if(!owned.length){
@@ -3882,8 +3895,9 @@ function renderEquipmentPanel(targetId){
   // below it — instead of one mixed list where the equipped pieces sat
   // wherever purchase order happened to put them.
   const buildRow = (it, on)=>{
-    const stat = it.type==='armor' ? `+${Math.round((it.effect.hpBonus||0)*100)}% HP`
-                                   : `+${it.effect.atkBonus||0} ATK`;
+    const stat = it.type==='armor'  ? `+${Math.round((it.effect.hpBonus||0)*100)}% HP`
+               : it.type==='outfit' ? 'Cosmetic · no stats'
+                                    : `+${it.effect.atkBonus||0} ATK`;
     const row=document.createElement('div'); row.className='equip-row'+(on?' equipped':'');
     row.innerHTML =
       `<img class="equip-icon" src="${it.sprite}" alt="${it.name}" draggable="false" onerror="this.classList.add('missing')">`+
@@ -3899,7 +3913,7 @@ function renderEquipmentPanel(targetId){
     const h=document.createElement('div'); h.className='equip-row equip-sect';
     h.textContent=label; return h;
   };
-  host.appendChild(sect('EQUIPPED \u00b7 '+equippedItems.length+'/2'));
+  host.appendChild(sect('EQUIPPED \u00b7 '+equippedItems.length+'/3'));
   if(equippedItems.length){
     for(const it of equippedItems) host.appendChild(buildRow(it, true));
   } else {
@@ -4128,9 +4142,10 @@ function drawLPCPreview(elId){
   // v80 (owner spec): CONTINUE shows the hero exactly as last equipped in the
   // inventory (persisted per-wallet cache); a NEW GAME preview is the default
   // knight in the base outfit — no gear until the player equips it in-run.
-  const eq = SAVED_SESSION ? loadPersistedEquipment().equipped : { mainhand:null, body:null };
+  const eq = SAVED_SESSION ? loadPersistedEquipment().equipped : { mainhand:null, body:null, outfit:null };
   const weaponId = eq.mainhand || null;
   const armorId  = eq.body || null;
+  const outfitId = eq.outfit || null; // Phase 9: show the equipped cosmetic skin
   // If an equipped overlay sheet hasn't decoded yet, still draw the body now
   // (so the box is never blank) but report not-done so paintPreview() keeps
   // retrying and the gear pops in on a later pass.
@@ -4168,7 +4183,7 @@ function drawLPCPreview(elId){
   // BOX-6, matching the old normalize path's bottom margin.
   const cx=BOX/2, cy=BOX-6;
   drawLPCComposite(g, cx, cy, s, dirIndex, 0, { animKey:'idle', attacking:false, foot:hero.foot, alpha:1,
-    weaponId: weaponId||undefined, armorId: armorId||undefined });
+    weaponId: weaponId||undefined, armorId: armorId||undefined, outfitId: outfitId||undefined });
   host.innerHTML=''; host.appendChild(c);
   host.style.cssText=`width:${BOX}px;height:${BOX}px;`;
   return gearReady;

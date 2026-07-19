@@ -140,11 +140,16 @@ export default function MarketplaceScreen({ onBack, address }: MarketplaceScreen
   // Issue 4a: expensive-first within each category section.
   const armor = MARKETPLACE_ITEMS.filter(i => i.type === 'armor').sort((a, b) => b.price - a.price)
   const weapons = MARKETPLACE_ITEMS.filter(i => i.type === 'weapon').sort((a, b) => b.price - a.price)
+  // Phase 9 — cosmetic skins ($5-$10), pure visuals with no stats.
+  const outfits = MARKETPLACE_ITEMS.filter(i => i.type === 'outfit').sort((a, b) => b.price - a.price)
 
   const renderItem = (item: MarketplaceItem) => {
     const isOwned = owned.includes(item.id)
+    // Outfits are cosmetic — they show "no stats" where gear shows +HP/+ATK.
     const stat = item.type === 'armor'
       ? `+${Math.round((item.effect.hpBonus || 0) * 100)}% HP`
+      : item.type === 'outfit'
+      ? 'Cosmetic · no stats'
       : `+${item.effect.atkBonus || 0} ATK`
     const tierGlow = ['', 'shadow-[0_0_0_1px_rgba(180,130,70,.4)]', 'shadow-[0_0_14px_rgba(180,130,70,.4)]', 'shadow-[0_0_22px_rgba(255,180,90,.55)]'][item.fxTier]
     return (
@@ -275,9 +280,16 @@ export default function MarketplaceScreen({ onBack, address }: MarketplaceScreen
           <h2 className="mb-2 font-mono text-xs font-bold uppercase tracking-[3px] text-[#e6c07a]">⛨ Armor</h2>
           <div className="flex flex-col gap-2">{armor.map(renderItem)}</div>
         </section>
-        <section>
+        <section className="mb-5">
           <h2 className="mb-2 font-mono text-xs font-bold uppercase tracking-[3px] text-[#e6c07a]">⚔ Weapons</h2>
           <div className="flex flex-col gap-2">{weapons.map(renderItem)}</div>
+        </section>
+        <section>
+          <h2 className="mb-1 font-mono text-xs font-bold uppercase tracking-[3px] text-[#e6c07a]">✦ Skins</h2>
+          <p className="mb-2 font-mono text-[10px] leading-relaxed text-[#9c7a4f]">
+            Pure cosmetics — change how your Knight looks, with zero effect on stats or balance. Optional flexes; the game plays exactly the same without them.
+          </p>
+          <div className="flex flex-col gap-2">{outfits.map(renderItem)}</div>
         </section>
       </div>
     </div>

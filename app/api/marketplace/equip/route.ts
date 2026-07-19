@@ -7,7 +7,9 @@ import { getMarketplaceItem } from '@/lib/constants/marketplace'
 // MARKETPLACE EQUIPPED-SLOT SAVE
 // POST /api/marketplace/equip
 //
-// Body: { wallet, mainhand, body }  (mainhand/body are item ids or null)
+// Body: { wallet, mainhand, body, outfit }  (each is an item id or null)
+// `outfit` (Phase 9) is the cosmetic-skin slot — a purely visual equip, no
+// gameplay effect, persisted here so the chosen skin survives device changes.
 //
 // Persists WHICH owned item is currently worn in each slot, in Firebase,
 // keyed by wallet — same durability guarantee as marketplaceOwned. Before
@@ -16,7 +18,7 @@ import { getMarketplaceItem } from '@/lib/constants/marketplace'
 // uninstalling/reinstalling MiniPay (or switching devices) reset it back
 // to "nothing equipped" even though the owned item itself was never lost.
 //
-// Response: { success: true, equipped: { mainhand, body } }
+// Response: { success: true, equipped: { mainhand, body, outfit } }
 // =============================================
 
 function normalize(addr: string): string {
@@ -29,6 +31,7 @@ export async function POST(req: NextRequest) {
     const wallet = String(body?.wallet || '')
     const mainhandRaw = body?.mainhand ?? null
     const bodyRaw = body?.body ?? null
+    const outfitRaw = body?.outfit ?? null
 
     if (!/^0x[a-fA-F0-9]{40}$/.test(wallet)) {
       return NextResponse.json({ error: 'Invalid wallet' }, { status: 400 })
@@ -44,7 +47,7 @@ export async function POST(req: NextRequest) {
     const ownedSnap = await db.ref(`marketplaceOwned/${buyer}`).get()
     const owned: string[] = ownedSnap.exists() ? Object.keys(ownedSnap.val()) : []
 
-    function sanitize(id: unknown, slot: 'mainhand' | 'body'): string | null {
+    function sanitize(id: unknown, slot: 'mainhand' | 'body' | 'outfit'): string | null {
       if (typeof id !== 'string' || !id) return null
       if (!owned.includes(id)) return null
       const item = getMarketplaceItem(id)
@@ -55,6 +58,7 @@ export async function POST(req: NextRequest) {
     const equipped = {
       mainhand: sanitize(mainhandRaw, 'mainhand'),
       body: sanitize(bodyRaw, 'body'),
+      outfit: sanitize(outfitRaw, 'outfit'), // Phase 9 cosmetic skin slot
     }
 
     await db.ref(`marketplaceEquipped/${buyer}`).set({ ...equipped, at: Date.now() })
