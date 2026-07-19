@@ -86,6 +86,17 @@ window.NS_OUTDOOR = (function(){
     showNextArrival();
   }
 
+  // Phase 1 energy gate: when a bunker entry is DENIED (out of energy), the
+  // door trigger must release and the hero steps back from the edge —
+  // otherwise edgeTriggered stays latched (and the near-edge failsafe would
+  // re-fire forever) and the player could never move again after a refill.
+  function retreatFromDoor(){
+    if(!state) return;
+    state.edgeTriggered = false;
+    state.nearEdgeT = 0;
+    state.xFrac = Math.min(state.xFrac, 0.62); // step back clear of the trigger band
+  }
+
   function showNextArrival(){
     const lines = state.act.arrival;
     if(state.arrivalIdx >= lines.length){
@@ -278,5 +289,5 @@ window.NS_OUTDOOR = (function(){
     ctx.restore();
   }
 
-  return { enter, exit, active, isBlockingInput, currentBgKey, update, render, skipArrival };
+  return { enter, exit, active, isBlockingInput, currentBgKey, update, render, skipArrival, retreatFromDoor };
 })();

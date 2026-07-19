@@ -17,6 +17,8 @@ const A = window.Audio2;
 
 // ---- mount/teardown state ----
 let CHAIN = null;            // injected on mount (wagmi bridge)
+let ENERGY = null;           // Phase 1 energy bridge (injected on mount, fail-open default)
+let _lastRunSec = -1;        // 1Hz change-guard for the HUD run-timer plate
 // SHAKE_ENABLED: screen-shake on/off — punch list #10 (v38). Runtime-only
 // flag, same lightweight pattern as A.sfxEnabled in audio.js (resets to
 // the default each fresh page load, no localStorage persistence — matches
@@ -1344,6 +1346,7 @@ function checkFloorClearReward(){
   if(!isFloorClearForAdvance(G.depth)) return;
   G.floorClearShown[G.depth]=true;
   G.player.hp=Math.min(G.player.maxHp, G.player.hp+18);
+  if(window.NS_RUN) NS_RUN.onFloorCleared(); // Phase 1: per-run stat
   showBanner('FLOOR SECURED', 'LIFT UNLOCKED');
   spark(G.player.x,G.player.y-18,'#00ff88',36,240);
   updateHUD();
@@ -2814,6 +2817,21 @@ function update(dt){
     return;
   }
   if(!G||G.paused||G.over) return;
+  // ---- Phase 1: run clock. Ticks only while the run is actually playable
+  // (paused/cutscene/game-over frames return before this line). The HUD
+  // TIME plate updates at 1Hz via a cheap change-guard.
+  if(window.NS_RUN){
+    NS_RUN.tick(dt);
+    const _r = NS_RUN.active();
+    if(_r){
+      const _s = (_r.elapsedMs/1000)|0;
+      if(_s !== _lastRunSec){
+        _lastRunSec = _s;
+        const el = $('runTime');
+        if(el) el.textContent = ((_s/60)|0) + ':' + String(_s%60).padStart(2,'0');
+      }
+    }
+  }
   G.time+=dt;
   const p=G.player;
   if(G.action.cd>0) G.action.cd-=dt;
@@ -3836,6 +3854,11 @@ function gameOver(){
 }
 function onRevive(){
   $('death').classList.add('hidden');
+  // Phase 1 (blueprint §2.1): the in-place revive stays exactly as designed,
+  // but each death is now counted against the run — the RunSession reward
+  // multiplier (first death free, -20% per extra, floor 40%) will feed the
+  // Phase 2 material payout.
+  if(window.NS_RUN) NS_RUN.onDeath();
   if(!G){ newGame(selectedChar); updateHUD(); return; }
   const deathDepth = G.depth;
   const p = G.player;
@@ -4002,6 +4025,9 @@ async function onStart(){
 function enterSavedSession(){
   selectedChar = SAVED_SESSION.charKey || selectedChar;
   campaignActIndex = SAVED_SESSION.campaignActIndex || 0;
+  // Phase 1: resuming a saved run re-opens the SAME RunSession unit —
+  // resumed=true, and it costs no energy (the fresh entry already paid).
+  if(window.NS_RUN) NS_RUN.start(campaignActIndex, true);
   const snap = SAVED_SESSION;
   SAVED_SESSION = null;
   if (atkBtn) atkBtn.classList.remove('hidden');
@@ -4036,6 +4062,31 @@ function enterOutdoorAct(actIndex, resumeAtDoor){
 function onOutdoorReachedDoor(){
   const act = CAMPAIGN[campaignActIndex];
   const isFirstBunker = campaignActIndex===0;
+  // ---- Phase 1 ENERGY GATE (blueprint §2.6): one energy per FRESH bunker
+  // entry. The check is server-authoritative via the React bridge (ENERGY
+  // .try -> POST /api/energy/spend). Fail-open on network/no-wallet (the
+  // bridge returns ok:true in those cases) — energy must never brick the
+  // game for connectivity reasons. On ok:false the door un-triggers, the
+  // hero steps back, and React shows the refill/countdown modal.
+  if(_energyGateBusy) return;
+  _energyGateBusy = true;
+  Promise.resolve(ENERGY.trySpend ? ENERGY.trySpend() : { ok:true }).then((res)=>{
+    _energyGateBusy = false;
+    if(res && res.ok === false){
+      Outdoor.retreatFromDoor();
+      if(ENERGY.onExhausted) ENERGY.onExhausted(res);
+      return;
+    }
+    if(window.NS_RUN) NS_RUN.start(campaignActIndex, false);
+    _enterBunkerFromDoor(act, isFirstBunker);
+  }).catch(()=>{
+    _energyGateBusy = false;
+    if(window.NS_RUN) NS_RUN.start(campaignActIndex, false);
+    _enterBunkerFromDoor(act, isFirstBunker);
+  });
+}
+let _energyGateBusy = false;
+function _enterBunkerFromDoor(act, isFirstBunker){
   showLoadingTransition(() => {
     Outdoor.exit();
     // Carry loot + xp/level/kills/celo/hp/run-caps over from the bunker
@@ -4066,6 +4117,7 @@ function onOutdoorReachedDoor(){
 // door-trigger branch below).
 function onActBunkerCleared(){
   const act = CAMPAIGN[campaignActIndex];
+  if(window.NS_RUN) NS_RUN.close('Cleared'); // Phase 1: run unit ends here
   showLoadingTransition(() => {
     // Snapshot everything (loot, xp/level/kills/celo/hp, run-caps) BEFORE
     // this bunker's G is discarded, so onOutdoorReachedDoor() can carry it
@@ -4230,6 +4282,9 @@ function mount(opts){
   if(mounted) return;
   mounted = true; destroyed = false; last = 0; G = null;
   CHAIN = opts.chain || { ultiTx: async ()=>({ ok:true, demo:true, hash:null }) };
+  // Phase 1 energy bridge (DungeonGame.tsx). Defaults are fail-open no-ops
+  // so demo/wallet-less mounts play exactly as before.
+  ENERGY = opts.energy || { trySpend: async ()=>({ ok:true }), onExhausted: ()=>{} };
   WALLET_ADDRESS = opts.walletAddress || null;
   INITIAL_STATS = opts.initialStats || null;
   SAVED_SESSION = opts.savedSession || null;
@@ -4245,6 +4300,9 @@ function mount(opts){
 }
 function unmount(){
   destroyed = true; mounted = false;
+  // Phase 1: leaving the game screen (exit/save&exit/back to menu) closes
+  // any run still open as Abandoned — a saved session re-opens it later.
+  if(window.NS_RUN && NS_RUN.active()) NS_RUN.close('Abandoned');
   if(rafId){ cancelAnimationFrame(rafId); rafId=null; }
   _winL.forEach(([t,f])=>window.removeEventListener(t,f)); _winL.length=0;
   G = null; last = 0;

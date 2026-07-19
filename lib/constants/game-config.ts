@@ -25,6 +25,19 @@ export const GAME_CONFIG = {
     },
   },
 
+  // Energy / Action system (Genius blueprint Phase 1 — finally implements
+  // the long-dead `pass.playLimitFree` intent as a real, generous daily cap).
+  // One energy = one fresh bunker entry (RunSession start). Continuing a
+  // saved run costs nothing. Owner decision (2026-07-19): 5 free runs per
+  // rolling 24h window, $1 refill grants +5 bonus runs, free runs do NOT
+  // roll over (bonus runs persist until spent — they were paid for).
+  energy: {
+    freeRunsPerDay: 5,
+    refillPriceUSD: 1,
+    refillRuns: 5,
+    windowHours: 24,
+  },
+
   // Burn Reward System — NullState Point (Phase 5.5 #8)
   // Burning is off-chain and instant: no weekly pool, no owner deposit, no
   // per-user cap, no claim step. Items convert straight into the player's
