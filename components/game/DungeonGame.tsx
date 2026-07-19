@@ -594,6 +594,19 @@ export default function DungeonGame({ playerProfile, setPlayerUsername, isNewRun
                 }
               })
               .catch(() => { /* display-only cache — offline is fine */ })
+            // Phase 4 — seed the wallet's weapon-evolution tiers into the engine
+            // so an evolved weapon renders its extra ATK + tint/glow the moment
+            // this run mounts (NS_EQUIP.setTiers re-applies equipment).
+            fetch(`/api/weapons?wallet=${addr}`)
+              .then(r => r.json())
+              .then(d => {
+                const tiers = d && d.tiers && typeof d.tiers === 'object' ? d.tiers : null
+                if (tiers) {
+                  const NS = (window as unknown as { NS_EQUIP?: { setTiers?: (m: Record<string, number>) => void } }).NS_EQUIP
+                  NS?.setTiers?.(tiers)
+                }
+              })
+              .catch(() => { /* offline — base tiers, non-critical */ })
             refreshElixir() // Phase 3: seed elixir state + mirror the buff global
           }
         }

@@ -38,6 +38,10 @@ const MarketplaceScreen = dynamic(() => import('./MarketplaceScreen'), {
   ssr: false,
   loading: () => <ScreenLoadingFallback label="LOADING MARKETPLACE" />,
 })
+const CraftingScreen = dynamic(() => import('./CraftingScreen'), {
+  ssr: false,
+  loading: () => <ScreenLoadingFallback label="LOADING CRAFTING" />,
+})
 const DungeonGameWrapper = dynamic(() => import('./DungeonGameWrapper'), {
   ssr: false,
   loading: () => <ScreenLoadingFallback label="LOADING DUNGEON" />,
@@ -56,7 +60,7 @@ function ScreenLoadingFallback({ label }: { label: string }) {
   )
 }
 
-type GamePhase = 'menu' | 'username-setup' | 'character-select' | 'game' | 'leaderboard' | 'rewards' | 'season-pass' | 'marketplace'
+type GamePhase = 'menu' | 'username-setup' | 'character-select' | 'game' | 'leaderboard' | 'rewards' | 'season-pass' | 'marketplace' | 'crafting'
 
 /**
  * GameFlowManager orchestrates the entire NullState game flow:
@@ -228,6 +232,10 @@ export default function GameFlowManager() {
     setPhase('marketplace')
   }
 
+  const handleCraftingClick = () => {
+    setPhase('crafting')
+  }
+
   // PHASE: MENU
   if (phase === 'menu') {
     return (
@@ -239,6 +247,7 @@ export default function GameFlowManager() {
           onRewards={handleRewardsClick}
           onMintPass={handleMintPassClick}
           onMarketplace={handleMarketplaceClick}
+          onCrafting={handleCraftingClick}
           playerProfile={playerProfile}
           isLoadingProfile={isLoadingProfile}
         />
@@ -346,6 +355,17 @@ export default function GameFlowManager() {
     return (
       <MarketplaceScreen
         onBack={handleBackToMenu}
+        address={address || undefined}
+      />
+    )
+  }
+
+  // PHASE: CRAFTING (Phase 4 — weapon evolution)
+  if (phase === 'crafting') {
+    return (
+      <CraftingScreen
+        onBack={handleBackToMenu}
+        onGoToRun={handleBackToMenu}
         address={address || undefined}
       />
     )

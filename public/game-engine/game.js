@@ -3569,6 +3569,10 @@ function burnSingleItem(itemId){
 //  or relic gains. Weapon = flat atk bonus (+ behavior handled in hitTest);
 //  armor = % Max HP multiplier.
 // ======================================================================
+// Phase 4 — per-weapon evolution tier, bridged in from React (GET /api/weapons)
+// via NS_EQUIP.setTiers. Keyed by CANONICAL marketplace item id; missing/1 =
+// base tier. Read by applyEquipment() above.
+let WEAPON_TIERS = {};
 function applyEquipment(p){
   if(!p) return;
   const eq = (G && G.equipment) ? G.equipment.equipped : { mainhand:null, body:null };
@@ -3580,8 +3584,25 @@ function applyEquipment(p){
   // 1) remove the previously-applied equipment delta
   p.atkDmg -= prev.atk;
   const baseMaxNoArmor = Math.round(p.maxHp / (prev.hpMul || 1));
+  // Phase 4 — weapon evolution tier. The wallet's per-weapon tier is bridged
+  // in from React via NS_EQUIP.setTiers (WEAPON_TIERS, keyed by canonical item
+  // id). Each tier ABOVE base adds evolutionTiers[i].atkBonusDelta (ADDITIVE,
+  // NEVER HP — the flat-100 cap is untouched) and a hotter tint/glow override
+  // for the render path. tier 1 (base) = no delta, byte-identical to pre-Phase-4.
+  let _tierDelta = 0, _wTier = 1, _ovlTintOv = null, _glowOv = null, _fxOv = null;
+  if(w && Array.isArray(w.evolutionTiers) && w.evolutionTiers.length){
+    const _owned = Math.max(1, (WEAPON_TIERS[w.id] | 0) || 1);
+    _wTier = Math.min(_owned, w.evolutionTiers.length + 1); // clamp to this weapon's max
+    for(let _i = 0; _i < _wTier - 1; _i++){
+      const _st = w.evolutionTiers[_i] || {};
+      _tierDelta += (_st.atkBonusDelta || 0);
+      if(_st.spriteOverrideTint) _ovlTintOv = _st.spriteOverrideTint;
+      if(_st.fxColorOverride)    _fxOv      = _st.fxColorOverride;
+      if(_st.glowOverride)       _glowOv    = _st.glowOverride;
+    }
+  }
   // 2) compute + apply new delta
-  const atkBonus = w ? (w.effect.atkBonus || 0) : 0;
+  const atkBonus = (w ? (w.effect.atkBonus || 0) : 0) + _tierDelta;
   const hpMul    = a ? (1 + (a.effect.hpBonus || 0)) : 1;
   p.atkDmg += atkBonus;
   const oldMax = p.maxHp;
@@ -3595,8 +3616,9 @@ function applyEquipment(p){
   p._weaponBehavior = w ? (w.effect.behavior || null) : null;
   // v67 T11: per-weapon FX color (marketplace fxColor). null when unarmed —
   // entities.js swing arcs + the arrow renderer below fall back to their
-  // original hardcoded palettes in that case.
-  p._fxColor = w ? (w.fxColor || null) : null;
+  // original hardcoded palettes in that case. Phase 4: an evolved weapon
+  // burns hotter — the tier's fxColorOverride wins when present.
+  p._fxColor = _fxOv || (w ? (w.fxColor || null) : null);
   // v76 Task #7: which synthesized attack sound this weapon uses. Sourced from
   // the RENDER config (NS_WEAPON in assets.js) rather than the marketplace item
   // so sound, sprite and swing motion can never drift apart — they are all one
@@ -3609,8 +3631,17 @@ function applyEquipment(p){
     // null when unarmed -> hitTest uses flat atkDmg like before.
     p._weaponHtk = _wd ? (_wd.htk || null) : null;
     // premium glow colour for the on-hit impact FX (matches the carried aura).
-    p._weaponGlow = _wd ? (_wd.glow || null) : null;
+    // Phase 4: an evolved weapon gains/upgrades its aura via glowOverride even
+    // if the base weapon had no NS_WEAPON.glow.
+    p._weaponGlow = _glowOv || (_wd ? (_wd.glow || null) : null);
   }
+  // Phase 4 — evolution render overrides consumed by entities.js:
+  //   _wpnOvlTint -> drawLPCComposite opts.weaponTint (masked wash on the
+  //     carried weapon sprite; overrides NS_WEAPON.ovlTint at a stronger amt).
+  //   _wpnTier    -> exposed for HUD/inventory + future FX intensity tuning.
+  // Both are null/1 at base tier, so the pre-Phase-4 look is unchanged.
+  p._wpnOvlTint = _ovlTintOv;
+  p._wpnTier = _wTier;
   // Phase 5.3 Task 5: gear VISUALS (separate from the stat deltas above).
   // eq.mainhand/eq.body are item ids, same ones LPC_ARMOR/NS_WEAPON in
   // assets.js are keyed by — see drawLPCComposite() in entities.js.
@@ -3639,6 +3670,14 @@ function unequipSlot(slot){
 function setOwnedEquipment(list){
   if(!G) return;
   G.equipment.owned = Array.isArray(list) ? list.slice() : [];
+  if(typeof updateInventoryPanel==='function') updateInventoryPanel();
+}
+// Phase 4 — receive the wallet's weapon-tier map from React and re-apply so the
+// equipped weapon's atk + tint/glow reflect its evolution level immediately.
+function setWeaponTiers(map){
+  WEAPON_TIERS = (map && typeof map === 'object') ? map : {};
+  if(G && G.player) applyEquipment(G.player);
+  if(typeof updateHUD==='function') updateHUD();
   if(typeof updateInventoryPanel==='function') updateInventoryPanel();
 }
 // Eat a food loot item (heal % of Max HP by rarity, consume one).
@@ -3700,6 +3739,7 @@ window.NS_EQUIP = {
   equip: equipItem,
   unequip: unequipSlot,
   setOwned: setOwnedEquipment,
+  setTiers: setWeaponTiers,   // Phase 4 — weapon evolution tier bridge
   apply: applyEquipment,
   eat: eatFoodItem,
   get: function(){ return G ? G.equipment : null; },

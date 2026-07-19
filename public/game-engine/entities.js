@@ -765,6 +765,10 @@ class Player {
         weaponAnim: this.equippedWeaponId && A.NS_WEAPON[this.equippedWeaponId] && A.NS_WEAPON[this.equippedWeaponId].anim,
         armorId: this.equippedArmorId,
         weaponId: this.equippedWeaponId,
+        // Phase 4: an evolved weapon washes its carried sprite in the tier's
+        // hotter tint (set by applyEquipment in game.js). null at base tier ->
+        // _drawWpnOvlLayer falls back to NS_WEAPON.ovlTint, unchanged.
+        weaponTint: this._wpnOvlTint || null,
         atkProg: this.attacking ? (this.atkTime/(this.atkDur||0.62)) : 0,
         aimAng: _waAng,
         alpha: a,
