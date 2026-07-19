@@ -47,6 +47,25 @@ export const GAME_CONFIG = {
     durationMin: 30,
   },
 
+  // Weapon Evolution (Genius blueprint Phase 4, §3): a bought weapon is
+  // LEVELED with Glitch Shards (earned free in-run) or a $1 shard pack. Each
+  // tier adds attack + a richer FX tint/glow; it NEVER touches maxHp (flat 100
+  // cap is inviolable — only armor raises HP). Owner decisions (2026-07-19):
+  //   Q1 shard cost per tier = [8, 14] matching-tier shards (tier1->2, 2->3).
+  //   Q2 atk delta = +20% of the weapon's base atkBonus, ADDITIVE per tier,
+  //      with NO monster rebalance for the MVP.
+  //   Q3 $1 shard pack = 5 shards of a tier the PLAYER chooses.
+  //   Q4 tier count reuses fxTier: maxTier = max(2, fxTier) so every weapon
+  //      evolves at least once (fxTier-3 weapons reach tier 3).
+  // The per-tier shard cost + atk delta + tint overrides live on each item's
+  // evolutionTiers array (see lib/constants/marketplace.ts, the single source
+  // of truth the upgrade route reads). Only the $1 pack economics live here.
+  weaponEvolution: {
+    // $1 Glitch Shard pack — verify-and-record payment primitive
+    // (app/api/materials/buy). Player picks which tier (t1/t2/t3) to top up.
+    shardPack: { priceUSD: 1, shards: 5 },
+  },
+
   // Burn Reward System — NullState Point (Phase 5.5 #8)
   // Burning is off-chain and instant: no weekly pool, no owner deposit, no
   // per-user cap, no claim step. Items convert straight into the player's
