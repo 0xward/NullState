@@ -1001,3 +1001,17 @@
 .ns-game-root .item-zoom-code{color:#e8bd6f;border-color:rgba(230,180,90,.4);background:rgba(0,0,0,.22);}
 .ns-game-root .item-zoom-btn.take{background:linear-gradient(180deg,#e8bd6f,#c9962f);color:#2a1705;border-color:#e8bd6f;}
 .ns-game-root .item-zoom-btn.take:hover{box-shadow:0 0 14px rgba(230,180,90,.5);}
+
+/* Phase 2 — Glitch Shard strip inside the inventory panel (run + banked).
+   Same parchment palette as the panel; violet accent matches the in-game
+   shard pickup color (#b46bff). Hidden (display:none via .hidden) until
+   the player owns any shards, so the panel is unchanged for newcomers. */
+.ns-game-root .inv-materials{display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  margin:2px 0 10px;padding:7px 10px;background:rgba(120,90,160,.10);
+  border:1px solid rgba(120,90,160,.30);font-size:11px;letter-spacing:1px;color:#5c4d70;
+  clip-path:polygon(0 3px,3px 0,calc(100% - 3px) 0,100% 3px,100% calc(100% - 3px),calc(100% - 3px) 100%,3px 100%,0 calc(100% - 3px));}
+.ns-game-root .inv-materials.hidden{display:none;}
+.ns-game-root .inv-materials .mat-k{color:#8a4dcf;font-weight:700;letter-spacing:2px;}
+.ns-game-root .inv-materials .mat-v b{color:#3a2a52;}
+.ns-game-root .inv-materials .mat-v i{color:#8a4dcf;font-style:normal;font-size:10px;}
+.ns-game-root .inv-materials .mat-note{margin-left:auto;font-size:9px;color:#9a8ab0;letter-spacing:1px;}

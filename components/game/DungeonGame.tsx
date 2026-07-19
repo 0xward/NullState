@@ -127,6 +127,9 @@ export default function DungeonGame({ playerProfile, setPlayerUsername, isNewRun
   const [energyBusy, setEnergyBusy] = useState(false)
   const [energyMsg, setEnergyMsg] = useState<string | null>(null)
   const [energyNow, setEnergyNow] = useState(Date.now())
+  // Phase 2: banked Glitch Shard cache (ref, not state — read by the engine
+  // via the materials bridge on its own repaint schedule, never re-renders React).
+  const materialsRef = useRef<{ t1: number; t2: number; t3: number } | null>(null)
   useEffect(() => {
     if (!energyModal) return
     const t = setInterval(() => setEnergyNow(Date.now()), 1000)
@@ -468,7 +471,44 @@ export default function DungeonGame({ playerProfile, setPlayerUsername, isNewRun
               setEnergyModal({ resetAt: state?.resetAt || Date.now() + 24 * 3600 * 1000 })
             },
           },
+          // Phase 2 materials bridge — banked Glitch Shard balance (cached in
+          // a ref for the engine's inventory display) + end-of-run credit.
+          materials: {
+            banked: () => materialsRef.current,
+            credit: async (payout: { t1: number; t2: number; t3: number }) => {
+              const addr = walletRef.current.address
+              if (!addr) return null
+              try {
+                const r = await fetch('/api/materials/credit', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ wallet: addr, ...payout }),
+                })
+                const d = await r.json()
+                if (r.ok && d?.success) {
+                  materialsRef.current = { t1: d.t1 || 0, t2: d.t2 || 0, t3: d.t3 || 0 }
+                }
+                return d
+              } catch {
+                return null
+              }
+            },
+          },
         })
+        // Seed the banked-materials cache (best-effort; display-only).
+        {
+          const addr = walletRef.current.address
+          if (addr) {
+            fetch(`/api/materials?wallet=${addr}`)
+              .then(r => r.json())
+              .then(d => {
+                if (d && typeof d.t1 === 'number') {
+                  materialsRef.current = { t1: d.t1, t2: d.t2 || 0, t3: d.t3 || 0 }
+                }
+              })
+              .catch(() => { /* display-only cache — offline is fine */ })
+          }
+        }
         NSG.setWalletAddress?.(walletRef.current.address ?? null)
         setSoundMuted(!!NSG.isSoundMuted?.())
         // Engine's audio module already defaults musicVolume to 0.75 and sfx
@@ -660,6 +700,9 @@ export default function DungeonGame({ playerProfile, setPlayerUsername, isNewRun
                   <div className="bar xp"><div id="invXpFill" className="bar-fill" /><span id="invXpText" className="bar-text">0/200</span></div>
                 </div>
               </div>
+              {/* Phase 2: Glitch Shard strip (run + banked) — filled by
+                  updateInventoryPanel() in game.js; hidden until any exist. */}
+              <div id="invMaterials" className="inv-materials hidden" />
               <div className="inv-tabs">
                 <button className="inv-tab active" data-tab="loot">LOOT</button>
                 <button className="inv-tab" data-tab="food">FOOD</button>
