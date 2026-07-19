@@ -521,8 +521,26 @@ function ensureFloor(depth){
     }
   }
   spawnDecorInto(floor, d);
+  _spawnPhase8Caches(floor, d, depth);
   G.floors[depth] = floor;
   return floor;
+}
+
+// Phase 8 — sealed/premium caches. Decor is non-solid (movement is tile-grid
+// only) so a cache can never block or trap the player; placement is purely
+// cosmetic + interactable. Part A: ~30% chance of one utility-gated cache per
+// floor. Part B: a guaranteed Premium Sector cache on the act's FIRST floor
+// when that act's blueprint is owned — bonus loot, never on the core-act path.
+function _spawnPhase8Caches(floor, d, depth){
+  const rooms = d.rooms.filter((r,i)=> i>0 && i<d.rooms.length-1);
+  const place = (type)=>{
+    const room = rooms.length ? rooms[(Math.random()*rooms.length)|0] : d.rooms[0];
+    const pt = safePointInRoom(d, room, d.stairsPx);
+    if(!pt) return;
+    floor.decor.push(new Decor(type, pt.x, pt.y, 'down'));
+  };
+  if(Math.random() < 0.30) place(Math.random()<0.5 ? 'cache_grapple' : 'cache_melt');
+  if(depth === 1 && OWNED_SECTORS['sector_'+(campaignActIndex+1)]) place('premium_cache');
 }
 
 function safePointInRoom(d, room, avoid){
@@ -926,7 +944,16 @@ function updateActionButton(nearest, nd){
     const room=G.dun.roomAt((p.x/TILE)|0,(p.y/TILE)|0);
     if(isRoomClear(room)){
       a.mode='open'; a.target=nearestDecor;
-      setActionButton('open', nearestDecor.def.isVaultDoor ? '🔓 OPEN VAULT' : '▤ OPEN');
+      let _lbl='▤ OPEN';
+      const _def=nearestDecor.def;
+      if(_def.isVaultDoor) _lbl='🔓 OPEN VAULT';
+      else if(_def.isSealedCache){
+        // Phase 8: label reflects whether the equipped weapon has the utility.
+        const u=_def.sealedUtility;
+        if(_playerHasUtility(u)) _lbl = (u==='grapple') ? '🪝 GRAPPLE OPEN' : '🔥 MELT OPEN';
+        else _lbl = (u==='grapple') ? '🔒 NEEDS GRAPPLE' : '🔒 NEEDS MELT';
+      } else if(_def.isPremiumCache) _lbl='✦ OPEN CACHE';
+      setActionButton('open', _lbl);
       return;
     }
   }
@@ -966,17 +993,47 @@ async function onUltiButtonTap(){
 function onOpenButtonTap(){
   const target=G.action.target; if(!target || target.opened) return;
   const btn=$('actionBtn');
+  // Phase 8: a sealed cache stays shut until the equipped weapon has unlocked
+  // the matching traversal utility. No open, no consume — just a hint.
+  if(target.def.isSealedCache && !_playerHasUtility(target.def.sealedUtility)){
+    const u=target.def.sealedUtility;
+    log('Sealed tight. Evolve a weapon that grants '+(u==='grapple'?'Grapple':'Wall-Melt')+' to open this cache.', 'dm');
+    return;
+  }
   if(btn){ btn.disabled=true; btn.classList.add('loading'); btn.textContent='…'; }
   setTimeout(()=>{
     if(!target.open()){ if(btn){ btn.disabled=false; btn.classList.remove('loading'); } return; }
     A.breakProp();
-    spark(target.x, target.y-target.h*0.45, target.def.isVaultDoor ? '#b46bff' : '#ffd166', 22, 180);
+    const _cache = target.def.isSealedCache || target.def.isPremiumCache;
+    spark(target.x, target.y-target.h*0.45, target.def.isVaultDoor ? '#b46bff' : (_cache ? '#a970ff' : '#ffd166'), _cache?30:22, _cache?220:180);
     log(target.def.label+' opened.', 'dm');
     if(btn){ btn.disabled=false; btn.classList.remove('loading'); }
     G.action.mode=null; G.action.target=null; setActionButton(null);
     if(target.def.isVaultDoor) openVaultWindow(target);
+    else if(_cache) grantCacheLoot(target);       // Phase 8 — direct shard haul
     else openContainerWindow(target);
   }, 450);
+}
+// Phase 8 — does the equipped weapon grant this traversal utility?
+function _playerHasUtility(name){
+  const u = G && G.player && G.player.unlockedUtilities;
+  return !!(u && u.indexOf && u.indexOf(name) >= 0);
+}
+// Phase 8 — a sealed/premium cache pays out a Glitch-Shard haul directly (no
+// container window). Premium Sector caches pay more. Tier follows the act
+// (applyLoot('gshard') routes through _shardTierForAct), so the shards match
+// what the player can spend on this act's weapons.
+function grantCacheLoot(target){
+  const premium = !!target.def.isPremiumCache;
+  const n = premium ? (5 + ((Math.random()*4)|0)) : (2 + ((Math.random()*3)|0)); // 5-8 / 2-4
+  applyLoot('gshard', n, target.x, target.y-target.h*0.7);
+  if(premium || Math.random()<0.5) applyLoot('relic', 1, target.x, target.y-target.h*0.7);
+  if(premium){ // a rarer bonus item, rolled + stashed the same way container loot is
+    const it = (window.NS_ITEMS && window.NS_ITEMS.rollItemDrop(3)) || null;
+    if(it){ addItemToStash(it, 1); lootText(target.x, target.y-target.h*0.9, '+'+it.name, '#ffd166'); }
+  }
+  spark(target.x, target.y-target.h*0.45, '#a970ff', premium?40:22, 240);
+  log((premium?'Premium Sector Cache':'Cache')+' cracked open — +'+n+' Glitch Shards.', 'reward');
 }
 
 function tryInteract(){
@@ -3577,6 +3634,11 @@ function burnSingleItem(itemId){
 // via NS_EQUIP.setTiers. Keyed by CANONICAL marketplace item id; missing/1 =
 // base tier. Read by applyEquipment() above.
 let WEAPON_TIERS = {};
+// Phase 8 — owned Premium Sector Blueprints, bridged from React
+// (GET /api/blueprints) via NS_EQUIP.setBlueprints. Keyed by sectorId
+// ('sector_1'..'sector_5'); truthy = owned. Read by ensureFloor() to spawn a
+// guaranteed premium cache on that act's first floor. Never gates core acts.
+let OWNED_SECTORS = {};
 function applyEquipment(p){
   if(!p) return;
   const eq = (G && G.equipment) ? G.equipment.equipped : { mainhand:null, body:null };
@@ -3594,6 +3656,9 @@ function applyEquipment(p){
   // NEVER HP — the flat-100 cap is untouched) and a hotter tint/glow override
   // for the render path. tier 1 (base) = no delta, byte-identical to pre-Phase-4.
   let _tierDelta = 0, _wTier = 1, _ovlTintOv = null, _glowOv = null, _fxOv = null;
+  // Phase 8 — traversal utilities granted by the reached tiers (open sealed
+  // caches). Recomputed from scratch each apply so unequipping removes them.
+  const _utils = [];
   if(w && Array.isArray(w.evolutionTiers) && w.evolutionTiers.length){
     const _owned = Math.max(1, (WEAPON_TIERS[w.id] | 0) || 1);
     _wTier = Math.min(_owned, w.evolutionTiers.length + 1); // clamp to this weapon's max
@@ -3603,8 +3668,10 @@ function applyEquipment(p){
       if(_st.spriteOverrideTint) _ovlTintOv = _st.spriteOverrideTint;
       if(_st.fxColorOverride)    _fxOv      = _st.fxColorOverride;
       if(_st.glowOverride)       _glowOv    = _st.glowOverride;
+      if(_st.unlockUtility && _utils.indexOf(_st.unlockUtility) < 0) _utils.push(_st.unlockUtility);
     }
   }
+  p.unlockedUtilities = _utils; // Phase 8 — read by sealed-cache interaction
   // 2) compute + apply new delta
   const atkBonus = (w ? (w.effect.atkBonus || 0) : 0) + _tierDelta;
   const hpMul    = a ? (1 + (a.effect.hpBonus || 0)) : 1;
@@ -3683,6 +3750,14 @@ function setWeaponTiers(map){
   if(G && G.player) applyEquipment(G.player);
   if(typeof updateHUD==='function') updateHUD();
   if(typeof updateInventoryPanel==='function') updateInventoryPanel();
+}
+// Phase 8 — receive owned Premium Sector Blueprints from React. Accepts either
+// an array of sectorIds or a { sectorId: true } map.
+function setOwnedSectors(list){
+  const m = {};
+  if(Array.isArray(list)) list.forEach(id => { if(id) m[String(id)] = true; });
+  else if(list && typeof list === 'object') Object.keys(list).forEach(id => { if(list[id]) m[id] = true; });
+  OWNED_SECTORS = m;
 }
 // Phase 7 — narrative hook. Called by the outdoor scene (outdoor.js) as an act's
 // arrival beat begins. If the equipped weapon has reached an evolution tier the
@@ -3774,6 +3849,7 @@ window.NS_EQUIP = {
   unequip: unequipSlot,
   setOwned: setOwnedEquipment,
   setTiers: setWeaponTiers,   // Phase 4 — weapon evolution tier bridge
+  setBlueprints: setOwnedSectors, // Phase 8 — Premium Sector ownership bridge
   apply: applyEquipment,
   eat: eatFoodItem,
   get: function(){ return G ? G.equipment : null; },

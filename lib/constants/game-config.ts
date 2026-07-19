@@ -84,6 +84,21 @@ export const GAME_CONFIG = {
     },
   },
 
+  // Phase 8 — Premium Sector Blueprints ($3-$5). Bunker-scoped, off-chain
+  // ownership (Firebase Realtime DB blueprintsOwned/{wallet}/{sectorId}, same
+  // shape as marketplaceOwned). Owning an act's blueprint spawns a guaranteed
+  // Glitch-Shard-rich "Premium Sector Cache" on that act's FIRST floor — pure
+  // OPTIONAL bonus loot that never gates or alters the 5 core story acts.
+  // sectorId 'sector_<n>' maps to campaign act n (1-indexed). Loot skews hard
+  // to Glitch Shards (the crafting currency), pitched as optional bonus sectors.
+  premiumSectors: [
+    { id: 'sector_1', act: 1, name: 'Treeline Reserve',        priceUSD: 3, desc: 'A sealed sub-vault beneath the Treeline Bunker. Guarantees a Glitch-Shard cache every Act 1 run.' },
+    { id: 'sector_2', act: 2, name: 'Sunken Cache Sector',     priceUSD: 3, desc: 'Flooded storage under the Sunken Field. Guarantees a Glitch-Shard cache every Act 2 run.' },
+    { id: 'sector_3', act: 3, name: 'Frostlock Reserve',       priceUSD: 4, desc: 'An ice-locked strongroom off the Frostline. Guarantees a Glitch-Shard cache every Act 3 run.' },
+    { id: 'sector_4', act: 4, name: 'Hollow Reserve',          priceUSD: 4, desc: 'A hidden reserve behind the Hollow Market. Guarantees a Glitch-Shard cache every Act 4 run.' },
+    { id: 'sector_5', act: 5, name: 'Last Light Vaultworks',   priceUSD: 5, desc: 'Deep vaultworks under the Last Light. Guarantees a Glitch-Shard cache every Act 5 run.' },
+  ],
+
   // Burn Reward System — NullState Point (Phase 5.5 #8)
   // Burning is off-chain and instant: no weekly pool, no owner deposit, no
   // per-user cap, no claim step. Items convert straight into the player's

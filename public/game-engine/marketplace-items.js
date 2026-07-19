@@ -113,6 +113,15 @@
   // Owner decisions (2026-07-19): cost [8,14] matching-tier shards per step.
   var EVOLUTION_SHARD_COSTS = [8, 14];
   var EVOLUTION_ATK_DELTA_PCT = 0.20;
+  // Phase 8: reaching a weapon's MAX tier grants a traversal utility that opens
+  // sealed caches (props.js cache_grapple / cache_melt). Mirrors
+  // UTILITY_AT_MAX_TIER in lib/constants/marketplace.ts — keep in sync.
+  var UTILITY_AT_MAX_TIER = {
+    void_katana: 'grapple',
+    sunfire_bow: 'grapple',
+    verdant_reaper: 'melt_wall',
+    ancient_blade: 'melt_wall',
+  };
 
   function brightenHex(hex, amt){
     var h = (hex || '#ffffff').replace('#', '');
@@ -129,17 +138,20 @@
     var baseAtk = (item.effect && item.effect.atkBonus) || 0;
     var delta = Math.max(1, Math.round(baseAtk * EVOLUTION_ATK_DELTA_PCT));
     var fx = item.fxColor || '#ffffff';
+    var util = UTILITY_AT_MAX_TIER[item.id];
     var tiers = [];
     for (var i = 0; i < steps; i++){
       var req = {};
       req[shardKey] = (i < EVOLUTION_SHARD_COSTS.length) ? EVOLUTION_SHARD_COSTS[i] : EVOLUTION_SHARD_COSTS[EVOLUTION_SHARD_COSTS.length - 1];
-      tiers.push({
+      var tier = {
         materialsRequired: req,
         atkBonusDelta: delta,
         spriteOverrideTint: brightenHex(fx, 0.20 + 0.20 * i),
         fxColorOverride: brightenHex(fx, 0.30 + 0.25 * i),
         glowOverride: fx,
-      });
+      };
+      if (util && i === steps - 1) tier.unlockUtility = util; // MAX tier only
+      tiers.push(tier);
     }
     return tiers;
   }

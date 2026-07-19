@@ -70,6 +70,17 @@ function brightenHex(hex: string, amt: number): string {
   return `#${to2(r)}${to2(g)}${to2(b)}`
 }
 
+// Phase 8: reaching a weapon's MAX tier can grant a traversal utility that
+// opens sealed caches in the dungeon (props.js cache_grapple / cache_melt).
+// Only a few top-tier weapons grant one, so the ability is an aspirational
+// end-of-ladder reward. Keys must match the engine's sealedUtility values.
+export const UTILITY_AT_MAX_TIER: Record<string, 'grapple' | 'melt_wall'> = {
+  void_katana: 'grapple',
+  sunfire_bow: 'grapple',
+  verdant_reaper: 'melt_wall',
+  ancient_blade: 'melt_wall',
+}
+
 // Build the evolution ladder for a weapon. maxTier = max(2, fxTier) so every
 // weapon evolves at least once; a fxTier-3 weapon can reach tier 3 (two steps).
 export function buildWeaponEvolution(item: MarketplaceItem): WeaponEvolutionTier[] {
@@ -80,18 +91,21 @@ export function buildWeaponEvolution(item: MarketplaceItem): WeaponEvolutionTier
   const baseAtk = item.effect.atkBonus || 0
   const delta = Math.max(1, Math.round(baseAtk * EVOLUTION_ATK_DELTA_PCT))
   const fx = item.fxColor || '#ffffff'
+  const util = UTILITY_AT_MAX_TIER[item.id]
   const tiers: WeaponEvolutionTier[] = []
   for (let i = 0; i < steps; i++) {
     const cost = EVOLUTION_SHARD_COSTS[i] ?? EVOLUTION_SHARD_COSTS[EVOLUTION_SHARD_COSTS.length - 1]
     const materialsRequired: { t1?: number; t2?: number; t3?: number } = {}
     materialsRequired[shardKey] = cost
-    tiers.push({
+    const tier: WeaponEvolutionTier = {
       materialsRequired,
       atkBonusDelta: delta,
       spriteOverrideTint: brightenHex(fx, 0.20 + 0.20 * i),
       fxColorOverride: brightenHex(fx, 0.30 + 0.25 * i),
       glowOverride: fx, // premium aura in the weapon's signature color
-    })
+    }
+    if (util && i === steps - 1) tier.unlockUtility = util // granted at MAX tier only
+    tiers.push(tier)
   }
   return tiers
 }
