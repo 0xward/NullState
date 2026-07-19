@@ -69,7 +69,7 @@ export default function MainMenu({
   const hasSave = !!playerProfile?.isRegistered
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col items-center overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex flex-col items-center overflow-y-auto ns-fade-in">
       {/* Blurred dungeon background (pre-processed asset, no live CSS blur) */}
       <div
         className="fixed inset-0 pointer-events-none"
@@ -94,7 +94,7 @@ export default function MainMenu({
       <div className="relative z-10 w-full max-w-[340px] px-6 flex flex-col items-center min-h-full py-10">
         {/* Title — Outlast-style: one huge distressed word, top center */}
         <h1
-          className="font-display font-black text-white uppercase select-none"
+          className="font-display font-black text-white uppercase select-none ns-rise"
           style={{
             fontSize: 44,
             letterSpacing: '6px',
@@ -128,7 +128,7 @@ export default function MainMenu({
         )}
 
         {/* Menu — centered text list, reference order: primary first */}
-        <nav className="w-full space-y-1 text-center">
+        <nav className="w-full space-y-1 text-center ns-rise-2">
           <MenuItem
             label="Continue"
             primary={hasSave}
@@ -156,7 +156,7 @@ export default function MainMenu({
         {/* Wallet + legal links pinned to the bottom of the column.
             Support / Terms / Privacy MUST stay reachable from this first
             screen — MiniPay submission checklist requirement. */}
-        <div className="mt-auto pt-10 w-full text-center">
+        <div className="mt-auto pt-10 w-full text-center ns-rise-3">
           <p
             className="font-mono text-[9px] tracking-[2px] mb-1"
             style={{ color: 'rgba(255,255,255,0.35)' }}

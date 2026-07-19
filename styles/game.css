@@ -65,10 +65,25 @@
   background:linear-gradient(to bottom,rgba(0,0,0,.6),transparent);}
 .ns-game-root .hud-left{display:flex;flex-direction:column;gap:6px;min-width:200px;max-width:42vw;}
 .ns-game-root .bar-row{display:flex;align-items:center;gap:8px;}
-.ns-game-root .bar-label{font-size:11px;letter-spacing:2px;color:var(--green);width:22px;}
-.ns-game-root .bar{position:relative;flex:1;height:16px;border:1px solid var(--line);background:rgba(0,0,0,.55);
-  border-radius:3px;overflow:hidden;box-shadow:inset 0 0 8px rgba(0,0,0,.6);}
-.ns-game-root .bar-fill{position:absolute;inset:0;width:100%;transform-origin:left;transition:width .25s ease, background .3s ease;}
+/* v80 pixel-RPG HUD skin (owner: "vibes game pixel", no more stiff flat
+   boxes). Bars become chunky notched-corner plates in the wood/gold family
+   (matching the LPC dungeon art): a stepped clip-path fakes the classic
+   8-bit rounded-pixel corner, an inset bevel gives the frame depth, and
+   the fill gets scanline segments so it reads as a retro meter. */
+.ns-game-root .bar-label{font-size:11px;letter-spacing:2px;color:#ffd166;width:22px;
+  text-shadow:0 1px 0 #000, 0 0 6px rgba(255,209,102,.35);}
+.ns-game-root .bar{position:relative;flex:1;height:18px;border:0;background:#151009;
+  border-radius:0;overflow:hidden;
+  clip-path:polygon(0 4px,4px 0,calc(100% - 4px) 0,100% 4px,100% calc(100% - 4px),calc(100% - 4px) 100%,4px 100%,0 calc(100% - 4px));
+  box-shadow:inset 0 0 0 2px #4a3520, inset 0 2px 0 2px rgba(255,255,255,.05), inset 0 -3px 0 2px rgba(0,0,0,.55);}
+.ns-game-root .bar-fill{position:absolute;inset:3px;width:calc(100% - 6px);transform-origin:left;
+  transition:width .25s ease, background .3s ease;
+  clip-path:polygon(0 2px,2px 0,calc(100% - 2px) 0,100% 2px,100% calc(100% - 2px),calc(100% - 2px) 100%,2px 100%,0 calc(100% - 2px));}
+/* retro meter texture: vertical segment ticks + a bright top scanline */
+.ns-game-root .bar-fill::after{content:'';position:absolute;inset:0;pointer-events:none;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.28) 0 3px, transparent 3px calc(100% - 3px), rgba(0,0,0,.3) calc(100% - 3px) 100%),
+    repeating-linear-gradient(90deg, transparent 0 7px, rgba(0,0,0,.22) 7px 9px);}
 /* #12 — HP bar now tiers by remaining % (set on the .bar.hp parent from
    game.js's updateHUD()/updateInventoryPanel(), not hardcoded): green
    above 50%, amber 20–50%, red at/below 20%. Falls back to the red tier
@@ -87,10 +102,14 @@
   background:radial-gradient(ellipse at center, transparent 45%, rgba(255,10,40,.65) 100%);}
 .ns-game-root .bar-text{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
   font-size:10px;letter-spacing:1px;text-shadow:0 1px 2px #000;color:#fff;}
-.ns-game-root .hud-right{display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:flex-end;}
-.ns-game-root .stat{display:flex;flex-direction:column;align-items:center;line-height:1.1;}
-.ns-game-root .stat-k{font-size:9px;letter-spacing:2px;color:#5c8a78;}
-.ns-game-root .stat-v{font-size:15px;color:#eafff5;text-shadow:0 0 6px rgba(0,255,136,.4);}
+.ns-game-root .hud-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end;}
+/* v80: LV/FLOOR/KILLS become little pixel plates instead of floating text */
+.ns-game-root .stat{display:flex;flex-direction:column;align-items:center;line-height:1.1;
+  background:rgba(16,12,8,.78);padding:4px 9px 3px;min-width:44px;
+  clip-path:polygon(0 3px,3px 0,calc(100% - 3px) 0,100% 3px,100% calc(100% - 3px),calc(100% - 3px) 100%,3px 100%,0 calc(100% - 3px));
+  box-shadow:inset 0 0 0 2px #4a3520, inset 0 2px 0 2px rgba(255,255,255,.04);}
+.ns-game-root .stat-k{font-size:9px;letter-spacing:2px;color:#c9a86a;}
+.ns-game-root .stat-v{font-size:15px;color:#ffeccc;text-shadow:0 1px 0 #000, 0 0 6px rgba(255,209,102,.3);}
 .ns-game-root #muteBtn{pointer-events:auto;cursor:pointer;background:rgba(0,0,0,.4);color:var(--green);
   border:1px solid var(--line);border-radius:6px;width:30px;height:30px;font-size:15px;}
 .ns-game-root #muteBtn.off{color:#557;}
@@ -532,13 +551,20 @@
    always has enough width for a clean, fully-visible 5-column item grid
    (see .inv-panel-inner + .inv-items).
    ════════════════════════════════════════════════════════════════════════ */
+/* v80 pixel skin: the inventory trigger becomes a chunky notched-corner
+   wooden button with a bevel + gold pin studs — same family as the bars,
+   stat plates and the minimap frame. Position/size untouched. */
 .ns-game-root .inv-btn{position:absolute;top:200px;right:12px;z-index:7;pointer-events:auto;
-  width:44px;height:44px;border-radius:8px;cursor:pointer;
-  background:linear-gradient(180deg,#8a5a34,#5c3b20);border:1px solid #3d2814;color:#f0dcc0;
+  width:44px;height:44px;border-radius:0;cursor:pointer;border:0;
+  background:linear-gradient(180deg,#8a5a34 0%,#6b4526 55%,#503018 100%);color:#ffe9c4;
   display:flex;align-items:center;justify-content:center;
-  box-shadow:0 2px 6px rgba(0,0,0,.4);
+  clip-path:polygon(0 5px,5px 0,calc(100% - 5px) 0,100% 5px,100% calc(100% - 5px),calc(100% - 5px) 100%,5px 100%,0 calc(100% - 5px));
+  box-shadow:inset 0 0 0 2px #3d2814, inset 0 3px 0 2px rgba(255,236,196,.18), inset 0 -4px 0 2px rgba(0,0,0,.4);
   transition:.15s;}
-.ns-game-root .inv-btn:hover{border-color:#f0dcc0;background:linear-gradient(180deg,#9c6a3e,#6b4526);color:#fff2dc;}
+.ns-game-root .inv-btn:hover{background:linear-gradient(180deg,#9c6a3e 0%,#7a5230 55%,#5c3a1e 100%);color:#fff2dc;
+  box-shadow:inset 0 0 0 2px #ffd166, inset 0 3px 0 2px rgba(255,236,196,.22), inset 0 -4px 0 2px rgba(0,0,0,.4);}
+.ns-game-root .inv-btn:active{transform:translateY(1px);
+  box-shadow:inset 0 0 0 2px #3d2814, inset 0 4px 0 2px rgba(0,0,0,.35);}
 
 .ns-game-root #invPanel.overlay{pointer-events:auto;}
 .ns-game-root .inv-panel-inner{width:min(92vw,420px);max-height:min(78vh,560px);
@@ -602,13 +628,18 @@
    an 8px gap so they never touch. Gray/steel palette vs. the inventory
    button's brown/leather palette keeps the two visually distinct despite
    matching size. */
+/* v80 pixel skin: same chunky notched treatment as .inv-btn, steel palette */
 .ns-game-root .ns-settings-trigger{position:absolute;top:252px;right:12px;z-index:7;pointer-events:auto;
-  width:44px;height:44px;border-radius:8px;cursor:pointer;
-  background:linear-gradient(180deg,#7a7f85,#4a4e53);border:1px solid #2e3134;color:#e8ebee;
+  width:44px;height:44px;border-radius:0;cursor:pointer;border:0;
+  background:linear-gradient(180deg,#7a7f85 0%,#565a60 55%,#3e4247 100%);color:#e8ebee;
   display:flex;align-items:center;justify-content:center;
-  box-shadow:0 2px 6px rgba(0,0,0,.4);
+  clip-path:polygon(0 5px,5px 0,calc(100% - 5px) 0,100% 5px,100% calc(100% - 5px),calc(100% - 5px) 100%,5px 100%,0 calc(100% - 5px));
+  box-shadow:inset 0 0 0 2px #2e3134, inset 0 3px 0 2px rgba(255,255,255,.16), inset 0 -4px 0 2px rgba(0,0,0,.4);
   transition:.15s;}
-.ns-game-root .ns-settings-trigger:hover{border-color:#e8ebee;background:linear-gradient(180deg,#8c9197,#5a5e64);color:#fff;}
+.ns-game-root .ns-settings-trigger:hover{background:linear-gradient(180deg,#8c9197 0%,#63676d 55%,#484c52 100%);color:#fff;
+  box-shadow:inset 0 0 0 2px #cfd4d9, inset 0 3px 0 2px rgba(255,255,255,.2), inset 0 -4px 0 2px rgba(0,0,0,.4);}
+.ns-game-root .ns-settings-trigger:active{transform:translateY(1px);
+  box-shadow:inset 0 0 0 2px #2e3134, inset 0 4px 0 2px rgba(0,0,0,.35);}
 @media (orientation:portrait){
   .ns-game-root .ns-settings-trigger{top:222px;}
 }

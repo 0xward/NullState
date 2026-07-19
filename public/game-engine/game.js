@@ -2677,78 +2677,126 @@ function getMinimapMetrics(){
   if(portrait && cw < 480) return { size:78, pad:10, top:74 };
   return MM;
 }
+// v80 REDESIGN (owner: "minimap jelek dan tidak sesuai maps game"):
+//  * the map now shows EVERY visited tile (no more 11-tile radius crop that
+//    made it look like random smudges) — what you've explored is what you
+//    see, walls and room shapes matching the real dungeon layout;
+//  * unexplored floor renders as a faint ghost so the panel always reads as
+//    "a map", while the fog still hides where you haven't been;
+//  * walls get their own pixel outline so rooms/corridors have real shape;
+//  * the layout is centered in the panel (no more off-corner squish);
+//  * pixel-RPG panel: chunky notched-corner frame in the wood/gold HUD skin
+//    instead of a thin 1px teal box;
+//  * player wedge uses the real 4-direction LPC facing.
 function drawMinimap(){
   const d = G.dun; if(!d) return;
   const { size, pad, top } = getMinimapMetrics();
   const mx = cw - pad - size, my = top;
-  const cellPx = size / Math.max(d.W, d.H);
+  const inset = 6; // inner margin inside the frame
+  const cellPx = (size - inset*2) / Math.max(d.W, d.H);
+  // center the layout inside the panel
+  const ox = mx + inset + ((size - inset*2) - d.W*cellPx)/2;
+  const oy = my + inset + ((size - inset*2) - d.H*cellPx)/2;
+  const N = 3; // pixel notch size for the frame corners
 
   ctx.save();
-  // panel background
-  ctx.fillStyle = 'rgba(4,8,10,0.62)';
-  ctx.strokeStyle = 'rgba(0,255,136,.32)'; ctx.lineWidth = 1;
-  ctx.fillRect(mx, my, size, size);
-  ctx.strokeRect(mx+0.5, my+0.5, size-1, size-1);
+  // ---- pixel frame: notched-corner parchment-dark panel with bronze trim
+  ctx.beginPath();
+  ctx.moveTo(mx+N,my); ctx.lineTo(mx+size-N,my); ctx.lineTo(mx+size,my+N);
+  ctx.lineTo(mx+size,my+size-N); ctx.lineTo(mx+size-N,my+size);
+  ctx.lineTo(mx+N,my+size); ctx.lineTo(mx,my+size-N); ctx.lineTo(mx,my+N);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(16,12,8,0.82)';
+  ctx.fill();
+  ctx.lineWidth = 2; ctx.strokeStyle = '#5a4226'; ctx.stroke();   // bronze outer
+  ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(255,209,102,.35)';   // gold inner
+  ctx.stroke();
+  // corner studs (little gold pixels, pure decoration)
+  ctx.fillStyle = 'rgba(255,209,102,.5)';
+  ctx.fillRect(mx+2,my+2,2,2); ctx.fillRect(mx+size-4,my+2,2,2);
+  ctx.fillRect(mx+2,my+size-4,2,2); ctx.fillRect(mx+size-4,my+size-4,2,2);
 
-  // clip to panel so nothing draws outside the rounded box
-  ctx.beginPath(); ctx.rect(mx, my, size, size); ctx.clip();
+  ctx.beginPath(); ctx.rect(mx+2, my+2, size-4, size-4); ctx.clip();
 
-  // explored floor tiles (subtle), only within a radius of the player so it
-  // reads as "fog of war" rather than spoiling the whole floor layout
-  const visR = 11; // tiles
-  const ptx = (G.player.x/TILE)|0, pty=(G.player.y/TILE)|0;
-  ctx.fillStyle = 'rgba(0,255,136,.16)';
-  for(let ty=0; ty<d.H; ty++){
-    for(let tx=0; tx<d.W; tx++){
-      if(d.grid[ty][tx]===0) continue;
-      if(!isTileVisited(d,tx,ty)) continue;
-      if(Math.hypot(tx-ptx,ty-pty) > visR) continue;
-      ctx.fillRect(mx+tx*cellPx, my+ty*cellPx, Math.max(1,cellPx), Math.max(1,cellPx));
+  const c = Math.max(1, cellPx);
+  // ---- unexplored floor: faint ghost of the whole layout
+  ctx.fillStyle = 'rgba(120,110,90,.10)';
+  for(let ty=0; ty<d.H; ty++) for(let tx=0; tx<d.W; tx++){
+    if(d.grid[ty][tx]!==0 && !isTileVisited(d,tx,ty))
+      ctx.fillRect(ox+tx*cellPx, oy+ty*cellPx, c, c);
+  }
+  // ---- visited floor: solid parchment-green, the real explored map
+  ctx.fillStyle = 'rgba(96,180,130,.55)';
+  for(let ty=0; ty<d.H; ty++) for(let tx=0; tx<d.W; tx++){
+    if(d.grid[ty][tx]!==0 && isTileVisited(d,tx,ty))
+      ctx.fillRect(ox+tx*cellPx, oy+ty*cellPx, c, c);
+  }
+  // ---- wall edging around visited floor, so rooms have real outlines
+  ctx.fillStyle = 'rgba(30,24,16,.9)';
+  for(let ty=0; ty<d.H; ty++) for(let tx=0; tx<d.W; tx++){
+    if(d.grid[ty][tx]!==0) continue; // walls only
+    // draw a wall pixel only when it touches a VISITED floor tile
+    let touch=false;
+    for(const [ddx2,ddy2] of [[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,1],[1,-1],[-1,-1]]){
+      const nx=tx+ddx2, ny=ty+ddy2;
+      if(nx>=0&&ny>=0&&nx<d.W&&ny<d.H && d.grid[ny][nx]!==0 && isTileVisited(d,nx,ny)){ touch=true; break; }
     }
+    if(touch) ctx.fillRect(ox+tx*cellPx, oy+ty*cellPx, c, c);
   }
 
-  // lift dot
-  const stx = mx + (d.stairsPx.x/TILE)*cellPx, sty = my + (d.stairsPx.y/TILE)*cellPx;
-  ctx.fillStyle = '#ff4a5e';
-  ctx.beginPath(); ctx.arc(stx, sty, 3, 0, 7); ctx.fill();
+  // lift marker — small gold square (visible once its tile was explored,
+  // always visible on boss floors so the objective can't be lost)
+  const sTx=(d.stairsPx.x/TILE)|0, sTy=(d.stairsPx.y/TILE)|0;
+  if(isTileVisited(d,sTx,sTy) || G.depth%5===0){
+    ctx.fillStyle = '#ffd166';
+    ctx.fillRect(ox+sTx*cellPx-1, oy+sTy*cellPx-1, Math.max(3,c+1), Math.max(3,c+1));
+  }
 
-  // nearby enemy dots
+  // nearby enemy dots (kept radius-limited: it's a threat radar, not wallhack)
+  const ptx=(G.player.x/TILE)|0, pty=(G.player.y/TILE)|0;
   ctx.fillStyle = '#ff5d54';
   for(const e of G.enemies){
     if(e.dead) continue;
-    if(Math.hypot(e.x/TILE-ptx, e.y/TILE-pty) > visR) continue;
-    const ex = mx + (e.x/TILE)*cellPx, ey = my + (e.y/TILE)*cellPx;
-    ctx.beginPath(); ctx.arc(ex, ey, e.isBoss?3.5:2, 0, 7); ctx.fill();
+    if(Math.hypot(e.x/TILE-ptx, e.y/TILE-pty) > 12) continue;
+    const ex = ox + (e.x/TILE)*cellPx, ey = oy + (e.y/TILE)*cellPx;
+    ctx.fillRect(ex-(e.isBoss?2.5:1.5), ey-(e.isBoss?2.5:1.5), e.isBoss?5:3, e.isBoss?5:3);
   }
 
-  // player dot + facing wedge
-  const px = mx + ptx*cellPx, py = my + pty*cellPx;
-  const ang = G.player.facing>0 ? 0 : Math.PI;
-  ctx.translate(px, py); ctx.rotate(ang);
+  // player wedge — true 4-direction facing (same _lpcDir the sprite uses)
+  const px = ox + (G.player.x/TILE)*cellPx, py = oy + (G.player.y/TILE)*cellPx;
+  const dirAng = [ -Math.PI/2, Math.PI, Math.PI/2, 0 ][G.player._lpcDir!=null ? G.player._lpcDir : 3];
+  ctx.save();
+  ctx.translate(px, py); ctx.rotate(dirAng);
   ctx.fillStyle = '#00ff88';
   ctx.beginPath(); ctx.moveTo(5,0); ctx.lineTo(-4,-3.5); ctx.lineTo(-4,3.5); ctx.closePath(); ctx.fill();
   ctx.restore();
 
-  // directional arrow to stairs, shown at the panel edge facing their
-  // direction — most useful once you've moved away from the start room
-  ctx.save();
+  // directional arrow to the lift at the panel edge when it's far away
   const ddx = d.stairsPx.x - G.player.x, ddy = d.stairsPx.y - G.player.y;
-  const ddist = Math.hypot(ddx,ddy);
-  if(ddist > TILE*6){
+  if(Math.hypot(ddx,ddy) > TILE*6){
     const ang2 = Math.atan2(ddy,ddx);
-    const cx = mx+size/2, cy = my+size/2, r = size/2 - 9;
-    const ax = cx + Math.cos(ang2)*r, ay = cy + Math.sin(ang2)*r;
-    ctx.translate(ax, ay); ctx.rotate(ang2);
+    const ccx = mx+size/2, ccy = my+size/2, r = size/2 - 9;
+    ctx.save();
+    ctx.translate(ccx + Math.cos(ang2)*r, ccy + Math.sin(ang2)*r); ctx.rotate(ang2);
     ctx.fillStyle = '#ffd166';
-    ctx.beginPath(); ctx.moveTo(7,0); ctx.lineTo(-5,-5); ctx.lineTo(-5,5); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(6,0); ctx.lineTo(-4,-4); ctx.lineTo(-4,4); ctx.closePath(); ctx.fill();
+    ctx.restore();
   }
   ctx.restore();
 
+  // status line under the panel, on its own little pixel plate
   const remaining = G.enemies.filter(e=>!e.dead && (e.arch.isUndead || e.isBoss)).length;
-  ctx.fillStyle = remaining ? 'rgba(255,209,102,.72)' : 'rgba(0,255,136,.78)';
+  const label = remaining ? `${remaining} HOSTILES` : 'LIFT UNLOCKED';
+  ctx.save();
   ctx.font = '9px "Share Tech Mono"';
+  const tw = ctx.measureText(label).width + 12;
+  const lx = mx + size - tw, ly = my + size + 4;
+  ctx.fillStyle = 'rgba(16,12,8,0.78)';
+  ctx.fillRect(lx, ly, tw, 14);
+  ctx.strokeStyle = '#5a4226'; ctx.lineWidth = 1; ctx.strokeRect(lx+0.5, ly+0.5, tw-1, 13);
+  ctx.fillStyle = remaining ? 'rgba(255,209,102,.9)' : 'rgba(0,255,136,.9)';
   ctx.textAlign = 'center';
-  ctx.fillText(remaining ? `${remaining} HOSTILES` : 'LIFT UNLOCKED', mx+size/2, my+size+12);
+  ctx.fillText(label, lx+tw/2, ly+10.5);
   ctx.restore();
 }
 
@@ -3822,48 +3870,15 @@ let campaignReturningFromBunker = false;
 // old code called this exactly once from boot(); if the LPC body sheet (or
 // the fallback knight_idle) hadn't finished decoding at that instant, every
 // early `return` here silently produced an empty box that never repainted.
-function drawPreview(elId, cfg){
-  // knight now renders through the LPC compositor (see drawLPCPreview
-  // below) so the char-select thumbnail can never drift out of sync with
-  // the in-dungeon LPC hero. rogue/wizzard have no LPC sheets yet, so they
-  // keep using the original alpha-bbox-normalize path unchanged below.
-  // v80 (owner: "harus muncul detik pertama"): only take the LPC path once
-  // the LPC body sheet has actually decoded. Before that, fall THROUGH to
-  // the legacy pixel-crawler paint below — knight_idle is one of the 3 tiny
-  // sprites preloadHeroPreviews() fetches first, so the box shows a hero
-  // within the first second even on a slow connection — and report
-  // not-done for the knight so the retry loop upgrades the box to the LPC
-  // composite (with equipped gear) as soon as the body sheet lands.
-  const A = window.NS_ASSETS;
-  const _lpcBodyReady = A && A.LPC_HERO && A.img(A.LPC_HERO.idle.src);
-  if(elId==='prevKnight' && _lpcBodyReady){
-    return drawLPCPreview(elId);
-  }
-  const im = window.NS_ASSETS.img(cfg.idle.src);
-  const host = $(elId);
-  if(!im || !host){ return false; }
-  const {fw,fh} = cfg.idle;
-  const off=document.createElement('canvas'); off.width=fw; off.height=fh;
-  const oc=off.getContext('2d'); oc.drawImage(im,0,0,fw,fh,0,0,fw,fh);
-  let data;
-  try{ data=oc.getImageData(0,0,fw,fh).data; }catch(e){ return false; }
-  let minX=fw,minY=fh,maxX=0,maxY=0,found=false;
-  for(let y=0;y<fh;y++)for(let x=0;x<fw;x++){
-    if(data[(y*fw+x)*4+3]>24){ found=true;
-      if(x<minX)minX=x; if(x>maxX)maxX=x; if(y<minY)minY=y; if(y>maxY)maxY=y; }
-  }
-  if(!found){ minX=0;minY=0;maxX=fw-1;maxY=fh-1; }
-  const cW=maxX-minX+1, cH=maxY-minY+1;
-  const BOX=88, TARGET=74, s=TARGET/cH;
-  const dw=cW*s, dh=cH*s;
-  const c=document.createElement('canvas'); c.width=BOX; c.height=BOX;
-  const g=c.getContext('2d'); g.imageSmoothingEnabled=false;
-  g.drawImage(im, minX,minY,cW,cH, (BOX-dw)/2, BOX-dh-6, dw,dh);
-  host.innerHTML=''; host.appendChild(c);
-  host.style.cssText=`width:${BOX}px;height:${BOX}px;`;
-  // v80: the legacy sprite is only a stand-in for the knight while the LPC
-  // body sheet decodes — keep the retry loop alive so it upgrades in place.
-  return elId!=='prevKnight';
+// v80 (owner request): KNIGHT is the only character — the preview renders
+// EXCLUSIVELY through the LPC compositor, identical to the in-dungeon hero.
+// The old pixel-crawler stand-in path is gone: it read as "a different
+// character slipping into the box" while the LPC sheets decoded. Instead,
+// preloadHeroPreviews() now fetches exactly the four small files the LPC
+// preview needs first, so the real knight appears within the first second
+// and no other look ever flashes in.
+function drawPreview(elId){
+  return drawLPCPreview(elId);
 }
 // Knight-only LPC preview path. Mirrors the old function's alpha-bbox
 // normalization (so knight/rogue/wizzard thumbnails all land at the same
@@ -3889,7 +3904,10 @@ function drawLPCPreview(elId){
   // via loadPersistedEquipment). A fresh wallet with nothing equipped gets
   // the plain default hero + base armor, exactly as requested.
   const dirIndex = 3; // LPC universal sheet rows: 0=up 1=left 2=down 3=right
-  const eq = loadPersistedEquipment().equipped;
+  // v80 (owner spec): CONTINUE shows the hero exactly as last equipped in the
+  // inventory (persisted per-wallet cache); a NEW GAME preview is the default
+  // knight in the base outfit — no gear until the player equips it in-run.
+  const eq = SAVED_SESSION ? loadPersistedEquipment().equipped : { mainhand:null, body:null };
   const weaponId = eq.mainhand || null;
   const armorId  = eq.body || null;
   // If an equipped overlay sheet hasn't decoded yet, still draw the body now
@@ -3944,7 +3962,7 @@ function paintPreview(reset){
   // re-mount (exit game -> open again) can never inherit an exhausted
   // counter from the previous session and leave the box permanently blank.
   if(reset === true) _previewTries = 0;
-  const done = drawPreview('prevKnight', HERO.knight);
+  const done = drawPreview('prevKnight');
   if(!done && !destroyed && _previewTries < 60){
     _previewTries++;
     setTimeout(paintPreview, 250);
