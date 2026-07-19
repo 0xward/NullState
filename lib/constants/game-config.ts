@@ -38,6 +38,15 @@ export const GAME_CONFIG = {
     windowHours: 24,
   },
 
+  // Drop-Rate Elixir (Genius blueprint Phase 3, §2.6): a $1 consumable that
+  // biases loot-rarity rolls upward for 30 real-time minutes (one extra
+  // keep-the-better reroll in rollItemDrop — see items.js). Wallet-bound,
+  // off-chain count + activeUntil timestamp (same trust model as energy).
+  elixir: {
+    priceUSD: 1,
+    durationMin: 30,
+  },
+
   // Burn Reward System — NullState Point (Phase 5.5 #8)
   // Burning is off-chain and instant: no weekly pool, no owner deposit, no
   // per-user cap, no claim step. Items convert straight into the player's

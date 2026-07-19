@@ -2817,9 +2817,16 @@ function drawMinimap(){
   }
   ctx.restore();
 
-  // status line under the panel, on its own little pixel plate
+  // status line under the panel, on its own little pixel plate.
+  // v81: the Phase 1 run timer lives here now (left of the hostiles count)
+  // instead of a separate HUD stat that overlapped this very panel.
   const remaining = G.enemies.filter(e=>!e.dead && (e.arch.isUndead || e.isBoss)).length;
-  const label = remaining ? `${remaining} HOSTILES` : 'LIFT UNLOCKED';
+  let label = remaining ? `${remaining} HOSTILES` : 'LIFT UNLOCKED';
+  const _run = window.NS_RUN && NS_RUN.active();
+  if(_run){
+    const _s = (_run.elapsedMs/1000)|0;
+    label = ((_s/60)|0) + ':' + String(_s%60).padStart(2,'0') + ' · ' + label;
+  }
   ctx.save();
   ctx.font = '9px "Share Tech Mono"';
   const tw = ctx.measureText(label).width + 12;
@@ -2848,20 +2855,10 @@ function update(dt){
   }
   if(!G||G.paused||G.over) return;
   // ---- Phase 1: run clock. Ticks only while the run is actually playable
-  // (paused/cutscene/game-over frames return before this line). The HUD
-  // TIME plate updates at 1Hz via a cheap change-guard.
-  if(window.NS_RUN){
-    NS_RUN.tick(dt);
-    const _r = NS_RUN.active();
-    if(_r){
-      const _s = (_r.elapsedMs/1000)|0;
-      if(_s !== _lastRunSec){
-        _lastRunSec = _s;
-        const el = $('runTime');
-        if(el) el.textContent = ((_s/60)|0) + ':' + String(_s%60).padStart(2,'0');
-      }
-    }
-  }
+  // (paused/cutscene/game-over frames return before this line). Display
+  // lives in the minimap's status plate (drawMinimap) — v81: the separate
+  // HUD TIME stat overlapped the minimap panel on portrait screens.
+  if(window.NS_RUN) NS_RUN.tick(dt);
   G.time+=dt;
   const p=G.player;
   if(G.action.cd>0) G.action.cd-=dt;
