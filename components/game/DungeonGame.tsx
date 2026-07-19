@@ -9,6 +9,7 @@ import { REWARD_CONTRACT_ADDRESS } from '@/lib/contract-abi'
 import { PlayerProfile } from '@/lib/contract'
 import { loadGameSession, saveGameSession, clearGameSession } from '@/lib/gameSessionService'
 import { recordRunKills, recordRunProgress } from '@/lib/leaderboardService'
+import { GAME_CONFIG } from '@/lib/constants/game-config'
 import SettingsModal from './SettingsModal'
 import { LiveStatsProvider } from './LiveStatsProvider'
 import SaveConfirmModal from './SaveConfirmModal'
@@ -45,6 +46,7 @@ const ENGINE_SCRIPTS = [
   '/game-engine/effects.js',
   '/game-engine/entities.js',
   '/game-engine/outdoor.js',
+  '/game-engine/run-session.js',
   '/game-engine/game.js',
 ].map(src => `${src}?v=${BUILD_TAG}`)
 
@@ -118,6 +120,54 @@ export default function DungeonGame({ playerProfile, setPlayerUsername, isNewRun
   const [sfxEnabled, setSfxEnabled] = useState(true)
   const [screenShakeEnabled, setScreenShakeEnabled] = useState(true)
   const [sessionStats, setSessionStats] = useState<{ depth: number; kills: number } | null>(null)
+  // Phase 1 (Genius blueprint §2.6): out-of-energy modal state. Set by the
+  // engine's energy bridge when a fresh bunker entry is denied; cleared on
+  // successful refill or dismiss. `resetAt` drives the countdown line.
+  const [energyModal, setEnergyModal] = useState<{ resetAt: number } | null>(null)
+  const [energyBusy, setEnergyBusy] = useState(false)
+  const [energyMsg, setEnergyMsg] = useState<string | null>(null)
+  const [energyNow, setEnergyNow] = useState(Date.now())
+  useEffect(() => {
+    if (!energyModal) return
+    const t = setInterval(() => setEnergyNow(Date.now()), 1000)
+    return () => clearInterval(t)
+  }, [energyModal])
+
+  const isDevWallet =
+    !!wallet.address &&
+    (process.env.NEXT_PUBLIC_DEV_TEST_WALLETS || '')
+      .split(',').map(a => a.trim().toLowerCase()).filter(Boolean)
+      .includes(wallet.address.toLowerCase())
+
+  const handleEnergyRefill = async () => {
+    if (energyBusy) return
+    const addr = walletRef.current.address
+    if (!addr) return
+    setEnergyBusy(true)
+    setEnergyMsg(isDevWallet ? 'DEV: requesting free refill…' : 'Sending $1…')
+    try {
+      let txHash = ''
+      if (!isDevWallet) {
+        txHash = await walletRef.current.buyMarketplaceItem(1, 'USDm')
+        setEnergyMsg('Payment sent — verifying on-chain…')
+      }
+      const res = await fetch('/api/energy/refill', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(
+          isDevWallet ? { wallet: addr, devBypass: true } : { wallet: addr, txHash, token: 'USDm' },
+        ),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Refill failed')
+      setEnergyMsg(null)
+      setEnergyModal(null) // energy restored — walk back to the door to enter
+    } catch (e: unknown) {
+      setEnergyMsg(e instanceof Error ? e.message : 'Refill failed')
+    } finally {
+      setEnergyBusy(false)
+    }
+  }
 
   const refreshSessionStats = () => {
     const NSG = (window as any).NullStateGame
@@ -391,6 +441,33 @@ export default function DungeonGame({ playerProfile, setPlayerUsername, isNewRun
             ? { xp: playerProfile.xp, level: playerProfile.level }
             : null,
           savedSession,
+          // Phase 1 energy bridge — server-authoritative spend at every
+          // FRESH bunker entry. Fail-open by design: wallet-less mounts and
+          // network/server errors return ok:true so connectivity can never
+          // lock a player out of the game (the server still enforces the
+          // real cap next time it's reachable).
+          energy: {
+            trySpend: async () => {
+              const addr = walletRef.current.address
+              if (!addr) return { ok: true }
+              try {
+                const r = await fetch('/api/energy/spend', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ wallet: addr }),
+                })
+                const d = await r.json()
+                if (!r.ok) return { ok: true }
+                return d
+              } catch {
+                return { ok: true }
+              }
+            },
+            onExhausted: (state: { resetAt?: number }) => {
+              setEnergyMsg(null)
+              setEnergyModal({ resetAt: state?.resetAt || Date.now() + 24 * 3600 * 1000 })
+            },
+          },
         })
         NSG.setWalletAddress?.(walletRef.current.address ?? null)
         setSoundMuted(!!NSG.isSoundMuted?.())
@@ -516,6 +593,9 @@ export default function DungeonGame({ playerProfile, setPlayerUsername, isNewRun
               <div className="stat"><span className="stat-k">LV</span><span id="lvl" className="stat-v">1</span></div>
               <div className="stat"><span className="stat-k">FLOOR</span><span id="floor" className="stat-v">1</span></div>
               <div className="stat"><span className="stat-k">KILLS</span><span id="kills" className="stat-v">0</span></div>
+              {/* Phase 1: live run timer — updated at 1Hz from game.js's
+                  update loop while a RunSession is in progress. */}
+              <div className="stat"><span className="stat-k">TIME</span><span id="runTime" className="stat-v">0:00</span></div>
             </div>
           </div>
 
@@ -600,6 +680,52 @@ export default function DungeonGame({ playerProfile, setPlayerUsername, isNewRun
 
           <div className="hint">WASD / Arrows · move&nbsp;&nbsp;·&nbsp;&nbsp;SPACE / J / Click · attack&nbsp;&nbsp;·&nbsp;&nbsp;E · interact</div>
         </div>
+
+        {/* Phase 1 — OUT OF ENERGY modal. Shown when a fresh bunker entry is
+            denied by /api/energy/spend. The free path (wait for the 24h
+            window) is always shown side-by-side with the paid refill, per
+            the blueprint's "tempting, not predatory" guardrail. */}
+        {energyModal && (
+          <div className="overlay" style={{ zIndex: 40 }}>
+            <div className="lift-inner" style={{ textAlign: 'center' }}>
+              <div className="logo" style={{ fontSize: '20px' }}>OUT OF ENERGY</div>
+              <div className="subtitle">// THE DEPTHS DEMAND REST</div>
+              <p style={{ fontSize: 13, lineHeight: 1.6, color: '#cfeede', margin: '14px 0 4px' }}>
+                You&apos;ve used your {GAME_CONFIG.energy.freeRunsPerDay} free runs.
+              </p>
+              <p style={{ fontSize: 13, color: '#ffd166', margin: '0 0 14px' }}>
+                Free energy restores in{' '}
+                <b>
+                  {(() => {
+                    const ms = Math.max(0, energyModal.resetAt - energyNow)
+                    const h = Math.floor(ms / 3600000)
+                    const m = Math.floor((ms % 3600000) / 60000)
+                    return `${h}h ${String(m).padStart(2, '0')}m`
+                  })()}
+                </b>
+              </p>
+              {energyMsg && (
+                <p style={{ fontSize: 12, color: '#9df5cf', margin: '0 0 10px' }}>{energyMsg}</p>
+              )}
+              <button
+                className="big-btn"
+                style={{ width: '100%' }}
+                disabled={energyBusy}
+                onClick={handleEnergyRefill}
+              >
+                ⚡ REFILL +{GAME_CONFIG.energy.refillRuns} — ${GAME_CONFIG.energy.refillPriceUSD}
+              </button>
+              <button
+                className="ghost-btn"
+                style={{ marginTop: 10 }}
+                disabled={energyBusy}
+                onClick={() => { setEnergyModal(null); setEnergyMsg(null) }}
+              >
+                ▾ wait for free energy
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Lift floor-select popup (sibling of #hud, like the other overlays
             below, so it isn't subject to #hud's pointer-events:none) */}
