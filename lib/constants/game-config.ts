@@ -64,6 +64,24 @@ export const GAME_CONFIG = {
     // $1 Glitch Shard pack — verify-and-record payment primitive
     // (app/api/materials/buy). Player picks which tier (t1/t2/t3) to top up.
     shardPack: { priceUSD: 1, shards: 5 },
+
+    // Phase 5 — Time-Gate Crafting + Instant Complete. An upgrade is no longer
+    // instant: starting a craft LOCKS the weapon and its shards, then a timer
+    // runs. Owner decisions (2026-07-19):
+    //   - durations: craft INTO tier 2 = 6h, INTO tier 3 = 12h.
+    //   - Finish Now (skip the timer) is tiered: $1 to finish a tier-2 craft,
+    //     $2 for tier-3 (longer timer, dearer skip).
+    //   - firstCraftInstant: the wallet's VERY FIRST craft completes instantly
+    //     (no timer, still costs shards) so every player feels one evolution
+    //     payoff immediately. Every craft after that is timed.
+    // The craft queue is server-authoritative (Realtime DB craftQueue/{wallet},
+    // single active craft per wallet) — the timer gates real money, so the
+    // client only READS it for the countdown; it can never shorten it.
+    craft: {
+      firstCraftInstant: true,
+      durationHoursByTargetTier: { 2: 6, 3: 12 } as Record<number, number>,
+      finishNowPriceUSDByTargetTier: { 2: 1, 3: 2 } as Record<number, number>,
+    },
   },
 
   // Burn Reward System — NullState Point (Phase 5.5 #8)

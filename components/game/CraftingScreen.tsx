@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useWallet } from '@/lib/WalletProvider'
 import {
-  MARKETPLACE_ITEMS, ACCEPTED_TOKENS, getMarketplaceItem, resolveItemId, maxWeaponTier,
+  ACCEPTED_TOKENS, getMarketplaceItem, resolveItemId, maxWeaponTier,
   type MarketplaceItem, type MarketplaceTokenSymbol,
 } from '@/lib/constants/marketplace'
 import { GAME_CONFIG } from '@/lib/constants/game-config'
@@ -12,19 +12,32 @@ interface CraftingScreenProps {
   onBack: () => void
   // Free path: send the player back to the menu to start a run and farm the
   // shard tier they're short on. Kept separate from onBack so the intent
-  // ("go play") reads clearly at the call site even though both land on menu —
-  // a run must start through the menu's New Game/Continue + energy flow, never
-  // straight from here.
+  // ("go play") reads clearly even though both land on menu — a run must start
+  // through the menu's New Game/Continue + energy flow, never straight here.
   onGoToRun?: () => void
   address?: string
 }
 
 type ShardBal = { t1: number; t2: number; t3: number }
 type TierKey = 't1' | 't2' | 't3'
+type CraftRecord = { itemId: string; targetTier: number; startedAt: number; completesAt: number }
+
+const CRAFT_CFG = GAME_CONFIG.weaponEvolution.craft
+const DURATIONS = CRAFT_CFG.durationHoursByTargetTier
+const FINISH_PRICE = CRAFT_CFG.finishNowPriceUSDByTargetTier
 
 // Which act drops each shard tier most (mirrors game.js _shardTierForAct:
 // acts 1-2 = t1, 3-4 = t2, 5 = t3). Used for the free-path CTA label.
 const ACT_FOR_TIER: Record<TierKey, string> = { t1: 'Act 1–2', t2: 'Act 3–4', t3: 'Act 5' }
+
+function fmtDur(ms: number): string {
+  if (ms <= 0) return 'Ready'
+  const s = Math.ceil(ms / 1000)
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), ss = s % 60
+  if (h > 0) return `${h}h ${m}m`
+  if (m > 0) return `${m}m ${ss}s`
+  return `${ss}s`
+}
 
 export default function CraftingScreen({ onBack, onGoToRun, address }: CraftingScreenProps) {
   const { buyMarketplaceItem, insufficientFunds, addCashUrl } = useWallet()
@@ -32,17 +45,31 @@ export default function CraftingScreen({ onBack, onGoToRun, address }: CraftingS
   const [owned, setOwned] = useState<string[]>([])
   const [tiers, setTiers] = useState<Record<string, number>>({})
   const [shards, setShards] = useState<ShardBal>({ t1: 0, t2: 0, t3: 0 })
+  const [craft, setCraft] = useState<CraftRecord | null>(null)
+  // serverNow - localNow at fetch time, so the countdown reads true even if the
+  // device clock is off.
+  const [skew, setSkew] = useState(0)
+  const [nowTick, setNowTick] = useState(Date.now())
   const [busy, setBusy] = useState<string | null>(null)
   const [msg, setMsg] = useState<{ text: string; kind: 'info' | 'ok' | 'err' } | null>(null)
 
   const pack = GAME_CONFIG.weaponEvolution.shardPack
+  const effectiveNow = nowTick + skew
+  const remainingMs = craft ? craft.completesAt - effectiveNow : 0
+  const craftReady = !!craft && remainingMs <= 0
 
-  // Same server-side-rechecked dev bypass the Marketplace uses.
   const isDevWallet =
     !!address &&
     (process.env.NEXT_PUBLIC_DEV_TEST_WALLETS || '')
       .split(',').map(a => a.trim().toLowerCase()).filter(Boolean)
       .includes(address.toLowerCase())
+
+  // 1Hz countdown tick while a craft is pending (stops once ready/claimed).
+  useEffect(() => {
+    if (!craft || craftReady) return
+    const id = setInterval(() => setNowTick(Date.now()), 1000)
+    return () => clearInterval(id)
+  }, [craft, craftReady])
 
   const refreshShards = useCallback(() => {
     if (!address) return
@@ -52,15 +79,18 @@ export default function CraftingScreen({ onBack, onGoToRun, address }: CraftingS
       .catch(() => { /* offline — leave as-is */ })
   }, [address])
 
-  const refreshTiers = useCallback(() => {
+  const refreshCraft = useCallback(() => {
     if (!address) return
-    fetch(`/api/weapons?wallet=${address}`)
+    fetch(`/api/weapons/craft?wallet=${address}`)
       .then(r => r.json())
-      .then(d => { if (d && d.tiers && typeof d.tiers === 'object') setTiers(d.tiers) })
-      .catch(() => { /* offline — treat all as base tier */ })
+      .then(d => {
+        if (d && typeof d.serverNow === 'number') setSkew(d.serverNow - Date.now())
+        setCraft(d && d.craft ? d.craft : null)
+      })
+      .catch(() => { /* offline — no active craft shown */ })
   }, [address])
 
-  // Load owned weapons + shard balance + current tiers on mount.
+  // Load owned weapons + shards + tiers + any active craft on mount.
   useEffect(() => {
     if (!address) return
     fetch(`/api/marketplace/owned?wallet=${address}`)
@@ -78,30 +108,95 @@ export default function CraftingScreen({ onBack, onGoToRun, address }: CraftingS
       })
       .catch(() => { /* offline — empty list */ })
     refreshShards()
-    refreshTiers()
-  }, [address, refreshShards, refreshTiers])
+    fetch(`/api/weapons?wallet=${address}`)
+      .then(r => r.json())
+      .then(d => { if (d && d.tiers && typeof d.tiers === 'object') setTiers(d.tiers) })
+      .catch(() => { /* offline — base tiers */ })
+    refreshCraft()
+  }, [address, refreshShards, refreshCraft])
 
-  const handleUpgrade = useCallback(async (item: MarketplaceItem) => {
+  const handleStart = useCallback(async (item: MarketplaceItem) => {
     if (busy) return
     setBusy(item.id)
-    setMsg({ text: `Forging ${item.name}…`, kind: 'info' })
+    setMsg({ text: `Starting craft for ${item.name}…`, kind: 'info' })
     try {
-      const res = await fetch('/api/weapons/upgrade', {
+      const res = await fetch('/api/weapons/craft/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ wallet: address, itemId: item.id }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Upgrade failed')
-      setTiers(prev => ({ ...prev, [item.id]: data.tier }))
+      if (!res.ok) throw new Error(data.error || 'Could not start craft')
       if (data.materials) setShards({ t1: data.materials.t1 || 0, t2: data.materials.t2 || 0, t3: data.materials.t3 || 0 })
-      setMsg({ text: `✓ ${item.name} evolved to Tier ${data.tier}!`, kind: 'ok' })
+      if (data.completed) {
+        // First-ever craft: instant, no timer.
+        setTiers(prev => ({ ...prev, [item.id]: data.tier }))
+        setMsg({ text: `✓ ${item.name} evolved instantly to Tier ${data.tier} — your first craft is on the house!`, kind: 'ok' })
+      } else {
+        setCraft(data.craft)
+        setNowTick(Date.now())
+        setMsg({ text: `⚒ Forging ${item.name} → Tier ${data.craft.targetTier}. Come back when it's ready, or Finish Now.`, kind: 'ok' })
+      }
     } catch (e: unknown) {
-      setMsg({ text: e instanceof Error ? e.message : 'Upgrade failed', kind: 'err' })
+      setMsg({ text: e instanceof Error ? e.message : 'Could not start craft', kind: 'err' })
     } finally {
       setBusy(null)
     }
   }, [busy, address])
+
+  const handleClaim = useCallback(async () => {
+    if (busy || !craft) return
+    setBusy(craft.itemId)
+    setMsg({ text: 'Claiming…', kind: 'info' })
+    try {
+      const res = await fetch('/api/weapons/craft/claim', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ wallet: address }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Claim failed')
+      setTiers(prev => ({ ...prev, [data.itemId]: data.tier }))
+      const name = getMarketplaceItem(data.itemId)?.name || 'Weapon'
+      setCraft(null)
+      setMsg({ text: `✓ ${name} evolved to Tier ${data.tier}!`, kind: 'ok' })
+    } catch (e: unknown) {
+      setMsg({ text: e instanceof Error ? e.message : 'Claim failed', kind: 'err' })
+    } finally {
+      setBusy(null)
+    }
+  }, [busy, craft, address])
+
+  const handleFinishNow = useCallback(async () => {
+    if (busy || !craft) return
+    const price = FINISH_PRICE[craft.targetTier] ?? Math.max(...Object.values(FINISH_PRICE))
+    setBusy(craft.itemId)
+    setMsg({ text: isDevWallet ? 'DEV: finishing instantly…' : `Sending $${price} ${token}…`, kind: 'info' })
+    try {
+      let txHash = ''
+      if (!isDevWallet) {
+        txHash = await buyMarketplaceItem(price, token)
+        setMsg({ text: 'Payment sent — verifying on-chain…', kind: 'info' })
+      }
+      const res = await fetch('/api/weapons/craft/finish', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(
+          isDevWallet ? { wallet: address, devBypass: true } : { wallet: address, txHash, token },
+        ),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Finish Now failed')
+      setTiers(prev => ({ ...prev, [data.itemId]: data.tier }))
+      const name = getMarketplaceItem(data.itemId)?.name || 'Weapon'
+      setCraft(null)
+      setMsg({ text: `⚡ ${name} evolved to Tier ${data.tier} — timer skipped!`, kind: 'ok' })
+    } catch (e: unknown) {
+      setMsg({ text: e instanceof Error ? e.message : 'Finish Now failed', kind: 'err' })
+    } finally {
+      setBusy(null)
+    }
+  }, [busy, craft, isDevWallet, token, address, buyMarketplaceItem])
 
   const handleBuyPack = useCallback(async (item: MarketplaceItem, tierKey: TierKey) => {
     if (busy) return
@@ -133,8 +228,6 @@ export default function CraftingScreen({ onBack, onGoToRun, address }: CraftingS
     }
   }, [busy, isDevWallet, pack.priceUSD, pack.shards, token, address, buyMarketplaceItem])
 
-  // Cheapest-first mirrors the Marketplace so newly bought weapons surface near
-  // the top of the crafting list.
   const weapons = owned
     .map(getMarketplaceItem)
     .filter((i): i is MarketplaceItem => !!i)
@@ -145,15 +238,22 @@ export default function CraftingScreen({ onBack, onGoToRun, address }: CraftingS
     const cap = maxWeaponTier(item)
     const atMax = curTier >= cap
     const tierKey = (`t${item.fxTier}`) as TierKey
+    const targetTier = curTier + 1
     const step = atMax ? null : item.evolutionTiers?.[curTier - 1]
     const cost = step ? (step.materialsRequired[tierKey] || 0) : 0
     const have = shards[tierKey]
     const shortBy = Math.max(0, cost - have)
-    const canUpgrade = !atMax && shortBy === 0
+    const enoughShards = !atMax && shortBy === 0
+
+    const activeHere = !!craft && craft.itemId === item.id
+    const busyElsewhere = !!craft && craft.itemId !== item.id
+    const curAtk = (item.effect.atkBonus || 0) + (item.evolutionTiers?.slice(0, curTier - 1).reduce((s, t) => s + (t.atkBonusDelta || 0), 0) || 0)
+    const craftDur = DURATIONS[targetTier] ?? Math.max(...Object.values(DURATIONS))
+    const finishPrice = activeHere ? (FINISH_PRICE[craft!.targetTier] ?? Math.max(...Object.values(FINISH_PRICE))) : 0
 
     return (
       <div key={item.id}
-        className="rounded-lg border border-[#7a4f24]/60 bg-gradient-to-b from-[#2b1a0d] to-[#1a0f06] p-3">
+        className={`rounded-lg border bg-gradient-to-b from-[#2b1a0d] to-[#1a0f06] p-3 ${activeHere ? 'border-[#e8bd6f]' : 'border-[#7a4f24]/60'}`}>
         <div className="flex items-center gap-3">
           <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded bg-black/40 border border-[#7a4f24]/50">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -163,41 +263,65 @@ export default function CraftingScreen({ onBack, onGoToRun, address }: CraftingS
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <span className="truncate font-mono text-sm font-bold text-[#f0dcb8]">{item.name}</span>
-              <span className="rounded bg-[#e8bd6f] px-1.5 text-[9px] font-bold text-[#2a1705]">
-                TIER {curTier}/{cap}
-              </span>
+              <span className="rounded bg-[#e8bd6f] px-1.5 text-[9px] font-bold text-[#2a1705]">TIER {curTier}/{cap}</span>
             </div>
             <div className="font-mono text-[10px] uppercase tracking-wide text-[#c39a5f]">
-              +{(item.effect.atkBonus || 0) + (item.evolutionTiers?.slice(0, curTier - 1).reduce((s, t) => s + (t.atkBonusDelta || 0), 0) || 0)} ATK
-              {!atMax && step ? ` · next +${step.atkBonusDelta} ATK` : ''}
+              +{curAtk} ATK{!atMax && step ? ` · next +${step.atkBonusDelta}` : ''}
             </div>
           </div>
           <div className="flex flex-shrink-0 flex-col items-end gap-1">
             {atMax ? (
               <span className="rounded border border-[#8a5a2b] px-3 py-1.5 font-mono text-[10px] font-bold uppercase tracking-wider text-[#c39a5f]">Max</span>
+            ) : activeHere ? (
+              <span className="font-mono text-[11px] font-bold text-[#f2cd82]">
+                {craftReady ? 'Ready ✓' : `⏳ ${fmtDur(remainingMs)}`}
+              </span>
             ) : (
-              <>
-                <span className="font-mono text-[10px] text-[#9c7a4f]">
-                  <b className={have >= cost ? 'text-[#7ef0a6]' : 'text-[#f0a878]'}>{have}</b>/{cost} {tierKey.toUpperCase()}
-                </span>
-                <button
-                  onClick={() => handleUpgrade(item)}
-                  disabled={busy !== null || !canUpgrade}
-                  className="rounded bg-gradient-to-b from-[#e8bd6f] to-[#c9962f] px-4 py-1.5 font-mono text-[10px] font-bold uppercase tracking-wider text-[#2a1705] transition hover:brightness-110 disabled:opacity-40"
-                >
-                  {busy === item.id ? '…' : 'Upgrade'}
-                </button>
-              </>
+              <span className="font-mono text-[10px] text-[#9c7a4f]">
+                <b className={enoughShards ? 'text-[#7ef0a6]' : 'text-[#f0a878]'}>{have}</b>/{cost} {tierKey.toUpperCase()}
+              </span>
             )}
           </div>
         </div>
 
-        {/* Shortfall CTA — the blueprint's hard rule: the FREE path is shown
-            with EQUAL weight beside the paid path, never the paid button alone. */}
-        {!atMax && shortBy > 0 && (
+        {/* Action zone */}
+        {atMax ? null : activeHere ? (
+          // Active craft on THIS weapon — claim when ready, or skip the timer.
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <button
+              onClick={handleClaim}
+              disabled={busy !== null || !craftReady}
+              className="rounded bg-gradient-to-b from-[#4ade80] to-[#22b862] px-3 py-2 font-mono text-[10px] font-bold uppercase tracking-wider text-[#062b13] transition hover:brightness-110 disabled:opacity-40"
+            >
+              {busy === item.id && craftReady ? '…' : craftReady ? 'Claim' : `Ready in ${fmtDur(remainingMs)}`}
+            </button>
+            <button
+              onClick={handleFinishNow}
+              disabled={busy !== null || craftReady}
+              className="rounded bg-gradient-to-b from-[#e8bd6f] to-[#c9962f] px-3 py-2 font-mono text-[10px] font-bold uppercase tracking-wider text-[#2a1705] transition hover:brightness-110 disabled:opacity-40"
+            >
+              {busy === item.id && !craftReady ? '…' : `⚡ Finish Now — $${finishPrice}`}
+            </button>
+          </div>
+        ) : busyElsewhere ? (
+          <div className="mt-3 rounded border border-[#7a4f24]/40 bg-black/20 px-3 py-2 text-center font-mono text-[10px] text-[#9c7a4f]">
+            Forge busy — finish your current craft first
+          </div>
+        ) : enoughShards ? (
+          // Enough shards, forge free — start the timed craft.
+          <button
+            onClick={() => handleStart(item)}
+            disabled={busy !== null}
+            className="mt-3 w-full rounded bg-gradient-to-b from-[#e8bd6f] to-[#c9962f] px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-wider text-[#2a1705] transition hover:brightness-110 disabled:opacity-50"
+          >
+            {busy === item.id ? '…' : `Craft → Tier ${targetTier} · ${craftDur}h`}
+          </button>
+        ) : (
+          // Shortfall — the blueprint's hard rule: FREE path shown with EQUAL
+          // weight beside the paid path, never the paid button alone.
           <div className="mt-3 rounded-lg border border-[#7a4f24]/40 bg-black/30 p-3">
             <p className="mb-2 font-mono text-[10px] text-[#f0a878]">
-              You need <b>{shortBy}</b> more {tierKey.toUpperCase()} Glitch Shard{shortBy > 1 ? 's' : ''}.
+              You need <b>{shortBy}</b> more {tierKey.toUpperCase()} Glitch Shard{shortBy > 1 ? 's' : ''} to craft.
             </p>
             <div className="grid grid-cols-2 gap-2">
               <button
@@ -248,9 +372,9 @@ export default function CraftingScreen({ onBack, onGoToRun, address }: CraftingS
           ))}
         </div>
 
-        {/* token selector (only needed for the paid $1 top-up) */}
+        {/* token selector (used for the $1 top-up and Finish Now) */}
         <div className="mb-4">
-          <p className="mb-2 font-mono text-[10px] uppercase tracking-[2px] text-[#9c7a4f]">Top-up pays with</p>
+          <p className="mb-2 font-mono text-[10px] uppercase tracking-[2px] text-[#9c7a4f]">Payments use</p>
           <div className="flex gap-2">
             {ACCEPTED_TOKENS.map(t => (
               <button key={t} onClick={() => setToken(t)}
@@ -290,6 +414,9 @@ export default function CraftingScreen({ onBack, onGoToRun, address }: CraftingS
           ) : (
             <div className="flex flex-col gap-2">{weapons.map(renderCard)}</div>
           )}
+          <p className="mt-3 font-mono text-[9px] leading-relaxed text-[#9c7a4f]">
+            Crafting takes time — one forge at a time. Your very first evolution completes instantly. Clear runs to loot shards for free, or Finish Now to skip a timer.
+          </p>
         </section>
       </div>
     </div>
