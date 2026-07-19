@@ -255,7 +255,10 @@ export default function CraftingScreen({ onBack, onGoToRun, address }: CraftingS
       <div key={item.id}
         className={`rounded-lg border bg-gradient-to-b from-[#2b1a0d] to-[#1a0f06] p-3 ${activeHere ? 'border-[#e8bd6f]' : 'border-[#7a4f24]/60'}`}>
         <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded bg-black/40 border border-[#7a4f24]/50">
+          <div
+            className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded bg-black/40 border border-[#7a4f24]/50"
+            /* Phase 6: an evolved weapon's icon glows in its FX color, stronger per tier. */
+            style={curTier > 1 ? { boxShadow: `0 0 ${5 + 5 * (curTier - 1)}px ${item.fxColor || '#e8bd6f'}`, borderColor: item.fxColor || undefined } : undefined}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={item.sprite} alt={item.name} className="h-9 w-9 [image-rendering:pixelated]"
               onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden' }} />

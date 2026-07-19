@@ -230,7 +230,7 @@ function _tintedWeapon(im, src, col, amt){
 // height/4 — 64 regular, 128/192 oversize with the 64px body cell centered
 // inside (LPC oversize convention), columns = frames of the matching body anim.
 // Returns false if the sheet image hasn't decoded yet.
-function _drawWpnOvlLayer(dctx, src, f, dirIndex, dx, dy, dw, dh, wDef, attacking, p, tintCol){
+function _drawWpnOvlLayer(dctx, src, f, dirIndex, dx, dy, dw, dh, wDef, attacking, p, tintCol, glowOv, evo){
   const A = window.NS_ASSETS;
   const im = A.img(src);
   if(!im) return false;
@@ -242,17 +242,29 @@ function _drawWpnOvlLayer(dctx, src, f, dirIndex, dx, dy, dw, dh, wDef, attackin
   const sx = f*cell, sy = dirIndex*cell;
   dctx.save();
   dctx.imageSmoothingEnabled = false;
-  // Premium aura — same treatment as the icon path: an additive halo of the
-  // glow colour under the sprite, breathing while carried, flaring on strike.
-  if(wDef && wDef.glow){
+  // Premium aura — an additive halo of the glow colour under the sprite,
+  // breathing while carried, flaring on strike. Phase 6 (weapon evolution): an
+  // evolved weapon supplies glowOv (its tier's glowOverride) so even a base
+  // weapon with no NS_WEAPON.glow lights up once leveled, and the halo burns
+  // brighter + blooms a wider ring per evolution tier (evo 1..3).
+  const _glowCol = glowOv || (wDef && wDef.glow) || null;
+  if(_glowCol){
     const t = (window.NS_now ? window.NS_now() : (performance.now()/1000));
     const pulse = 0.7 + 0.3*Math.sin(t*2.4);
     const flare = attacking ? (0.6 + 0.8*Math.sin(Math.PI*Math.min(1, p||0))) : 0;
-    const glowA = Math.min(1, 0.42*pulse + flare*0.6);
-    const halo = _tintedWeapon(im, src, wDef.glow, 1.0);
+    const _evo = Math.max(1, evo || 1);
+    const _evoBoost = 1 + (_evo - 1) * 0.5;            // 1, 1.5, 2
+    const glowA = Math.min(1, (0.42*pulse + flare*0.6) * _evoBoost);
+    const halo = _tintedWeapon(im, src, _glowCol, 1.0);
+    // Higher evolution tiers add wider, fainter outer offsets — a neon bloom.
+    const ring = (_evo >= 3)
+      ? [[0,0,1],[-1,0,0.75],[1,0,0.75],[0,-1,0.75],[0,1,0.75],[-2,0,0.5],[2,0,0.5],[0,-2,0.5],[0,2,0.5],[-3,0,0.28],[3,0,0.28],[0,-3,0.28],[0,3,0.28]]
+      : (_evo >= 2)
+      ? [[0,0,1],[-1,0,0.72],[1,0,0.72],[0,-1,0.72],[0,1,0.72],[-2,0,0.45],[2,0,0.45],[0,-2,0.45],[0,2,0.45]]
+      : [[0,0,1],[-1,0,0.7],[1,0,0.7],[0,-1,0.7],[0,1,0.7],[-2,0,0.4],[2,0,0.4],[0,-2,0.4],[0,2,0.4]];
     dctx.save();
     dctx.globalCompositeOperation = 'lighter';
-    for(const [ox,oy,a] of [[0,0,1],[-1,0,0.7],[1,0,0.7],[0,-1,0.7],[0,1,0.7],[-2,0,0.4],[2,0,0.4],[0,-2,0.4],[0,2,0.4]]){
+    for(const [ox,oy,a] of ring){
       dctx.globalAlpha = glowA*a;
       dctx.drawImage(halo, sx, sy, cell, cell, ddx+ox, ddy+oy, dds, dds);
     }
@@ -450,7 +462,8 @@ function drawLPCComposite(ctx, cx, cy, scale, dirIndex, frame, opts){
   // armor stack below. The anchor path only runs when no overlay is usable.
   if(_wsDef && _ovl && !_ovl.hide){
     _drawWpnOvlLayer(dctx, _ovl.bg, f, dirIndex, dx, dy, dw, dh, _wsDef,
-                     !!opts.attacking, opts.atkProg || 0, opts.weaponTint || null);
+                     !!opts.attacking, opts.atkProg || 0, opts.weaponTint || null,
+                     opts.weaponGlow || null, opts.weaponEvo || 1);
   } else if(_wsDef && !_ovl
      && !_weaponIsFront(A, _wsDef, dirIndex, !!opts.attacking)){
     drawWeaponLayer(dctx, _wsDef, dirIndex, f, !!opts.attacking,
@@ -544,7 +557,8 @@ function drawLPCComposite(ctx, cx, cy, scale, dirIndex, frame, opts){
       // v79: ULPC foreground layer — the in-grip weapon art, frame-matched to
       // the body pose that just drew (walk carry or slash/thrust attack).
       _drawWpnOvlLayer(dctx, _ovl.fg, f, dirIndex, dx, dy, dw, dh, wDef,
-                       !!opts.attacking, opts.atkProg || 0, opts.weaponTint || null);
+                       !!opts.attacking, opts.atkProg || 0, opts.weaponTint || null,
+                       opts.weaponGlow || null, opts.weaponEvo || 1);
     } else if(_ovl && _ovl.hide){
       // hurt/death collapse — weapon intentionally not rendered (it "drops").
     } else if(!A.img(wDef.src)){
@@ -769,6 +783,11 @@ class Player {
         // hotter tint (set by applyEquipment in game.js). null at base tier ->
         // _drawWpnOvlLayer falls back to NS_WEAPON.ovlTint, unchanged.
         weaponTint: this._wpnOvlTint || null,
+        // Phase 6: the evolution glow override + tier drive the carried-weapon
+        // aura in _drawWpnOvlLayer (brighter, wider bloom per tier). Both are
+        // null/1 at base tier so the pre-evolution look is untouched.
+        weaponGlow: this._weaponGlow || null,
+        weaponEvo: this._wpnTier || 1,
         atkProg: this.attacking ? (this.atkTime/(this.atkDur||0.62)) : 0,
         aimAng: _waAng,
         alpha: a,
@@ -810,8 +829,13 @@ class Player {
       // branch below falls back to its original hardcoded palette, so the
       // bare-fist / pre-purchase look is byte-identical to before.
       const wc = this._fxColor || null;
-      const tierScale = 0.8 + tier*0.3;      // 1->1.1, 2->1.4, 3->1.7
-      const tierAlpha = Math.min(1, 0.65 + tier*0.15); // 1->.8, 2->.95, 3->1
+      // Phase 6 (weapon evolution): fold the evolution tier (1..3, set by
+      // applyEquipment) into the swing FX so a leveled weapon visibly swings
+      // bigger + brighter. evo 1 = byte-identical to the pre-evolution look.
+      const evo = Math.max(1, this._wpnTier || 1);
+      const evoBoost = 1 + (evo-1)*0.18;     // 1, 1.18, 1.36
+      const tierScale = (0.8 + tier*0.3) * evoBoost;      // base * evolution
+      const tierAlpha = Math.min(1, 0.65 + tier*0.15 + (evo-1)*0.06);
       const fx = this.x+Math.cos(aimAng)*30, fy = this.y-6+Math.sin(aimAng)*30;
 
       // Ranged weapons (Ironbolt Crossbow 'ranged', Sunfire Longbow 'volley'):
@@ -875,6 +899,21 @@ class Player {
         pixelArc(ctx, cx, cy, 24*tierScale, lead-dir*0.6,  lead, 2, wc||'#9df5cf', sa*0.65*tierAlpha);
         ctx.globalAlpha=sa*tierAlpha; ctx.fillStyle='#ffffff';
         ctx.fillRect(Math.round(cx+Math.cos(lead)*30*tierScale)-2, Math.round(cy+Math.sin(lead)*30*tierScale)-2, 5, 5);
+      }
+      // Phase 6: evolved weapons throw an extra spark spray along the arc — the
+      // "particle spike" payoff. Count + reach scale with the evolution tier;
+      // skipped entirely at base tier so the plain look is unchanged.
+      if(evo>1){
+        const gcol = this._weaponGlow || wc || '#ffffff';
+        const n = 2 + evo*2;                 // 6 at T2, 8 at T3
+        for(let i=0;i<n;i++){
+          const ang=base+dir*((i-n/2)*(1.7/n));
+          const rr=(20+prog*24)*tierScale;
+          ctx.globalAlpha=sa*tierAlpha*0.7;
+          ctx.fillStyle=(i%2)?'#ffffff':gcol;
+          const s=(i%3===0)?3:2;
+          ctx.fillRect(Math.round(fx+Math.cos(ang)*rr)-1, Math.round(fy+Math.sin(ang)*rr)-1, s, s);
+        }
       }
       ctx.restore();
 

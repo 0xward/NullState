@@ -2931,7 +2931,11 @@ function update(dt){
   if(input.attack) p.startAttack();          // manual (desktop)
   if(G.paused) return;
   p.update(dt, input, G.dun);
-  if(p.takeSwingFx()) spark(p.x+p.facing*30, p.y-10, p._fxColor||'#eafff5', 8, 100); // v67 T11: swing spark follows weapon fxColor
+  if(p.takeSwingFx()){ // v67 T11: swing spark follows weapon fxColor. Phase 6:
+    // an evolved weapon (p._wpnTier 2/3) throws more, faster sparks per swing.
+    const _evo = Math.max(1, p._wpnTier || 1);
+    spark(p.x+p.facing*30, p.y-10, p._fxColor||'#eafff5', 8+(_evo-1)*6, 100+(_evo-1)*45);
+  }
   hitTest();
   updateProjectiles(dt);
   // v77: premium impact rings — advance & cull
