@@ -12,6 +12,7 @@ interface MainMenuProps {
   onRewards: () => void
   onMintPass: () => void
   onMarketplace: () => void
+  onCrafting: () => void
   playerProfile: PlayerProfile | null
   isLoadingProfile: boolean
 }
@@ -62,6 +63,7 @@ export default function MainMenu({
   onRewards,
   onMintPass,
   onMarketplace,
+  onCrafting,
   playerProfile,
   isLoadingProfile,
 }: MainMenuProps) {
@@ -137,6 +139,7 @@ export default function MainMenu({
           />
           <MenuItem label="New Game" primary={!hasSave} onClick={onNewGame} />
           <MenuItem label="Marketplace" onClick={onMarketplace} />
+          <MenuItem label="Crafting" onClick={onCrafting} />
           <MenuItem label="Leaderboard" onClick={onLeaderboard} />
           <MenuItem label="Rewards" onClick={onRewards} />
           <MenuItem label="Mint Pass" onClick={onMintPass} />

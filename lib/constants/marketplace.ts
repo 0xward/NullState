@@ -15,6 +15,20 @@ import { MARKETPLACE_TOKENS, TREASURY_WALLET, type MarketplaceTokenSymbol } from
 export type EquipmentType = 'weapon' | 'armor'
 export type EquipmentSlot = 'mainhand' | 'body'
 
+// Weapon Evolution (Phase 4, blueprint §3). A weapon is bought once at its
+// base tier (tier 1) then leveled with Glitch Shards. Each entry describes ONE
+// upgrade step: evolutionTiers[0] = tier1->2, evolutionTiers[1] = tier2->3.
+// The array is built deterministically from the weapon's fxTier/fxColor/
+// atkBonus (see buildWeaponEvolution) so the owner only tunes base stats.
+export interface WeaponEvolutionTier {
+  materialsRequired: { t1?: number; t2?: number; t3?: number } // shards for THIS step
+  atkBonusDelta: number      // ATK added on top of base (ADDITIVE, never HP)
+  spriteOverrideTint?: string // -> NS_WEAPON.ovlTint at runtime (hex)
+  fxColorOverride?: string    // -> player._fxColor swing-FX color (hex)
+  glowOverride?: string       // -> NS_WEAPON.glow premium aura (hex)
+  unlockUtility?: 'grapple' | 'melt_wall' // DEFER to Phase 8 — data only, no runtime effect yet
+}
+
 export interface MarketplaceItem {
   id: string
   name: string
@@ -37,6 +51,54 @@ export interface MarketplaceItem {
   }
   sprite: string
   desc: string
+  evolutionTiers?: WeaponEvolutionTier[] // weapons only; empty for armor
+}
+
+// ── Phase 4 evolution tuning (owner decisions 2026-07-19) ────────────────────
+// Q1: shard cost per upgrade step (tier1->2, tier2->3), paid in shards of the
+// weapon's own fxTier. Q2: each step adds this fraction of the weapon's base
+// atkBonus (additive, no monster rebalance for MVP).
+export const EVOLUTION_SHARD_COSTS = [8, 14] as const
+export const EVOLUTION_ATK_DELTA_PCT = 0.20
+
+// Brighten a hex color toward white by `amt` (0..1) — evolved tiers glow hotter.
+function brightenHex(hex: string, amt: number): string {
+  const h = (hex || '#ffffff').replace('#', '')
+  const r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16)
+  const mix = (c: number) => Math.round(c + (255 - c) * amt)
+  const to2 = (c: number) => (isNaN(c) ? 255 : mix(c)).toString(16).padStart(2, '0')
+  return `#${to2(r)}${to2(g)}${to2(b)}`
+}
+
+// Build the evolution ladder for a weapon. maxTier = max(2, fxTier) so every
+// weapon evolves at least once; a fxTier-3 weapon can reach tier 3 (two steps).
+export function buildWeaponEvolution(item: MarketplaceItem): WeaponEvolutionTier[] {
+  if (item.type !== 'weapon') return []
+  const maxTier = Math.max(2, item.fxTier)
+  const steps = maxTier - 1
+  const shardKey = (`t${item.fxTier}`) as 't1' | 't2' | 't3'
+  const baseAtk = item.effect.atkBonus || 0
+  const delta = Math.max(1, Math.round(baseAtk * EVOLUTION_ATK_DELTA_PCT))
+  const fx = item.fxColor || '#ffffff'
+  const tiers: WeaponEvolutionTier[] = []
+  for (let i = 0; i < steps; i++) {
+    const cost = EVOLUTION_SHARD_COSTS[i] ?? EVOLUTION_SHARD_COSTS[EVOLUTION_SHARD_COSTS.length - 1]
+    const materialsRequired: { t1?: number; t2?: number; t3?: number } = {}
+    materialsRequired[shardKey] = cost
+    tiers.push({
+      materialsRequired,
+      atkBonusDelta: delta,
+      spriteOverrideTint: brightenHex(fx, 0.20 + 0.20 * i),
+      fxColorOverride: brightenHex(fx, 0.30 + 0.25 * i),
+      glowOverride: fx, // premium aura in the weapon's signature color
+    })
+  }
+  return tiers
+}
+
+// Highest tier a weapon can reach (base tier is 1).
+export function maxWeaponTier(item: MarketplaceItem): number {
+  return 1 + (item.evolutionTiers?.length || 0)
 }
 
 // NullState Point swap rate: 6000 tokens per $1 (e.g. $0.5 = 3000 tokens,
@@ -44,7 +106,7 @@ export interface MarketplaceItem {
 export const TOKEN_SWAP_RATE_PER_USD = 6000
 export const TOKEN_SWAP_MAX_PRICE_USD = 2
 
-export const MARKETPLACE_ITEMS: MarketplaceItem[] = [
+const BASE_MARKETPLACE_ITEMS: MarketplaceItem[] = [
   // ── ARMOR ── ($0.5-$2 items also get tokenPrice — swappable for NullState Point)
   { id:'leather_guard', name:'Leather Guard', type:'armor', slot:'body', price:0.5, tokenPrice:3000, fxTier:1,
     effect:{ hpBonus:0.15 }, sprite:'/sprites/marketplace/leather_guard.png',
@@ -85,6 +147,13 @@ export const MARKETPLACE_ITEMS: MarketplaceItem[] = [
     effect:{ atkBonus:80, behavior:'volley' }, sprite:'/sprites/marketplace/sunfire_bow.png',
     desc:'+80 ATK, ranged. Looses a fan of three sunfire arrows.' },
 ]
+
+// Attach the Phase 4 evolution ladder to every weapon (armor stays as-is).
+// Keep this the single source of truth the upgrade route reads; the engine
+// copy (public/game-engine/marketplace-items.js) mirrors the same rules.
+export const MARKETPLACE_ITEMS: MarketplaceItem[] = BASE_MARKETPLACE_ITEMS.map(item =>
+  item.type === 'weapon' ? { ...item, evolutionTiers: buildWeaponEvolution(item) } : item,
+)
 
 // Pre-v76 ids for weapons re-skinned in Task #7. Read-side alias so a wallet
 // that bought the old item still resolves to its replacement; nothing writes

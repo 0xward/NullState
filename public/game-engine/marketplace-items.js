@@ -105,6 +105,52 @@
   };
   function resolveId(id){ return LEGACY_IDS[id] || id; }
 
+  // ── WEAPON EVOLUTION (Phase 4, blueprint §3) ──────────────────────────────
+  // MIRRORS lib/constants/marketplace.ts buildWeaponEvolution() EXACTLY — keep
+  // the two in sync. A weapon is bought at tier 1 then leveled with Glitch
+  // Shards: each step adds +20% of base atkBonus (additive, never HP) and a
+  // hotter tint/glow. maxTier = max(2, fxTier) so every weapon evolves once.
+  // Owner decisions (2026-07-19): cost [8,14] matching-tier shards per step.
+  var EVOLUTION_SHARD_COSTS = [8, 14];
+  var EVOLUTION_ATK_DELTA_PCT = 0.20;
+
+  function brightenHex(hex, amt){
+    var h = (hex || '#ffffff').replace('#', '');
+    var r = parseInt(h.slice(0,2),16), g = parseInt(h.slice(2,4),16), b = parseInt(h.slice(4,6),16);
+    function to2(c){ var v = isNaN(c) ? 255 : Math.round(c + (255 - c) * amt); return ('0' + v.toString(16)).slice(-2); }
+    return '#' + to2(r) + to2(g) + to2(b);
+  }
+
+  function buildWeaponEvolution(item){
+    if (!item || item.type !== 'weapon') return [];
+    var maxTier = Math.max(2, item.fxTier);
+    var steps = maxTier - 1;
+    var shardKey = 't' + item.fxTier;
+    var baseAtk = (item.effect && item.effect.atkBonus) || 0;
+    var delta = Math.max(1, Math.round(baseAtk * EVOLUTION_ATK_DELTA_PCT));
+    var fx = item.fxColor || '#ffffff';
+    var tiers = [];
+    for (var i = 0; i < steps; i++){
+      var req = {};
+      req[shardKey] = (i < EVOLUTION_SHARD_COSTS.length) ? EVOLUTION_SHARD_COSTS[i] : EVOLUTION_SHARD_COSTS[EVOLUTION_SHARD_COSTS.length - 1];
+      tiers.push({
+        materialsRequired: req,
+        atkBonusDelta: delta,
+        spriteOverrideTint: brightenHex(fx, 0.20 + 0.20 * i),
+        fxColorOverride: brightenHex(fx, 0.30 + 0.25 * i),
+        glowOverride: fx,
+      });
+    }
+    return tiers;
+  }
+
+  // Attach the ladder to every weapon in place (armor keeps none).
+  for (var ei = 0; ei < EQUIPMENT.length; ei++){
+    if (EQUIPMENT[ei].type === 'weapon') EQUIPMENT[ei].evolutionTiers = buildWeaponEvolution(EQUIPMENT[ei]);
+  }
+  function getEvolutionTiers(id){ var e = getEquipment(id); return (e && e.evolutionTiers) || []; }
+  function maxWeaponTier(id){ var e = getEquipment(id); return 1 + ((e && e.evolutionTiers && e.evolutionTiers.length) || 0); }
+
   // ── FOOD (consumables) ────────────────────────────────────────────────────
   // Any loot item whose id falls in FOOD_RANGES is edible. Eating heals a % of
   // the player's maxHp scaled by the item's (deterministic) rarity.
@@ -146,5 +192,11 @@
     getEquipment: getEquipment,
     LEGACY_IDS: LEGACY_IDS,
     resolveId: resolveId,
+    // Phase 4 — weapon evolution (mirrors lib/constants/marketplace.ts)
+    EVOLUTION_SHARD_COSTS: EVOLUTION_SHARD_COSTS,
+    EVOLUTION_ATK_DELTA_PCT: EVOLUTION_ATK_DELTA_PCT,
+    buildWeaponEvolution: buildWeaponEvolution,
+    getEvolutionTiers: getEvolutionTiers,
+    maxWeaponTier: maxWeaponTier,
   };
 })();
