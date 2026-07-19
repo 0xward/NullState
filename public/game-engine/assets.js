@@ -17,23 +17,15 @@
    shadows/ground position).
    ============================================================ */
 const HERO = {
+  // v80 (owner request): KNIGHT is the one and only playable character — the
+  // rogue/wizzard entries are gone so nothing can ever flash a different
+  // character into a preview or fallback path again. This entry survives
+  // purely as the in-dungeon decode-race fallback sprite set.
   knight: {
     idle:  { src:'/sprites/player/knight_idle.png',  fw:32, fh:32, frames:4, fps:6 },
     walk:  { src:'/sprites/player/knight_run.png',   fw:64, fh:64, frames:6, fps:12 },
     death: { src:'/sprites/player/knight_death.png', fw:48, fh:32, frames:6, fps:10 },
     scale:1.93, foot:1.0,
-  },
-  rogue: {
-    idle:  { src:'/sprites/player/rogue_idle.png',  fw:32, fh:32, frames:4, fps:6 },
-    walk:  { src:'/sprites/player/rogue_run.png',   fw:64, fh:64, frames:6, fps:12 },
-    death: { src:'/sprites/player/rogue_death.png', fw:64, fh:32, frames:6, fps:10 },
-    scale:1.87, foot:1.0,
-  },
-  wizzard: {
-    idle:  { src:'/sprites/player/wizzard_idle.png',  fw:32, fh:32, frames:4, fps:6 },
-    walk:  { src:'/sprites/player/wizzard_run.png',   fw:64, fh:64, frames:6, fps:12 },
-    death: { src:'/sprites/player/wizzard_death.png', fw:64, fh:32, frames:6, fps:10 },
-    scale:1.75, foot:1.0,
   },
 };
 
@@ -440,14 +432,18 @@ function loadImg(src){
 }
 function img(src){ return _img[src]||null; }
 
-// Small, fast preload used by the title screen: just the 3 hero idle
-// sprites needed for the character-select preview thumbnails. Loading only
-// this tiny set (instead of the whole game's art via preloadAll) is what
-// lets the hero previews appear almost instantly instead of waiting for
-// every monster/decor/background sprite in the game to finish downloading
-// first. loadImg() caches by src, so preloadAll() later won't re-fetch these.
+// Small, fast preload used by the title screen. v80: the preview is now the
+// LPC knight composite ONLY (no more pixel-crawler stand-in flashing a
+// different-looking character), so this set is exactly what drawLPCPreview()
+// needs for its first paint: the walkcycle body + the base outfit layers.
+// Four small files — the box fills within the first second even on mobile.
 async function preloadHeroPreviews(){
-  const srcs = Object.values(HERO).map(h=>h.idle.src);
+  const srcs = [
+    LPC_HERO.walk.src,
+    `${LPC_BASE}/walkcycle/${LPC_ARMOR.base.torso}`,
+    `${LPC_BASE}/walkcycle/${LPC_ARMOR.base.legs}`,
+    `${LPC_BASE}/walkcycle/${LPC_ARMOR.base.feet}`,
+  ];
   await Promise.all(srcs.map(loadImg));
 }
 

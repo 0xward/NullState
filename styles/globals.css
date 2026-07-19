@@ -544,3 +544,50 @@ body::before {
   to   { opacity: 1; transform: translateY(0); }
 }
 
+
+/* ─────────────────────────────────────────────
+   v80 — GLOBAL SMOOTHNESS PASS (owner request)
+   Landing page + dashboard menu + every click.
+   Content-neutral: only motion/feedback, no layout changes.
+   ───────────────────────────────────────────── */
+
+/* Every interactive element gets a soft hover/press response. The press
+   (scale-down) is the "every click feels alive" beat; keep it subtle so
+   MiniPay tap targets don't visually jump. */
+button, a, [role='button'], .menu-btn {
+  transition:
+    transform 0.16s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.16s ease,
+    box-shadow 0.2s ease,
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease,
+    filter 0.2s ease;
+}
+button:not(:disabled):hover, a:hover, [role='button']:hover { filter: brightness(1.08); }
+button:not(:disabled):active, a:active, [role='button']:active {
+  transform: scale(0.965);
+  filter: brightness(0.94);
+  transition-duration: 0.06s;
+}
+
+/* Page/section entrance — used by the dashboard menu and any screen that
+   opts in. Two speeds: the wrapper fades, the content rises. */
+@keyframes nsPageFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes nsRise {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.ns-fade-in { animation: nsPageFade 0.45s ease both; }
+.ns-rise    { animation: nsRise 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.ns-rise-1  { animation: nsRise 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.06s both; }
+.ns-rise-2  { animation: nsRise 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.12s both; }
+.ns-rise-3  { animation: nsRise 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.18s both; }
+
+/* Anyone who asked the OS for less motion gets exactly that. */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .ns-fade-in, .ns-rise, .ns-rise-1, .ns-rise-2, .ns-rise-3 { animation: none; }
+  button, a, [role='button'], .menu-btn { transition: none; }
+  button:not(:disabled):active, a:active, [role='button']:active { transform: none; }
+}
