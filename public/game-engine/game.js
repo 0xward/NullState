@@ -19,6 +19,7 @@ const A = window.Audio2;
 let CHAIN = null;            // injected on mount (wagmi bridge)
 let ENERGY = null;           // Phase 1 energy bridge (injected on mount, fail-open default)
 let _lastRunSec = -1;        // 1Hz change-guard for the HUD run-timer plate
+let MATERIALS = null;        // Phase 2 materials bridge (injected on mount)
 // SHAKE_ENABLED: screen-shake on/off — punch list #10 (v38). Runtime-only
 // flag, same lightweight pattern as A.sfxEnabled in audio.js (resets to
 // the default each fresh page load, no localStorage persistence — matches
@@ -274,6 +275,7 @@ function applyRestoredState(G, p, snap){
     G.inventory.keys = snap.inventory.keys || 0;
     G.inventory.relics = snap.inventory.relics || 0;
     G.inventory.shards = snap.inventory.shards || 0;
+    G.inventory.gshards = snap.inventory.gshards || { t1:0, t2:0, t3:0 }; // Phase 2
     // Paper (Phase 5.5 #9B) — persists across weeks once found (see
     // NS_PAPER/PAPER_WEEK comment above), so just a plain counter like
     // keys/relics/shards rather than a weekly-reset field.
@@ -395,7 +397,12 @@ function newGame(charKey, restoreSnapshot){
         // Paper item). items: the new NS_ITEMS-backed stash, keyed by item
         // id -> {item, qty}. burnQueue: Set of item ids the player has
         // marked to send to the weekly burn pool.
-        inventory:{ keys:0, relics:0, shards:0, paper:0, items:{} },
+        inventory:{ keys:0, relics:0, shards:0, paper:0, items:{},
+          // Phase 2 (blueprint §2.2): Glitch Shard crafting materials, keyed
+          // by weapon fxTier. Run-scoped here; BANKED to the wallet's server
+          // balance (with the RunSession death multiplier applied) only when
+          // the act's bunker is cleared — see onActBunkerCleared().
+          gshards:{ t1:0, t2:0, t3:0 } },
         burnQueue:new Set(),
         eatQueue:new Set(), // #5 (v41) — Food tab's multi-select queue, separate from burnQueue
         // Marketplace equipment (offchain). owned: list of equipment ids the
@@ -779,7 +786,24 @@ function applyLoot(kind,amt,x,y){
     log('📜 A weathered paper, folded shut. Tap it in your inventory to read the code.', 'reward');
     spark(x, y-10, '#c9a86a', 26, 200);
   }
+  else if(kind==='gshard'){
+    // Phase 2 (blueprint §2.2): Glitch Shard crafting material. Tier follows
+    // the current act (early acts drop t1, mid t2, late t3) so materials
+    // naturally map to the weapon fxTier they'll upgrade in Phase 4.
+    const tKey = 't' + _shardTierForAct();
+    const g = G.inventory.gshards || (G.inventory.gshards = { t1:0, t2:0, t3:0 });
+    g[tKey] = (g[tKey]||0) + amt;
+    lootText(x,y,'+'+amt+' GLITCH SHARD ▲'+tKey.toUpperCase(),'#b46bff');
+    spark(x, y-10, '#b46bff', 22, 190);
+  }
   A.pickup(); updateHUD();
+}
+// Phase 2: which Glitch Shard tier this act drops (1-indexed fxTier).
+// Acts 1-2 -> t1, acts 3-4 -> t2, act 5 -> t3.
+function _shardTierForAct(){
+  if(campaignActIndex >= 4) return 3;
+  if(campaignActIndex >= 2) return 2;
+  return 1;
 }
 // Add a rolled NS_ITEMS item (with a quantity) straight into the player's
 // stash — used by combat/decor loot rolls that draw an 'item' kind directly
@@ -1671,6 +1695,12 @@ function onEnemyKilled(e){
     if(up2>0) A.levelup();
   }
   if(e.elite && Math.random()<0.65) applyLoot('relic',1,e.x,e.y-e.r);
+  // Phase 2: Glitch Shard combat drops. Tuned to the blueprint's "a clean
+  // run lands at ~60-80% of one tier upgrade" target (assuming a ~10-shard
+  // tier cost in Phase 4): normal kills 22%, elites always 1, bosses 4.
+  if(e.isBoss) applyLoot('gshard',4,e.x,e.y-e.r);
+  else if(e.elite) applyLoot('gshard',1,e.x,e.y-e.r);
+  else if(Math.random()<0.22) applyLoot('gshard',1,e.x,e.y-e.r);
   updateHUD();
   checkFloorClearReward();
   if(e.isBoss){
@@ -3040,6 +3070,27 @@ function updateHUD(){
 }
 function updateInventoryPanel(){
   if(!G) return; const p=G.player;
+  // Phase 2: Glitch Shard strip — this run's haul + the wallet's banked
+  // balance (from the materials bridge cache). Hidden until any exist so
+  // the panel looks unchanged for players who haven't met the system yet.
+  {
+    const matEl=$('invMaterials');
+    if(matEl){
+      const g=(G.inventory&&G.inventory.gshards)||{t1:0,t2:0,t3:0};
+      const b=(MATERIALS&&MATERIALS.banked&&MATERIALS.banked())||null;
+      const run=(g.t1||0)+(g.t2||0)+(g.t3||0);
+      const bank=b?(b.t1||0)+(b.t2||0)+(b.t3||0):0;
+      if(run+bank>0){
+        matEl.classList.remove('hidden');
+        const cell=(t)=>`T${t} <b>${g['t'+t]||0}</b>${b?`<i>+${b['t'+t]||0}</i>`:''}`;
+        matEl.innerHTML=`<span class="mat-k">▲ GLITCH SHARDS</span>`+
+          `<span class="mat-v">${cell(1)} · ${cell(2)} · ${cell(3)}</span>`+
+          `<span class="mat-note">run <b>·</b> banked</span>`;
+      } else {
+        matEl.classList.add('hidden');
+      }
+    }
+  }
   const hpFill=$('invHpFill'), hpText=$('invHpText'), xpFill=$('invXpFill'), xpText=$('invXpText');
   if(hpFill){ const hpPct=p.hp/p.maxHp; hpFill.style.width=(hpPct*100)+'%'; applyHpTier(hpFill.parentElement, hpPct); }
   if(hpText){ hpText.textContent=`${Math.ceil(p.hp)}/${p.maxHp}`; }
@@ -4117,6 +4168,26 @@ function _enterBunkerFromDoor(act, isFirstBunker){
 // door-trigger branch below).
 function onActBunkerCleared(){
   const act = CAMPAIGN[campaignActIndex];
+  // ---- Phase 2: bank this run's Glitch Shards, degraded by the RunSession
+  // death multiplier (first death free, -20% per extra, floor 40% — §2.1).
+  // Banked BEFORE the run closes (the multiplier needs the live session) and
+  // BEFORE getSaveSnapshot() builds the carry-over, then zeroed so the next
+  // bunker starts a fresh count and nothing double-banks.
+  if(G && G.inventory && G.inventory.gshards){
+    const g = G.inventory.gshards;
+    const mult = window.NS_RUN ? NS_RUN.rewardMultiplier() : 1;
+    const payout = {
+      t1: Math.ceil((g.t1||0)*mult),
+      t2: Math.ceil((g.t2||0)*mult),
+      t3: Math.ceil((g.t3||0)*mult),
+    };
+    if(payout.t1+payout.t2+payout.t3 > 0){
+      const pct = Math.round(mult*100);
+      log(`▲ RUN REWARD: +${payout.t1+payout.t2+payout.t3} Glitch Shard${pct<100?` (${pct}% — the NULL taxes the fallen)`:''}`, 'reward');
+      Promise.resolve(MATERIALS.credit ? MATERIALS.credit(payout) : null).catch(()=>{});
+    }
+    G.inventory.gshards = { t1:0, t2:0, t3:0 };
+  }
   if(window.NS_RUN) NS_RUN.close('Cleared'); // Phase 1: run unit ends here
   showLoadingTransition(() => {
     // Snapshot everything (loot, xp/level/kills/celo/hp, run-caps) BEFORE
@@ -4285,6 +4356,10 @@ function mount(opts){
   // Phase 1 energy bridge (DungeonGame.tsx). Defaults are fail-open no-ops
   // so demo/wallet-less mounts play exactly as before.
   ENERGY = opts.energy || { trySpend: async ()=>({ ok:true }), onExhausted: ()=>{} };
+  // Phase 2 materials bridge — credit() posts the end-of-run shard payout to
+  // the wallet's server balance; banked() returns the last-known totals for
+  // the inventory display. Fail-open no-ops when absent (demo mounts).
+  MATERIALS = opts.materials || { credit: async ()=>null, banked: ()=>null };
   WALLET_ADDRESS = opts.walletAddress || null;
   INITIAL_STATS = opts.initialStats || null;
   SAVED_SESSION = opts.savedSession || null;
@@ -4339,6 +4414,7 @@ function getSaveSnapshot(){
     hp: p.hp,
     inventory: {
       keys: G.inventory.keys, relics: G.inventory.relics, shards: G.inventory.shards,
+      gshards: G.inventory.gshards || { t1:0, t2:0, t3:0 },
       paper: G.inventory.paper,
       // Serialize the item stash as {id: qty} — the item's full definition
       // (name/rarity/icon/burnValue) is deterministic from its id via
