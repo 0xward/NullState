@@ -121,6 +121,33 @@ const LPC_ARMOR = {
   knight_corrupt: { torso:'TORSO_plate_armor_torso.png', legs:'LEGS_plate_armor_pants.png', feet:'FEET_plate_armor_shoes.png', head:'HEAD_plate_armor_helmet.png', arms:'TORSO_plate_armor_arms_shoulders.png' }, // arms = POLISH 3a (menutup lengan telanjang)
 };
 
+// ── LPC_OUTFIT — Phase 9 (Cosmetic Skins) ───────────────────────────────────
+// Each cosmetic skin is a real LPC clothing/armour LAYER SET, EXACTLY the same
+// shape as an LPC_ARMOR entry (torso/legs/feet[/arms/head] PNG per anim folder
+// + optional tint/glow). drawLPCComposite() feeds it into the SAME armor-stack
+// loop that renders LPC_ARMOR, so a skin needs no new render pipeline — it's
+// just another layer set. Keys mirror the type:'outfit' item ids in
+// marketplace-items.js / lib/constants/marketplace.ts.
+//
+// PURE COSMETIC: an outfit changes ONLY the look. Stats live in applyEquipment
+// (which never reads outfits), so equipping a skin can't touch HP/ATK. When an
+// outfit IS equipped it VISUALLY OVERRIDES the body-clothing layer (over armor
+// or the base outfit) so the $-skin is always visible as a flex; the armor's HP
+// bonus still applies (stat and render are independent). With NO outfit the
+// render path is byte-identical to before. Every layer below already ships in
+// public/sprites/lpc_source/base/<anim>/ (reused, no new art) and is present in
+// all six anim folders, so the composite aligns on the 64x64 LPC grid.
+const LPC_OUTFIT = {
+  // $5 — ash-grey full plate sentinel.
+  ashen_warden: { torso:'TORSO_plate_armor_torso.png', arms:'TORSO_plate_armor_arms_shoulders.png', legs:'LEGS_plate_armor_pants.png', feet:'FEET_plate_armor_shoes.png', head:'HEAD_plate_armor_helmet.png', tint:'#8f95a0', tintA:0.34 },
+  // $7 — ember-forged leathers with a warm coal glow.
+  emberguard:   { torso:'TORSO_leather_armor_torso.png', arms:'TORSO_leather_armor_shoulders.png', legs:'LEGS_plate_armor_pants.png', feet:'FEET_shoes_brown.png', head:'HEAD_leather_armor_hat.png', tint:'#c85a1e', tintA:0.34, glow:'#ff7a2a' },
+  // $9 — hooded violet weave (robe silhouette).
+  voidweave:    { torso:'TORSO_chain_armor_jacket_purple.png', legs:'LEGS_robe_skirt.png', feet:'FEET_plate_armor_shoes.png', head:'HEAD_robe_hood.png', tint:'#6a24b0', tintA:0.36, glow:'#9d4bff' },
+  // $10 — gilded champion regalia.
+  sungild:      { torso:'TORSO_chain_armor_torso.png', legs:'LEGS_plate_armor_pants.png', feet:'FEET_plate_armor_shoes.png', head:'HEAD_chain_armor_helmet.png', tint:'#e0b23a', tintA:0.34, glow:'#ffd24a' },
+};
+
 // Weapon id -> which body-relative animation folder its overlay sheet
 // lives in ('slash' or 'thrust') + the overlay file itself. Confirmed
 // this session (direct-stack, verified via composite test):
@@ -451,11 +478,11 @@ async function preloadLPCHero(){
   const srcs=new Set();
   const animFolders={walk:'walkcycle',idle:'walkcycle',hurt:'hurt',slash:'slash',thrust:'thrust',shoot:'bow'};
   ['walk','idle','hurt','slash','thrust','shoot'].forEach(k=>LPC_HERO[k]&&srcs.add(LPC_HERO[k].src));
-  Object.values(LPC_ARMOR).forEach(a=>{
+  [LPC_ARMOR, LPC_OUTFIT].forEach(set=>Object.values(set).forEach(a=>{
     Object.keys(animFolders).forEach(k=>{
       Object.values(a).forEach(fn=>srcs.add(`${LPC_BASE}/${animFolders[k]}/${fn}`));
     });
-  });
+  }));
   Object.values(NS_WEAPON).forEach(w=>srcs.add(w.src));
   Object.values(LPC_WPN_OVL).forEach(o=>{srcs.add(o.atkFg);srcs.add(o.atkBg);srcs.add(o.walkFg);srcs.add(o.walkBg);});
   await Promise.all([...srcs].map(loadImg));
@@ -471,11 +498,11 @@ async function preloadAll(){
   // have gear-visual assets ready before the dungeon renders.
   { const animFolders={walk:'walkcycle',idle:'walkcycle',hurt:'hurt',slash:'slash',thrust:'thrust',shoot:'bow'};
     ['walk','idle','hurt','slash','thrust','shoot'].forEach(k=>LPC_HERO[k]&&srcs.add(LPC_HERO[k].src));
-    Object.values(LPC_ARMOR).forEach(a=>{
+    [LPC_ARMOR, LPC_OUTFIT].forEach(set=>Object.values(set).forEach(a=>{
       Object.keys(animFolders).forEach(k=>{
         Object.values(a).forEach(fn=>srcs.add(`${LPC_BASE}/${animFolders[k]}/${fn}`));
       });
-    });
+    }));
     Object.values(NS_WEAPON).forEach(w=>srcs.add(w.src));
     Object.values(LPC_WPN_OVL).forEach(o=>{srcs.add(o.atkFg);srcs.add(o.atkBg);srcs.add(o.walkFg);srcs.add(o.walkBg);});
   }
@@ -548,5 +575,5 @@ const DUNGEON_THEMES = {
 
 window.NS_ASSETS={HERO,MON,ARCHETYPES,BOSS_ARCH,ACT_BOSSES,ORC_SHAMAN_ARCH,SKEL_MAGE_ARCH,SKEL_WARRIOR_ARCH,
   DUNGEON_THEMES,
-  LPC_DIRS,LPC_BASE,LPC_HERO,LPC_ARMOR,NS_WEAPON,LPC_WPN_OVL,LPC_HAND,LPC_BACK,LPC_HAND_BOB,LPC_REST_ANG,preloadLPCHero,
+  LPC_DIRS,LPC_BASE,LPC_HERO,LPC_ARMOR,LPC_OUTFIT,NS_WEAPON,LPC_WPN_OVL,LPC_HAND,LPC_BACK,LPC_HAND_BOB,LPC_REST_ANG,preloadLPCHero,
   DECOR_SPRITES,GOLDEN_KEY_SRC,backgrounds,BG_BY_KEY,loadImg,img,preloadAll,preloadHeroPreviews};

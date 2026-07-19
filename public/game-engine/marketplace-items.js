@@ -29,7 +29,10 @@
   // ── Equipment slots ──────────────────────────────────────────────────────
   // mainhand = weapon (affects atkDmg + attack FX/behavior)
   // body     = armor  (affects maxHp %)
-  var SLOTS = { WEAPON: 'mainhand', ARMOR: 'body' };
+  // outfit   = cosmetic skin (Phase 9) — PURE VISUALS, ZERO stats. Changes only
+  //            how the Knight looks (assets.js LPC_OUTFIT layer); never touches
+  //            HP/ATK, so the HP-100 cap and combat balance are untouched.
+  var SLOTS = { WEAPON: 'mainhand', ARMOR: 'body', OUTFIT: 'outfit' };
 
   // ── 10 starter items (owner can append more; list is NOT locked) ─────────
   // sprite: path in the repo/GitHub. All 10 icons are 64x64 PNG (RGBA,
@@ -90,6 +93,29 @@
       price:15.0, fxTier:3, fxColor:'#ffcf3d', effect:{ atkBonus:80, behavior:'volley' },
       sprite:'/sprites/marketplace/sunfire_bow.png',
       desc:'+80 ATK, ranged. Looses a fan of three sunfire arrows.' },
+
+    // ── SKINS (outfit) : Phase 9 cosmetics ──
+    // MIRRORS lib/constants/marketplace.ts EXACTLY (keep both in sync). PURE
+    // VISUALS: effect stays EMPTY — no atkBonus/hpBonus ever. The look is keyed
+    // by the item id in assets.js LPC_OUTFIT (a real LPC clothing/armour layer
+    // set); skinTint is a cosmetic-only flex colour. The FREE default outfit is
+    // always shown next to these — the game is fully playable without any skin.
+    { id:'ashen_warden', name:'Ashen Warden', type:'outfit', slot:SLOTS.OUTFIT,
+      price:5.0, fxTier:2, skinTint:'#8f95a0', effect:{},
+      sprite:'/sprites/marketplace/ashen_warden.png',
+      desc:'Cosmetic only. Ash-grey full plate — a silent sentinel of the bunkers.' },
+    { id:'emberguard', name:'Emberguard', type:'outfit', slot:SLOTS.OUTFIT,
+      price:7.0, fxTier:3, skinTint:'#c85a1e', effect:{},
+      sprite:'/sprites/marketplace/emberguard.png',
+      desc:'Cosmetic only. Ember-forged warden leathers with a warm coal glow.' },
+    { id:'voidweave', name:'Voidweave', type:'outfit', slot:SLOTS.OUTFIT,
+      price:9.0, fxTier:3, skinTint:'#6a24b0', effect:{},
+      sprite:'/sprites/marketplace/voidweave.png',
+      desc:'Cosmetic only. A hooded violet weave that drinks the dark around you.' },
+    { id:'sungild', name:'Sungild Regalia', type:'outfit', slot:SLOTS.OUTFIT,
+      price:10.0, fxTier:3, skinTint:'#e0b23a', effect:{},
+      sprite:'/sprites/marketplace/sungild.png',
+      desc:'Cosmetic only. Gilded champion regalia that catches every torchlight.' },
   ];
 
   // Pre-v76 ids for the four weapons that were re-skinned this session. Wallets
