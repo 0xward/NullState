@@ -3684,6 +3684,36 @@ function setWeaponTiers(map){
   if(typeof updateHUD==='function') updateHUD();
   if(typeof updateInventoryPanel==='function') updateInventoryPanel();
 }
+// Phase 7 — narrative hook. Called by the outdoor scene (outdoor.js) as an act's
+// arrival beat begins. If the equipped weapon has reached an evolution tier the
+// player hasn't been "greeted" about yet, returns this act's onWeaponEvolve
+// bark (1-2 lines) to append to the arrival bubbles, and marks that tier
+// acknowledged (per wallet + weapon, localStorage) so the line shows exactly
+// once per new tier. Returns [] when there's nothing new — reframes evolved
+// weapons as "decryption tools" threading the existing key/corruption arc.
+function takeEvolveBark(actIndex){
+  try{
+    const camp = window.NS_CAMPAIGN;
+    const act = camp && camp[actIndex];
+    const lines = act && act.onWeaponEvolve;
+    if(!lines || !lines.length) return [];
+    const M = window.NS_MARKET;
+    const eqId = (G && G.equipment && G.equipment.equipped && G.equipment.equipped.mainhand) || null;
+    if(!eqId || !M) return [];
+    const item = M.getEquipment(eqId);
+    if(!item) return [];
+    const canonId = item.id;
+    const tier = Math.max(1, (WEAPON_TIERS[canonId] | 0) || 1);
+    if(tier < 2) return [];                       // not evolved yet
+    const key = 'nullstate-evobark-' + (WALLET_ADDRESS ? WALLET_ADDRESS.toLowerCase() : 'anon') + '-' + canonId;
+    let ack = 0;
+    try{ ack = parseInt(localStorage.getItem(key) || '0', 10) || 0; }catch(e){ ack = 0; }
+    if(tier <= ack) return [];                    // already barked for this tier
+    try{ localStorage.setItem(key, String(tier)); }catch(e){ /* storage full — bark once anyway */ }
+    return lines.slice(0, 2);
+  }catch(e){ return []; }
+}
+window.NS_takeEvolveBark = takeEvolveBark;
 // Eat a food loot item (heal % of Max HP by rarity, consume one).
 function eatFoodItem(itemId){
   if(!G) return;
