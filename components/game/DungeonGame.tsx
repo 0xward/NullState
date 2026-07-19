@@ -607,6 +607,18 @@ export default function DungeonGame({ playerProfile, setPlayerUsername, isNewRun
                 }
               })
               .catch(() => { /* offline — base tiers, non-critical */ })
+            // Phase 8 — seed owned Premium Sector Blueprints so an owned act's
+            // run spawns its guaranteed Glitch-Shard cache (NS_EQUIP.setBlueprints).
+            fetch(`/api/blueprints?wallet=${addr}`)
+              .then(r => r.json())
+              .then(d => {
+                const owned = d && Array.isArray(d.owned) ? d.owned : null
+                if (owned) {
+                  const NS = (window as unknown as { NS_EQUIP?: { setBlueprints?: (l: string[]) => void } }).NS_EQUIP
+                  NS?.setBlueprints?.(owned)
+                }
+              })
+              .catch(() => { /* offline — no bonus caches, non-critical */ })
             refreshElixir() // Phase 3: seed elixir state + mirror the buff global
           }
         }

@@ -52,8 +52,11 @@ export default function CraftingScreen({ onBack, onGoToRun, address }: CraftingS
   const [nowTick, setNowTick] = useState(Date.now())
   const [busy, setBusy] = useState<string | null>(null)
   const [msg, setMsg] = useState<{ text: string; kind: 'info' | 'ok' | 'err' } | null>(null)
+  // Phase 8 — owned Premium Sector Blueprints (sectorIds).
+  const [sectorsOwned, setSectorsOwned] = useState<string[]>([])
 
   const pack = GAME_CONFIG.weaponEvolution.shardPack
+  const premiumSectors = GAME_CONFIG.premiumSectors
   const effectiveNow = nowTick + skew
   const remainingMs = craft ? craft.completesAt - effectiveNow : 0
   const craftReady = !!craft && remainingMs <= 0
@@ -112,8 +115,40 @@ export default function CraftingScreen({ onBack, onGoToRun, address }: CraftingS
       .then(r => r.json())
       .then(d => { if (d && d.tiers && typeof d.tiers === 'object') setTiers(d.tiers) })
       .catch(() => { /* offline — base tiers */ })
+    fetch(`/api/blueprints?wallet=${address}`)
+      .then(r => r.json())
+      .then(d => { if (Array.isArray(d.owned)) setSectorsOwned(d.owned) })
+      .catch(() => { /* offline — none owned */ })
     refreshCraft()
   }, [address, refreshShards, refreshCraft])
+
+  const handleBuySector = useCallback(async (sector: { id: string; name: string; priceUSD: number }) => {
+    if (busy) return
+    setBusy(sector.id)
+    setMsg({ text: isDevWallet ? 'DEV: unlocking sector…' : `Sending $${sector.priceUSD} ${token}…`, kind: 'info' })
+    try {
+      let txHash = ''
+      if (!isDevWallet) {
+        txHash = await buyMarketplaceItem(sector.priceUSD, token)
+        setMsg({ text: 'Payment sent — verifying on-chain…', kind: 'info' })
+      }
+      const res = await fetch('/api/blueprints/buy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(
+          isDevWallet ? { wallet: address, sectorId: sector.id, devBypass: true } : { wallet: address, txHash, token, sectorId: sector.id },
+        ),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Purchase failed')
+      if (Array.isArray(data.owned)) setSectorsOwned(data.owned)
+      setMsg({ text: `✓ ${sector.name} unlocked — a Glitch-Shard cache now spawns each run of that act.`, kind: 'ok' })
+    } catch (e: unknown) {
+      setMsg({ text: e instanceof Error ? e.message : 'Purchase failed', kind: 'err' })
+    } finally {
+      setBusy(null)
+    }
+  }, [busy, isDevWallet, token, address, buyMarketplaceItem])
 
   const handleStart = useCallback(async (item: MarketplaceItem) => {
     if (busy) return
@@ -420,6 +455,45 @@ export default function CraftingScreen({ onBack, onGoToRun, address }: CraftingS
           <p className="mt-3 font-mono text-[9px] leading-relaxed text-[#9c7a4f]">
             Crafting takes time — one forge at a time. Your very first evolution completes instantly. Clear runs to loot shards for free, or Finish Now to skip a timer.
           </p>
+        </section>
+
+        {/* Phase 8 — Premium Sector Blueprints. Optional paid bonus content:
+            owning an act's sector spawns a guaranteed Glitch-Shard cache each
+            run of that act. Never gates or alters the 5 core story acts. */}
+        <section className="mt-6">
+          <h2 className="mb-1 font-mono text-xs font-bold uppercase tracking-[3px] text-[#e6c07a]">⛨ Premium Sectors</h2>
+          <p className="mb-2 font-mono text-[9px] leading-relaxed text-[#9c7a4f]">
+            Optional bonus sectors. Each unlocks a guaranteed Glitch-Shard cache on that act&apos;s first floor — a faster, free-to-farm path to evolution shards. Purely optional; the core story is unaffected.
+          </p>
+          <div className="flex flex-col gap-2">
+            {premiumSectors.map(sector => {
+              const isOwned = sectorsOwned.includes(sector.id)
+              return (
+                <div key={sector.id}
+                  className={`flex items-center gap-3 rounded-lg border bg-gradient-to-b from-[#241a2e] to-[#140d1c] p-3 ${isOwned ? 'border-[#a970ff]/70' : 'border-[#7a4f24]/50'}`}>
+                  <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded bg-black/40 border border-[#7a4f24]/40 font-mono text-lg">✦</div>
+                  <div className="min-w-0 flex-1">
+                    <div className="font-mono text-sm font-bold text-[#e6d8ff]">{sector.name} <span className="text-[#9c7a4f]">· Act {sector.act}</span></div>
+                    <div className="truncate font-mono text-[10px] text-[#9c7a4f]">{sector.desc}</div>
+                  </div>
+                  <div className="flex flex-shrink-0 flex-col items-end gap-1">
+                    <span className="font-mono text-sm font-bold text-[#c9a6ff]">${sector.priceUSD.toFixed(2)}</span>
+                    {isOwned ? (
+                      <span className="rounded border border-[#a970ff]/60 px-3 py-1.5 font-mono text-[10px] font-bold uppercase tracking-wider text-[#c9a6ff]">Owned</span>
+                    ) : (
+                      <button
+                        onClick={() => handleBuySector(sector)}
+                        disabled={busy !== null}
+                        className="rounded bg-gradient-to-b from-[#a970ff] to-[#7b3fe4] px-4 py-1.5 font-mono text-[10px] font-bold uppercase tracking-wider text-[#150a24] transition hover:brightness-110 disabled:opacity-50"
+                      >
+                        {busy === sector.id ? '…' : 'Unlock'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
         </section>
       </div>
     </div>

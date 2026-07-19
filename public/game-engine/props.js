@@ -70,6 +70,17 @@ const DECOR_TYPES = {
   // containerMaterial is set anyway for consistency even though the vault
   // door never actually opens #containerWindow (see isVaultDoor routing).
   vault_door: { hp:1, w:50, h:74, label:'Sealed Vault Door', loot:[], interactive:true, isVaultDoor:true, containerMaterial:'vault' },
+  // ---- Phase 8: sealed caches gated by a weapon-evolution traversal utility.
+  // interactive (immune to combat swings) + loot:[] so open() rolls no window
+  // slots — game.js grants a direct Glitch-Shard haul instead, and only when
+  // the player's equipped weapon has unlocked the matching utility. Art is
+  // reused from existing sprite sets (see DECOR_TYPE_TO_SET) so no new PNGs. ----
+  cache_grapple: { hp:1, w:40, h:44, label:'Chasm Cache', loot:[], interactive:true, isSealedCache:true, sealedUtility:'grapple', containerMaterial:'iron' },
+  cache_melt:    { hp:1, w:34, h:36, label:'Frozen Cache', loot:[], interactive:true, isSealedCache:true, sealedUtility:'melt_wall', containerMaterial:'iron' },
+  // ---- Phase 8: Premium Sector reward cache — guaranteed once per owned act
+  // run (Firebase blueprint ownership), needs NO utility (you paid for it),
+  // loot is a rich Glitch-Shard haul. Same direct-grant path as sealed caches. ----
+  premium_cache: { hp:1, w:46, h:52, label:'Premium Sector Cache', loot:[], interactive:true, isPremiumCache:true, containerMaterial:'iron' },
 };
 
 /* ---- v75: PNG sprite decor (extracted from user-supplied sheets) ----
@@ -114,7 +125,9 @@ const DECOR_TYPE_TO_SET = { cabinet_s:'cabinet', wardrobe:'cabinet', safe:'safe'
   oak_barrel:'oak_barrel', barrel_stack:'barrel_stack', bucket:'bucket', bucket_water:'bucket_water',
   boulder:'boulder', hay_pile:'hay_pile', chalice:'chalice', basin:'basin',
   plaque_sword:'plaque_sword', plaque_coin:'plaque_coin', skull_heap:'skull_heap', cot:'cot',
-  footlocker:'footlocker', shelf_stocked:'shelf_stocked', dresser:'dresser', cabinet_ornate:'cabinet_ornate' };
+  footlocker:'footlocker', shelf_stocked:'shelf_stocked', dresser:'dresser', cabinet_ornate:'cabinet_ornate',
+  // Phase 8 caches reuse existing container art (no new PNGs needed).
+  cache_grapple:'safe', cache_melt:'footlocker', premium_cache:'cabinet' };
 const _decorImgs = {};
 function _decorImg(name){
   if(!name) return null;
