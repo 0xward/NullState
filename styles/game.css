@@ -61,19 +61,25 @@
 
 /* ---------- HUD ---------- */
 .ns-game-root #hud{position:absolute;inset:0;pointer-events:none;z-index:5;}
-.ns-game-root .hud-top{position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;
-  align-items:flex-start;padding:10px 14px 10px 78px;gap:14px;
-  background:linear-gradient(to bottom,rgba(0,0,0,.6),transparent);}
-.ns-game-root .hud-left{display:flex;flex-direction:column;gap:6px;min-width:200px;max-width:42vw;}
+/* HUD redesign (owner): the top-left EXIT button is gone, so the bars no longer
+   need the 78px left reservation — they sit flush in the corner. Only the bars
+   live in hud-top now (the LV/FLOOR/KILLS column was removed), so it's a plain
+   left-aligned block, and the bar length is cropped via a capped hud-left. */
+.ns-game-root .hud-top{position:absolute;top:0;left:0;right:0;display:flex;justify-content:flex-start;
+  align-items:flex-start;padding:8px 12px 6px 12px;gap:14px;
+  background:linear-gradient(to bottom,rgba(0,0,0,.55),transparent);}
+.ns-game-root .hud-left{display:flex;flex-direction:column;gap:5px;min-width:0;width:min(56vw,240px);}
 .ns-game-root .bar-row{display:flex;align-items:center;gap:8px;}
 /* v80 pixel-RPG HUD skin (owner: "vibes game pixel", no more stiff flat
    boxes). Bars become chunky notched-corner plates in the wood/gold family
    (matching the LPC dungeon art): a stepped clip-path fakes the classic
    8-bit rounded-pixel corner, an inset bevel gives the frame depth, and
    the fill gets scanline segments so it reads as a retro meter. */
-.ns-game-root .bar-label{font-size:11px;letter-spacing:2px;color:#ffd166;width:22px;
+.ns-game-root .bar-label{font-size:10px;letter-spacing:1.5px;color:#ffd166;width:18px;
   text-shadow:0 1px 0 #000, 0 0 6px rgba(255,209,102,.35);}
-.ns-game-root .bar{position:relative;flex:1;height:18px;border:0;background:#151009;
+/* HUD redesign: bars cropped shorter (18px -> 13px) so they read as a slim
+   top-left readout and leave the top-right clear for the raised minimap. */
+.ns-game-root .bar{position:relative;flex:1;height:13px;border:0;background:#151009;
   border-radius:0;overflow:hidden;
   clip-path:polygon(0 4px,4px 0,calc(100% - 4px) 0,100% 4px,100% calc(100% - 4px),calc(100% - 4px) 100%,4px 100%,0 calc(100% - 4px));
   box-shadow:inset 0 0 0 2px #4a3520, inset 0 2px 0 2px rgba(255,255,255,.05), inset 0 -3px 0 2px rgba(0,0,0,.55);}
@@ -102,7 +108,22 @@
   transition:opacity .3s ease;
   background:radial-gradient(ellipse at center, transparent 45%, rgba(255,10,40,.65) 100%);}
 .ns-game-root .bar-text{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
-  font-size:10px;letter-spacing:1px;text-shadow:0 1px 2px #000;color:#fff;}
+  font-size:9px;letter-spacing:.5px;text-shadow:0 1px 2px #000;color:#fff;}
+
+/* HUD redesign (owner): compact single-line stat readout under the bars —
+   "Point · Level · Floor · Kills" — replacing both the standalone POINT pill
+   and the oversized top-right LV/FLOOR/KILLS plates. Rendered by React
+   <HudStatLine> (sibling of #app). Small, quiet, and left-aligned so it tucks
+   right beneath the XP bar without crowding the playfield. */
+.ns-game-root .ns-hud-statline{position:absolute;top:50px;left:12px;z-index:8;pointer-events:none;
+  display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;
+  font-family:var(--font-mono),monospace;font-size:10px;line-height:1.2;
+  padding:3px 9px;border-radius:6px;border:1px solid rgba(0,255,136,.18);
+  background:rgba(6,10,13,.78);max-width:min(72vw,320px);}
+.ns-game-root .ns-hud-stat{display:inline-flex;align-items:center;gap:4px;white-space:nowrap;}
+.ns-game-root .ns-hud-stat .k{color:#7fd6a6;letter-spacing:.5px;}
+.ns-game-root .ns-hud-stat .v{color:#eafff5;font-weight:700;}
+
 .ns-game-root .hud-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end;}
 /* v80: LV/FLOOR/KILLS become little pixel plates instead of floating text */
 .ns-game-root .stat{display:flex;flex-direction:column;align-items:center;line-height:1.1;
@@ -512,17 +533,16 @@
 .ns-game-root .item-zoom-close:hover{color:#2b2620;}
 
 @media (max-width:520px){
-  .ns-game-root .hud-left{min-width:140px;}
+  .ns-game-root .hud-left{min-width:0;}
   .ns-game-root .hint{display:none;}
 }
 
 /* ---------- portrait / mobile vertical ---------- */
 @media (orientation:portrait){
-  .ns-game-root .hud-top{flex-direction:column;gap:8px;padding:8px 10px 8px 92px;}
-  .ns-game-root .hud-left{width:100%;max-width:none;}
-  .ns-game-root .hud-right{width:100%;justify-content:space-between;gap:8px;}
-  .ns-game-root .hud-right .stat-v{font-size:14px;}
-  .ns-game-root .stat-k{font-size:8px;}
+  /* HUD redesign (owner): no more 92px EXIT reservation on the left, and the
+     bars stay CROPPED (not full-width) so the top-right minimap has room. */
+  .ns-game-root .hud-top{flex-direction:column;gap:6px;padding:8px 10px 6px 10px;}
+  .ns-game-root .hud-left{width:min(62vw,220px);max-width:none;}
   .ns-game-root #muteBtn{position:absolute;top:8px;right:10px;}
   /* #6 (v41) — bottom sengaja TIDAK di-override di sini lagi; biarkan
      nurun dari base rule (calc(134px + safe-area)) biar tetap nempel di
@@ -555,7 +575,10 @@
 /* v80 pixel skin: the inventory trigger becomes a chunky notched-corner
    wooden button with a bevel + gold pin studs — same family as the bars,
    stat plates and the minimap frame. Position/size untouched. */
-.ns-game-root .inv-btn{position:absolute;top:200px;right:12px;z-index:7;pointer-events:auto;
+/* HUD redesign (owner): order top-to-bottom under the raised minimap is now
+   SETTINGS then INVENTORY then ELIXIR (settings must sit above inventory). The
+   whole cluster moved up to follow the minimap (now top:14, was 78). */
+.ns-game-root .inv-btn{position:absolute;top:208px;right:12px;z-index:7;pointer-events:auto;
   width:44px;height:44px;border-radius:0;cursor:pointer;border:0;
   background:linear-gradient(180deg,#8a5a34 0%,#6b4526 55%,#503018 100%);color:#ffe9c4;
   display:flex;align-items:center;justify-content:center;
@@ -624,13 +647,13 @@
   border-color:rgba(80,65,40,.15);cursor:default;pointer-events:none;}
 .ns-game-root .inv-item-empty:hover{background:rgba(0,0,0,.03);border-color:rgba(80,65,40,.15);}
 
-/* Settings gear button — sits directly under the inventory button, same
-   size (44x44) so the two read as one evenly-matched "menu" cluster, with
-   an 8px gap so they never touch. Gray/steel palette vs. the inventory
-   button's brown/leather palette keeps the two visually distinct despite
-   matching size. */
+/* Settings gear button — HUD redesign (owner): now sits ABOVE the inventory
+   button (first in the top-to-bottom cluster under the raised minimap), same
+   size (44x44) so the two read as one evenly-matched "menu" cluster with an
+   8px gap. Gray/steel palette vs. the inventory button's brown/leather palette
+   keeps the two visually distinct despite matching size. */
 /* v80 pixel skin: same chunky notched treatment as .inv-btn, steel palette */
-.ns-game-root .ns-settings-trigger{position:absolute;top:252px;right:12px;z-index:7;pointer-events:auto;
+.ns-game-root .ns-settings-trigger{position:absolute;top:156px;right:12px;z-index:7;pointer-events:auto;
   width:44px;height:44px;border-radius:0;cursor:pointer;border:0;
   background:linear-gradient(180deg,#7a7f85 0%,#565a60 55%,#3e4247 100%);color:#e8ebee;
   display:flex;align-items:center;justify-content:center;
@@ -642,7 +665,7 @@
 .ns-game-root .ns-settings-trigger:active{transform:translateY(1px);
   box-shadow:inset 0 0 0 2px #2e3134, inset 0 4px 0 2px rgba(0,0,0,.35);}
 @media (orientation:portrait){
-  .ns-game-root .ns-settings-trigger{top:222px;}
+  .ns-game-root .ns-settings-trigger{top:120px;}
 }
 
 /* ════════════════════════════════════════════════════════════════════════
@@ -677,7 +700,7 @@
 .ns-game-root .loading-fade-text.show{opacity:1;}
 
 @media (orientation:portrait){
-  .ns-game-root .inv-btn{top:170px;}
+  .ns-game-root .inv-btn{top:172px;}
   .ns-game-root .inv-panel-inner{width:min(94vw,380px);padding:16px 14px;}
 }
 
@@ -1020,7 +1043,7 @@
 /* Phase 3 — Drop-Rate Elixir trigger, third button in the right-hand
    control cluster (under inventory + settings). Violet pixel skin to match
    the shard/buff color family. Badge shows owned count or live countdown. */
-.ns-game-root .ns-elixir-trigger{position:absolute;top:304px;right:12px;z-index:7;pointer-events:auto;
+.ns-game-root .ns-elixir-trigger{position:absolute;top:260px;right:12px;z-index:7;pointer-events:auto;
   width:44px;height:44px;border-radius:0;cursor:pointer;border:0;
   background:linear-gradient(180deg,#7a4db0 0%,#5c3690 55%,#412066 100%);color:#f0e4ff;
   display:flex;align-items:center;justify-content:center;
@@ -1038,5 +1061,5 @@
 .ns-game-root .ns-elixir-badge-timer{background:#b46bff;color:#fff;min-width:30px;border-radius:6px;
   box-shadow:0 0 8px rgba(180,107,255,.6);}
 @media (orientation:portrait){
-  .ns-game-root .ns-elixir-trigger{top:274px;}
+  .ns-game-root .ns-elixir-trigger{top:224px;}
 }

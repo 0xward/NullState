@@ -13,7 +13,7 @@ import { GAME_CONFIG } from '@/lib/constants/game-config'
 import SettingsModal from './SettingsModal'
 import { LiveStatsProvider } from './LiveStatsProvider'
 import SaveConfirmModal from './SaveConfirmModal'
-import TokenBalanceWidget from './TokenBalanceWidget'
+import HudStatLine from './HudStatLine'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DungeonGame — real-time canvas dungeon crawler (NULL_STATE // THE FORSAKEN
@@ -693,24 +693,18 @@ export default function DungeonGame({ playerProfile, setPlayerUsername, isNewRun
       <div id="app">
         <canvas id="game" />
 
-        {/* Back to site — intercepted so we can offer to save first */}
-        <button
-          type="button"
-          className="ns-back"
-          aria-label="Back to NullState home"
-          onClick={handleExitClick}
-        >
-          ◂ EXIT
-        </button>
+        {/* HUD redesign (owner): the top-left "◂ EXIT" button was removed —
+            Exit now lives INSIDE Settings, directly under Save Game (see
+            SettingsModal's onExit). That frees the top-left corner so the
+            HP/XP bars + the compact stat line can sit flush against it. */}
 
-        {/* Compact weekly-claim overlay — only renders once there's
-            something claimable for the connected wallet. Issue #2 fix:
-            also fully unmounts (not just z-index'd behind) whenever ANY
-            full-screen overlay is open — Settings, the exit-confirm dialog,
-            SaveConfirmModal (both share showExitConfirm), the vanilla-engine
-            Inventory panel, a loot container (Rotten Armoire etc.), or the
-            weekly Vault window. */}
-        <TokenBalanceWidget
+        {/* Compact stat line — "Point · Level · Floor · Kills", pinned top-left
+            just under the bars. Replaces the old standalone POINT pill AND the
+            oversized top-right LV/FLOOR/KILLS boxes. Fully unmounts (not just
+            z-index'd behind) whenever ANY full-screen overlay is open —
+            Settings, the exit-confirm dialog, the inventory panel, a loot
+            container, or the weekly Vault — so it never overlaps them. */}
+        <HudStatLine
           walletAddress={wallet.address}
           hidden={showSettings || showExitConfirm || vanillaOverlayOpen}
         />
@@ -725,6 +719,11 @@ export default function DungeonGame({ playerProfile, setPlayerUsername, isNewRun
 
         {/* HUD */}
         <div id="hud" className="hidden">
+          {/* HUD redesign (owner): only the HP/XP bars live here now, shifted
+              hard into the top-left corner and cropped shorter. The old
+              top-right LV/FLOOR/KILLS stat boxes were removed — those numbers
+              are now in the compact React <HudStatLine> under the bars (the
+              engine still emits them via the live-stats bridge). */}
           <div className="hud-top">
             <div className="hud-left">
               <div className="bar-row">
@@ -741,14 +740,6 @@ export default function DungeonGame({ playerProfile, setPlayerUsername, isNewRun
                   <span id="xpText" className="bar-text">0/200</span>
                 </div>
               </div>
-            </div>
-            <div className="hud-right">
-              <div className="stat"><span className="stat-k">LV</span><span id="lvl" className="stat-v">1</span></div>
-              <div className="stat"><span className="stat-k">FLOOR</span><span id="floor" className="stat-v">1</span></div>
-              <div className="stat"><span className="stat-k">KILLS</span><span id="kills" className="stat-v">0</span></div>
-              {/* Phase 1 run timer moved INTO the minimap's status plate
-                  (v81 owner fix: the TIME stat here overlapped the minimap
-                  panel on portrait screens). See drawMinimap() in game.js. */}
             </div>
           </div>
 
@@ -1165,6 +1156,7 @@ export default function DungeonGame({ playerProfile, setPlayerUsername, isNewRun
         onToggleScreenShake={handleToggleScreenShake}
         onSaveGame={handleSaveGame}
         setPlayerUsername={setPlayerUsername}
+        onExit={() => { setShowSettings(false); handleExitClick() }}
       />
       <SaveConfirmModal
         open={showExitConfirm}
