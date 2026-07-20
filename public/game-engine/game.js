@@ -4217,15 +4217,33 @@ function drawLPCPreview(elId){
 // spin forever. Each successful body-only pass still paints (never blank),
 // the retries just let late-decoding gear overlays pop in.
 let _previewTries = 0;
+let _previewTimer = null;
 function paintPreview(reset){
   // v80: `reset` restarts the retry budget — boot() passes true so a
   // re-mount (exit game -> open again) can never inherit an exhausted
   // counter from the previous session and leave the box permanently blank.
   if(reset === true) _previewTries = 0;
   const done = drawPreview('prevKnight');
-  if(!done && !destroyed && _previewTries < 60){
+  // OWNER FIX: the char-select preview kept coming up BLANK. Root cause: the
+  // canvas is appended imperatively into the React-rendered #prevKnight, and a
+  // DungeonGame re-render (elixir/energy/uiNow ticks) can wipe that canvas —
+  // after which the old one-shot retry loop had already stopped, leaving the
+  // box empty forever. Fix: keep a self-sustaining repaint alive for as long
+  // as the title/char-select is on screen. Fast retries until the first real
+  // paint, then a cheap ~1s keep-alive that re-asserts the canvas so no
+  // re-render can leave it blank. The loop ends the instant the player
+  // descends (title hidden) or the engine is torn down.
+  if(_previewTimer){ clearTimeout(_previewTimer); _previewTimer = null; }
+  const _t = $('title');
+  const titleVisible = _t && !_t.classList.contains('hidden');
+  if(!destroyed && titleVisible){
     _previewTries++;
-    setTimeout(paintPreview, 250);
+    // Once we've painted at least once, keep the slow keep-alive going
+    // indefinitely; before the first success, cap the fast retries (~16s) so a
+    // genuinely missing asset can't spin forever.
+    if(done || _previewTries < 80){
+      _previewTimer = setTimeout(paintPreview, done ? 1000 : 200);
+    }
   }
 }
 // (sound toggle now lives in the React Settings modal — see toggleSound() in the public API)
@@ -4504,24 +4522,18 @@ async function boot(){
   _fullPreloadPromise = preloadAll();
 
   // "Continue" from the React Main Menu passes a saved bunker snapshot in
-  // via mount({ savedSession }) — see DungeonGame.tsx. Previously this only
-  // shortened what happened AFTER the player sat through the full
-  // character-select/DESCEND title screen, which is why Continue still
-  // forced players to re-pick a character every time even though the pick
-  // was discarded a moment later in favor of the saved charKey. Now, when a
-  // saved session exists, skip that screen entirely and drop the player
-  // straight back into the exact bunker they left.
+  // via mount({ savedSession }) — see DungeonGame.tsx.
+  // OWNER FIX (this session): Continue used to SKIP the title/character-select
+  // screen entirely and auto-drop the player straight into the bunker. That
+  // read as two bugs: (a) "tiba-tiba masuk ke game padahal belum klik DESCEND"
+  // and (b) no character preview ever showed on Continue. So we no longer
+  // auto-enter — Continue now shows the exact same title + live character
+  // preview as a fresh run (the preview reflects the saved/equipped gear via
+  // loadPersistedEquipment). onStart() already resumes SAVED_SESSION through
+  // enterSavedSession() when DESCEND is pressed, so we just relabel the button
+  // and fall through to the shared preview + rAF path below.
   if (SAVED_SESSION) {
-    $('title').classList.add('hidden');
-    $('hud').classList.remove('hidden');
-    try { await _fullPreloadPromise; } catch(e) {}
-    if (destroyed) return;
-    rafId = requestAnimationFrame(frame);
-    A.start(); // may be silently blocked by autoplay policy here since
-               // there was no dedicated click right before this — see the
-               // one-time pointerdown/keydown fallback registered in attach()
-    enterSavedSession();
-    return;
+    const _b = $('startBtn'); if(_b) _b.textContent = 'CONTINUE ▾';
   }
 
   // Load ONLY the 3 hero idle sprites first so the character-select
@@ -4589,6 +4601,7 @@ function unmount(){
   // any run still open as Abandoned — a saved session re-opens it later.
   if(window.NS_RUN && NS_RUN.active()) NS_RUN.close('Abandoned');
   if(rafId){ cancelAnimationFrame(rafId); rafId=null; }
+  if(_previewTimer){ clearTimeout(_previewTimer); _previewTimer=null; }
   _winL.forEach(([t,f])=>window.removeEventListener(t,f)); _winL.length=0;
   G = null; last = 0;
   cv = ctx = stick = nub = atkBtn = touchEl = null;
