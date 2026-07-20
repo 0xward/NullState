@@ -23,6 +23,23 @@ export const GAME_CONFIG = {
       withoutPass: 1.0, // Normal drop rates
       withPass: 1.0, // Same as without for MVP
     },
+
+    // ── TASK #7 — "make the $10 pass worth it" perks ──────────────────────
+    // Every perk is NON-PAY-TO-WIN: the HP-100 cap is untouched and the FREE
+    // path always exists alongside (free players still get 5 energy runs/day
+    // and earn shards by playing). Holding an ACTIVE-season pass grants:
+    //   - exclusiveSkinId : a cosmetic-only outfit (assets.js LPC_OUTFIT), 0 stats
+    //   - a profile + in-game BADGE (cosmetic flair; no config needed)
+    //   - dailyEnergyRuns : +N bonus energy runs, claimable once per UTC day
+    //   - dailyShards     : a small Glitch-Shard stipend, claimable once per UTC
+    //                       day (shards only speed weapon EVOLUTION — additive
+    //                       ATK, never HP — and are also earned free in-run, so
+    //                       this is a convenience nudge, not a power gate)
+    // Both daily claims are gated on-chain (PassSBTv3.hasPass) + one-per-UTC-day
+    // in Firebase (see app/api/passsbt/perks). Amounts are deliberately modest.
+    exclusiveSkinId: 'pass_warden',
+    dailyEnergyRuns: 1,
+    dailyShards: { t1: 3, t2: 0, t3: 0 },
   },
 
   // Energy / Action system (Genius blueprint Phase 1 — finally implements

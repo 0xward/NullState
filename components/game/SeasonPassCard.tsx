@@ -12,14 +12,20 @@ export interface SeasonPassCardProps {
   hasPass: boolean // does the connected wallet already hold ANY active pass
   isConnected: boolean
   mintPhase: 'idle' | 'paying' | 'verifying' | 'minting'
+  // Live on-chain price as a plain USD string (e.g. "10.00"), read from the
+  // contract by usePassSBT. null while loading. Token-agnostic on purpose —
+  // MiniPay pays in whichever stablecoin the wallet holds most of.
+  priceUsd: string | null
   onMint: () => void
 }
 
-const MINT_LABEL: Record<SeasonPassCardProps['mintPhase'], string> = {
-  idle: 'MINT PASS — 0.3 USDT',
-  paying: 'SENDING PAYMENT…',
-  verifying: 'VERIFYING PAYMENT…',
-  minting: 'MINTING…',
+// Format a decimal-dollar string ("10.00" / "0.30") as a compact price label,
+// dropping a trailing ".00" so $10 reads as "$10" not "$10.00".
+function formatUsd(price: string | null): string {
+  if (price == null) return '…'
+  const n = Number(price)
+  if (!isFinite(n)) return `$${price}`
+  return Number.isInteger(n) ? `$${n}` : `$${n.toFixed(2)}`
 }
 
 function daysRemaining(endDateSeconds: bigint): number | null {
@@ -38,8 +44,15 @@ export default function SeasonPassCard({
   hasPass,
   isConnected,
   mintPhase,
+  priceUsd,
   onMint,
 }: SeasonPassCardProps) {
+  const MINT_LABEL: Record<SeasonPassCardProps['mintPhase'], string> = {
+    idle: `MINT PASS — ${formatUsd(priceUsd)}`,
+    paying: 'SENDING PAYMENT…',
+    verifying: 'VERIFYING PAYMENT…',
+    minting: 'MINTING…',
+  }
   const cardStyle: React.CSSProperties = {
     clipPath: 'polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px)',
   }
@@ -177,6 +190,11 @@ export default function SeasonPassCard({
         >
           {buttonLabel}
         </button>
+        {!hasPass && mintPhase === 'idle' && (
+          <div className="mt-2 text-null-muted text-[9px] tracking-[1px] uppercase text-center">
+            Paid in your MiniPay stablecoin
+          </div>
+        )}
       </div>
     </div>
   )

@@ -123,6 +123,14 @@
       price:10.0, fxTier:3, skinTint:'#e0b23a', effect:{},
       sprite:'/sprites/marketplace/sungild.png',
       desc:'Gilded champion regalia that catches every torchlight.' },
+    // TASK #7 — EXCLUSIVE Season-Pass skin (mirror of lib/constants/marketplace.ts).
+    // hidden:true (never in the shop) + passOnly:true (engine injects it into
+    // `owned` only for active pass holders — see setPassHolder in game.js).
+    // Pure cosmetic, zero stats. price:0 = free-with-pass, never charged.
+    { id:'pass_warden', name:'NullState Warden', type:'outfit', slot:SLOTS.OUTFIT,
+      price:0, hidden:true, passOnly:true, fxTier:3, skinTint:'#00ff88', effect:{},
+      sprite:'/sprites/marketplace/pass_warden.png',
+      desc:'Acid-green warden regalia — the mark of a Season Pass holder.' },
   ];
 
   // Pre-v76 ids for the four weapons that were re-skinned this session. Wallets

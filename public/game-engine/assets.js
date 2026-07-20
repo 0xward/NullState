@@ -157,6 +157,13 @@ const LPC_OUTFIT = {
   voidweave:    { torso:'TORSO_chain_armor_jacket_purple.png', legs:'LEGS_robe_skirt.png', feet:'FEET_plate_armor_shoes.png', head:'HEAD_robe_hood.png', tint:'#6a24b0', tintA:0.36, glow:'#9d4bff' },
   // $10 — gilded champion regalia.
   sungild:      { torso:'TORSO_chain_armor_torso.png', legs:'LEGS_plate_armor_pants.png', feet:'FEET_plate_armor_shoes.png', head:'HEAD_chain_armor_helmet.png', tint:'#e0b23a', tintA:0.34, glow:'#ffd24a' },
+  // TASK #7 — EXCLUSIVE Season-Pass holder skin (cosmetic, ZERO stats). Only
+  // granted to wallets holding an active pass (never sold — hidden:true in the
+  // marketplace defs, injected into `owned` by the engine when pass-holder).
+  // Washed in the game's signature acid-green with a bright glow and NO helmet,
+  // so it reads as the flagship "NullState Warden" flex and is clearly distinct
+  // from the grey/ember/void/gold paid skins and the neutral default skin.
+  pass_warden:  { torso:'TORSO_chain_armor_torso.png', arms:'TORSO_leather_armor_shoulders.png', legs:'LEGS_plate_armor_pants.png', feet:'FEET_plate_armor_shoes.png', tint:'#00c46a', tintA:0.32, glow:'#00ff88' },
 };
 
 // Weapon id -> which body-relative animation folder its overlay sheet
