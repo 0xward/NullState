@@ -342,8 +342,13 @@ const MON = {
 // a 6-frame death collapse (the LPC hurt anim). Weapons ride on top at
 // runtime via the ULPC weapon overlays (incl. glow), exactly like the hero.
 const LPC_MON_DIR = '/sprites/lpc_monsters';
-function _lpcMon(id, atk, weaponId, scale){
-  return { monBase:`${LPC_MON_DIR}/${id}`, atk:atk||'slash', weaponId:weaponId||undefined, scale:scale||1.25 };
+// weaponTint (optional): a masked colour wash applied to the carried weapon
+// overlay (source-atop, ~0.55 alpha — see _drawWpnOvlLayer). Used by BOSSES so
+// their weapon reads as their OWN dark/corrupted blade instead of the bright,
+// glowing PREMIUM marketplace weapon the sprite is shared with. Bosses also
+// never pass weaponGlow, so no premium aura pulses on them.
+function _lpcMon(id, atk, weaponId, scale, weaponTint){
+  return { monBase:`${LPC_MON_DIR}/${id}`, atk:atk||'slash', weaponId:weaponId||undefined, scale:scale||1.25, weaponTint:weaponTint||undefined };
 }
 const ARCHETYPES = [
   { key:'orc_base',    name:'Orc Raider',       hp:92, dmg:9,  spd:28, xp:38, color:'#7fae5a', r:15,
@@ -406,21 +411,27 @@ const SKEL_MAGE_ARCH   = { key:'skel_mage', name:'Bone Caster', hp:88, dmg:15, s
   useLPC:true, lpc:_lpcMon('skel_mage','spellcast',null,1.26) };
 const SKEL_WARRIOR_ARCH= { key:'skel_warrior', name:'Bone Warrior', hp:138, dmg:14, spd:23, xp:56, color:'#9c8f6e', r:17, isUndead:true,
   useLPC:true, lpc:_lpcMon('skel_warrior','slash','emberwood_maul',1.34) };
+// Boss weapons: reuse an existing weapon overlay SHAPE but wash it in a dark
+// "corrupted" tint (5th _lpcMon arg) so a boss never appears to wield the
+// bright, glowing PREMIUM marketplace weapon its sprite is shared with (owner:
+// "kenapa dia memakai senjata premium … bukan senjata glowing"). Scales were
+// also pulled in (1.6–1.7 → 1.4–1.5) — bosses read as bigger than a normal
+// enemy without dominating the whole room (owner: "ukurannya terlalu Besar").
 const BOSS_ARCH = { key:'orc_warrior', name:'THE WARLORD', hp:1100, dmg:20, spd:25, xp:600, color:'#ff3b5c', r:30, isBossScale:true,
-  useLPC:true, lpc:_lpcMon('warlord','slash','argent_waraxe',1.6) };
+  useLPC:true, lpc:_lpcMon('warlord','slash','argent_waraxe',1.4,'#2f2a33') };
 // v80: one distinct boss look per campaign act (all with real attack anims).
 // game.js picks ACT_BOSSES[campaignActIndex % length], falling back to
 // BOSS_ARCH. Stats mirror THE WARLORD so act difficulty tuning is unchanged.
 const ACT_BOSSES = [
   BOSS_ARCH,
   { key:'orc_warrior', name:'GRAVE MONARCH',  hp:1100, dmg:20, spd:25, xp:600, color:'#8a2f4a', r:30, isBossScale:true,
-    useLPC:true, lpc:_lpcMon('vampire_lord','slash','void_katana',1.6) },
+    useLPC:true, lpc:_lpcMon('vampire_lord','slash','void_katana',1.4,'#3a0f1e') },
   { key:'orc_warrior', name:'THE SUTURED ONE',hp:1100, dmg:20, spd:25, xp:600, color:'#7fae7a', r:30, isBossScale:true,
-    useLPC:true, lpc:_lpcMon('frank_hulk','slash',null,1.7) },
+    useLPC:true, lpc:_lpcMon('frank_hulk','slash',null,1.5) },
   { key:'orc_warrior', name:'HORNED TYRANT',  hp:1100, dmg:20, spd:25, xp:600, color:'#8a6f4a', r:30, isBossScale:true,
-    useLPC:true, lpc:_lpcMon('wartotaur','thrust','frost_spear',1.65) },
+    useLPC:true, lpc:_lpcMon('wartotaur','thrust','frost_spear',1.45,'#26333f') },
   { key:'orc_warrior', name:'THE PUMPKIN KING',hp:1100, dmg:20, spd:25, xp:600, color:'#e07b28', r:30, isBossScale:true,
-    useLPC:true, lpc:_lpcMon('jack_reaper','slash','verdant_reaper',1.65) },
+    useLPC:true, lpc:_lpcMon('jack_reaper','slash','verdant_reaper',1.45,'#341a10') },
 ];
 
 const backgrounds = ['/backgrounds/forest.webp','/backgrounds/desert.webp',
