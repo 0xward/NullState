@@ -67,20 +67,34 @@ export async function POST(req: NextRequest) {
     const targetTier = curTier + 1
     const step = evoTiers[curTier - 1]
     const need = step.materialsRequired || {}
+    const needFor = (k: 't1' | 't2' | 't3') => (need as Record<string, number | undefined>)[k] || 0
 
-    // 4) atomic shard deduction — aborts if short
-    const result = await db.ref(`materials/${wallet}`).transaction((cur: unknown) => {
-      const bal = readBalance(cur)
-      for (const k of TIER_KEYS) {
-        const req_ = (need as Record<string, number | undefined>)[k] || 0
-        if (bal[k] < req_) return
+    // 4) shard deduction (read-then-write).
+    // BUGFIX: this used to be a conditional-abort `.transaction()` — return
+    // undefined (abort) when short. RTDB invokes the transaction function with
+    // `cur = null` on its INITIAL run whenever the node isn't locally cached
+    // (true on a cold serverless invocation even though the data exists on the
+    // server). readBalance(null) is all-zeros, so the "if short, abort" branch
+    // fired on that null run and CANCELLED the whole transaction — reporting
+    // "Not enough Glitch Shards" to wallets that actually had plenty. The
+    // credit routes (energy/refill, materials/buy) never hit this because they
+    // only ever ADD (never abort). Read the real balance first, check against
+    // it, then write the deducted total. Safe for a single-owner shard balance:
+    // only this wallet mutates it, and crafts are serialised by the
+    // one-active-craft lock above.
+    const matSnap = await db.ref(`materials/${wallet}`).get()
+    const bal = readBalance(matSnap.exists() ? matSnap.val() : null)
+    for (const k of TIER_KEYS) {
+      if (bal[k] < needFor(k)) {
+        return NextResponse.json({ error: 'Not enough Glitch Shards', required: need, have: bal }, { status: 402 })
       }
-      return { t1: bal.t1 - (need.t1 || 0), t2: bal.t2 - (need.t2 || 0), t3: bal.t3 - (need.t3 || 0) }
-    })
-    if (!result.committed) {
-      return NextResponse.json({ error: 'Not enough Glitch Shards', required: need, have: readBalance(result.snapshot.val()) }, { status: 402 })
     }
-    const materials = readBalance(result.snapshot.val())
+    const materials: MatBal = {
+      t1: bal.t1 - needFor('t1'),
+      t2: bal.t2 - needFor('t2'),
+      t3: bal.t3 - needFor('t3'),
+    }
+    await db.ref(`materials/${wallet}`).set(materials)
 
     // 5) first-ever craft completes instantly (still cost shards, just no timer)
     const metaSnap = await db.ref(`weaponCraftMeta/${wallet}/firstDone`).get()
