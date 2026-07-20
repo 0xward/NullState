@@ -2671,7 +2671,9 @@ const NS_LIGHT = window.NS_LIGHT = {
   entGlow: 0.22,    // peak reflection alpha on a monster/prop right next to the player
   entMax: 12,       // per-frame cap on entity reflections (perf guard)
   flicker: 0.10,    // +/- fraction of candle-style flicker on the warm layers
-  _fpsHz: 0,        // internal: estimated fps this frame (readonly, for perf monitoring)
+  _fpsHz: 0,        // internal: smoothed fps estimate (readonly, for perf monitoring)
+  _fpsEMA: 0,       // internal: exponential moving average of instantaneous fps
+  _rimOff: false,   // internal: latched "entity-rim layer disabled" state (hysteresis)
   _lastT: 0,        // internal: last drawDarkness time
 };
 function drawDarkness(sx,sy){
@@ -2728,10 +2730,24 @@ function drawDarkness(sx,sy){
   const now=performance.now();
   if(L._lastT>0){
     const dt=now-L._lastT;
-    L._fpsHz = dt>0 ? Math.round(1000/dt) : 60;
+    const inst = dt>0 ? 1000/dt : 60;
+    // Smooth the fps estimate (EMA) so a SINGLE slow frame can't flip the
+    // rim-light layer. Before this, a heavy-FX weapon (aoe/volley/triple-slash,
+    // evolved spark sprays) that parked the frame rate right around the cutoff
+    // made `skipEntityRim` toggle EVERY frame — the warm rims around every
+    // on-screen monster/prop blinked on and off and the whole scene read as
+    // flickering ("layar/maps berkedip" on certain weapons' autoattack).
+    L._fpsEMA = L._fpsEMA>0 ? L._fpsEMA + (inst - L._fpsEMA)*0.15 : inst;
+    L._fpsHz = Math.round(L._fpsEMA);
   }
   L._lastT=now;
-  const skipEntityRim = L._fpsHz < 20;  // guarded: skip if <20 fps
+  // Hysteresis on top of the smoothing: only DROP the rim layer once the
+  // smoothed fps sinks below 18, and only restore it once it climbs back over
+  // 26. The gap between the two thresholds means the state latches instead of
+  // chattering at a single boundary — no more frame-to-frame flicker.
+  if(L._rimOff){ if(L._fpsHz > 26) L._rimOff = false; }
+  else { if(L._fpsHz < 18) L._rimOff = true; }
+  const skipEntityRim = L._rimOff;
   const cast=(e,r)=>{
     if(skipEntityRim || drawn>=L.entMax) return;
     const dist=Math.hypot(e.x-G.player.x, e.y-G.player.y);
@@ -2764,10 +2780,13 @@ function drawVignette(){
 // nearest visible enemies, and the stairs. When the stairs are far outside
 // the minimap's own little view window, a directional arrow at the edge
 // points toward them so the player always has a "which way do I go" cue.
-const MM = { size:108, pad:12, top:78 }; // top clears the HP/XP bars + stat row
+// HUD redesign (owner): the LV/FLOOR/KILLS stat boxes that used to sit in the
+// top-right are gone (folded into the compact <HudStatLine> under the bars on
+// the LEFT), so the minimap can ride right up into the top-right corner.
+const MM = { size:108, pad:12, top:14 };
 function getMinimapMetrics(){
   // Smaller on narrow/portrait phones — 108px was dominating the screen.
-  if(portrait && cw < 480) return { size:78, pad:10, top:74 };
+  if(portrait && cw < 480) return { size:78, pad:10, top:12 };
   return MM;
 }
 // v80 REDESIGN (owner: "minimap jelek dan tidak sesuai maps game"):
@@ -3110,8 +3129,13 @@ function updateHUD(){
   applyHpVignette(hpPct);
   $('xpFill').style.width=(p.xp/p.xpForNext()*100)+'%';
   $('xpText').textContent=`${p.xp}/${p.xpForNext()}`;
-  $('lvl').textContent=p.level; $('floor').textContent=G.depth;
-  $('kills').textContent=p.kills;
+  // LV/FLOOR/KILLS moved out of the vanilla HUD into the React <HudStatLine>
+  // (driven by the live-stats bridge emitted just below). These spans no
+  // longer exist in the DOM, so guard each write — the compact stat line is
+  // now the single source of those three numbers on screen.
+  { const _l=$('lvl'); if(_l) _l.textContent=p.level;
+    const _f=$('floor'); if(_f) _f.textContent=G.depth;
+    const _k=$('kills'); if(_k) _k.textContent=p.kills; }
   updateInventoryPanel();
   // Item #10 fix (Option C): announce the live numbers to React every time
   // this function runs (i.e. after every kill/level-up/floor-change/pickup —
@@ -4404,6 +4428,16 @@ function attach(){
   // other "tap to unmute" pattern.
   winOn('pointerdown', () => A.start(), { once: true });
   winOn('keydown', () => A.start(), { once: true });
+  // Preview reliability: a tab that was backgrounded during the first load
+  // (or a throttled first paint) can leave the char-select box blank. Whenever
+  // the window regains focus while the title is STILL showing (i.e. we haven't
+  // descended yet, and this isn't the Continue auto-resume path), re-arm the
+  // paintPreview retry loop so the knight reliably appears.
+  winOn('focus', () => {
+    if(destroyed || SAVED_SESSION) return;
+    const t = $('title');
+    if(t && !t.classList.contains('hidden')) paintPreview(true);
+  });
   cv.addEventListener('mousedown', ()=>{ input.attack=1; });
   cv.addEventListener('mouseup', ()=>{ input.attack=0; });
   // #7 — tap-to-skip for the outdoor arrival speech bubbles. These used to
@@ -4495,8 +4529,22 @@ async function boot(){
   // preload above (all monsters, dungeon décor, backgrounds — several MB)
   // before the player even sees a hero. loadImg() caches by src, so this
   // doesn't re-fetch anything preloadAll() is already fetching.
-  await preloadHeroPreviews();
+  // Defensive: a rejection here (should never happen — loadImg resolves null
+  // on error and Promise.all can't reject) must NOT skip the paintPreview +
+  // rAF start below, or the title would show a permanently blank preview box
+  // AND the frame loop would never start.
+  try { await preloadHeroPreviews(); } catch(e) { /* non-fatal */ }
   if(destroyed) return;
+  // Belt-and-suspenders: if the LPC body sheet the preview needs somehow
+  // isn't cached yet (a slow/aborted first fetch), force it now so the very
+  // first paintPreview() below can draw the knight instead of an empty box.
+  // NOTE: `A` at this scope is the AUDIO engine (window.Audio2, see top of
+  // file); the sprite assets live on window.NS_ASSETS — use that here.
+  { const AS = window.NS_ASSETS;
+    if(AS && AS.LPC_HERO && AS.LPC_HERO.idle && !img(AS.LPC_HERO.idle.src)){
+      try { await AS.loadImg(AS.LPC_HERO.idle.src); } catch(e) { /* non-fatal */ }
+      if(destroyed) return;
+    } }
   // v80 (owner: preview "harus muncul detik pertama"): paint NOW with the
   // tiny knight_idle stand-in — do NOT await the big preloadLPCHero()
   // sweep (LPC body + every armor anim folder + weapon overlays, easily

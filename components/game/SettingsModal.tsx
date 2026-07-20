@@ -29,6 +29,10 @@ interface SettingsModalProps {
   onToggleScreenShake: () => void
   onSaveGame: () => Promise<boolean>
   setPlayerUsername: (username: string) => Promise<{ success: boolean; username: string }>
+  /** HUD redesign (owner): Exit moved out of the top-left corner into Settings,
+      directly under Save Game. Triggers the same save-before-exit flow the old
+      "◂ EXIT" button did (opens the exit-confirm dialog). */
+  onExit: () => void
 }
 
 export default function SettingsModal({
@@ -46,6 +50,7 @@ export default function SettingsModal({
   onToggleScreenShake,
   onSaveGame,
   setPlayerUsername,
+  onExit,
 }: SettingsModalProps) {
   const [usernameInput, setUsernameInput] = useState(playerProfile?.username || '')
   const [usernameStatus, setUsernameStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
@@ -166,6 +171,17 @@ export default function SettingsModal({
               Nothing to save right now — you&apos;re not inside a bunker.
             </p>
           )}
+
+          {/* Exit — moved here from the old top-left "◂ EXIT" button. Same
+              chunky primary style as Save Game (owner spec). Opens the
+              save-before-exit dialog so a run is never lost by accident. */}
+          <button
+            className="ns-settings-btn-primary"
+            style={{ marginTop: 10 }}
+            onClick={onExit}
+          >
+            ◂ Exit to Home
+          </button>
         </div>
 
         {/* Wallet + Username */}
