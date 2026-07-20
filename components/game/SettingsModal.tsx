@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { PlayerProfile } from '@/lib/contract'
 import { usernameSchema } from '@/lib/validation'
 import { useLiveStats } from './LiveStatsProvider'
+import { usePassSBT } from '@/hooks/usePassSBT'
 
 interface SessionStats {
   depth: number
@@ -14,8 +15,8 @@ interface SessionStats {
 interface SettingsModalProps {
   open: boolean
   onClose: () => void
-  /** kept in the props contract (GameFlowManager still passes it) but no
-      longer rendered — v75 MiniPay compliance removed the raw address. */
+  /** the raw address is NOT rendered (v75 MiniPay compliance removed it), but
+      it IS used to read the wallet's Season Pass status (TASK #7) shown below. */
   address?: string | null
   playerProfile: PlayerProfile | null
   sessionStats: SessionStats | null
@@ -38,6 +39,7 @@ interface SettingsModalProps {
 export default function SettingsModal({
   open,
   onClose,
+  address,
   playerProfile,
   sessionStats,
   soundMuted,
@@ -69,6 +71,19 @@ export default function SettingsModal({
   const displayXp = liveStats?.xp ?? playerProfile?.xp
   const displayFloor = liveStats?.floor ?? sessionStats?.depth
   const displayKills = liveStats?.kills ?? sessionStats?.kills
+
+  // TASK #7 (owner request): the pass badge is NOT shown on the in-game HUD.
+  // Instead a connected wallet that has minted the active-season pass sees a
+  // "Season N Pass — Active" line here in Settings. hasPass is read on-chain
+  // (true only for the currently-active season) and passSeasonId is the minted
+  // season id (e.g. 202607 = July 2026 = Season 1); the season program runs
+  // Jul–Dec 2026, so season number = (month - 6).
+  const { hasPass, passSeasonId, isLoading: passLoading } = usePassSBT(address ?? undefined)
+  const passSeasonNumber = (() => {
+    const month = Number(passSeasonId) % 100
+    const n = month - 6
+    return n >= 1 && n <= 6 ? n : null
+  })()
 
   useEffect(() => {
     if (open) {
@@ -143,6 +158,45 @@ export default function SettingsModal({
             shows. Your lifetime totals are saved to the leaderboard whenever you
             save or your character dies.
           </p>
+        </div>
+
+        {/* Season Pass status (TASK #7) — shown here in Settings instead of on
+            the HUD. A connected wallet that has minted the active season's pass
+            sees a green "Season N Pass — Active" line; otherwise a muted note. */}
+        <div className="ns-settings-section">
+          <div className="ns-settings-label">Season Pass</div>
+          {!address ? (
+            <p className="ns-settings-hint" style={{ marginTop: 6 }}>
+              Connect a wallet to mint a Season Pass.
+            </p>
+          ) : passLoading ? (
+            <p className="ns-settings-hint" style={{ marginTop: 6 }}>Checking pass…</p>
+          ) : hasPass ? (
+            <div
+              style={{
+                marginTop: 6,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                fontFamily: 'monospace',
+                fontSize: 13,
+                letterSpacing: 0.5,
+                color: '#00ff88',
+                border: '1px solid rgba(0,255,136,0.5)',
+                background: 'rgba(0,255,136,0.08)',
+                padding: '6px 10px',
+                borderRadius: 4,
+                textShadow: '0 0 6px rgba(0,255,136,0.6)',
+              }}
+            >
+              ◆ Season {passSeasonNumber ?? passSeasonId.toString()} Pass — Active
+            </div>
+          ) : (
+            <p className="ns-settings-hint" style={{ marginTop: 6 }}>
+              No active Season Pass. Mint one from the Season Pass screen to unlock
+              perks.
+            </p>
+          )}
         </div>
 
         {/* Save Game */}
