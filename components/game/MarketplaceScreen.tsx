@@ -14,7 +14,7 @@ function ownedKey(addr?: string) {
 }
 
 export default function MarketplaceScreen({ onBack, address }: MarketplaceScreenProps) {
-  const { buyMarketplaceItem, insufficientFunds, addCashUrl } = useWallet()
+  const { buyMarketplaceItem, insufficientFunds, addCashUrl, isGuest } = useWallet()
   const [token, setToken] = useState<MarketplaceTokenSymbol>('USDm')
   const [owned, setOwned] = useState<string[]>([])
   // v76 Task #7: four weapons were re-skinned with new ids, four items removed.
@@ -84,6 +84,7 @@ export default function MarketplaceScreen({ onBack, address }: MarketplaceScreen
 
   const handleBuy = useCallback(async (item: MarketplaceItem) => {
     if (busy) return
+    if (isGuest) { setMsg({ text: 'Connect a wallet to buy — you’re playing as a guest.', kind: 'err' }); return }
     setBusy(item.id)
     setMsg({ text: isDevWallet ? 'DEV: requesting free unlock…' : `Sending ${item.price} ${token}…`, kind: 'info' })
     try {
@@ -111,7 +112,7 @@ export default function MarketplaceScreen({ onBack, address }: MarketplaceScreen
     } finally {
       setBusy(null)
     }
-  }, [busy, token, address, owned, buyMarketplaceItem, persist, isDevWallet])
+  }, [busy, token, address, owned, buyMarketplaceItem, persist, isDevWallet, isGuest])
 
   const handleSwap = useCallback(async (item: MarketplaceItem) => {
     if (busy || !item.tokenPrice) return
@@ -242,6 +243,14 @@ export default function MarketplaceScreen({ onBack, address }: MarketplaceScreen
             ◂ Back
           </button>
         </header>
+
+        {/* Guest note — buying with real currency needs a wallet, but swapping
+            earned NullState Point for basic gear still works while playing. */}
+        {isGuest && (
+          <div className="mb-4 rounded-lg border border-[#7a4f24]/50 bg-[#7a4f24]/10 p-3 font-mono text-[10px] leading-relaxed text-[#e8c37a]">
+            You’re playing as a guest. Buying with USDm/USDC/USDT needs a connected wallet — but you can still <span className="text-[#7ef0a6]">Swap ⇄ Point</span> for basic gear using Point you earn by burning loot.
+          </div>
+        )}
 
         {/* token selector */}
         <div className="mb-4">
