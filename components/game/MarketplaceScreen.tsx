@@ -138,11 +138,13 @@ export default function MarketplaceScreen({ onBack, address }: MarketplaceScreen
     }
   }, [busy, address, owned, persist])
 
-  // Issue 4a: expensive-first within each category section.
-  const armor = MARKETPLACE_ITEMS.filter(i => i.type === 'armor').sort((a, b) => b.price - a.price)
-  const weapons = MARKETPLACE_ITEMS.filter(i => i.type === 'weapon').sort((a, b) => b.price - a.price)
+  // Issue 4a: expensive-first within each category section. TASK B: `hidden`
+  // items (the free default weapon rusty_blade) are never listed in the shop —
+  // they still resolve via getMarketplaceItem for rendering, just can't be bought.
+  const armor = MARKETPLACE_ITEMS.filter(i => i.type === 'armor' && !i.hidden).sort((a, b) => b.price - a.price)
+  const weapons = MARKETPLACE_ITEMS.filter(i => i.type === 'weapon' && !i.hidden).sort((a, b) => b.price - a.price)
   // Phase 9 — cosmetic skins ($5-$10), pure visuals with no stats.
-  const outfits = MARKETPLACE_ITEMS.filter(i => i.type === 'outfit').sort((a, b) => b.price - a.price)
+  const outfits = MARKETPLACE_ITEMS.filter(i => i.type === 'outfit' && !i.hidden).sort((a, b) => b.price - a.price)
 
   const renderItem = (item: MarketplaceItem) => {
     const isOwned = owned.includes(item.id)

@@ -138,6 +138,17 @@ const LPC_ARMOR = {
 // public/sprites/lpc_source/base/<anim>/ (reused, no new art) and is present in
 // all six anim folders, so the composite aligns on the 64x64 LPC grid.
 const LPC_OUTFIT = {
+  // TASK B — FREE DEFAULT SKIN. Render-only (NOT a marketplace item, never sold),
+  // exactly like LPC_ARMOR.base: it is the fallback body layer drawn whenever the
+  // player has no paid skin AND no armor equipped, so a fresh player/guest is
+  // never "naked". Owner spec: reads as light armour ("baju jirah") but PLAINER
+  // than the paid skins and with NO helmet (bare head), and visually different
+  // from both the LPC_ARMOR sets and the 4 paid skins. Composed of a leather
+  // cuirass + shoulder guards over steel greaves/boots with a modest cool-steel
+  // tint (no glow) — distinct from leather_guard (no arms, cloth legs, brown
+  // tint) and from every paid skin (which are full plate/robe WITH a helmet/hood
+  // and a glow). drawLPCComposite() feeds it through the same armor-stack loop.
+  default_skin: { torso:'TORSO_leather_armor_torso.png', arms:'TORSO_leather_armor_shoulders.png', legs:'LEGS_plate_armor_pants.png', feet:'FEET_plate_armor_shoes.png', tint:'#6f8f9c', tintA:0.20 },
   // $5 — ash-grey full plate sentinel.
   ashen_warden: { torso:'TORSO_plate_armor_torso.png', arms:'TORSO_plate_armor_arms_shoulders.png', legs:'LEGS_plate_armor_pants.png', feet:'FEET_plate_armor_shoes.png', head:'HEAD_plate_armor_helmet.png', tint:'#8f95a0', tintA:0.34 },
   // $7 — ember-forged leathers with a warm coal glow.

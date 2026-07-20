@@ -57,8 +57,13 @@
     // Cheapest -> dearest. Every weapon has its OWN art (the marketplace icon
     // IS the sprite in your hand), its own procedural swing (NS_WEAPON.motion)
     // and its own attack SFX (NS_WEAPON.sfx). No two share a behavior.
+    // rusty_blade is the FREE DEFAULT weapon (TASK B): every player/guest starts
+    // with it equipped so nobody is ever weaponless. It stays in EQUIPMENT so
+    // getEquipment() keeps resolving it (it is the NS_WEAPON render entry and
+    // several monsters carry it), but `hidden:true` keeps it out of the shop and
+    // it has no price/tokenPrice — it can't be bought or swapped.
     { id:'rusty_blade', name:'Rusty Blade', type:'weapon', slot:SLOTS.WEAPON,
-      price:0.5, tokenPrice:3000, fxTier:1, fxColor:'#d8dde2', effect:{ atkBonus:10, behavior:'slash' },
+      price:0.5, hidden:true, fxTier:1, fxColor:'#d8dde2', effect:{ atkBonus:10, behavior:'slash' },
       sprite:'/sprites/marketplace/rusty_blade.png',
       desc:'+10 ATK. A chipped old sword — better than fists.' },
     // BASIC weapons: also swappable for NullState Point (5000…12000). Premium

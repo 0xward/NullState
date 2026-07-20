@@ -45,6 +45,11 @@ interface MarketplaceItemBase {
   fxTier: 1 | 2 | 3      // drives shop-card glow richness (higher price = flashier)
   sprite: string
   desc: string
+  hidden?: boolean       // TASK B: the item still resolves via getMarketplaceItem
+                         // (so the engine can render it and monsters can carry
+                         // it) but is NOT shown in the shop and can't be
+                         // bought/swapped. Used for the FREE default weapon
+                         // (rusty_blade), which every player/guest starts with.
 }
 
 // Weapons & armor: they carry gameplay stats, and weapons carry an evolution
@@ -160,7 +165,12 @@ const BASE_MARKETPLACE_ITEMS: MarketplaceItem[] = [
     desc:'+40% Max HP. Etched with warding runes that shimmer on hit.' },
   // ── WEAPONS (v76 Task #7) ── cheapest -> dearest. Mirrors
   // public/game-engine/marketplace-items.js exactly; keep both in sync.
-  { id:'rusty_blade', name:'Rusty Blade', type:'weapon', slot:'mainhand', price:0.5, tokenPrice:3000, fxTier:1, fxColor:'#d8dde2',
+  // rusty_blade is the FREE DEFAULT weapon (TASK B): every player/guest starts
+  // with it equipped so nobody is ever weaponless. It stays in the item list so
+  // getMarketplaceItem() keeps resolving it (it is the NS_WEAPON render entry
+  // and several monsters carry it), but `hidden:true` removes it from the shop
+  // and it has no price/tokenPrice — it can't be bought or swapped.
+  { id:'rusty_blade', name:'Rusty Blade', type:'weapon', slot:'mainhand', price:0.5, hidden:true, fxTier:1, fxColor:'#d8dde2',
     effect:{ atkBonus:10, behavior:'slash' }, sprite:'/sprites/marketplace/rusty_blade.png',
     desc:'+10 ATK. A chipped old sword — better than fists.' },
   // ── BASIC weapons are also swappable for NullState Point (burn reward),
