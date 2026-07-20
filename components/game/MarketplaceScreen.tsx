@@ -145,12 +145,13 @@ export default function MarketplaceScreen({ onBack, address }: MarketplaceScreen
 
   const renderItem = (item: MarketplaceItem) => {
     const isOwned = owned.includes(item.id)
-    // Outfits are cosmetic — they show "no stats" where gear shows +HP/+ATK.
+    // Skins (outfits) intentionally show NO stat/type descriptor line (owner:
+    // don't spell out that they're cosmetic). Only weapons/armor get a stat line.
     const stat = item.type === 'armor'
       ? `+${Math.round((item.effect.hpBonus || 0) * 100)}% HP`
-      : item.type === 'outfit'
-      ? 'Cosmetic · no stats'
-      : `+${item.effect.atkBonus || 0} ATK`
+      : item.type === 'weapon'
+      ? `+${item.effect.atkBonus || 0} ATK`
+      : null
     const tierGlow = ['', 'shadow-[0_0_0_1px_rgba(180,130,70,.4)]', 'shadow-[0_0_14px_rgba(180,130,70,.4)]', 'shadow-[0_0_22px_rgba(255,180,90,.55)]'][item.fxTier]
     return (
       <div key={item.id}>
@@ -166,7 +167,9 @@ export default function MarketplaceScreen({ onBack, address }: MarketplaceScreen
             <span className="truncate font-mono text-sm font-bold text-[#f0dcb8]">{item.name}</span>
             <span className="rounded bg-[#e8bd6f] px-1.5 text-[9px] font-bold text-[#2a1705]">T{item.fxTier}</span>
           </div>
-          <div className="font-mono text-[10px] uppercase tracking-wide text-[#c39a5f]">{stat} · {item.type}</div>
+          {stat && (
+            <div className="font-mono text-[10px] uppercase tracking-wide text-[#c39a5f]">{stat} · {item.type}</div>
+          )}
           <div className="mt-0.5 truncate font-mono text-[10px] text-[#9c7a4f]">{item.desc}</div>
         </div>
         <div className="flex flex-shrink-0 flex-col items-end gap-1">
@@ -285,10 +288,7 @@ export default function MarketplaceScreen({ onBack, address }: MarketplaceScreen
           <div className="flex flex-col gap-2">{weapons.map(renderItem)}</div>
         </section>
         <section>
-          <h2 className="mb-1 font-mono text-xs font-bold uppercase tracking-[3px] text-[#e6c07a]">✦ Skins</h2>
-          <p className="mb-2 font-mono text-[10px] leading-relaxed text-[#9c7a4f]">
-            Pure cosmetics — change how your Knight looks, with zero effect on stats or balance. Optional flexes; the game plays exactly the same without them.
-          </p>
+          <h2 className="mb-2 font-mono text-xs font-bold uppercase tracking-[3px] text-[#e6c07a]">✦ Skins</h2>
           <div className="flex flex-col gap-2">{outfits.map(renderItem)}</div>
         </section>
       </div>

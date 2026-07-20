@@ -437,7 +437,34 @@ function newGame(charKey, restoreSnapshot){
   // equip choices silently failed to survive a session change too.
   const persistedEquip = loadPersistedEquipment();
   G.equipment.owned = persistedEquip.owned;
-  G.equipment.equipped = persistedEquip.equipped;
+  // #3 fix: when resuming a saved run, the gear the player had ON at Save &
+  // Exit (captured in restoreSnapshot.equipped) wins over the persisted/server
+  // copy — so the last-equipped weapon/armor/skin is always re-equipped on
+  // Continue, even if marketplaceEquipped or the localStorage cache is stale.
+  // Any saved id must still actually be owned (guards a refund/removal); it
+  // falls back to the persisted slot otherwise, and a fresh run (no snapshot)
+  // keeps using the persisted copy exactly as before.
+  {
+    const savedEq = restoreSnapshot && restoreSnapshot.equipped;
+    if(savedEq){
+      const M = window.NS_MARKET;
+      const owned = persistedEquip.owned || [];
+      const validOwned = (id) => {
+        const r = (id && M) ? M.resolveId(id) : id;
+        return (r && owned.includes(r)) ? r : null;
+      };
+      G.equipment.equipped = {
+        mainhand: validOwned(savedEq.mainhand) || persistedEquip.equipped.mainhand,
+        body:     validOwned(savedEq.body)     || persistedEquip.equipped.body,
+        outfit:   validOwned(savedEq.outfit)   || persistedEquip.equipped.outfit,
+      };
+      // Write the restored loadout back to localStorage + the server so the
+      // (possibly stale) marketplaceEquipped copy is corrected for next time.
+      if(typeof window.NS_saveEquipment === 'function') window.NS_saveEquipment(G.equipment);
+    } else {
+      G.equipment.equipped = persistedEquip.equipped;
+    }
+  }
 
   // A save (exact bunker resume) takes priority; otherwise fall back to the
   // on-chain career baseline (level/xp carried over, but a fresh floor 1
@@ -4217,15 +4244,33 @@ function drawLPCPreview(elId){
 // spin forever. Each successful body-only pass still paints (never blank),
 // the retries just let late-decoding gear overlays pop in.
 let _previewTries = 0;
+let _previewTimer = null;
 function paintPreview(reset){
   // v80: `reset` restarts the retry budget — boot() passes true so a
   // re-mount (exit game -> open again) can never inherit an exhausted
   // counter from the previous session and leave the box permanently blank.
   if(reset === true) _previewTries = 0;
   const done = drawPreview('prevKnight');
-  if(!done && !destroyed && _previewTries < 60){
+  // OWNER FIX: the char-select preview kept coming up BLANK. Root cause: the
+  // canvas is appended imperatively into the React-rendered #prevKnight, and a
+  // DungeonGame re-render (elixir/energy/uiNow ticks) can wipe that canvas —
+  // after which the old one-shot retry loop had already stopped, leaving the
+  // box empty forever. Fix: keep a self-sustaining repaint alive for as long
+  // as the title/char-select is on screen. Fast retries until the first real
+  // paint, then a cheap ~1s keep-alive that re-asserts the canvas so no
+  // re-render can leave it blank. The loop ends the instant the player
+  // descends (title hidden) or the engine is torn down.
+  if(_previewTimer){ clearTimeout(_previewTimer); _previewTimer = null; }
+  const _t = $('title');
+  const titleVisible = _t && !_t.classList.contains('hidden');
+  if(!destroyed && titleVisible){
     _previewTries++;
-    setTimeout(paintPreview, 250);
+    // Once we've painted at least once, keep the slow keep-alive going
+    // indefinitely; before the first success, cap the fast retries (~16s) so a
+    // genuinely missing asset can't spin forever.
+    if(done || _previewTries < 80){
+      _previewTimer = setTimeout(paintPreview, done ? 1000 : 200);
+    }
   }
 }
 // (sound toggle now lives in the React Settings modal — see toggleSound() in the public API)
@@ -4504,24 +4549,18 @@ async function boot(){
   _fullPreloadPromise = preloadAll();
 
   // "Continue" from the React Main Menu passes a saved bunker snapshot in
-  // via mount({ savedSession }) — see DungeonGame.tsx. Previously this only
-  // shortened what happened AFTER the player sat through the full
-  // character-select/DESCEND title screen, which is why Continue still
-  // forced players to re-pick a character every time even though the pick
-  // was discarded a moment later in favor of the saved charKey. Now, when a
-  // saved session exists, skip that screen entirely and drop the player
-  // straight back into the exact bunker they left.
+  // via mount({ savedSession }) — see DungeonGame.tsx.
+  // OWNER FIX (this session): Continue used to SKIP the title/character-select
+  // screen entirely and auto-drop the player straight into the bunker. That
+  // read as two bugs: (a) "tiba-tiba masuk ke game padahal belum klik DESCEND"
+  // and (b) no character preview ever showed on Continue. So we no longer
+  // auto-enter — Continue now shows the exact same title + live character
+  // preview as a fresh run (the preview reflects the saved/equipped gear via
+  // loadPersistedEquipment). onStart() already resumes SAVED_SESSION through
+  // enterSavedSession() when DESCEND is pressed, so we just relabel the button
+  // and fall through to the shared preview + rAF path below.
   if (SAVED_SESSION) {
-    $('title').classList.add('hidden');
-    $('hud').classList.remove('hidden');
-    try { await _fullPreloadPromise; } catch(e) {}
-    if (destroyed) return;
-    rafId = requestAnimationFrame(frame);
-    A.start(); // may be silently blocked by autoplay policy here since
-               // there was no dedicated click right before this — see the
-               // one-time pointerdown/keydown fallback registered in attach()
-    enterSavedSession();
-    return;
+    const _b = $('startBtn'); if(_b) _b.textContent = 'CONTINUE ▾';
   }
 
   // Load ONLY the 3 hero idle sprites first so the character-select
@@ -4589,6 +4628,7 @@ function unmount(){
   // any run still open as Abandoned — a saved session re-opens it later.
   if(window.NS_RUN && NS_RUN.active()) NS_RUN.close('Abandoned');
   if(rafId){ cancelAnimationFrame(rafId); rafId=null; }
+  if(_previewTimer){ clearTimeout(_previewTimer); _previewTimer=null; }
   _winL.forEach(([t,f])=>window.removeEventListener(t,f)); _winL.length=0;
   G = null; last = 0;
   cv = ctx = stick = nub = atkBtn = touchEl = null;
@@ -4615,6 +4655,7 @@ function getSaveSnapshot(){
     return LAST_BUNKER_SNAPSHOT;
   }
   const p = G.player;
+  const _eq = (G.equipment && G.equipment.equipped) || {};
   const snap = {
     charKey: selectedChar,
     campaignActIndex,
@@ -4622,6 +4663,12 @@ function getSaveSnapshot(){
     maxDepthReached: G.maxDepthReached,
     xp: p.xp, level: p.level, kills: p.kills,
     hp: p.hp,
+    // #3 fix: persist the WORN gear (weapon/armor/skin) with the save so a
+    // resumed run always comes back with exactly what the player had equipped
+    // at Save & Exit — independent of the server's marketplaceEquipped copy or
+    // the localStorage cache (either of which can be stale after a device
+    // change). newGame() prefers this over the persisted copy on restore.
+    equipped: { mainhand: _eq.mainhand || null, body: _eq.body || null, outfit: _eq.outfit || null },
     inventory: {
       keys: G.inventory.keys, relics: G.inventory.relics, shards: G.inventory.shards,
       gshards: G.inventory.gshards || { t1:0, t2:0, t3:0 },

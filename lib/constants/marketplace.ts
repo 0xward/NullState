@@ -196,16 +196,16 @@ const BASE_MARKETPLACE_ITEMS: MarketplaceItem[] = [
   // LPC layers the skin renders, so the shop preview == what you wear.
   { id:'ashen_warden', name:'Ashen Warden', type:'outfit', slot:'outfit', price:5.0, fxTier:2, skinTint:'#8f95a0',
     effect:{}, sprite:'/sprites/marketplace/ashen_warden.png',
-    desc:'Cosmetic only. Ash-grey full plate — a silent sentinel of the bunkers.' },
+    desc:'Ash-grey full plate — a silent sentinel of the bunkers.' },
   { id:'emberguard', name:'Emberguard', type:'outfit', slot:'outfit', price:7.0, fxTier:3, skinTint:'#c85a1e',
     effect:{}, sprite:'/sprites/marketplace/emberguard.png',
-    desc:'Cosmetic only. Ember-forged warden leathers with a warm coal glow.' },
+    desc:'Ember-forged warden leathers with a warm coal glow.' },
   { id:'voidweave', name:'Voidweave', type:'outfit', slot:'outfit', price:9.0, fxTier:3, skinTint:'#6a24b0',
     effect:{}, sprite:'/sprites/marketplace/voidweave.png',
-    desc:'Cosmetic only. A hooded violet weave that drinks the dark around you.' },
+    desc:'A hooded violet weave that drinks the dark around you.' },
   { id:'sungild', name:'Sungild Regalia', type:'outfit', slot:'outfit', price:10.0, fxTier:3, skinTint:'#e0b23a',
     effect:{}, sprite:'/sprites/marketplace/sungild.png',
-    desc:'Cosmetic only. Gilded champion regalia that catches every torchlight.' },
+    desc:'Gilded champion regalia that catches every torchlight.' },
 ]
 
 // Attach the Phase 4 evolution ladder to every weapon (armor stays as-is).
