@@ -50,6 +50,10 @@ interface MarketplaceItemBase {
                          // it) but is NOT shown in the shop and can't be
                          // bought/swapped. Used for the FREE default weapon
                          // (rusty_blade), which every player/guest starts with.
+  passOnly?: boolean     // TASK #7: granted only to active Season-Pass holders
+                         // (never bought). Always paired with hidden:true. The
+                         // engine injects it into `owned` when the wallet holds
+                         // a pass so it can be equipped in the Gear tab.
 }
 
 // Weapons & armor: they carry gameplay stats, and weapons carry an evolution
@@ -220,6 +224,13 @@ const BASE_MARKETPLACE_ITEMS: MarketplaceItem[] = [
   { id:'sungild', name:'Sungild Regalia', type:'outfit', slot:'outfit', price:10.0, fxTier:3, skinTint:'#e0b23a',
     effect:{}, sprite:'/sprites/marketplace/sungild.png',
     desc:'Gilded champion regalia that catches every torchlight.' },
+  // TASK #7 — EXCLUSIVE Season-Pass skin. NOT sold: hidden:true keeps it out of
+  // the shop, passOnly:true means the engine only grants it (injects into
+  // `owned`) to wallets holding an active pass. Pure cosmetic (OutfitItem =
+  // zero stats). price:0 documents that it's free-with-pass, never charged.
+  { id:'pass_warden', name:'NullState Warden', type:'outfit', slot:'outfit', price:0, hidden:true, passOnly:true, fxTier:3, skinTint:'#00ff88',
+    effect:{}, sprite:'/sprites/marketplace/pass_warden.png',
+    desc:'Acid-green warden regalia — the mark of a Season Pass holder.' },
 ]
 
 // Attach the Phase 4 evolution ladder to every weapon (armor stays as-is).

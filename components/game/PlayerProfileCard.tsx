@@ -81,7 +81,25 @@ export default function PlayerProfileCard({ walletAddress }: PlayerProfileCardPr
             <span className="text-null-white">Season:</span> {data.profile.currentSeasonId ?? '-'}
           </p>
           <p>
-            <span className="text-null-white">Pass:</span> {hasPass ? `Active (Season ${passSeasonId.toString()})` : 'Inactive'}
+            <span className="text-null-white">Pass:</span>{' '}
+            {passLoading ? (
+              '…'
+            ) : hasPass ? (
+              // TASK #7 — pass-holder emblem (cosmetic flair). The acid-green
+              // ◆ badge matches the in-game HUD emblem and the exclusive skin.
+              <span
+                className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-null-green"
+                style={{
+                  border: '1px solid rgba(0,255,136,0.5)',
+                  background: 'rgba(0,255,136,0.08)',
+                  textShadow: '0 0 6px rgba(0,255,136,0.6)',
+                }}
+              >
+                ◆ Active · Season {passSeasonId.toString()}
+              </span>
+            ) : (
+              'Inactive'
+            )}
           </p>
           <p>
             <span className="text-null-white">Inventory:</span>{' '}

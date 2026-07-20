@@ -45,8 +45,14 @@ export function usePassSBT(walletAddress: string | undefined) {
   >('idle')
   // Which stablecoin the last mint attempt actually paid with — set right
   // before sending the treasury transfer, so the UI can show e.g. "Paying
-  // with USDC…" even though the price is always displayed as 0.3 USDT.
+  // with USDC…" even though the displayed price is token-agnostic.
   const [payingToken, setPayingToken] = useState<MarketplaceTokenSymbol | null>(null)
+  // TASK #7: the pass price shown to the player is now read LIVE from the
+  // contract (getPassPriceUsd -> PassSBTv3.passPriceUsdCents), the exact same
+  // number the mint charges and the backend verifies, so the button can never
+  // display an amount that diverges from what's charged. Was previously a
+  // hardcoded "0.3 USDT" label in SeasonPassCard. null while loading.
+  const [passPriceUsd, setPassPriceUsd] = useState<string | null>(null)
 
   const fetchPassStatus = useCallback(async () => {
     if (!walletAddress || !publicClient || !PASS_SBT_ADDRESS || PASS_SBT_ADDRESS === '0x') return
@@ -165,9 +171,10 @@ export function usePassSBT(walletAddress: string | undefined) {
   //   3. POST the tx hash to /api/passsbt/mint, which verifies the payment
   //      on-chain and then calls PassSBTv2.backendMintPass() to actually
   //      hand over the soulbound NFT
-  // The price is always shown to the player as "0.3 USDT" (see
-  // SeasonPassCard.tsx) since all 3 accepted tokens are 1:1 USD-pegged —
-  // only the token actually charged varies based on the wallet's balances.
+  // The price is shown to the player token-agnostically as a plain USD amount
+  // read LIVE from the contract (passPriceUsd above, see SeasonPassCard.tsx)
+  // since all 3 accepted tokens are 1:1 USD-pegged — only the token actually
+  // charged varies based on the wallet's balances.
   const mintPaidPassFlexible = useCallback(
     async (seasonId: bigint): Promise<{ success: boolean; mintTxHash: `0x${string}` }> => {
       if (!walletClient || !publicClient || !walletClient.account) {
@@ -230,6 +237,18 @@ export function usePassSBT(walletAddress: string | undefined) {
     if (walletAddress) fetchPassStatus()
   }, [walletAddress, fetchPassStatus])
 
+  // TASK #7: fetch the live on-chain price once the public client is ready, so
+  // the mint button shows the real charge amount (e.g. "$10") rather than a
+  // hardcoded label. Read-only; independent of wallet connection.
+  useEffect(() => {
+    let cancelled = false
+    if (!publicClient || !PASS_SBT_ADDRESS || PASS_SBT_ADDRESS === '0x') return
+    getPassPriceUsd(publicClient)
+      .then((usd) => { if (!cancelled) setPassPriceUsd(usd) })
+      .catch(() => { /* leave null — the card falls back to a plain label */ })
+    return () => { cancelled = true }
+  }, [publicClient])
+
   return {
     hasPass,
     passSeasonId,
@@ -240,6 +259,7 @@ export function usePassSBT(walletAddress: string | undefined) {
     addCashUrl: insufficientFunds ? MINIPAY_ADD_CASH_URL : null,
     mintTxPhase,
     payingToken,
+    passPriceUsd,
     fetchPassStatus,
     checkWhitelist,
     getSeasonInfo,

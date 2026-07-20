@@ -15,6 +15,22 @@ export function normalizeWalletAddress(address: string): string {
   return address.trim().toLowerCase()
 }
 
+// TASK #7 — Season Pass DAILY perks use a UTC-day boundary (not the ISO week
+// the Golden Key / Paper claims use). Day id = "YYYY-MM-DD" in UTC; the claim
+// window resets at 00:00 UTC. Kept here next to getCurrentWeekIdString so all
+// time-boundary claim helpers live in one place.
+export function getCurrentDayIdString(now: number = Date.now()): string {
+  return new Date(now).toISOString().slice(0, 10) // "YYYY-MM-DD" (UTC)
+}
+
+// Next UTC midnight (ms epoch) — when today's daily claim window replenishes.
+// Shown to the player as a countdown; also lets the client avoid a pointless
+// claim attempt right before reset.
+export function getNextUtcMidnightMs(now: number = Date.now()): number {
+  const d = new Date(now)
+  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1, 0, 0, 0, 0)
+}
+
 export function parseWeekId(weekId: string | number | bigint): number {
   const value = Number(weekId)
   if (!Number.isInteger(value) || value < 200001 || value > 999953) {

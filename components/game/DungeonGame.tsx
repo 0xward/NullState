@@ -137,6 +137,10 @@ export default function DungeonGame({ playerProfile, setPlayerUsername, isNewRun
   const [elixirModal, setElixirModal] = useState(false)
   const [elixirBusy, setElixirBusy] = useState(false)
   const [elixirMsg, setElixirMsg] = useState<string | null>(null)
+  // TASK #7: active Season-Pass holder? Drives the in-game PASS emblem and is
+  // bridged to the engine (NS_EQUIP.setPassHolder) so the exclusive skin is
+  // grantable. Sourced from /api/passsbt/perks (on-chain hasPass) before mount.
+  const [passHolder, setPassHolder] = useState(false)
   const [uiNow, setUiNow] = useState(Date.now())
   useEffect(() => {
     if (!energyModal) return
@@ -522,6 +526,19 @@ export default function DungeonGame({ playerProfile, setPlayerUsername, isNewRun
           } catch {
             /* offline / API unreachable — keep whatever's already cached */
           }
+          // TASK #7 — resolve active Season-Pass status (on-chain hasPass) and
+          // write the holder flag to localStorage BEFORE the engine mounts, so
+          // game.js loadPersistedEquipment() grants the exclusive skin
+          // synchronously on this run (mirrors the owned/equipped cache above).
+          try {
+            const pr = await fetch(`/api/passsbt/perks?wallet=${addr}`)
+            const pd = await pr.json()
+            const holder = pr.ok && pd?.hasPass === true
+            localStorage.setItem(`nullstate-pass-${addr.toLowerCase()}`, holder ? '1' : '0')
+            if (!cancelled) setPassHolder(holder)
+          } catch {
+            /* offline — keep whatever flag is already cached */
+          }
         }
         if (cancelled) return
 
@@ -625,6 +642,18 @@ export default function DungeonGame({ playerProfile, setPlayerUsername, isNewRun
                 }
               })
               .catch(() => { /* offline — no bonus caches, non-critical */ })
+            // TASK #7 — bridge active pass status into the engine so the
+            // exclusive skin grant survives a live shop-owned push (setOwned)
+            // and the Gear tab re-injects it. The pre-mount localStorage flag
+            // already granted it for this run's initial load; this keeps the
+            // engine's PASS_HOLDER flag in sync if hasPass resolved late.
+            fetch(`/api/passsbt/perks?wallet=${addr}`)
+              .then(r => r.json())
+              .then(d => {
+                const NS = (window as unknown as { NS_EQUIP?: { setPassHolder?: (v: boolean) => void } }).NS_EQUIP
+                NS?.setPassHolder?.(d?.hasPass === true)
+              })
+              .catch(() => { /* offline — flag already applied from localStorage */ })
             refreshElixir() // Phase 3: seed elixir state + mirror the buff global
           }
         }
@@ -819,6 +848,27 @@ export default function DungeonGame({ playerProfile, setPlayerUsername, isNewRun
               <span className="ns-elixir-badge">{elixir.owned}</span>
             ) : null}
           </button>
+          {/* TASK #7 — Season Pass emblem (cosmetic flair, non-interactive).
+              Shown only to active pass holders; sits in the same right-hand
+              control cluster. Self-contained inline styles so no game.css
+              change is needed for this small flourish. */}
+          {passHolder && (
+            <div
+              className="ns-pass-emblem"
+              title="Season Pass active"
+              aria-label="Season Pass active"
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontFamily: 'monospace', fontSize: '9px', letterSpacing: '1px',
+                color: '#00ff88', border: '1px solid rgba(0,255,136,0.5)',
+                background: 'rgba(0,255,136,0.08)', padding: '3px 6px', borderRadius: '3px',
+                textTransform: 'uppercase', pointerEvents: 'none',
+                textShadow: '0 0 6px rgba(0,255,136,0.6)',
+              }}
+            >
+              ◆ PASS
+            </div>
+          )}
           {/* Inventory — a centered modal (like #containerWindow/#itemZoom)
               rather than a small corner panel, so it never sits under the
               minimap/settings gear and always has room to show a full,

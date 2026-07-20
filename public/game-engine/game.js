@@ -329,6 +329,22 @@ function applyRestoredState(G, p, snap){
 // owned list and default the empty mainhand slot to it in loadPersistedEquipment.
 const DEFAULT_WEAPON_ID = 'rusty_blade';
 const DEFAULT_SKIN_ID = 'default_skin';
+// TASK #7 — the EXCLUSIVE Season-Pass cosmetic skin (assets.js LPC_OUTFIT +
+// marketplace-items.js pass_warden, hidden+passOnly). It is never bought:
+// active pass holders get it granted for free by injecting its id into `owned`
+// so it can be equipped in the Gear tab. Whether this wallet holds a pass is
+// bridged from React two ways — a localStorage flag written BEFORE mount (read
+// synchronously by loadPersistedEquipment, mirroring the owned/equipped cache)
+// and NS_EQUIP.setPassHolder() for a live update if the pass status resolves
+// after the run has already started. Zero stats (it's an outfit).
+const PASS_EXCLUSIVE_SKIN_ID = 'pass_warden';
+let PASS_HOLDER = false;
+// Read the pre-mount holder flag for a (lowercased) wallet address. Missing/'0'
+// => not a holder; only an explicit '1' grants the skin.
+function isPassHolder(addrLc){
+  if(!addrLc || typeof localStorage === 'undefined') return false;
+  try{ return localStorage.getItem('nullstate-pass-'+addrLc) === '1'; }catch(e){ return false; }
+}
 // Fold the free default weapon into a loadout: ensure it's in `owned` (so the
 // Gear tab lists it and equipItem() can re-select it) and, if no weapon is
 // equipped, equip it. Mutates+returns the {owned, equipped} pair.
@@ -371,6 +387,12 @@ function loadPersistedEquipment(){
     if(equipped.mainhand) equipped.mainhand = M.resolveId(equipped.mainhand);
     if(equipped.body) equipped.body = M.resolveId(equipped.body);
     if(equipped.outfit) equipped.outfit = M.resolveId(equipped.outfit);
+  }
+  // TASK #7 — active pass holders get the exclusive skin for free. Inject it
+  // into owned BEFORE the equipped-validation below so a holder who has it
+  // equipped keeps it (owned from the server won't list a never-bought item).
+  if(isPassHolder(addr) && M && M.getEquipment(PASS_EXCLUSIVE_SKIN_ID) && !owned.includes(PASS_EXCLUSIVE_SKIN_ID)){
+    owned.push(PASS_EXCLUSIVE_SKIN_ID);
   }
   // Never trust an equipped id that isn't actually in the owned list (e.g.
   // a stale equipped-cache left over from before a refund/removal).
@@ -3854,8 +3876,36 @@ function unequipSlot(slot){
 }
 function setOwnedEquipment(list){
   if(!G) return;
-  G.equipment.owned = Array.isArray(list) ? list.slice() : [];
+  const owned = Array.isArray(list) ? list.slice() : [];
+  // Preserve the free grants that never come from the server owned list:
+  // the default weapon (TASK B) and, for pass holders, the exclusive skin
+  // (TASK #7) — otherwise a live shop push would drop them from the Gear tab.
+  if(!owned.includes(DEFAULT_WEAPON_ID)) owned.unshift(DEFAULT_WEAPON_ID);
+  if(PASS_HOLDER && !owned.includes(PASS_EXCLUSIVE_SKIN_ID)) owned.push(PASS_EXCLUSIVE_SKIN_ID);
+  G.equipment.owned = owned;
   if(typeof updateInventoryPanel==='function') updateInventoryPanel();
+}
+// TASK #7 — receive active Season-Pass holder status from React (bridged in
+// DungeonGame right after the perks fetch resolves). When true, grant the
+// exclusive skin for free by folding it into the live owned list so it can be
+// equipped immediately, and persist the flag so the next run's synchronous
+// loadPersistedEquipment() grants it too. Cosmetic only — never touches stats.
+function setPassHolder(v){
+  PASS_HOLDER = !!v;
+  try{
+    if(WALLET_ADDRESS && typeof localStorage !== 'undefined'){
+      localStorage.setItem('nullstate-pass-'+WALLET_ADDRESS.toLowerCase(), PASS_HOLDER ? '1' : '0');
+    }
+  }catch(e){ /* storage unavailable — the live grant below still applies */ }
+  if(G && G.equipment){
+    const owned = G.equipment.owned || (G.equipment.owned = []);
+    if(PASS_HOLDER && window.NS_MARKET && window.NS_MARKET.getEquipment(PASS_EXCLUSIVE_SKIN_ID) && !owned.includes(PASS_EXCLUSIVE_SKIN_ID)){
+      owned.push(PASS_EXCLUSIVE_SKIN_ID);
+      if(typeof updateInventoryPanel==='function') updateInventoryPanel();
+    }
+    // If the flag flips false mid-session we intentionally leave an already
+    // equipped skin alone (harmless cosmetic) — it re-validates on next load.
+  }
 }
 // Phase 4 — receive the wallet's weapon-tier map from React and re-apply so the
 // equipped weapon's atk + tint/glow reflect its evolution level immediately.
@@ -3967,6 +4017,7 @@ window.NS_EQUIP = {
   setOwned: setOwnedEquipment,
   setTiers: setWeaponTiers,   // Phase 4 — weapon evolution tier bridge
   setBlueprints: setOwnedSectors, // Phase 8 — Premium Sector ownership bridge
+  setPassHolder: setPassHolder, // TASK #7 — Season-Pass exclusive-skin grant
   apply: applyEquipment,
   eat: eatFoodItem,
   get: function(){ return G ? G.equipment : null; },
@@ -3992,11 +4043,14 @@ function renderEquipmentPanel(targetId){
     `<div class="equip-slot"><span class="equip-slot-k">\u26e8 ARMOR</span><span class="equip-slot-v">${a?a.name:'\u2014 empty'}</span></div>`+
     `<div class="equip-slot"><span class="equip-slot-k">\u2726 SKIN</span><span class="equip-slot-v">${o?o.name:'Default'}</span></div>`;
   host.appendChild(slotLine);
-  // Always fold in the free default weapon so it's listed even for a wallet/guest
-  // that owns nothing else (loadPersistedEquipment does this too, but a live
-  // NS_EQUIP.setOwned push from the React shop could replace owned without it).
+  // Always fold in the free grants so they're listed even after a live
+  // NS_EQUIP.setOwned push from the React shop replaced owned: the default
+  // weapon (TASK B) for everyone, and the exclusive skin (TASK #7) for holders.
   const owned = (eq.owned||[]).slice();
   if(!owned.includes(DEFAULT_WEAPON_ID)) owned.unshift(DEFAULT_WEAPON_ID);
+  if(PASS_HOLDER && M && M.getEquipment(PASS_EXCLUSIVE_SKIN_ID) && !owned.includes(PASS_EXCLUSIVE_SKIN_ID)){
+    owned.push(PASS_EXCLUSIVE_SKIN_ID);
+  }
   // v72 (user finding #1): the gear list is now split into two sections —
   // EQUIPPED (max 2: the weapon + armor currently worn) pinned at the TOP,
   // a divider line, then everything the wallet owns but is NOT wearing

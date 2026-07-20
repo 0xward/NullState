@@ -39,6 +39,66 @@ export default function SeasonPassScreen({ onBack, address }: SeasonPassScreenPr
   const [mintSuccess, setMintSuccess] = useState<string | null>(null)
   const [mintingSeasonId, setMintingSeasonId] = useState<string | null>(null)
 
+  // TASK #7 — daily pass perks (energy bonus run + Glitch-Shard stipend).
+  // State mirrors GET /api/passsbt/perks; claims POST /api/passsbt/perks/claim.
+  interface PerksState {
+    hasPass: boolean
+    nextResetAt: number
+    energy: { amount: number; claimedToday: boolean }
+    shards: { amount: { t1: number; t2: number; t3: number }; claimedToday: boolean }
+  }
+  const [perks, setPerks] = useState<PerksState | null>(null)
+  const [perkBusy, setPerkBusy] = useState<'energy' | 'shards' | null>(null)
+  const [perkMsg, setPerkMsg] = useState<{ text: string; kind: 'ok' | 'err' } | null>(null)
+
+  const loadPerks = useCallback(async () => {
+    if (!address) { setPerks(null); return }
+    try {
+      const r = await fetch(`/api/passsbt/perks?wallet=${address}`)
+      const d = await r.json()
+      if (r.ok) setPerks(d as PerksState)
+    } catch {
+      /* offline — perks panel stays hidden/last-known */
+    }
+  }, [address])
+
+  const claimPerk = useCallback(
+    async (kind: 'energy' | 'shards') => {
+      if (!address || perkBusy) return
+      setPerkBusy(kind)
+      setPerkMsg(null)
+      try {
+        const r = await fetch('/api/passsbt/perks/claim', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ wallet: address, kind }),
+        })
+        const d = await r.json()
+        if (!r.ok) throw new Error(d?.error || 'Claim failed')
+        if (d?.alreadyClaimed) {
+          setPerkMsg({ text: 'Already claimed today — come back after reset.', kind: 'err' })
+        } else {
+          setPerkMsg({
+            text: kind === 'energy' ? '+1 bonus energy run claimed!' : 'Glitch Shards claimed!',
+            kind: 'ok',
+          })
+        }
+        await loadPerks()
+      } catch (e) {
+        setPerkMsg({ text: e instanceof Error ? e.message : 'Claim failed', kind: 'err' })
+      } finally {
+        setPerkBusy(null)
+      }
+    },
+    [address, perkBusy, loadPerks],
+  )
+
+  useEffect(() => {
+    loadPerks()
+    // Refresh perks when the pass is freshly minted (hasPass flips true).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [address, passSBT.hasPass])
+
   useEffect(() => {
     let cancelled = false
     const loadAll = async () => {
@@ -172,10 +232,94 @@ export default function SeasonPassScreen({ onBack, address }: SeasonPassScreenPr
                 hasPass={passSBT.hasPass}
                 isConnected={!!address}
                 mintPhase={phase}
+                priceUsd={passSBT.passPriceUsd}
                 onMint={() => handleMintSeason(seasonId)}
               />
             )
           })}
+        </div>
+
+        {/* ── TASK #7 — Pass Perks panel ──────────────────────────────────
+            Shows what the pass unlocks (so non-holders see the value) with the
+            FREE path stated alongside, plus once-per-day claim buttons for the
+            two economy perks (holders only). All perks are cosmetic or modest
+            convenience — the HP-100 cap and combat balance are untouched. */}
+        <div className="mt-8 border border-[rgba(0,255,136,0.25)] bg-[rgba(0,255,136,0.03)] rounded-md p-4 sm:p-5">
+          <div className="font-mono text-[9px] sm:text-[10px] tracking-[3px] uppercase text-null-acid mb-3">
+            // PASS PERKS
+          </div>
+
+          <ul className="font-mono text-xs text-null-white/85 space-y-2 mb-4">
+            <li>◆ <span className="text-null-green">NullState Warden skin</span> — exclusive acid-green cosmetic (no stats). Equip it in the in-game Gear tab.</li>
+            <li>◆ <span className="text-null-green">Holder emblem</span> — a ◆ PASS badge on your profile and in-game HUD.</li>
+            <li>◆ <span className="text-null-green">+{perks?.energy.amount ?? 1} energy run / day</span> — on top of the free 5/day everyone gets.</li>
+            <li>◆ <span className="text-null-green">Daily Glitch Shards</span> — a small crafting stipend (shards are also earned free by playing).</li>
+          </ul>
+
+          <p className="font-mono text-[10px] text-null-muted mb-4">
+            Free to play: everyone keeps 5 energy runs a day and earns shards in-run — the pass only adds a little on top, never a power advantage (HP stays capped at 100).
+          </p>
+
+          {perkMsg && (
+            <div
+              className={
+                'mb-3 rounded border p-2 text-[11px] font-mono ' +
+                (perkMsg.kind === 'ok'
+                  ? 'border-[rgba(0,255,136,0.35)] bg-[rgba(0,255,136,0.08)] text-null-green'
+                  : 'border-[rgba(255,190,11,0.35)] bg-[rgba(255,190,11,0.08)] text-null-amber')
+              }
+            >
+              {perkMsg.text}
+            </div>
+          )}
+
+          {!address ? (
+            <div className="font-mono text-[11px] text-null-muted">Connect to claim daily perks.</div>
+          ) : !perks?.hasPass ? (
+            <div className="font-mono text-[11px] text-null-muted">Mint the active-season pass to unlock daily claims.</div>
+          ) : (
+            <div className="flex flex-col sm:flex-row gap-2">
+              <button
+                onClick={() => claimPerk('energy')}
+                disabled={perkBusy !== null || perks.energy.claimedToday}
+                className={
+                  'flex-1 font-mono text-[10px] tracking-[1px] uppercase py-2.5 transition-all duration-200 ' +
+                  (perkBusy !== null || perks.energy.claimedToday
+                    ? 'text-null-muted border border-[rgba(42,74,53,0.6)] cursor-not-allowed'
+                    : 'text-null-green border border-[rgba(0,255,136,0.5)] hover:border-null-green hover:bg-[rgba(0,255,136,0.08)]')
+                }
+                style={{ clipPath: 'polygon(4px 0, 100% 0, calc(100% - 4px) 100%, 0 100%)' }}
+              >
+                {perkBusy === 'energy'
+                  ? 'CLAIMING…'
+                  : perks.energy.claimedToday
+                    ? '✓ ENERGY CLAIMED'
+                    : `CLAIM +${perks.energy.amount} ENERGY RUN`}
+              </button>
+              <button
+                onClick={() => claimPerk('shards')}
+                disabled={perkBusy !== null || perks.shards.claimedToday}
+                className={
+                  'flex-1 font-mono text-[10px] tracking-[1px] uppercase py-2.5 transition-all duration-200 ' +
+                  (perkBusy !== null || perks.shards.claimedToday
+                    ? 'text-null-muted border border-[rgba(42,74,53,0.6)] cursor-not-allowed'
+                    : 'text-null-green border border-[rgba(0,255,136,0.5)] hover:border-null-green hover:bg-[rgba(0,255,136,0.08)]')
+                }
+                style={{ clipPath: 'polygon(4px 0, 100% 0, calc(100% - 4px) 100%, 0 100%)' }}
+              >
+                {perkBusy === 'shards'
+                  ? 'CLAIMING…'
+                  : perks.shards.claimedToday
+                    ? '✓ SHARDS CLAIMED'
+                    : `CLAIM ${perks.shards.amount.t1} GLITCH SHARDS`}
+              </button>
+            </div>
+          )}
+          {perks?.hasPass && (perks.energy.claimedToday || perks.shards.claimedToday) && (
+            <div className="mt-2 font-mono text-[9px] text-null-muted">
+              Daily perks reset at 00:00 UTC.
+            </div>
+          )}
         </div>
       </div>
     </div>
