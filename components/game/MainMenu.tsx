@@ -67,7 +67,12 @@ export default function MainMenu({
   playerProfile,
   isLoadingProfile,
 }: MainMenuProps) {
-  const { address } = useWallet()
+  // Footer identity: a REAL connected wallet shows its masked address; a guest
+  // (plain Chrome visitor who never connected — `address` from useWallet()
+  // falls back to a generated guest id, PR #43) shows "Guest Mode" instead of
+  // that raw guest id, so we never present a fake "connected wallet".
+  // `realAddress` is null for guests.
+  const { realAddress } = useWallet()
   const hasSave = !!playerProfile?.isRegistered
 
   return (
@@ -160,18 +165,31 @@ export default function MainMenu({
             Support / Terms / Privacy MUST stay reachable from this first
             screen — MiniPay submission checklist requirement. */}
         <div className="mt-auto pt-10 w-full text-center ns-rise-3">
-          <p
-            className="font-mono text-[9px] tracking-[2px] mb-1"
-            style={{ color: 'rgba(255,255,255,0.35)' }}
-          >
-            wallet
-          </p>
-          <p
-            className="font-mono text-[10px] break-all"
-            style={{ color: 'rgba(255,255,255,0.55)', textShadow: '0 1px 4px rgba(0,0,0,0.9)' }}
-          >
-            {maskAddress(address) || 'NOT CONNECTED'}
-          </p>
+          {/* Real wallet -> masked address under a "wallet" label. Guest ->
+              just "Guest Mode" (never the raw guest id). */}
+          {realAddress ? (
+            <>
+              <p
+                className="font-mono text-[9px] tracking-[2px] mb-1"
+                style={{ color: 'rgba(255,255,255,0.35)' }}
+              >
+                wallet
+              </p>
+              <p
+                className="font-mono text-[10px] break-all"
+                style={{ color: 'rgba(255,255,255,0.55)', textShadow: '0 1px 4px rgba(0,0,0,0.9)' }}
+              >
+                {maskAddress(realAddress)}
+              </p>
+            </>
+          ) : (
+            <p
+              className="font-mono text-[10px] tracking-[2px]"
+              style={{ color: 'rgba(255,255,255,0.55)', textShadow: '0 1px 4px rgba(0,0,0,0.9)' }}
+            >
+              Guest Mode
+            </p>
+          )}
           <div className="mt-3 flex items-center justify-center gap-3 flex-wrap">
             <a
               href="https://t.me/nullstate_id"
