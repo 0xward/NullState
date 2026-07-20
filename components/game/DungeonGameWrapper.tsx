@@ -35,12 +35,14 @@ interface DungeonGameWrapperProps {
  *    the backend signer — see app/api/burn/record/route.ts).
  */
 export default function DungeonGameWrapper({ playerProfile, setPlayerUsername, isNewRun }: DungeonGameWrapperProps) {
-  const { address } = useWallet()
+  const { address, isGuest } = useWallet()
 
   useEffect(() => {
     const handleGameDeath = (event: Event) => {
       const { xp, level, kills } = (event as CustomEvent).detail ?? {}
       if (!address) return
+      // Guests play + save but never enter the public leaderboard.
+      if (isGuest) return
       if (typeof kills === 'number') {
         recordRunKills(address, kills).catch(err => {
           console.error('[nullstate-player-death] failed to record kills:', err)
@@ -54,7 +56,7 @@ export default function DungeonGameWrapper({ playerProfile, setPlayerUsername, i
     }
     window.addEventListener('nullstate-player-death', handleGameDeath)
     return () => window.removeEventListener('nullstate-player-death', handleGameDeath)
-  }, [address])
+  }, [address, isGuest])
 
   useEffect(() => {
     const handleBurn = async (event: Event) => {

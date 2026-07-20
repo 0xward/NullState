@@ -140,6 +140,29 @@ interface WalletExtras {
 
 const WalletExtrasContext = createContext<WalletExtras | null>(null)
 
+// ─── Guest identity (no-wallet play) ─────────────────────────────────────────
+// So the game can be REGISTERED and PLAYED without connecting a wallet — needed
+// for the MiniPay listing review (the Celo team may open it in a plain Chrome
+// tab or MiniPay dev mode) and for anyone just trying it out. We mint a stable,
+// wallet-SHAPED id (0x + 40 hex) once and keep it in localStorage, so every
+// Firebase-keyed route (username, saves, materials, energy — all validate
+// /^0x[0-9a-f]{40}$/) accepts it exactly like a real wallet. It is NEVER an
+// on-chain account: it can't sign or send transactions, so buying and
+// leaderboard entry are gated off for guests (see `isGuest` / `realAddress`).
+const GUEST_KEY = 'nullstate-guest-id'
+function getGuestAddress(): string | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const existing = localStorage.getItem(GUEST_KEY)
+    if (existing && /^0x[0-9a-fA-F]{40}$/.test(existing)) return existing.toLowerCase()
+    const bytes = new Uint8Array(20)
+    ;(window.crypto || (window as unknown as { msCrypto: Crypto }).msCrypto).getRandomValues(bytes)
+    const id = '0x' + Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('')
+    localStorage.setItem(GUEST_KEY, id)
+    return id
+  } catch { return null }
+}
+
 // ─── Convenience hook (keeps GameFullUI API unchanged) ────────────────────────
 // Returns a merged object with both wagmi state and contract helpers.
 export function useWallet() {
@@ -154,6 +177,8 @@ export function useWallet() {
   if (!extras) {
     return {
       address:      null,
+      realAddress:  null,
+      isGuest:      false,
       chainId:      null,
       isConnected:  false,
       isConnecting: false,
@@ -185,8 +210,17 @@ export function useWallet() {
     try { switchChain({ chainId: CELO_CHAIN_ID }) } catch {}
   }, [switchChain])
 
+  // Guest fallback: with no real wallet, hand back a stable guest id as the
+  // play/`address` so all Firebase-keyed flows (save, username, materials,
+  // energy) work unchanged. `realAddress` stays null and `isGuest` is true so
+  // on-chain paths — purchases, leaderboard entry — can be gated off.
+  const realAddress = address ?? null
+  const guestAddress = realAddress ? null : getGuestAddress()
+  const isGuest = !realAddress && !!guestAddress
   return {
-    address:      address ?? null,
+    address:      realAddress ?? guestAddress ?? null,
+    realAddress,
+    isGuest,
     chainId:      chain?.id ?? null,
     isConnected,
     isConnecting: false, // wagmi tracks this per-connector; keep API compat

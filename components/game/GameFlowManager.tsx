@@ -73,7 +73,7 @@ type GamePhase = 'menu' | 'username-setup' | 'character-select' | 'game' | 'lead
  * All player progress is stored ON-CHAIN via the contract.
  */
 export default function GameFlowManager() {
-  const { address, isConnected } = useWallet()
+  const { address, isConnected, isGuest } = useWallet()
   const { 
     playerProfile, 
     isLoading: isLoadingProfile, 
@@ -179,13 +179,17 @@ export default function GameFlowManager() {
     try {
       setError(null)
       setSelectedUsername(username)
-      
-      // If player not registered yet, register on-chain first
-      if (!playerProfile?.isRegistered) {
+
+      // GUEST (no wallet — e.g. MiniPay listing review in a plain browser):
+      // skip the on-chain register() entirely (there's no wallet to sign it)
+      // and just claim a Firebase username. The whole game then plays and saves
+      // off the guest id; only buying and the leaderboard are gated off.
+      // A real wallet still registers on-chain the first time as before.
+      if (!isGuest && !playerProfile?.isRegistered) {
         await registerPlayer()
       }
-      
-      // Then set username in Firebase
+
+      // Then set username in Firebase (Firebase-only — works for guests too)
       await setPlayerUsername(username)
       
       // Move to game

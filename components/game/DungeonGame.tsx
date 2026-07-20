@@ -285,17 +285,23 @@ export default function DungeonGame({ playerProfile, setPlayerUsername, isNewRun
     // real kill count kept climbing. recordRunKills is dedup-safe (see
     // leaderboardService.ts) so calling it here plus later on death can't
     // double-count, and this never touches/loses the on-chain kill history.
-    if (typeof snap.kills === 'number') {
-      recordRunKills(addr, snap.kills)
-    }
-    // Same reasoning applies to xp/level: since executeAction() is no
-    // longer called anywhere (combat now pays via payUsdmFee — see
-    // WalletProvider.tsx), the on-chain xp/level are permanently frozen at
-    // register()-time values. recordRunProgress keeps the Rewards screen's
-    // numbers (which read from useContractPlayer -> this same Firestore
-    // doc) in sync with what the in-game HUD actually shows.
-    if (typeof snap.xp === 'number' && typeof snap.level === 'number') {
-      recordRunProgress(addr, snap.xp, snap.level)
+    // GUEST runs never touch the public leaderboard (owner: guests play + save
+    // to Firebase but "tidak masuk leaderboard"). The bunker save itself above
+    // still persists so a guest can Continue; only these leaderboard writes are
+    // skipped.
+    if (!wallet.isGuest) {
+      if (typeof snap.kills === 'number') {
+        recordRunKills(addr, snap.kills)
+      }
+      // Same reasoning applies to xp/level: since executeAction() is no
+      // longer called anywhere (combat now pays via payUsdmFee — see
+      // WalletProvider.tsx), the on-chain xp/level are permanently frozen at
+      // register()-time values. recordRunProgress keeps the Rewards screen's
+      // numbers (which read from useContractPlayer -> this same Firestore
+      // doc) in sync with what the in-game HUD actually shows.
+      if (typeof snap.xp === 'number' && typeof snap.level === 'number') {
+        recordRunProgress(addr, snap.xp, snap.level)
+      }
     }
     return ok
   }
@@ -646,8 +652,9 @@ export default function DungeonGame({ playerProfile, setPlayerUsername, isNewRun
       const snap = NSG.getSaveSnapshot()
       if (snap) {
         saveGameSession(addr, snap)
-        if (typeof snap.kills === 'number') recordRunKills(addr, snap.kills)
-        if (typeof snap.xp === 'number' && typeof snap.level === 'number') {
+        // Guests save their bunker but never enter the leaderboard.
+        if (!walletRef.current.isGuest && typeof snap.kills === 'number') recordRunKills(addr, snap.kills)
+        if (!walletRef.current.isGuest && typeof snap.xp === 'number' && typeof snap.level === 'number') {
           recordRunProgress(addr, snap.xp, snap.level)
         }
       }
