@@ -320,10 +320,29 @@ function applyRestoredState(G, p, snap){
 // always starts with whatever the wallet actually owns/has equipped,
 // instead of an empty slate. See the long comment in newGame() for the
 // race condition this fixes.
+// TASK B — FREE DEFAULT gear. rusty_blade is the free default weapon (hidden
+// from the shop, see marketplace-items.js) and default_skin is the free default
+// outfit (render-only, see assets.js LPC_OUTFIT). Every player/guest starts with
+// the default weapon equipped so nobody is ever weaponless, and the default skin
+// renders automatically as the composite fallback (see entities.js). The default
+// weapon is FREE, so it bypasses the "must be owned" gate: we inject it into the
+// owned list and default the empty mainhand slot to it in loadPersistedEquipment.
+const DEFAULT_WEAPON_ID = 'rusty_blade';
+const DEFAULT_SKIN_ID = 'default_skin';
+// Fold the free default weapon into a loadout: ensure it's in `owned` (so the
+// Gear tab lists it and equipItem() can re-select it) and, if no weapon is
+// equipped, equip it. Mutates+returns the {owned, equipped} pair.
+function withDefaultGear(le){
+  const owned = Array.isArray(le.owned) ? le.owned.slice() : [];
+  if(!owned.includes(DEFAULT_WEAPON_ID)) owned.unshift(DEFAULT_WEAPON_ID);
+  const equipped = le.equipped || { mainhand:null, body:null, outfit:null };
+  if(!equipped.mainhand) equipped.mainhand = DEFAULT_WEAPON_ID;
+  return { owned, equipped };
+}
 function loadPersistedEquipment(){
   // Phase 9: `outfit` is the cosmetic-skin slot (3rd slot). Purely visual.
   const empty = { owned: [], equipped: { mainhand: null, body: null, outfit: null } };
-  if(!WALLET_ADDRESS || typeof localStorage === 'undefined') return empty;
+  if(!WALLET_ADDRESS || typeof localStorage === 'undefined') return withDefaultGear(empty);
   const addr = WALLET_ADDRESS.toLowerCase();
   let owned = [];
   let equipped = { mainhand: null, body: null, outfit: null };
@@ -358,7 +377,9 @@ function loadPersistedEquipment(){
   if(equipped.mainhand && !owned.includes(equipped.mainhand)) equipped.mainhand = null;
   if(equipped.body && !owned.includes(equipped.body)) equipped.body = null;
   if(equipped.outfit && !owned.includes(equipped.outfit)) equipped.outfit = null;
-  return { owned, equipped };
+  // TASK B — inject the free default weapon into owned + default an empty
+  // mainhand to it, so the player is never weaponless (real wallets AND guests).
+  return withDefaultGear({ owned, equipped });
 }
 
 function newGame(charKey, restoreSnapshot){
@@ -3815,7 +3836,17 @@ function equipItem(id){
 }
 function unequipSlot(slot){
   if(!G || !G.equipment.equipped[slot]) return;
-  G.equipment.equipped[slot] = null;
+  // TASK B — the weapon slot can never be emptied: unequipping the mainhand
+  // (or the default weapon itself) falls back to the free default weapon so the
+  // player is never left weaponless. Armor/skin slots unequip to null as before
+  // (the default skin renders automatically via the composite fallback).
+  if(slot === 'mainhand' && G.equipment.equipped[slot] !== DEFAULT_WEAPON_ID){
+    G.equipment.equipped[slot] = DEFAULT_WEAPON_ID;
+  } else if(slot === 'mainhand'){
+    return; // already the default weapon — keep it, there is nothing "lower".
+  } else {
+    G.equipment.equipped[slot] = null;
+  }
   applyEquipment(G.player);
   if(typeof updateHUD==='function') updateHUD();
   if(typeof updateInventoryPanel==='function') updateInventoryPanel();
@@ -3953,17 +3984,19 @@ function renderEquipmentPanel(targetId){
   const a = (eq.equipped.body && M) ? M.getEquipment(eq.equipped.body) : null;
   const o = (eq.equipped.outfit && M) ? M.getEquipment(eq.equipped.outfit) : null; // Phase 9 skin
   const slotLine=document.createElement('div'); slotLine.className='equip-slotline';
+  // TASK B \u2014 the weapon slot is never empty (defaults to the free weapon) and
+  // the SKIN slot shows "Default" (the free default skin) when no paid skin is
+  // worn, so the loadout never reads as "empty / naked".
   slotLine.innerHTML =
     `<div class="equip-slot"><span class="equip-slot-k">\u2694 WEAPON</span><span class="equip-slot-v">${w?w.name:'\u2014 empty'}</span></div>`+
     `<div class="equip-slot"><span class="equip-slot-k">\u26e8 ARMOR</span><span class="equip-slot-v">${a?a.name:'\u2014 empty'}</span></div>`+
-    `<div class="equip-slot"><span class="equip-slot-k">\u2726 SKIN</span><span class="equip-slot-v">${o?o.name:'\u2014 empty'}</span></div>`;
+    `<div class="equip-slot"><span class="equip-slot-k">\u2726 SKIN</span><span class="equip-slot-v">${o?o.name:'Default'}</span></div>`;
   host.appendChild(slotLine);
-  const owned = (eq.owned||[]);
-  if(!owned.length){
-    const e=document.createElement('div'); e.className='equip-row equip-empty';
-    e.textContent='No gear owned yet \u2014 visit the Marketplace to buy weapons & armor.';
-    host.appendChild(e); return;
-  }
+  // Always fold in the free default weapon so it's listed even for a wallet/guest
+  // that owns nothing else (loadPersistedEquipment does this too, but a live
+  // NS_EQUIP.setOwned push from the React shop could replace owned without it).
+  const owned = (eq.owned||[]).slice();
+  if(!owned.includes(DEFAULT_WEAPON_ID)) owned.unshift(DEFAULT_WEAPON_ID);
   // v72 (user finding #1): the gear list is now split into two sections —
   // EQUIPPED (max 2: the weapon + armor currently worn) pinned at the TOP,
   // a divider line, then everything the wallet owns but is NOT wearing
@@ -4216,8 +4249,11 @@ function drawLPCPreview(elId){
   const dirIndex = 3; // LPC universal sheet rows: 0=up 1=left 2=down 3=right
   // v80 (owner spec): CONTINUE shows the hero exactly as last equipped in the
   // inventory (persisted per-wallet cache); a NEW GAME preview is the default
-  // knight in the base outfit — no gear until the player equips it in-run.
-  const eq = SAVED_SESSION ? loadPersistedEquipment().equipped : { mainhand:null, body:null, outfit:null };
+  // knight. TASK B — both paths now start from the free default gear: the NEW
+  // GAME loadout defaults the weapon to rusty_blade (never weaponless) and the
+  // default skin renders via the composite fallback (no armor/outfit -> default
+  // skin), so the preview matches what the run actually starts with.
+  const eq = SAVED_SESSION ? loadPersistedEquipment().equipped : { mainhand:DEFAULT_WEAPON_ID, body:null, outfit:null };
   const weaponId = eq.mainhand || null;
   const armorId  = eq.body || null;
   const outfitId = eq.outfit || null; // Phase 9: show the equipped cosmetic skin

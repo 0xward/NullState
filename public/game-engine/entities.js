@@ -492,8 +492,15 @@ function drawLPCComposite(ctx, cx, cy, scale, dirIndex, frame, opts){
   // With no outfit equipped, opts.outfitId is unset and this resolves exactly
   // as before (byte-identical base/armor render).
   const skinDef = (opts && opts.outfitId && A.LPC_OUTFIT && A.LPC_OUTFIT[opts.outfitId]) || null;
+  // TASK B — the FREE DEFAULT SKIN (A.LPC_OUTFIT.default_skin) replaces the old
+  // plain-clothes LPC_ARMOR.base as the render-only fallback: it is the LOWEST
+  // priority layer, drawn only when the player has no paid skin AND no armor, so
+  // a fresh player/guest looks like a lightly-armoured knight instead of "naked".
+  // Priority stays: paid skin (a flex, overrides everything) > equipped armor >
+  // default skin > (legacy) base. Monsters and any noArmor caller are unaffected.
   const armorDef = (opts && (opts.noArmor || opts.monBase)) ? null
-    : (skinDef || (opts && opts.armorId && A.LPC_ARMOR[opts.armorId]) || A.LPC_ARMOR.base);
+    : (skinDef || (opts && opts.armorId && A.LPC_ARMOR[opts.armorId])
+       || (A.LPC_OUTFIT && A.LPC_OUTFIT.default_skin) || A.LPC_ARMOR.base);
   if(armorDef){
     // animKey -> actual LPC asset folder name. Most anims share their name
     // with the folder (hurt/slash/thrust); walk+idle both read from
