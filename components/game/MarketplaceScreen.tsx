@@ -185,20 +185,24 @@ export default function MarketplaceScreen({ onBack, address }: MarketplaceScreen
               >
                 {busy === item.id ? '…' : 'Buy'}
               </button>
+              {/* Swap (with NullState Point) sits directly under Buy. It
+                  AUTO-EXPANDS the confirm panel below the moment the player has
+                  enough Point (owner spec), so an affordable swap is one tap,
+                  not two; otherwise it toggles a "need more Point" hint. */}
               {item.tokenPrice ? (
                 <button
                   onClick={() => setSwapConfirmId(swapConfirmId === item.id ? null : item.id)}
                   disabled={busy !== null}
                   className="rounded border border-[#4ade80]/50 px-4 py-1 font-mono text-[9px] font-bold uppercase tracking-wider text-[#7ef0a6] transition hover:bg-[#4ade80]/10 disabled:opacity-50"
                 >
-                  Swap
+                  Swap ⇄ Point
                 </button>
               ) : null}
             </div>
           )}
         </div>
       </div>
-      {swapConfirmId === item.id && item.tokenPrice && !isOwned && (
+      {(swapConfirmId === item.id || (item.tokenPrice != null && tokenBalance !== null && tokenBalance >= item.tokenPrice)) && item.tokenPrice && !isOwned && (
         <div className="mt-2 -mb-1 rounded-lg border border-[#4ade80]/40 bg-[#4ade80]/5 p-3 font-mono text-[10px]">
           <div className="flex items-center justify-between text-[#c9e8d4]">
             <span>Your NullState Point</span>
