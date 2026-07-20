@@ -1275,7 +1275,7 @@ class Enemy {
       const drew = drawLPCComposite(ctx, this.x, this.y, scale, this._lpcDir, this._lpcFrame, {
         animKey:this._lpcAnimKey, attacking:this.attacking, weaponAnim:_atk,
         monBase:L.monBase,
-        armorId:L.armorId, weaponId:L.weaponId, tint:L.tint, tintAlpha:L.tintAlpha,
+        armorId:L.armorId, weaponId:L.weaponId, weaponTint:L.weaponTint||null, tint:L.tint, tintAlpha:L.tintAlpha,
         foot:ft, alpha:a,
       });
       if(!drew){
@@ -1289,7 +1289,7 @@ class Enemy {
         drawLPCComposite(ctx, this.x, this.y, scale, this._lpcDir, this._lpcFrame, {
           animKey:this._lpcAnimKey, attacking:this.attacking, weaponAnim:_atk,
           monBase:L.monBase,
-          armorId:L.armorId, weaponId:L.weaponId,
+          armorId:L.armorId, weaponId:L.weaponId, weaponTint:L.weaponTint||null,
           tint:'#ffffff', tintAlpha:Math.min(0.85,this.hitFlash*3.5), foot:ft, alpha:a,
         });
       }

@@ -1489,12 +1489,22 @@ function applyHitToEnemy(e, dmg, fromX, fromY, beh){
   e.kb.x = kx * _kbBase.x * (e.isBoss ? 0.45 : 1);
   e.kb.y = ky * _kbBase.y * (e.isBoss ? 0.45 : 1);
   hitSpark(e.x,e.y-e.r*0.55,e.arch.color);
+  // FLICKER FIX (owner: "maps berkedip" on certain weapons): aoe/cleave weapons
+  // hit MANY enemies in a SINGLE swing, and this function runs once PER enemy in
+  // the same frame. Adding screen-shake + the premium impact ring/shower per
+  // enemy pinned G.shake at its max on every swing, so the camera jittered
+  // nonstop and the whole screen/map read as flickering — and it spawned 100+
+  // particles a swing, dropping the frame rate (which also made the light-rim
+  // layer blink). Gate all SCREEN-LEVEL fx (shake + the premium glow ring &
+  // shower) to ONCE per swing via a short time window; the per-enemy feedback
+  // (damage number, hit spark, basic burst, knockback) still fires for each.
+  const _nowS = (typeof performance!=='undefined' ? performance.now() : Date.now())/1000;
+  const _swingFx = (_nowS - (G._lastSwingFxT||0)) > 0.08;
+  if(_swingFx) G._lastSwingFxT = _nowS;
   // v77: premium weapons paint a coloured impact on the enemy (owner spec:
-  // "efek mengenai musuh"). A ring flash + glow-tinted particle burst in the
-  // weapon's glow colour, on top of the normal hit spark. Only fires when the
-  // equipped weapon has a glow (tier-3 / premium); plain weapons are unchanged.
+  // "efek mengenai musuh"). Now once-per-swing so aoe doesn't stack it.
   const _pg = G.player && G.player._weaponGlow;
-  if(_pg){
+  if(_pg && _swingFx){
     const _fx2 = window.NS_FX;
     if(_fx2){
       _fx2.particleBurst(G.particles, e.x, e.y-e.r*0.5, _pg, 14, 240);
@@ -1502,11 +1512,12 @@ function applyHitToEnemy(e, dmg, fromX, fromY, beh){
     } else {
       spark(e.x,e.y-e.r*0.5,_pg,14,220);
     }
-    // expanding ring flash, drawn by the FX ring list if present
-    if(G.rings) G.rings.push({ x:e.x, y:e.y-e.r*0.5, t:0, dur:0.32, col:_pg, r0:e.r*0.6, r1:e.r*2.2 });
+    // expanding ring flash, drawn by the FX ring list if present. Cap the list
+    // so a burst of hits can never pile up an additive brightness spike.
+    if(G.rings){ G.rings.push({ x:e.x, y:e.y-e.r*0.5, t:0, dur:0.32, col:_pg, r0:e.r*0.6, r1:e.r*2.2 }); if(G.rings.length>10) G.rings.splice(0, G.rings.length-10); }
   }
   const _shakeAmt = e.isBoss ? (_shakeCfg.bossHit||18) : (_shakeCfg.playerAttack||6);
-  G.shake=Math.min(G.shake+_shakeAmt,14); A.hit(); // cap was 20 — punch list #10, v38
+  if(_swingFx || e.isBoss){ G.shake=Math.min(G.shake+_shakeAmt,14); A.hit(); } // once per swing (bosses always shake/sound)
   if(killed){ onEnemyKilled(e); }
   return killed;
 }
@@ -1765,8 +1776,16 @@ function onEnemyKilled(e){
   } else {
     spark(e.x,e.y-10,e.arch.color,22,200);
   }
+  // Flicker fix (see applyHitToEnemy): an aoe swing can kill several enemies in
+  // one frame; adding death-shake per kill re-pinned G.shake and re-jittered the
+  // camera. Gate the ordinary death shake to once per ~0.1s window; a BOSS kill
+  // always shakes (it's the big moment).
   const _shakeK = e.isBoss ? (_shakeCfgK.bossKill||28) : (_shakeCfgK.enemyDeath||8);
-  G.shake=Math.min(G.shake+_shakeK,18); // cap was 24 — punch list #10, v38
+  const _nowK = (typeof performance!=='undefined' ? performance.now() : Date.now())/1000;
+  if(e.isBoss || (_nowK - (G._lastKillShakeT||0) > 0.1)){
+    G._lastKillShakeT = _nowK;
+    G.shake=Math.min(G.shake+_shakeK,18); // cap was 24 — punch list #10, v38
+  }
   const p=G.player;
   p.kills++;
   const ups=p.gainXp(e.xp);
@@ -3067,6 +3086,11 @@ function update(dt){
   // particles
   for(const pt of G.particles){ pt.x+=pt.vx*dt; pt.y+=pt.vy*dt; pt.vy+=160*dt; pt.life-=dt; }
   G.particles=G.particles.filter(p=>p.life>0);
+  // Safety cap: an aoe swing that hits/kills a crowd can spawn hundreds of
+  // particles in one frame; left unbounded the per-frame update+draw cost drops
+  // the frame rate (which is what made the light-rim layer blink). Keep only the
+  // newest — older ones are already fading — so the scene stays smooth.
+  if(G.particles.length>420) G.particles.splice(0, G.particles.length-420);
   for(const n of G.dmgNums){ n.y+=n.vy*dt; n.vy+=40*dt; n.life-=dt; }
   G.dmgNums=G.dmgNums.filter(n=>n.life>0);
   if(G.shake>0) G.shake=Math.max(0,G.shake-dt*22);

@@ -57,25 +57,27 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'You already own this item', owned }, { status: 409 })
     }
 
-    // Atomic deduct — only commits if the balance is sufficient, so two
-    // concurrent swap requests can't both succeed off the same balance.
+    // Point deduction (read-then-write).
+    // BUGFIX: this used to be a `.transaction()` that returned `current`
+    // (unchanged) when the balance was short. Returning a value COMMITS in
+    // RTDB (only `undefined` aborts), so `committed` was always true — the
+    // "not enough Point" branch was dead code and an under-funded swap GRANTED
+    // the item for free. It also tripped the same cold-cache null-run hazard as
+    // the craft route. Read the real balance first, check it, then write the
+    // deducted total. Single-owner balance (only this wallet spends its Point),
+    // so a read-then-write is safe here.
     const balanceRef = db.ref(`playerProfiles/${normalizedWallet}/nullstateTokenBalance`)
     const requiredTokens = item.tokenPrice
-    const txResult = await balanceRef.transaction((current: number | null) => {
-      const balance = current ?? 0
-      if (balance < requiredTokens) return current // abort, unchanged
-      return balance - requiredTokens
-    })
-
-    if (!txResult.committed) {
-      const currentBalance = (txResult.snapshot?.val() as number) ?? 0
+    const balSnap = await balanceRef.get()
+    const currentBalance = (typeof balSnap.val() === 'number' ? balSnap.val() as number : 0)
+    if (currentBalance < requiredTokens) {
       return NextResponse.json(
         { error: `Not enough NullState Point (need ${requiredTokens}, have ${currentBalance})` },
         { status: 400 }
       )
     }
-
-    const newBalance = (txResult.snapshot?.val() as number) ?? 0
+    const newBalance = currentBalance - requiredTokens
+    await balanceRef.set(newBalance)
 
     const updates: Record<string, unknown> = {}
     updates[`marketplaceOwned/${normalizedWallet}/${itemId}`] = {
