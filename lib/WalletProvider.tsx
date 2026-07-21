@@ -22,96 +22,12 @@ import { MARKETPLACE_TOKENS, TREASURY_WALLET, parseTokenAmount, MarketplaceToken
 export const NULLSTATE_ADDRESS  = '0xE6C471DD3C715DB8B10457113867885AFA12eC13' as `0x${string}`
 export const CELO_CHAIN_ID      = 42220
 export const CELO_SEPOLIA_CHAIN_ID = 11142220
-// NULL_STRIKE fee: 0.005 USDm (18 decimals), sent as a plain ERC20 transfer
-// to the NullStateReward contract address (funds the weekly pool). This is
-// NOT executeAction() on NullState.sol — that contract hard-requires exactly
-// 0.01 native CELO and cannot accept USDm without a redeploy.
-export const NULL_STRIKE_FEE_USDM_WEI = BigInt('5000000000000000') // 0.005 USDm
 
-// JSON ABI — parseAbi does not support named tuple params in human-readable
-// format (abitype throws InvalidParameterError), so we use JSON ABI instead.
-export const NULLSTATE_ABI = [
-  { name: 'register',       type: 'function', stateMutability: 'nonpayable', inputs: [], outputs: [] },
-  { name: 'verifyPassport', type: 'function', stateMutability: 'nonpayable', inputs: [], outputs: [] },
-  { name: 'respawn',        type: 'function', stateMutability: 'nonpayable', inputs: [], outputs: [] },
-  {
-    name: 'executeAction', type: 'function', stateMutability: 'payable',
-    inputs: [
-      { name: 'actionType',     type: 'uint8'  },
-      { name: 'damageDealt',    type: 'uint32' },
-      { name: 'damageReceived', type: 'uint32' },
-      { name: 'xpGained',       type: 'uint64' },
-      { name: 'enemyKilled',    type: 'bool'   },
-    ],
-    outputs: [],
-  },
-  {
-    name: 'attackRaidBoss', type: 'function', stateMutability: 'payable',
-    inputs:  [{ name: 'damage', type: 'uint32' }],
-    outputs: [],
-  },
-  {
-    name: 'registerTweetAttack', type: 'function', stateMutability: 'nonpayable',
-    inputs:  [{ name: 'attacker', type: 'address' }],
-    outputs: [],
-  },
-  {
-    name: 'getPlayer', type: 'function', stateMutability: 'view',
-    inputs: [{ name: 'addr', type: 'address' }],
-    outputs: [
-      { name: 'exists',           type: 'bool'   },
-      { name: 'hp',               type: 'uint32' },
-      { name: 'maxHp',            type: 'uint32' },
-      { name: 'xp',               type: 'uint64' },
-      { name: 'level',            type: 'uint16' },
-      { name: 'kills',            type: 'uint32' },
-      { name: 'deaths',           type: 'uint32' },
-      { name: 'passportVerified', type: 'bool'   },
-      { name: 'artifactCount',    type: 'uint32' },
-    ],
-  },
-  {
-    name: 'getArtifacts', type: 'function', stateMutability: 'view',
-    inputs: [{ name: 'addr', type: 'address' }],
-    outputs: [
-      {
-        name: '', type: 'tuple[]',
-        components: [
-          { name: 'id',           type: 'uint32' },
-          { name: 'artifactType', type: 'uint8'  },
-          { name: 'rarity',       type: 'uint8'  },
-          { name: 'power',        type: 'uint16' },
-          { name: 'onChain',      type: 'bool'   },
-          { name: 'exists',       type: 'bool'   },
-        ],
-      },
-    ],
-  },
-  {
-    name: 'getCurrentRaid', type: 'function', stateMutability: 'view',
-    inputs: [],
-    outputs: [
-      { name: 'id',          type: 'uint64'  },
-      { name: 'currentHp',   type: 'uint64'  },
-      { name: 'maxHp',       type: 'uint64'  },
-      { name: 'phase',       type: 'uint8'   },
-      { name: 'attackers',   type: 'uint32'  },
-      { name: 'tweets',      type: 'uint32'  },
-      { name: 'endsAt',      type: 'uint64'  },
-      { name: 'active',      type: 'bool'    },
-      { name: 'topAttacker', type: 'address' },
-      { name: 'topDamage',   type: 'uint32'  },
-    ],
-  },
-  {
-    name: 'getMyRaidContribution', type: 'function', stateMutability: 'view',
-    inputs: [], outputs: [{ name: '', type: 'uint32' }],
-  },
-  {
-    name: 'paused', type: 'function', stateMutability: 'view',
-    inputs: [], outputs: [{ name: '', type: 'bool' }],
-  },
-] as const
+// Phase 0: NullState.sol has been RETIRED — combat/registration are fully
+// off-chain and NULL_STRIKE is FREE. The old game ABI is intentionally empty;
+// the `payUsdmFee()` helper below remains a generic ERC20 transfer used by
+// other flows, not by NULL_STRIKE.
+export const NULLSTATE_ABI = [] as const
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 // NOTE (removed 2026-07-12): `ExecuteActionParams`, `PlayerData`, and

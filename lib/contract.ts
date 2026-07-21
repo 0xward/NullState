@@ -1,62 +1,16 @@
 /**
- * NullState Smart Contract Interaction Layer
- * Communicates with 0xe6c471dd3c715db8b10457113867885afa12ec13
- * 
- * ON-CHAIN: XP, Level, Kills (immutable game progress)
- * OFF-CHAIN (Firebase): Username (mutable, can change anytime)
+ * NullState player types.
+ *
+ * Phase 0: the old NullState.sol contract (register/executeAction/getPlayer)
+ * has been RETIRED. Player identity and progress are fully off-chain now
+ * (Firebase — see useContractPlayer.ts / leaderboardService.ts). The ABI
+ * below is intentionally empty; only the PlayerProfile / LeaderboardEntry
+ * shapes below are still used across the app.
  */
 
-export const NULLSTATE_CONTRACT_ADDRESS = '0xe6c471dd3c715db8b10457113867885afa12ec13'
-
-// Minimal ABI for the functions we need (based on actual Solidity contract)
-// Note: Contract only has register(), executeAction(), respawn(), raid functions
-// It does NOT have username field - username is stored off-chain in Firebase
-export const NULLSTATE_CONTRACT_ABI = [
-  {
-    name: 'register',
-    type: 'function',
-    inputs: [],
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    name: 'executeAction',
-    type: 'function',
-    inputs: [
-      { name: 'actionType', type: 'uint8' },
-      { name: 'damageDealt', type: 'uint32' },
-      { name: 'damageReceived', type: 'uint32' },
-      { name: 'xpGained', type: 'uint64' },
-      { name: 'enemyKilled', type: 'bool' },
-    ],
-    outputs: [],
-    stateMutability: 'payable',
-  },
-  {
-    name: 'respawn',
-    type: 'function',
-    inputs: [],
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    name: 'getPlayer',
-    type: 'function',
-    inputs: [{ name: 'addr', type: 'address' }],
-    outputs: [
-      { name: 'exists', type: 'bool' },
-      { name: 'hp', type: 'uint32' },
-      { name: 'maxHp', type: 'uint32' },
-      { name: 'xp', type: 'uint64' },
-      { name: 'level', type: 'uint16' },
-      { name: 'kills', type: 'uint32' },
-      { name: 'deaths', type: 'uint32' },
-      { name: 'passportVerified', type: 'bool' },
-      { name: 'artifactCount_', type: 'uint32' },
-    ],
-    stateMutability: 'view',
-  },
-] as const
+// Retired contract — ABI intentionally empty (kept as an export so any
+// lingering type-only reference still resolves).
+export const NULLSTATE_CONTRACT_ABI = [] as const
 
 export interface PlayerProfile {
   username: string
