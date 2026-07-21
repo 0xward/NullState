@@ -1086,10 +1086,10 @@ function tryInteract(){
     openLiftMenu();
     return;
   }
-  // 'E' interact mirrors the OPEN action button for containers already in
-  // range (same 450ms open + dual-panel flow), so there are two equivalent
-  // ways to open a container: tap the button, or walk up and press E.
-  if(G.action.mode==='open' && G.action.target) onOpenButtonTap();
+  // 'E' mirrors the on-screen action button for whatever it currently shows —
+  // NULL_STRIKE on a boss in range, or OPEN on a container — so desktop
+  // players get a full keyboard equivalent (tap the button, or press E).
+  if(G.action.mode && G.action.target) onActionBtnClick();
 }
 
 // ---- shared grid helpers ----

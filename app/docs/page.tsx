@@ -134,10 +134,10 @@ export default function DocsPage() {
                 NULL_STRIKE
               </h3>
               <p>
-                A powerful on-chain ultimate attack you can trigger against
-                tough enemies or when your HP runs critically low. It costs a
-                flat 0.005 USDm, sent as a real transaction on Celo — if the
-                transaction fails, the strike is downgraded to a normal hit.
+                A powerful ultimate attack you can trigger against tough
+                enemies or when your HP runs critically low. It&apos;s free —
+                no wallet transaction required — and gated only by a short
+                cooldown, so its real cost is timing.
               </p>
             </div>
             <div>
@@ -330,7 +330,7 @@ export default function DocsPage() {
             {[
               {
                 q: 'What does it cost to play?',
-                a: 'Playing and looting is free. A Season Pass (paid in USDm/USDC/USDT) unlocks normal drop rates; NULL_STRIKE costs a flat 0.005 USDm per use.',
+                a: 'Playing, looting, and NULL_STRIKE are all free. A Season Pass (paid in USDm/USDC/USDT) unlocks normal drop rates, and the Marketplace sells gear for stablecoin — but nothing is required to play and earn.',
               },
               {
                 q: 'What happens when my character dies?',

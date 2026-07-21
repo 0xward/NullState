@@ -77,3 +77,51 @@ export async function clearGameSession(walletAddress: string): Promise<void> {
     console.error('[v0] Failed to clear game session:', err)
   }
 }
+
+// ─── localStorage draft (Firestore write-reduction, Phase 1) ─────────────────
+// The bunker snapshot is drafted to localStorage on every meaningful in-run
+// change (cheap, instant, no quota) and only flushed to Firestore at the
+// moments that matter — floor up, level up, death, tab-hide. This keeps a
+// crash/refresh from losing progress WITHOUT hammering Firestore's free-tier
+// write budget every few seconds (the old blind 15s interval capped us at
+// ~80 concurrent players/hour; event-driven flushing lifts that ~10x).
+
+function draftKey(walletAddress: string) {
+  return `nullstate:session-draft:${walletAddress.toLowerCase()}`
+}
+
+/** Write the current snapshot to localStorage (synchronous, best-effort). */
+export function saveGameSessionDraft(
+  walletAddress: string,
+  snapshot: GameSessionSnapshot
+): void {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(draftKey(walletAddress), JSON.stringify(snapshot))
+  } catch {
+    /* quota/private-mode — the Firestore flush is still the real safety net */
+  }
+}
+
+/** Read a locally-drafted snapshot, if any (e.g. to recover after a crash). */
+export function loadGameSessionDraft(
+  walletAddress: string
+): GameSessionSnapshot | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const raw = window.localStorage.getItem(draftKey(walletAddress))
+    return raw ? (JSON.parse(raw) as GameSessionSnapshot) : null
+  } catch {
+    return null
+  }
+}
+
+/** Clear the local draft — call once its data is safely in Firestore. */
+export function clearGameSessionDraft(walletAddress: string): void {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.removeItem(draftKey(walletAddress))
+  } catch {
+    /* ignore */
+  }
+}

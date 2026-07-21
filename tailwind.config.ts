@@ -25,7 +25,10 @@ const config: Config = {
         'null-amber': '#ffaa00',
         'null-blue': '#00aaff',
         'null-white': '#d4ffe8',
-        'null-muted': '#2a4a35',
+        // Bumped from #2a4a35 (~1.4:1 on --null-bg — unreadable, failed WCAG)
+        // to a readable ~5:1 tone while keeping the same desaturated-green hue.
+        // Fixes low-contrast body/subtitle copy on /docs, /terms, /privacy.
+        'null-muted': '#5f8873',
       },
       animation: {
         'pulse-slow': 'pulse 3s ease-in-out infinite',

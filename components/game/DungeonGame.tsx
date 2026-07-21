@@ -1,11 +1,11 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { attachLiveStatsBridge } from '@/lib/liveStatsBridge'
+import { attachLiveStatsBridge, subscribeLiveStats } from '@/lib/liveStatsBridge'
 import { useRouter } from 'next/navigation'
 import { useWallet } from '@/lib/WalletProvider'
 import { PlayerProfile } from '@/lib/contract'
-import { loadGameSession, saveGameSession, clearGameSession } from '@/lib/gameSessionService'
+import { loadGameSession, saveGameSession, clearGameSession, saveGameSessionDraft, clearGameSessionDraft } from '@/lib/gameSessionService'
 import { recordRunKills, recordRunProgress } from '@/lib/leaderboardService'
 import { GAME_CONFIG } from '@/lib/constants/game-config'
 import SettingsModal from './SettingsModal'
@@ -613,47 +613,116 @@ export default function DungeonGame({ playerProfile, setPlayerUsername, isNewRun
       })
       .catch(err => console.error('NullState engine failed to load:', err))
 
-    // Silent best-effort auto-save whenever the tab is hidden or the page is
-    // about to unload — covers users who close/switch away without using
-    // the explicit Exit -> Save flow. No popup here; this is a safety net,
-    // not the primary save path.
-    const silentSave = () => {
+    // ── Auto-save (Phase 1: event-driven, Firestore-write-frugal) ──────────
+    // Old model: a blind setInterval(silentSave, 15000) wrote the bunker doc
+    // AND both leaderboard docs every 15s for every active player. On
+    // Firestore's free tier (20k writes/day) that capped us at ~80 concurrent
+    // players/hour before writes silently started failing ("game mati diam-
+    // diam"). New model:
+    //   • Draft the snapshot to localStorage on EVERY meaningful change
+    //     (cheap, instant, no quota) so a crash/refresh never loses progress.
+    //   • Flush to Firestore only at moments that matter — floor up, level up,
+    //     tab-hide/unload — coalesced through a short debounce, plus a slow
+    //     60s safety net (was 15s). This lifts the ceiling to ~700-1000
+    //     concurrent players/hour on the same free tier.
+    const readSnapshot = () => {
       const NSG = (window as any).NullStateGame
       const addr = walletRef.current.address
-      if (!NSG || !addr || typeof NSG.getSaveSnapshot !== 'function') return
+      if (!NSG || !addr || typeof NSG.getSaveSnapshot !== 'function') return null
       const snap = NSG.getSaveSnapshot()
-      if (snap) {
-        saveGameSession(addr, snap)
-        // Guests save their bunker but never enter the leaderboard.
-        if (!walletRef.current.isGuest && typeof snap.kills === 'number') recordRunKills(addr, snap.kills)
-        if (!walletRef.current.isGuest && typeof snap.xp === 'number' && typeof snap.level === 'number') {
-          recordRunProgress(addr, snap.xp, snap.level)
-        }
+      return snap ? { addr, snap } : null
+    }
+
+    // Tracks whether the local draft has advanced past what's in Firestore,
+    // so the slow safety net can skip the write when nothing has changed.
+    let dirty = false
+
+    // Cheap local draft — no network, no quota. Called liberally.
+    const writeDraft = () => {
+      const cur = readSnapshot()
+      if (cur) { saveGameSessionDraft(cur.addr, cur.snap); dirty = true }
+    }
+
+    // The real network write: bunker snapshot + (for non-guests) leaderboard.
+    const flushToFirestore = () => {
+      const cur = readSnapshot()
+      if (!cur) return
+      const { addr, snap } = cur
+      saveGameSession(addr, snap)
+      clearGameSessionDraft(addr) // draft is now safely upstream
+      dirty = false
+      // Guests save their bunker but never enter the leaderboard.
+      if (!walletRef.current.isGuest && typeof snap.kills === 'number') recordRunKills(addr, snap.kills)
+      if (!walletRef.current.isGuest && typeof snap.xp === 'number' && typeof snap.level === 'number') {
+        recordRunProgress(addr, snap.xp, snap.level)
       }
     }
+
+    // Debounced flush — coalesces a burst of meaningful events (e.g. a
+    // level-up on the same frame as a floor change) into one Firestore write.
+    let flushTimer: number | null = null
+    const scheduleFlush = () => {
+      writeDraft() // capture immediately in case the page dies before the flush
+      if (flushTimer !== null) return
+      flushTimer = window.setTimeout(() => {
+        flushTimer = null
+        flushToFirestore()
+      }, 2500)
+    }
+
+    // Immediate flush for page-teardown paths (tab hide / unload). Cancels any
+    // pending debounce so we don't double-write.
+    const flushNow = () => {
+      if (flushTimer !== null) { window.clearTimeout(flushTimer); flushTimer = null }
+      flushToFirestore()
+    }
+
+    // Drive flushes off the engine's live-stats announcements (emitted from
+    // updateHUD() after every kill/level-up/floor-change/pickup). We only
+    // spend a Firestore write when the FLOOR or LEVEL actually advances; every
+    // other tick just refreshes the cheap local draft.
+    let lastFloor = -1
+    let lastLevel = -1
+    const unsubscribeStats = subscribeLiveStats((s) => {
+      const floorUp = lastFloor >= 0 && s.floor > lastFloor
+      const levelUp = lastLevel >= 0 && s.level > lastLevel
+      lastFloor = s.floor
+      lastLevel = s.level
+      if (floorUp || levelUp) scheduleFlush()
+      else writeDraft()
+    })
+
+    // Death/respawn: fold the run into Firestore right away (the wrapper also
+    // records leaderboard kills/xp on this event; this additionally persists
+    // the bunker snapshot so "Continue" reflects where they fell).
+    const onDeath = () => flushNow()
+    window.addEventListener('nullstate-player-death', onDeath)
+
     const onVisibilityChange = () => {
-      if (document.visibilityState === 'hidden') silentSave()
+      if (document.visibilityState === 'hidden') flushNow()
     }
     document.addEventListener('visibilitychange', onVisibilityChange)
-    // pagehide/visibilitychange fire the write, but they don't guarantee it
-    // finishes: an accidental refresh (pull-to-refresh, tapping reload in
-    // OKX/MiniPay's in-app browser, etc.) can tear the page down mid-request
-    // before Firestore's write ever reaches the network. beforeunload is
-    // added as a second best-effort hook for browsers that give it a bit
-    // more time than pagehide; neither can be made 100% reliable without a
-    // sendBeacon-based server endpoint, so this is paired with the periodic
-    // interval below, which keeps the saved snapshot from ever being more
-    // than ~15s stale regardless of how the tab goes away.
-    window.addEventListener('pagehide', silentSave)
-    window.addEventListener('beforeunload', silentSave)
-    const autosaveInterval = window.setInterval(silentSave, 15000)
+    // pagehide/beforeunload are the teardown backstops for an accidental
+    // refresh (pull-to-refresh, reload in OKX/MiniPay's in-app browser) that
+    // would otherwise tear the page down before a write reaches the network.
+    // The localStorage draft (written on every meaningful change above) is the
+    // true belt-and-suspenders here — even if these flushes are cut off, the
+    // draft survives the reload.
+    window.addEventListener('pagehide', flushNow)
+    window.addEventListener('beforeunload', flushNow)
+    // Slow safety net (was 15s). Only writes when the draft has advanced
+    // since the last flush — an idle player costs zero Firestore writes.
+    const autosaveInterval = window.setInterval(() => { if (dirty) flushNow() }, 60000)
 
     return () => {
       cancelled = true
       document.removeEventListener('touchmove', preventPullToRefresh)
+      unsubscribeStats()
+      window.removeEventListener('nullstate-player-death', onDeath)
       document.removeEventListener('visibilitychange', onVisibilityChange)
-      window.removeEventListener('pagehide', silentSave)
-      window.removeEventListener('beforeunload', silentSave)
+      window.removeEventListener('pagehide', flushNow)
+      window.removeEventListener('beforeunload', flushNow)
+      if (flushTimer !== null) window.clearTimeout(flushTimer)
       window.clearInterval(autosaveInterval)
       if (detachLiveStatsBridge) detachLiveStatsBridge()
       const NSG = (window as any).NullStateGame
