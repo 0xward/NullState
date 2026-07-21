@@ -6,6 +6,7 @@ import { useWallet } from '@/lib/WalletProvider'
 import { useContractPlayer } from '@/lib/useContractPlayer'
 import { PlayerProfile, LeaderboardEntry } from '@/lib/contract'
 import { loadGameSession, clearGameSession } from '@/lib/gameSessionService'
+import { migrateGuestProgress, getStoredGuestId } from '@/lib/guestMigration'
 import MainMenu from './MainMenu'
 import NewGameConfirmModal from './NewGameConfirmModal'
 
@@ -73,7 +74,7 @@ type GamePhase = 'menu' | 'username-setup' | 'character-select' | 'game' | 'lead
  * All player progress is stored ON-CHAIN via the contract.
  */
 export default function GameFlowManager() {
-  const { address, isConnected } = useWallet()
+  const { address, isConnected, realAddress } = useWallet()
   const {
     playerProfile,
     isLoading: isLoadingProfile,
@@ -105,6 +106,20 @@ export default function GameFlowManager() {
       setPhase('menu')
     }
   }, [isConnected])
+
+  // Guest → wallet migration (Phase 1). The moment a real wallet connects while
+  // a local guest id still exists, move the guest's off-chain progress onto the
+  // wallet (fill-the-gaps, wallet wins — see lib/guestMigration.ts), then
+  // refresh the profile so the migrated username/session show up immediately.
+  useEffect(() => {
+    if (!realAddress || !getStoredGuestId()) return
+    let cancelled = false
+    ;(async () => {
+      await migrateGuestProgress(realAddress)
+      if (!cancelled) fetchPlayerProfile()
+    })()
+    return () => { cancelled = true }
+  }, [realAddress, fetchPlayerProfile])
 
   // Actually begins a fresh run (marks isNewRun so DungeonGame's mount
   // effect skips loading any saved bunker snapshot). v72 (user finding #2):
