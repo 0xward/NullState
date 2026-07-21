@@ -1,6 +1,6 @@
 # NULL_STATE // Web3 RPG on Celo
 
-> A real-time, top-down dungeon crawler built on Celo. Play and loot for free — NULL_STRIKE, Marketplace purchases, and Vault claims settle as real on-chain transactions. Permadeath is softened: die and you respawn on the same floor, full HP. Your wallet is your weapon.
+> A real-time, top-down dungeon crawler built on Celo. Play, loot, and unleash NULL_STRIKE for free — only optional Marketplace and Season Pass purchases settle as real on-chain transactions, and stablecoin rewards are paid out from the Treasure Vault, Leaderboard, and Season Pass. Permadeath is softened: die and you respawn on the same floor, full HP. Playable right inside MiniPay.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 [![Built on Celo](https://img.shields.io/badge/Built%20on-Celo-FCFF52)](https://celo.org)
@@ -12,7 +12,7 @@
 
 NULL_STATE is a pixel-art dungeon crawler that runs directly in the browser — no installs, no app store. Pick a class, descend into a procedurally generated bunker, fight your way through Orc and Skeleton crews, and ride the lift between floors as you push deeper into the depths.
 
-Every NULL_STRIKE costs **0.005 USDm (Mento stablecoin)**, sent as a real ERC-20 transaction on Celo Mainnet. Weapons and armor can be bought on the in-game Marketplace with USDm/USDC/USDT, or swapped for using **NullState Point** — an off-chain, faucet-only currency earned by burning items (not real money, not withdrawable).
+Playing, looting, and the **NULL_STRIKE** ultimate are all free — no wallet transaction required; NULL_STRIKE is gated by a short cooldown, not a fee. Weapons and armor can be bought on the in-game Marketplace with USDm/USDC/USDT, or swapped for using **NullState Point** — an off-chain, faucet-only currency earned by burning items (not real money, not withdrawable). Payments default to whichever stablecoin your wallet holds the most of.
 
 ---
 
@@ -26,8 +26,25 @@ Every NULL_STRIKE costs **0.005 USDm (Mento stablecoin)**, sent as a real ERC-20
 - **Inventory panel** — three-tab wooden-theme UI (LOOT / FOOD / GEAR) with equip, eat, and sell actions.
 - **Marketplace** — buy weapons and armor with USDm, USDC, or USDT via on-chain ERC-20 transfer. Ownership is verified server-side and stored in Firebase.
 - **Permadeath, softened** — dying drops you back at the floor you died on with full HP, rather than sending you back to floor 1. Progress on floors you've already cleared is preserved.
-- **NULL_STRIKE** — an on-chain ultimate attack you can trigger against elites, bosses, or when your HP runs critically low.
+- **NULL_STRIKE** — a free ultimate attack (short cooldown, no fee) you can trigger against elites, bosses, or when your HP runs critically low.
 - **Floor scaling** — monsters grow stronger every floor (+8% HP & damage per tier by default, configurable in `monster-config.js`). Boss floors (every 5th floor) have hardcoded overrides for dramatic difficulty spikes.
+
+---
+
+## The Loop & Economy
+
+The game runs on stablecoins + an in-game point — **no speculative token**. The loop is visible in-game under **Main Menu → How to Play**:
+
+| Cadence | You do | You get |
+|---|---|---|
+| **Every run** | Play, loot, burn gear you don't need | **NullState Point** — in-game, faucet-only, *not* withdrawable; spend it to *Swap* for non-premium Marketplace gear |
+| **Every week** | Find the Golden Key + Code Paper, solve the Treasure Vault code | **Stablecoin** (USDm/USDC/USDT) |
+| **Every season** | Rank on the Leaderboard; hold a Season Pass | **Stablecoin** — top-3 prize pool + Season Pass reward track |
+
+- **Progression** — 5 bunkers × 5 floors = 25 depths. Gear, weapon tiers, and Point carry across runs; deeper acts drop higher-tier crafting shards.
+- **Guest mode** — outside MiniPay you can play with no wallet; progress is kept in `localStorage` and migrated onto your wallet the first time you connect one. Stablecoin claims require a wallet.
+- **Flexible stablecoin** — payments and gas default to whichever of USDm/USDC/USDT the wallet holds the most of (fee-abstraction), with a manual override.
+- **Reward pool** — stablecoin reward pools are funded by 1892 Studio, seeded manually at launch, with the intent to route a share (~20%) of Marketplace/gear revenue back to players over time.
 
 ---
 
@@ -40,7 +57,7 @@ Every NULL_STRIKE costs **0.005 USDm (Mento stablecoin)**, sent as a real ERC-20
 | Styling | Tailwind CSS + custom wooden-theme CSS |
 | Web3 | [wagmi](https://wagmi.sh) + [viem](https://viem.sh) (injected connector only — RainbowKit removed), targeting Celo Mainnet |
 | Tokens | Mento USDm / USDC / USDT (ERC-20, 6- and 18-decimal aware) |
-| Database | Firebase Realtime DB (player profiles, marketplace ownership, leaderboard) |
+| Database | Firebase — Realtime DB (player profiles, marketplace ownership, materials) + Firestore (usernames, bunker saves, leaderboard) |
 | Contracts | Solidity, deployed with Foundry |
 
 ---
@@ -109,7 +126,7 @@ public/sprites/            Character, monster, and decoration sprite sheets
   monsters2/               Skel Reaper & Vampire — full idle/walk/attack/death sheets
 styles/globals.css         Tailwind base + wooden inventory UI theme
 lib/                       Web3 provider setup (wagmi/viem, injected connector) + WalletProvider
-contracts/                 Solidity contracts (NullState.sol, PassSBTv3.sol, NullStateRewardV2.sol, TreasureVaultV2.sol)
+contracts/                 Solidity contracts (PassSBTv3.sol, NullStateRewardV2.sol, TreasureVaultV2.sol)
 ```
 
 ---
