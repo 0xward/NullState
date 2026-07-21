@@ -282,11 +282,29 @@ const Audio = (() => {
     },
   };
   // kind -> sound. Falls back to the generic whoosh for unknown/no weapon.
-  function attackFor(kind){
+  // Phase 4/evolution (issue #4): an evolved weapon should SOUND more powerful
+  // each tier. On top of the weapon's own synthesized swing we layer a bright
+  // metallic "shine" whose count/brightness/loudness scale with the tier
+  // (evo 2 = a two-note shimmer, evo 3 = a fuller, louder three-note chime).
+  // Base tier (evo 1) is byte-identical to before — no extra layer.
+  function _evoShine(t, evo){
+    if (!ctx || evo < 2) return;
+    const gain  = evo >= 3 ? 0.16 : 0.10;
+    const freqs = evo >= 3 ? [1568, 2093, 2637] : [1319, 1760];
+    freqs.forEach((fr, i) => {
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = 'triangle'; o.frequency.value = fr;
+      const st = t + 0.01 + i * 0.02;
+      env(g, st, 0.004, 0.14, gain);
+      o.connect(g); g.connect(sfxGain); o.start(st); o.stop(st + 0.2);
+    });
+  }
+  function attackFor(kind, evo){
     if (!ctx) return;
     const fn = kind && WEAPON_SFX[kind];
     if (!fn) return attack();
     fn(ctx.currentTime);
+    if (evo && evo >= 2) _evoShine(ctx.currentTime, evo);
   }
 
   function hit() {
