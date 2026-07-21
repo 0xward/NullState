@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { usePublicClient } from 'wagmi'
 import { useWallet, CELO_CHAIN_ID } from '@/lib/WalletProvider'
+import { GiCrossedSwords, GiCheckedShield } from 'react-icons/gi'
 import { pickBestPaymentToken } from '@/lib/constants/tokens'
 import { MARKETPLACE_ITEMS, ACCEPTED_TOKENS, getMarketplaceItem, resolveItemId, type MarketplaceItem, type MarketplaceTokenSymbol } from '@/lib/constants/marketplace'
 
@@ -311,11 +312,11 @@ export default function MarketplaceScreen({ onBack, address }: MarketplaceScreen
         )}
 
         <section className="mb-5">
-          <h2 className="mb-2 font-mono text-xs font-bold uppercase tracking-[3px] text-[#e6c07a]">⛨ Armor</h2>
+          <h2 className="mb-2 flex items-center gap-1.5 font-mono text-xs font-bold uppercase tracking-[3px] text-[#e6c07a]"><GiCheckedShield aria-hidden size={15} /> Armor</h2>
           <div className="flex flex-col gap-2">{armor.map(renderItem)}</div>
         </section>
         <section className="mb-5">
-          <h2 className="mb-2 font-mono text-xs font-bold uppercase tracking-[3px] text-[#e6c07a]">⚔ Weapons</h2>
+          <h2 className="mb-2 flex items-center gap-1.5 font-mono text-xs font-bold uppercase tracking-[3px] text-[#e6c07a]"><GiCrossedSwords aria-hidden size={15} /> Weapons</h2>
           <div className="flex flex-col gap-2">{weapons.map(renderItem)}</div>
         </section>
         <section>

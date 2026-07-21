@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { GiMedal } from 'react-icons/gi'
 import { LeaderboardEntry } from '@/lib/contract'
 
 interface LeaderboardProps {
@@ -49,11 +50,13 @@ export default function Leaderboard({
           ? 'text-[#cd7f32]'
           : 'text-null-muted'
 
-  // Bonus badge for the top 3 — a medal emoji shown next to the rank
+  // Bonus badge for the top 3 — a colored medal icon shown next to the rank
   // number, plus a subtle tinted row background so the podium stands out
   // at a glance while scrolling a long list.
-  const rankMedal = (rank: number) =>
-    rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : null
+  const rankMedal = (rank: number) => {
+    const color = rank === 1 ? '#ffd166' : rank === 2 ? '#c8d0d8' : rank === 3 ? '#cd7f32' : null
+    return color ? <GiMedal aria-hidden style={{ color }} /> : null
+  }
 
   const isOwnRow = (walletAddress: string) =>
     !!currentWalletAddress &&
@@ -156,11 +159,7 @@ export default function Leaderboard({
                   style={own ? { gridTemplateColumns: '32px 1fr 34px 56px 40px', boxShadow: 'inset 2px 0 0 var(--null-green, #00ff88)' } : { gridTemplateColumns: '32px 1fr 34px 56px 40px' }}
                 >
                   <span className={`font-bold ${rankColor(entry.rank)} flex items-center gap-0.5`}>
-                    {rankMedal(entry.rank) ? (
-                      <span aria-hidden="true">{rankMedal(entry.rank)}</span>
-                    ) : (
-                      `#${entry.rank}`
-                    )}
+                    {rankMedal(entry.rank) ?? `#${entry.rank}`}
                   </span>
                   <span className="text-null-acid font-bold truncate pr-1 flex items-center gap-1.5">
                     <span className="truncate">{entry.username}</span>

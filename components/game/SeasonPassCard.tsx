@@ -1,6 +1,7 @@
 'use client'
 
 import Image from 'next/image'
+import { GiPadlock } from 'react-icons/gi'
 import { SeasonInfo } from '@/hooks/usePassSBT'
 
 export interface SeasonPassCardProps {
@@ -76,7 +77,7 @@ export default function SeasonPassCard({
             style={{ filter: 'blur(6px) brightness(0.4)' }}
           />
           <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-            <span className="text-4xl">🔒</span>
+            <GiPadlock aria-hidden className="text-4xl text-null-muted" />
           </div>
         </div>
         <div className="p-3 font-mono">

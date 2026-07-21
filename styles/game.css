@@ -317,6 +317,17 @@
 @keyframes ns-actionPulse{0%,100%{box-shadow:0 0 24px rgba(255,150,0,.55);}50%{box-shadow:0 0 36px rgba(255,170,0,.85);}}
 @media (orientation:portrait){ .ns-game-root .action-btn{right:16px;bottom:96px;} }
 
+/* Phase 4 — inline game-icons.net icons (CC BY 3.0, see ICON-CREDITS.md).
+   fill=currentColor, so each icon inherits the color of its surrounding text. */
+.ns-game-root .ns-ico{display:inline-block;width:1em;height:1em;vertical-align:-0.14em;fill:currentColor;}
+.ns-game-root .action-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;}
+.ns-game-root .action-btn .ns-ico.action-ico{width:1.3em;height:1.3em;vertical-align:middle;}
+.ns-game-root .action-btn .ns-lbl{line-height:1;}
+.ns-game-root .log-ico{display:inline-flex;width:1.05em;height:1.05em;margin-right:6px;vertical-align:-0.16em;}
+.ns-game-root .log-ico .ns-ico{width:100%;height:100%;vertical-align:top;}
+.ns-game-root .floor-banner .banner-ico{width:0.9em;height:0.9em;vertical-align:-0.08em;margin-right:3px;}
+.ns-game-root .lift-floor-btn .lift-ico{width:1em;height:1em;vertical-align:-0.14em;margin-left:5px;}
+
 /* ---------- container window (dual-panel loot / stash) ----------
    Canvas-putih theme, matching .ns-settings-panel (see SETTINGS MODAL
    block below): warm off-white/parchment base, brown hairline borders,

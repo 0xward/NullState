@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { GiBroadsword, GiLightningTrio, GiPotionBall, GiPadlock } from 'react-icons/gi'
 import { attachLiveStatsBridge, subscribeLiveStats } from '@/lib/liveStatsBridge'
 import { useRouter } from 'next/navigation'
 import { useWallet } from '@/lib/WalletProvider'
@@ -921,7 +922,7 @@ export default function DungeonGame({ playerProfile, setPlayerUsername, isNewRun
 
           <div id="touchControls" className="touch hidden">
             <div id="stick" className="stick"><div id="stickNub" className="nub" /></div>
-            <button id="atkBtn" className="atk">⚔</button>
+            <button id="atkBtn" className="atk" aria-label="Attack"><GiBroadsword aria-hidden size={26} /></button>
           </div>
 
           <div className="hint">WASD / Arrows · move&nbsp;&nbsp;·&nbsp;&nbsp;SPACE / J / Click · attack&nbsp;&nbsp;·&nbsp;&nbsp;E · interact</div>
@@ -959,7 +960,8 @@ export default function DungeonGame({ playerProfile, setPlayerUsername, isNewRun
                 disabled={energyBusy}
                 onClick={handleEnergyRefill}
               >
-                ⚡ REFILL +{GAME_CONFIG.energy.refillRuns} — ${GAME_CONFIG.energy.refillPriceUSD}
+                <GiLightningTrio aria-hidden className="mr-1.5 inline-block align-[-0.15em]" size={15} />
+                REFILL +{GAME_CONFIG.energy.refillRuns} — ${GAME_CONFIG.energy.refillPriceUSD}
               </button>
               <button
                 className="ghost-btn"
@@ -1020,7 +1022,8 @@ export default function DungeonGame({ playerProfile, setPlayerUsername, isNewRun
                 disabled={elixirBusy}
                 onClick={handleElixirBuy}
               >
-                ⚗ BUY ELIXIR — ${GAME_CONFIG.elixir.priceUSD}
+                <GiPotionBall aria-hidden className="mr-1.5 inline-block align-[-0.15em]" size={15} />
+                BUY ELIXIR — ${GAME_CONFIG.elixir.priceUSD}
               </button>
               <button
                 className="ghost-btn"
@@ -1097,14 +1100,14 @@ export default function DungeonGame({ playerProfile, setPlayerUsername, isNewRun
               {/* slide 3: clear the floor — lock icon that unlocks */}
               <div className="tut-slide hidden" data-slide="clear">
                 <div className="tut-lock-demo">
-                  <div id="tutLockIcon" className="tut-lock-icon">🔒</div>
+                  <div id="tutLockIcon" className="tut-lock-icon"><GiPadlock aria-hidden size={28} /></div>
                   <div id="tutLiftGlow" className="tut-lift-glow" />
                 </div>
               </div>
               {/* slide 4: ulti / NULL_STRIKE — pulsing lightning bolt */}
               <div className="tut-slide hidden" data-slide="ulti">
                 <div className="tut-ulti-demo">
-                  <div id="tutBolt" className="tut-bolt">⚡</div>
+                  <div id="tutBolt" className="tut-bolt"><GiLightningTrio aria-hidden size={30} /></div>
                   <div className="tut-hp-bar"><div id="tutHpFill" className="tut-hp-fill" /></div>
                 </div>
               </div>
@@ -1120,9 +1123,10 @@ export default function DungeonGame({ playerProfile, setPlayerUsername, isNewRun
           </div>
         </div>
 
-        {/* Context-sensitive action button — shows "⚡ NULL_STRIKE" near a
-            boss in range, or "▤ OPEN" near a clear-room container. Driven
-            every frame by updateActionButton() in game.js. */}
+        {/* Context-sensitive action button — shows a NULL_STRIKE icon+label
+            near a boss in range, or an OPEN icon+label near a clear-room
+            container. Driven every frame by updateActionButton() in game.js
+            (icons injected via nsIcon() — game-icons.net). */}
         <button id="actionBtn" className="action-btn hidden" />
 
         {/* Dual-panel container window (loot on the left, your stash on
