@@ -8,7 +8,7 @@ export const metadata = {
   description: 'Terms of Service for NULL_STATE, a Web3 RPG on Celo. Operated by 1892 Studio.',
 }
 
-const LAST_UPDATED = 'July 10, 2026'
+const LAST_UPDATED = 'July 21, 2026'
 
 export default function TermsPage() {
   return (
@@ -68,14 +68,33 @@ export default function TermsPage() {
               <p>
                 NULL_STATE is a real-time dungeon-crawler RPG deployed on the Celo blockchain.
                 Players connect a self-custodied wallet and participate in item collection and
-                season competitions. Movement, combat, and looting are free and off-chain; specific
-                gameplay actions — such as NULL_STRIKEs, Marketplace purchases, vault submissions,
-                and claiming burn rewards — are executed as signed transactions on Celo mainnet.
+                season competitions. Movement, combat, looting, and NULL_STRIKE are all free and
+                off-chain; only specific optional actions — such as Marketplace purchases and
+                Season Pass minting — are executed as signed transactions on Celo mainnet. Weekly
+                Treasure Vault and seasonal Leaderboard stablecoin rewards are paid out to your
+                wallet by 1892 Studio when earned.
               </p>
               <p>
                 Off-chain game state (item inventory, current progress, season stats) is stored
                 in a Firebase-backed database operated by 1892 Studio and governed by our
                 Privacy Policy.
+              </p>
+              <p>
+                <strong className="text-null-white">Guest Play:</strong>{' '}
+                Outside of MiniPay you may play without connecting a wallet. In this &ldquo;guest&rdquo;
+                mode, progress is stored locally on your device (browser localStorage). Guest play
+                cannot receive stablecoin rewards. When you later connect a wallet, your guest
+                progress is migrated onto that wallet account on a best-effort basis. Clearing your
+                browser storage before connecting may permanently erase un-migrated guest progress.
+              </p>
+              <p>
+                <strong className="text-null-white">NullState Point:</strong>{' '}
+                &ldquo;NullState Point&rdquo; is an in-game, faucet-only reward earned by burning
+                looted items. It is <strong className="text-null-white">not</strong> a
+                cryptocurrency, security, or money: it has no cash value, cannot be withdrawn,
+                transferred, traded, or exchanged for stablecoins, and exists only to be spent on
+                non-premium Marketplace gear inside the Game. Real stablecoin rewards come only from
+                the weekly Treasure Vault, the seasonal Leaderboard, and Season Pass reward tracks.
               </p>
             </div>
           </section>

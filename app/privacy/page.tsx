@@ -8,7 +8,7 @@ export const metadata = {
   description: 'Privacy Policy for NULL_STATE, a Web3 RPG on Celo. Operated by 1892 Studio.',
 }
 
-const LAST_UPDATED = 'July 10, 2026'
+const LAST_UPDATED = 'July 21, 2026'
 
 export default function PrivacyPage() {
   return (
@@ -71,7 +71,7 @@ export default function PrivacyPage() {
                 <ul className="flex flex-col gap-2 font-mono text-sm">
                   {[
                     'Your wallet address (used as your in-game identity)',
-                    'USDm transfer records (burn rewards claimed)',
+                    'Stablecoin transfer records (Marketplace purchases, Season Pass, and Vault/Leaderboard reward payouts)',
                     'Vault code submission hashes (proof of puzzle completion)',
                     'Leaderboard snapshots (season-end top-player records)',
                     'Pass NFT ownership (your season pass certificates)',
@@ -110,14 +110,41 @@ export default function PrivacyPage() {
                   ))}
                 </ul>
                 <p className="mt-3">
-                  Off-chain records are keyed to your wallet address. Progress auto-saves every
-                  30 seconds and can be manually saved at any time.
+                  Off-chain records are keyed to your wallet address. Progress is drafted locally
+                  and synced to this database at key moments — advancing a floor, leveling up, dying,
+                  or leaving the game — and can also be manually saved at any time.
                 </p>
               </div>
 
               <div>
                 <h3 className="text-null-green font-mono text-xs tracking-[2px] uppercase mb-2">
-                  2.3 What We Do NOT Collect
+                  2.3 Local Device Storage (Guest Mode &amp; Settings)
+                </h3>
+                <p className="mb-3">
+                  Some data is stored only in your own browser (localStorage) and never leaves your
+                  device unless you connect a wallet:
+                </p>
+                <ul className="flex flex-col gap-2 font-mono text-sm">
+                  {[
+                    'Guest progress — if you play outside MiniPay without a wallet, your run progress is kept locally under a randomly generated guest id',
+                    'A local draft of your latest progress, used to avoid losing a run if the page reloads',
+                    'Local preferences such as sound/mute and audio volume',
+                  ].map((item) => (
+                    <li key={item} className="pl-4 relative before:content-[&apos;—&apos;] before:absolute before:left-0 before:text-null-green">
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-3">
+                  When you connect a wallet, guest progress is migrated onto your wallet account on a
+                  best-effort basis and the local guest id is then cleared. You can remove all of this
+                  at any time by clearing your browser&apos;s site data.
+                </p>
+              </div>
+
+              <div>
+                <h3 className="text-null-green font-mono text-xs tracking-[2px] uppercase mb-2">
+                  2.4 What We Do NOT Collect
                 </h3>
                 <p className="mb-3">
                   NULL_STATE is designed to be minimally invasive. We do <em>not</em> collect:
