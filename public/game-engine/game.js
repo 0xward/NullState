@@ -4344,6 +4344,7 @@ function drawLPCPreview(elId){
     weaponId: weaponId||undefined, armorId: armorId||undefined, outfitId: outfitId||undefined });
   host.innerHTML=''; host.appendChild(c);
   host.style.cssText=`width:${BOX}px;height:${BOX}px;`;
+  _previewPainted = true; // the knight body is now on screen at least once
   return gearReady;
 }
 // v72 (user finding #3): retry until the preview actually renders with all
@@ -4352,11 +4353,12 @@ function drawLPCPreview(elId){
 // the retries just let late-decoding gear overlays pop in.
 let _previewTries = 0;
 let _previewTimer = null;
+let _previewPainted = false; // has the knight body been drawn into the box yet?
 function paintPreview(reset){
   // v80: `reset` restarts the retry budget — boot() passes true so a
   // re-mount (exit game -> open again) can never inherit an exhausted
   // counter from the previous session and leave the box permanently blank.
-  if(reset === true) _previewTries = 0;
+  if(reset === true){ _previewTries = 0; _previewPainted = false; }
   const done = drawPreview('prevKnight');
   // OWNER FIX: the char-select preview kept coming up BLANK. Root cause: the
   // canvas is appended imperatively into the React-rendered #prevKnight, and a
@@ -4372,12 +4374,16 @@ function paintPreview(reset){
   const titleVisible = _t && !_t.classList.contains('hidden');
   if(!destroyed && titleVisible){
     _previewTries++;
-    // Once we've painted at least once, keep the slow keep-alive going
-    // indefinitely; before the first success, cap the fast retries (~16s) so a
-    // genuinely missing asset can't spin forever.
-    if(done || _previewTries < 80){
-      _previewTimer = setTimeout(paintPreview, done ? 1000 : 200);
-    }
+    // The keep-alive NEVER stops while the title/char-select is on screen —
+    // this is the fix for the long-standing "box goes blank forever" bug. Root
+    // cause: the old loop stopped after ~80 tries when late gear overlays had
+    // not decoded (done stayed false), and any later React re-render then wiped
+    // the imperatively-appended canvas with no repaint left to restore it.
+    // Now: fast 200ms retries only until the body first paints; after that a
+    // permanent ~1s keep-alive re-asserts the canvas so a re-render can never
+    // leave it blank, whether or not the equipped gear has finished loading.
+    const settled = done || _previewPainted;
+    _previewTimer = setTimeout(paintPreview, settled ? 1000 : 200);
   }
 }
 // (sound toggle now lives in the React Settings modal — see toggleSound() in the public API)
@@ -4653,7 +4659,13 @@ async function boot(){
   resize();
   $('titleLore').textContent=Story.title;
   setupTouch();
-  _fullPreloadPromise = preloadAll();
+  // NOTE: the heavy full preload (monsters/decor/backgrounds, several MB) is
+  // deliberately NOT kicked off here anymore. On a slow mobile connection its
+  // dozens of parallel requests starved the 4 tiny files the character-select
+  // preview needs, so the box sat blank for a long time ("selalu lama loading
+  // disitu"). It's now started AFTER the preview has painted (see below), and
+  // onStart() already falls back to preloadAll() if the player descends before
+  // that line runs — so gameplay can still never start before art is ready.
 
   // "Continue" from the React Main Menu passes a saved bunker snapshot in
   // via mount({ savedSession }) — see DungeonGame.tsx.
@@ -4699,6 +4711,11 @@ async function boot(){
   // retry budget ran out on a very slow connection) upgrade the box to the
   // full LPC composite with equipped gear the moment those sheets decode.
   paintPreview(true);
+  // Now that the preview has its first paint, start the heavy full preload
+  // (monsters/decor/backgrounds) + the targeted LPC gear sweep in the
+  // background. Deferring to here means they never compete with the 4 tiny
+  // preview files above on a slow connection.
+  _fullPreloadPromise = preloadAll();
   preloadLPCHero().then(()=>{ if(!destroyed) paintPreview(true); }).catch(()=>{});
   rafId=requestAnimationFrame(frame);
 }

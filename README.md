@@ -18,7 +18,7 @@ Playing, looting, and the **NULL_STRIKE** ultimate are all free — no wallet tr
 
 ## Gameplay
 
-- **3 playable classes** — Knight, Rogue, and Wizzard, each with their own sprite set and class-flavored attack effects (steel slash, dagger flicker, fire burst).
+- **The Knight** — the playable character, an armored melee crawler with a class-flavored steel-slash attack. Gear (weapons, armor, cosmetic outfits) is what changes your look and power, not a class pick.
 - **Procedural bunker floors** — square, grid-aligned rooms connected by corridors and doors, generated fresh per floor and cached for the rest of the run so a cleared floor stays cleared if you backtrack.
 - **Fog of war** — rooms you haven't entered render fully dark; walking through a door permanently reveals that room for the rest of the run.
 - **The Lift** — replaces simple staircases. Approach it to open a floor-select menu: revisit any floor you've already cleared, or push forward to the next one (locked until every hostile on the current floor — including elites and the floor boss — is dead).
@@ -121,7 +121,7 @@ public/game-engine/        The game engine
   dungeon.js               Procedural dungeon generator
   audio.js                 Sound effects manager
 public/sprites/            Character, monster, and decoration sprite sheets
-  player/                  knight/rogue/wizzard — idle, run, death
+  player/                  knight — idle, run, death (the only playable character)
   monsters/                Orc & Skeleton crews — idle, run, death
   monsters2/               Skel Reaper & Vampire — full idle/walk/attack/death sheets
 styles/globals.css         Tailwind base + wooden inventory UI theme
