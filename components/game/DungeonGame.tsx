@@ -860,6 +860,29 @@ export default function DungeonGame({ playerProfile, setPlayerUsername, isNewRun
               <span className="ns-elixir-badge">{elixir.owned}</span>
             ) : null}
           </button>
+          {/* Mute toggle — always-visible one-tap sound on/off in the HUD
+              cluster (owner: "mute gampang dilihat"). Mirrors the same
+              handleToggleSound + soundMuted state the Settings modal uses, so
+              the two stay in sync. Icon + red tint reflect the muted state. */}
+          <button
+            type="button"
+            className={`ns-mute-trigger${soundMuted ? ' is-muted' : ''}`}
+            aria-label={soundMuted ? 'Unmute sound' : 'Mute sound'}
+            aria-pressed={soundMuted}
+            onClick={handleToggleSound}
+          >
+            {soundMuted ? (
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M4 9v6h3.5L13 20V4L7.5 9H4Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"/>
+                <path d="M17 9.5l4 5M21 9.5l-4 5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+              </svg>
+            ) : (
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M4 9v6h3.5L13 20V4L7.5 9H4Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"/>
+                <path d="M16.5 8.5a5 5 0 0 1 0 7M18.8 6.2a8 8 0 0 1 0 11.6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+              </svg>
+            )}
+          </button>
           {/* Inventory — a centered modal (like #containerWindow/#itemZoom)
               rather than a small corner panel, so it never sits under the
               minimap/settings gear and always has room to show a full,
