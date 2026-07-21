@@ -1,6 +1,7 @@
 'use client'
 
 import { motion } from 'framer-motion'
+import { GiBroadsword, GiChainLightning, GiDeathSkull, GiSmartphone, GiChest, GiTrophy } from 'react-icons/gi'
 
 // ── PS1 Shared Variants ───────────────────────────────────────────────────────
 
@@ -23,12 +24,12 @@ const ps1JitterLight = {
 
 export default function AboutSection() {
   const pillars = [
-    { icon: '🗡️', title: 'Real-Time Dungeon Crawler', description: 'Move with WASD or the joystick, auto-attack roaming monsters, smash loot, and descend procedurally generated floors. Pure action — no menus.', tag: 'ACTION_RPG',  color: 'null-green' },
-    { icon: '⛓️', title: 'On-Chain Where It Counts', description: 'Season Passes, Vault Quest payouts, and Marketplace purchases are real transactions on Celo, settled in USDm/USDC/USDT. Inventory and run progress live off-chain for instant, gasless play.', tag: 'CELO_L1',       color: 'null-blue'  },
-    { icon: '💀', title: 'Permadeath, Softened',    description: 'Dying drops you back at the floor you died on with full HP — not floor 1. Loot you have not burned carries across bunkers until you spend it.', tag: 'HIGH_STAKES',  color: 'null-red'   },
-    { icon: '📱', title: 'Mobile-First via MiniPay',description: "Play inside MiniPay — no seed phrases, instant CELO wallet. Built for Africa and Southeast Asia's fastest-growing digital payments app.", tag: 'MINIPAY_NATIVE',color: 'null-amber' },
-    { icon: '🔐', title: 'Treasure Vault Quest',    description: 'Find the Golden Key and the Code Paper hidden in the bunkers, reach the Vault, and crack a 4-digit code that resets every week for a real USDm payout.', tag: 'WEEKLY_QUEST',  color: 'null-green' },
-    { icon: '🏆', title: 'Seasonal Leaderboard',    description: 'A monthly hybrid score — USDm earned, items collected, kills, activity, and vault codes solved — decides the top 3, who split a real USDm prize pool.', tag: 'MONTHLY_SEASON',  color: 'null-acid'  },
+    { icon: GiBroadsword,    title: 'Real-Time Dungeon Crawler', description: 'Move with WASD or the joystick, auto-attack roaming monsters, smash loot, and descend procedurally generated floors. Pure action — no menus.', tag: 'ACTION_RPG',  color: 'null-green' },
+    { icon: GiChainLightning, title: 'On-Chain Where It Counts', description: 'Season Passes, Vault Quest payouts, and Marketplace purchases are real transactions on Celo, settled in USDm/USDC/USDT. Inventory and run progress live off-chain for instant, gasless play.', tag: 'CELO_L1',       color: 'null-blue'  },
+    { icon: GiDeathSkull,    title: 'Permadeath, Softened',    description: 'Dying drops you back at the floor you died on with full HP — not floor 1. Loot you have not burned carries across bunkers until you spend it.', tag: 'HIGH_STAKES',  color: 'null-red'   },
+    { icon: GiSmartphone,    title: 'Mobile-First via MiniPay',description: "Play inside MiniPay — no seed phrases, instant CELO wallet. Built for Africa and Southeast Asia's fastest-growing digital payments app.", tag: 'MINIPAY_NATIVE',color: 'null-amber' },
+    { icon: GiChest,         title: 'Treasure Vault Quest',    description: 'Find the Golden Key and the Code Paper hidden in the bunkers, reach the Vault, and crack a 4-digit code that resets every week for a real USDm payout.', tag: 'WEEKLY_QUEST',  color: 'null-green' },
+    { icon: GiTrophy,        title: 'Seasonal Leaderboard',    description: 'A monthly hybrid score — USDm earned, items collected, kills, activity, and vault codes solved — decides the top 3, who split a real USDm prize pool.', tag: 'MONTHLY_SEASON',  color: 'null-acid'  },
   ]
 
   return (
@@ -74,14 +75,14 @@ export default function AboutSection() {
 
               {/* Icon — PS1 float, staggered by index */}
               <motion.div
-                className="text-[26px] mb-3"
+                className="mb-3"
                 variants={ps1Float}
                 animate="animate"
-                style={{ display: 'inline-block' }}
+                style={{ display: 'inline-block', color: `var(--${pillar.color})` }}
                 // stagger each icon's phase so they bob independently
                 transition={{ delay: i * 0.38 }}
               >
-                {pillar.icon}
+                <pillar.icon aria-hidden size={34} />
               </motion.div>
 
               <h3 className="font-display font-bold text-null-white text-[15px] uppercase tracking-wide mb-3">

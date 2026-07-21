@@ -1,6 +1,7 @@
 'use client';
 
 import Image from 'next/image';
+import { GiMedal } from 'react-icons/gi';
 import { formatUSDm, parseUSDmReadable } from '@/lib/constants/tokens';
 import { useState } from 'react';
 
@@ -125,10 +126,10 @@ export function RewardCard({
 }) {
   const [logoError, setLogoError] = useState(false);
 
-  const rankEmojis: { [key: number]: string } = {
-    1: '🥇',
-    2: '🥈',
-    3: '🥉',
+  const rankMedalColor: { [key: number]: string } = {
+    1: '#ffd166',
+    2: '#c8d0d8',
+    3: '#cd7f32',
   };
 
   const displayAmount = parseUSDmReadable(amount).toFixed(2);
@@ -146,7 +147,7 @@ export function RewardCard({
     >
       <div className="flex items-center justify-between mb-2">
         <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
-          {rank && rankEmojis[rank]} {label}
+          {rank && rankMedalColor[rank] && <GiMedal aria-hidden className="inline-block align-[-0.15em]" style={{ color: rankMedalColor[rank] }} />} {label}
         </span>
         {isClaimed && (
           <span className="text-xs font-semibold text-green-600 dark:text-green-400">✓ Claimed</span>

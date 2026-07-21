@@ -15,6 +15,26 @@ const CAMPAIGN = window.NS_CAMPAIGN;
 const Outdoor = window.NS_OUTDOOR;
 const A = window.Audio2;
 
+// Phase 4 icons — game-icons.net (CC BY 3.0, see ICON-CREDITS.md).
+// Inline SVG so engine buttons/labels/logs use themed icons instead of
+// mainstream emoji. fill=currentColor -> inherits the surrounding color.
+const NS_ICON_PATHS = {
+  strike: ["0 0 512 512", "<path d='M292.53 20.5l19 40.594L66.314 28.75 362.03 158.125l-18.967-40.594 149.218 15.282L292.53 20.5zm-252 23.375L318.314 413.97 312.906 348l184.97 146.5L294 186.656l5.406 65.97L40.53 43.875zM20.907 76.22l36.5 316.405L83.03 351.75l68.095 139.344-9.594-241.125-25.624 40.843-95-214.594z'></path>"],
+  open: ["0 0 512 512", "<path d='M457.03 213.037L416.514 100.24C425 77.232 433.27 68.075 437.527 64.633c3.162-2.563 5.922-3.534 8.185-2.904 4.134 1.168 8.775 7.7 12.278 17.456 11.266 31.347 10.377 87.094-.96 133.85zm-324.287-17.9l312.804 34.84-43.82-122.1L145.558 79.34c2.593 36.102-1.913 79.913-12.817 115.796zM128.98 77.5l-45.06-5.02 37.03 103.123c7.773-32.06 10.625-68.357 8.03-98.102zM101.46 27.19c-3.793 3.1-10.77 10.666-18.25 28.566L402.23 91.3c5.333-13.695 11.37-24.702 17.88-32.495L108.796 24.13c-2.573-.29-5.415 1.51-7.338 3.06zm280.63 283.338l.61 169.352 66.352-53.63-.61-169.35zM366.163 487.9L46.62 452.306 46 278.396l319.553 35.594zM216.726 337.648a9.777 9.777 0 0 0 5.168-9.405c-.248-6.367-5.364-12.092-11.43-12.857h-.125c-6.14-.693-10.904 3.927-10.646 10.335a13.973 13.973 0 0 0 5.767 10.543l-2.17 25.073 17.57 2.005zm219.28-91.983l-307.46-34.25v59.54l242.712 27.037zM58.31 263.13l54.34 6.058v-49.98z'></path>"],
+  vaultOpen: ["0 0 512 512", "<path d='M410.365 101.005c8.21-22.26 16.21-31.12 20.33-34.45 3.06-2.48 5.73-3.42 7.92-2.81 4 1.13 8.49 7.45 11.88 16.89 10.89 30.34 10 84.28-.93 129.51zm-286 72.92c7.52-31 10.28-66.13 7.77-94.92l-43.6-4.86zm289.46-113l-301.2-33.53c-2.5-.28-5.24 1.46-7.11 3-3.67 3-10.42 10.32-17.66 27.64l308.68 34.34c5.16-13.25 11.02-23.89 17.31-31.43zm-228.78 298.71v-70.72l10.76 1.19 42.24 5.18v70.51zm16-40.34a13 13 0 0 0 5.34 10.29l-2.34 24.42 17 1.74-4-25a9.54 9.54 0 0 0 5-9.15 13.64 13.64 0 0 0-11.06-12.59s.17.1.13.1c-5.95-.68-11.07 3.9-10.07 10.1zm53 64.45l-85-9.84v-86.72l-1.05-.09a8.14 8.14 0 0 1-7.27 6.71 8 8 0 0 1 5.23 8.9 8 8 0 0 1-8 6.66c8.453 4.004 4.341 16.778-4.86 15.1a8 8 0 0 1-8 13.8 8.01 8.01 0 0 1-12.28 10.29v.09a8 8 0 0 1-3.86 8.37l9.13 5.35v14.25l-12 7.13-12-7.12v-14.26l8.15-4.82a8.21 8.21 0 0 1-5.07-5.92.418.418 0 0 1 0-.1 8 8 0 0 1-15.18-5c-6.851 7.214-18.094-2.065-12.31-10.16-8.346 4.519-16.217-6.676-9.14-13-9.17 2.661-14.453-10.083-6.09-14.69a8 8 0 0 1-3.21-15.67c-9.294-1.047-9.548-14.463-.3-15.86-.669-.164-1.264-.473-1.83-.76l-17.24-1.86.6 167.11 309.18 34.49-.6-165.83-107-13.05zm140.06-164l4.72 1.91.91.58 38.72 4.31-23.26-64.77-12.82 37c-.16.46-3.41 9.8-8.27 20.99zm-208.54-39.74l5 5.49 12.75-11.15 21.45-2.28 16.61 15.35 10.51 8.73 18.54-9.29 3.44.5c.12-.67.25-1.34.38-2 3.08-16.1 7.35-30.16 7.53-30.75l13.39-43.91 16.88 42.71 8.42 21.42 10.66-12.39 22.14-25.73 5.78 33.45 3.29 19.1 17.1-9.64 35.09-19.79-18.48-51.4-247.86-27.61c2.51 34.94-1.85 77.32-12.39 112h2.32l7-12.86h40.46zm-111.29 97.39c7.6 2.1 7.9 12.766.43 15.29 7.737.867 9.802 11.153 3 14.94 7.653-.548 11.614 8.947 5.84 14 7.313-2.115 13.168 6.216 8.7 12.38 6.288-3.518 13.657 2.417 11.56 9.31 4.53-4.723 12.506-2.304 13.65 4.14 2.057-5.713 9.48-7.141 13.51-2.6-1.285-6.404 5.23-11.566 11.17-8.85-4.564-5.77.425-14.123 7.67-12.84-6.419-4.541-3.122-14.648 4.74-14.53-7.316-3.503-5.375-14.415 2.7-15.18a8 8 0 0 1-5.38-8l-76.43-8.26c-.41.19-.746.15-1.16.2zm367.54 139.08l-.59-163.86-8.67 7-55.51 46.79.58 162zm-26.23-165.2l-24.11-15.27-4.18-1.69c-5.91 11.52-13.39 23-22.66 27.88-5.44 2.88-12.22 4.34-20.16 4.34-11.13 0-24.75-2.91-37.35-8-10-4-23.3-11-30.26-21.34-4.9-7.29-6.64-17.77-5.31-32.92l-21.78 10.93-19-15.8-11.42-10.53-9.16 1-20.45 17.83-11-11.7h-24.21l-17.61 32-5.7-7.2-4.42 4.85-10.76 16.35-12.29 4.91L97.611 256h-12.2l-2.776 6.005 76.9 8.21a8.15 8.15 0 0 1 2-2.9 8 8 0 0 1 10.31-.46 1.657 1.657 0 0 1-.14-.24c-4.955-8.368 6.459-16.62 12.87-9.375 6.412 7.245-3.167 17.571-10.87 11.635a8 8 0 0 1 1.12 2.89l22.62 2.44 168.54 20.57 51.49-43.38zm-28.34-57.73l-36.88 20.79-7.14-41.47-28 32.51-18.13-46.11s-16.65 54.58-7 69c7.69 11.45 35.42 22.25 54.33 22.25 5 0 9.43-.76 12.67-2.48 13.8-7.31 30.15-54.49 30.15-54.49zm-317.08 270.8v-.2c0-3.77-8.21-6.83-18.33-6.83-10.12 0-18.33 3.06-18.33 6.83 0 3.21 6 5.9 14 6.63v.2c0 3.77 8.21 6.83 18.33 6.83 10.12 0 18.33-3.06 18.33-6.83-.01-3.21-5.98-5.9-14-6.63zm350 6.63c-10.13 0-18.33 3.06-18.33 6.83s8.21 6.83 18.33 6.83c10.12 0 18.33-3.06 18.33-6.83s-8.25-6.8-18.38-6.8zm40-16.28c-10.13 0-18.33 3.06-18.33 6.83s8.21 6.83 18.33 6.83c10.12 0 18.33-3.06 18.33-6.83s-8.22-6.83-18.34-6.83z'></path>"],
+  grapple: ["0 0 512 512", "<path d='M337.6 24.24l-86 87.96 61.3-21.32c2.2 27.22 4.6 54.42 6.8 81.82l-18.6 1.6c-8.5 8.3-17 16.9-25.5 25.4l25.8 25.8 25.2-25.1 2.4-17.6c29.2 3.8 57.9 7.9 87.1 11.5l-19.7 44.5 94.9-68c-38.3-8-76.6-15.6-114.9-23.3l3.7-18.3 22.9 4.6 16.2-57.25-53.3 19.56 3.3 28.09-18.6 2.2-3.8-32.96c-3-23.07-6.1-46.13-9.2-69.2zm-106 103.96L183.1 211l66-42.7 24.4 7 25.6-25.5-.3-3-67.2-18.6zm117.5 76.1l-19.2 19.2 4.5 11-49.3 73.6 90.3-55.2-17-47.4zM270 220.6c-2.7 43.5-37.2 77.4-79.1 77.3-54.3 0-98.09 45.8-98.08 101.6 0 43.5-31.73 78.7-72.07 82.5v13.1h25.9c37.86-14.2 64.85-51.8 64.85-95.6 0-46.1 35.6-82.9 79.4-82.9 46.9 0 85.9-34.2 95.7-79.5-5.5-5.5-11-11-16.6-16.5z'></path>"],
+  melt: ["0 0 512 512", "<path d='M245.05 15.514c34.29 48.815-23.535 320.54-90.302 136.72C106.796 325.11 38.956 332.518 38.876 252.55c-71.6 79.31 43.824 220.767 87.376 243.935h52.127c-45.92-40.016-76.784-78-82.176-135.968 47.312 9.423 71.855 20.96 81.263-62.048 60.736 86.59 100.944-49.376 137.184-107.12-1.647 40.32-3.343 93.456 22.848 129.888 8.736 12.143 33.232 16.11 54.736 15.807-9.92 16.08-44.848 69.376-17.008 89.2 27.84 19.824 33.072-.384 25.856 16.176-13.264 20.88-22.992 39.375-59.072 54.063h56.064c59.44-18.72 111.807-91.663 94.607-135.535-22.015 18.657-43.774 30.897-61.294 29.537 49.12-72.08 37.84-145.903 14.752-221.342-20.224 72.383-33.488 82.495-54.576 99.52 29.104-68.657-85.44-214.448-146.51-253.15z'></path>"],
+  lock: ["0 0 512 512", "<path d='M254.28 17.313c-81.048 0-146.624 65.484-146.624 146.406V236h49.594v-69.094c0-53.658 43.47-97.187 97.03-97.187 53.563 0 97.032 44.744 97.032 97.186V236h49.594v-72.28c0-78.856-65.717-146.407-146.625-146.407zM85.157 254.688c-14.61 22.827-22.844 49.148-22.844 76.78 0 88.358 84.97 161.5 191.97 161.5 106.998 0 191.968-73.142 191.968-161.5 0-27.635-8.26-53.95-22.875-76.78H85.155zM254 278.625c22.34 0 40.875 17.94 40.875 40.28 0 16.756-10.6 31.23-25.125 37.376l32.72 98.126h-96.376l32.125-98.125c-14.526-6.145-24.532-20.62-24.532-37.374 0-22.338 17.972-40.28 40.312-40.28z'></path>"],
+  scroll: ["0 0 512 512", "<path d='M103.432 17.844c-1.118.005-2.234.032-3.348.08-2.547.11-5.083.334-7.604.678-20.167 2.747-39.158 13.667-52.324 33.67-24.613 37.4 2.194 98.025 56.625 98.025.536 0 1.058-.012 1.583-.022v.704h60.565c-10.758 31.994-30.298 66.596-52.448 101.43-2.162 3.4-4.254 6.878-6.29 10.406l34.878 35.733-56.263 9.423c-32.728 85.966-27.42 182.074 48.277 182.074v-.002l9.31.066c23.83-.57 46.732-4.298 61.325-12.887 4.174-2.458 7.63-5.237 10.467-8.42h-32.446c-20.33 5.95-40.8-6.94-47.396-25.922-8.956-25.77 7.52-52.36 31.867-60.452 5.803-1.93 11.723-2.834 17.565-2.834v-.406h178.33c-.57-44.403 16.35-90.125 49.184-126 23.955-26.176 42.03-60.624 51.3-94.846l-41.225-24.932 38.272-6.906-43.37-25.807h-.005l.002-.002.002.002 52.127-8.85c-5.232-39.134-28.84-68.113-77.37-68.113C341.14 32.26 222.11 35.29 149.34 28.496c-14.888-6.763-30.547-10.723-45.908-10.652zm.464 18.703c13.137.043 27.407 3.804 41.247 10.63l.033-.07c4.667 4.735 8.542 9.737 11.68 14.985H82.92l10.574 14.78c10.608 14.83 19.803 31.99 21.09 42.024.643 5.017-.11 7.167-1.814 8.836-1.705 1.67-6.228 3.875-15.99 3.875-40.587 0-56.878-44.952-41.012-69.06C66.238 46.64 79.582 39.22 95.002 37.12c2.89-.395 5.863-.583 8.894-.573zM118.5 80.78h46.28c4.275 15.734 3.656 33.07-.544 51.51H131.52c1.9-5.027 2.268-10.574 1.6-15.77-1.527-11.913-7.405-24.065-14.62-35.74zm101.553 317.095c6.44 6.84 11.192 15.31 13.37 24.914 3.797 16.736 3.092 31.208-1.767 43.204-4.526 11.175-12.576 19.79-22.29 26h237.19c14.448 0 24.887-5.678 32.2-14.318 7.312-8.64 11.2-20.514 10.705-32.352-.186-4.473-.978-8.913-2.407-13.18l-69.91-8.205 42.017-20.528c-8.32-3.442-18.64-5.537-31.375-5.537H220.053zm-42.668.506c-1.152-.003-2.306.048-3.457.153-2.633.242-5.256.775-7.824 1.63-15.11 5.02-25.338 21.54-20.11 36.583 3.673 10.57 15.347 17.71 25.654 13.938l1.555-.57h43.354c.946-6.36.754-13.882-1.358-23.192-3.71-16.358-20.543-28.483-37.815-28.54z'></path>"],
+  key: ["0 0 512 512", "<path d='M356.5 16.375l-174.906 255.22 1.53 1.06 31.97 22.314 175.062-255.5L356.5 16.374zm90.063 62.22c-20.16 29.418-44.122 23.1-68.25 8.905l-48.688 72.875c21.278 16.55 36.46 35.645 18.594 61.72l42.967 29.468 28.907-42.157-14.72-9.156c-3.167 1.844-6.85 2.906-10.78 2.906-11.85 0-21.47-9.62-21.47-21.47 0-11.847 9.62-21.436 21.47-21.436s21.437 9.59 21.437 21.438c0 .195-.025.4-.03.593l15.906 9.907 17.938-26.218-37.688-23.5 11.03-17.72 14.94 9.313 10.093-16.188 24.25 15.094 17.092-24.94-43-29.436zM141.22 268.624c-.31.01-.628.023-.94.063-.827.104-1.652.284-2.53.562-3.51 1.11-7.4 4.066-10.125 7.938-2.724 3.87-4.16 8.487-4 12.125.16 3.637 1.257 6.338 5.25 9.125l76.594 53.468c3.283 2.293 5.727 2.35 9.124 1.156 3.396-1.192 7.323-4.26 10.125-8.218 2.8-3.96 4.352-8.66 4.31-12.188-.04-3.53-.89-5.787-4.374-8.22L148.03 270.97c-2.546-1.78-4.657-2.42-6.81-2.345zM84.28 312.78c-24.354.41-45.504 9.52-57.655 27.25-16.95 24.737-11.868 59.753 9.625 90.283-1.838 4.72-2.875 9.84-2.875 15.187 0 23.243 19.07 42.313 42.313 42.313 8.635 0 16.692-2.625 23.406-7.125 43.208 18.488 88.07 12.714 108.28-16.782 18.695-27.28 10.884-66.912-16.374-99.312l-63.094-44.03c-14.016-5.107-28.07-7.7-41.25-7.783-.792-.004-1.59-.012-2.375 0zm-8.593 109.126c13.143 0 23.594 10.45 23.594 23.594 0 13.143-10.45 23.625-23.593 23.625-13.142 0-23.624-10.482-23.624-23.625s10.482-23.594 23.624-23.594z'></path>"],
+  guard: ["0 0 512 512", "<path d='M255.997 16.004c-120 0-239.997 60-239.997 149.998C16 226.002 61 256 61 316c0 45-15 45-15 75 0 14.998 48.01 32.002 89.998 44.998v60h239.997v-60s90.567-27.957 90-45c-.933-27.947-15-30-15-74.998 0-30 45.642-91.42 44.998-149.998 0-90-119.998-149.998-239.996-149.998zm-90 179.997c33.137 0 60 26.864 60 60 0 33.136-26.863 60-60 60C132.863 316 106 289.136 106 256c0-33.136 26.862-60 59.998-60zm179.998 0c33.136 0 60 26.864 60 60 0 33.136-26.864 60-60 60-33.136 0-60-26.864-60-60 0-33.136 26.864-60 60-60zm-89.998 105c15 0 45 60 45 75 0 29.998 0 29.998-15 29.998h-60c-15 0-15 0-15-30 0-15 30-74.998 45-74.998z'></path>"],
+  heart: ["0 0 512 512", "<path d='M480.25 156.355c0 161.24-224.25 324.43-224.25 324.43S31.75 317.595 31.75 156.355c0-91.41 70.63-125.13 107.77-125.13 77.65 0 116.48 65.72 116.48 65.72s38.83-65.73 116.48-65.73c37.14.01 107.77 33.72 107.77 125.14z'></path>"],
+};
+function nsIcon(name, cls){
+  const p = NS_ICON_PATHS[name]; if(!p) return '';
+  return `<svg class="ns-ico ${cls||''}" viewBox="${p[0]}" fill="currentColor" aria-hidden="true">${p[1]}</svg>`;
+}
+
 // ---- mount/teardown state ----
 let CHAIN = null;            // injected on mount (wagmi bridge)
 let ENERGY = null;           // Phase 1 energy bridge (injected on mount, fail-open default)
@@ -689,7 +709,7 @@ function descend(toDepth){
   G.action.mode=null; G.action.target=null;
   setActionButton(null);
   const isBoss = G.depth%5===0;
-  showBanner(`FLOOR ${G.depth}`, isBoss?'⚠ GUARDED':backgrounds[G.bgIndex].split('/').pop().replace(/\.[a-z0-9]+$/i,'').toUpperCase());
+  showBanner(`FLOOR ${G.depth}`, isBoss?(nsIcon('guard','banner-ico')+' GUARDED'):backgrounds[G.bgIndex].split('/').pop().replace(/\.[a-z0-9]+$/i,'').toUpperCase());
   if(isBoss && floor.bossAlive){
     cutscene(Story.bossIntro);
   } else {
@@ -868,13 +888,13 @@ function applyLoot(kind,amt,x,y){
   else if(kind==='goldkey'){
     G.inventory.keys = (G.inventory.keys||0) + amt;
     lootText(x,y,'+'+amt+' Golden Key','#ffd166');
-    log('⚷ Golden Key found! Stored in your inventory.', 'reward');
+    log('Golden Key found! Stored in your inventory.', 'reward', 'key');
     spark(x, y-10, '#ffd166', 26, 200);
   }
   else if(kind==='paper'){
     G.inventory.paper = (G.inventory.paper||0) + amt;
     lootText(x,y,'+'+amt+' Old Paper','#c9a86a');
-    log('📜 A weathered paper, folded shut. Tap it in your inventory to read the code.', 'reward');
+    log('A weathered paper, folded shut. Tap it in your inventory to read the code.', 'reward', 'scroll');
     spark(x, y-10, '#c9a86a', 26, 200);
   }
   else if(kind==='gshard'){
@@ -968,12 +988,14 @@ function isRoomClear(room){
   if(!room || !G.dun) return true;
   return G.enemies.every(e => e.dead || (G.dun.roomAt((e.x/TILE)|0,(e.y/TILE)|0) !== room));
 }
-function setActionButton(mode, label){
+function setActionButton(mode, label, icon){
   const btn=$('actionBtn'); if(!btn) return;
   if(!mode){ btn.classList.add('hidden'); btn.disabled=false; btn.classList.remove('loading'); return; }
   btn.classList.remove('hidden');
   btn.dataset.mode=mode;
-  btn.textContent = label || (mode==='ulti' ? '⚡ NULL_STRIKE' : '▤ OPEN');
+  const txt = label || (mode==='ulti' ? 'NULL_STRIKE' : 'OPEN');
+  const ic  = icon  || (mode==='ulti' ? 'strike' : 'open');
+  btn.innerHTML = nsIcon(ic, 'action-ico') + '<span class="ns-lbl">'+txt+'</span>';
 }
 function updateActionButton(nearest, nd){
   const a=G.action;
@@ -981,7 +1003,7 @@ function updateActionButton(nearest, nd){
   // Priority 1: a live boss within striking range -> NULL_STRIKE.
   if(nearest && !nearest.dead && nearest.isBoss && nd<180){
     a.mode='ulti'; a.target=nearest;
-    setActionButton('ulti', '⚡ NULL_STRIKE');
+    setActionButton('ulti', 'NULL_STRIKE', 'strike');
     return;
   }
   // Priority 2: nearest unopened container, but only once its room is clear.
@@ -996,16 +1018,16 @@ function updateActionButton(nearest, nd){
     const room=G.dun.roomAt((p.x/TILE)|0,(p.y/TILE)|0);
     if(isRoomClear(room)){
       a.mode='open'; a.target=nearestDecor;
-      let _lbl='▤ OPEN';
+      let _lbl='OPEN', _ic='open';
       const _def=nearestDecor.def;
-      if(_def.isVaultDoor) _lbl='🔓 OPEN VAULT';
+      if(_def.isVaultDoor){ _lbl='OPEN VAULT'; _ic='vaultOpen'; }
       else if(_def.isSealedCache){
         // Phase 8: label reflects whether the equipped weapon has the utility.
         const u=_def.sealedUtility;
-        if(_playerHasUtility(u)) _lbl = (u==='grapple') ? '🪝 GRAPPLE OPEN' : '🔥 MELT OPEN';
-        else _lbl = (u==='grapple') ? '🔒 NEEDS GRAPPLE' : '🔒 NEEDS MELT';
-      } else if(_def.isPremiumCache) _lbl='✦ OPEN CACHE';
-      setActionButton('open', _lbl);
+        if(_playerHasUtility(u)){ _lbl = (u==='grapple') ? 'GRAPPLE OPEN' : 'MELT OPEN'; _ic = (u==='grapple') ? 'grapple' : 'melt'; }
+        else { _lbl = (u==='grapple') ? 'NEEDS GRAPPLE' : 'NEEDS MELT'; _ic='lock'; }
+      } else if(_def.isPremiumCache){ _lbl='OPEN CACHE'; _ic='open'; }
+      setActionButton('open', _lbl, _ic);
       return;
     }
   }
@@ -1024,7 +1046,7 @@ function onUltiButtonTap(){
   const t=G.action.target; if(!t || t.dead) return;
   const btn=$('actionBtn');
   applyUltiDamage(t);
-  log('⚡ NULL_STRIKE landed — '+(t.name||'foe')+' reels, near death.', 'reward');
+  log('NULL_STRIKE landed — '+(t.name||'foe')+' reels, near death.', 'reward', 'strike');
   if(btn){ btn.disabled=true; btn.classList.add('loading'); btn.textContent='…'; }
   G.action.cd=8;
   setTimeout(()=>{
@@ -1177,7 +1199,7 @@ function renderContainerSlots(){
       // stands in for a real icon (no dedicated hp/xp sprite exists yet).
       // (v40 — 'celo' entry removed along with the dead currency itself.)
       const NON_ITEM_STYLE={
-        hp:   { color:'#ef4444', glyph:'❤️' },
+        hp:   { color:'#ef4444', glyph:nsIcon('heart') },
         xp:   { color:'#4ade80', glyph:'✦' },
       };
       const styleCfg=NON_ITEM_STYLE[s.kind];
@@ -1188,7 +1210,7 @@ function renderContainerSlots(){
       if(SPECIAL_KINDS[s.kind]) row.classList.add('inv-item-special');
       else if(styleCfg) row.style.borderColor=styleCfg.color;
       row.innerHTML=(iconSrc?`<img class="inv-item-icon" src="${iconSrc}" alt="${labelMap[s.kind]||s.kind}" draggable="false">`
-          :(styleCfg?`<span class="inv-item-icon" style="font-size:20px;line-height:1;display:block;">${styleCfg.glyph}</span>`:''))+
+          :(styleCfg?`<span class="inv-item-icon" style="font-size:20px;line-height:1;display:block;color:${styleCfg.color}">${styleCfg.glyph}</span>`:''))+
         `<span class="inv-item-name"${styleCfg?` style="color:${styleCfg.color}"`:''}>+${s.amt}${typeof s.amt==='number'&&s.amt<1?'':''} ${labelMap[s.kind]||s.kind.toUpperCase()}</span>`;
     }
     // Item slots open the zoom overlay (TAKE button) for a deliberate,
@@ -1336,7 +1358,8 @@ function renderLiftMenu(opts){
     const btn = document.createElement('button');
     btn.className = 'big-btn lift-floor-btn' + (o.floor===G.depth ? ' current' : '') + (o.locked ? ' locked' : '');
     btn.disabled = o.locked;
-    btn.textContent = o.locked ? `FLOOR ${o.floor} 🔒` : (o.floor===G.depth ? `FLOOR ${o.floor} (here)` : `FLOOR ${o.floor}`);
+    if(o.locked){ btn.innerHTML = `FLOOR ${o.floor} ` + nsIcon('lock','lift-ico'); }
+    else btn.textContent = (o.floor===G.depth ? `FLOOR ${o.floor} (here)` : `FLOOR ${o.floor}`);
     if(!o.locked && o.floor!==G.depth){
       btn.addEventListener('click', () => { closeLiftMenu(); travelToFloor(o.floor); });
     }
@@ -4089,11 +4112,13 @@ function onInvToggle(){
 // elemen yang udah kehapus. gantian: tampil -> (5.2s) -> fade 0.6s ->
 // hilang -> (pesan berikutnya) tampil lagi, persis kayak yang diminta.
 let logLineTO=null;
-function log(text,type='dm'){
+function log(text,type='dm',icon){
   const box=$('log'); if(!box) return;
   clearTimeout(logLineTO);
   box.innerHTML='';
-  const el=document.createElement('div'); el.className='line '+type; el.textContent=text;
+  const el=document.createElement('div'); el.className='line '+type;
+  if(icon){ const i=document.createElement('span'); i.className='log-ico'; i.innerHTML=nsIcon(icon); el.appendChild(i); }
+  el.appendChild(document.createTextNode(text));
   box.appendChild(el);
   logLineTO=setTimeout(()=>{ if(el.parentNode){el.style.transition='opacity .6s';el.style.opacity='0';
     setTimeout(()=>{ if(el.parentNode) el.remove(); },600);} }, 5200);

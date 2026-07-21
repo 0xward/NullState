@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { usePublicClient } from 'wagmi'
+import { GiAnvil, GiCheckedShield, GiSandsOfTime } from 'react-icons/gi'
 import { useWallet, CELO_CHAIN_ID } from '@/lib/WalletProvider'
 import { pickBestPaymentToken } from '@/lib/constants/tokens'
 import {
@@ -184,7 +185,7 @@ export default function CraftingScreen({ onBack, onGoToRun, address }: CraftingS
       } else {
         setCraft(data.craft)
         setNowTick(Date.now())
-        setMsg({ text: `⚒ Forging ${item.name} → Tier ${data.craft.targetTier}. Come back when it's ready, or Finish Now.`, kind: 'ok' })
+        setMsg({ text: `Forging ${item.name} → Tier ${data.craft.targetTier}. Come back when it's ready, or Finish Now.`, kind: 'ok' })
       }
     } catch (e: unknown) {
       setMsg({ text: e instanceof Error ? e.message : 'Could not start craft', kind: 'err' })
@@ -239,7 +240,7 @@ export default function CraftingScreen({ onBack, onGoToRun, address }: CraftingS
       setTiers(prev => ({ ...prev, [data.itemId]: data.tier }))
       const name = getMarketplaceItem(data.itemId)?.name || 'Weapon'
       setCraft(null)
-      setMsg({ text: `⚡ ${name} evolved to Tier ${data.tier} — timer skipped!`, kind: 'ok' })
+      setMsg({ text: `${name} evolved to Tier ${data.tier} — timer skipped!`, kind: 'ok' })
     } catch (e: unknown) {
       setMsg({ text: e instanceof Error ? e.message : 'Finish Now failed', kind: 'err' })
     } finally {
@@ -326,7 +327,7 @@ export default function CraftingScreen({ onBack, onGoToRun, address }: CraftingS
               <span className="rounded border border-[#8a5a2b] px-3 py-1.5 font-mono text-[10px] font-bold uppercase tracking-wider text-[#c39a5f]">Max</span>
             ) : activeHere ? (
               <span className="font-mono text-[11px] font-bold text-[#f2cd82]">
-                {craftReady ? 'Ready ✓' : `⏳ ${fmtDur(remainingMs)}`}
+                {craftReady ? 'Ready ✓' : <span className="inline-flex items-center gap-1"><GiSandsOfTime aria-hidden size={12} /> {fmtDur(remainingMs)}</span>}
               </span>
             ) : (
               <span className="font-mono text-[10px] text-[#9c7a4f]">
@@ -352,7 +353,7 @@ export default function CraftingScreen({ onBack, onGoToRun, address }: CraftingS
               disabled={busy !== null || craftReady}
               className="rounded bg-gradient-to-b from-[#e8bd6f] to-[#c9962f] px-3 py-2 font-mono text-[10px] font-bold uppercase tracking-wider text-[#2a1705] transition hover:brightness-110 disabled:opacity-40"
             >
-              {busy === item.id && !craftReady ? '…' : `⚡ Finish Now — $${finishPrice}`}
+              {busy === item.id && !craftReady ? '…' : <><span style={{ color: '#ffffff' }}>{'⚡︎'}</span> Finish Now — ${finishPrice}</>}
             </button>
           </div>
         ) : busyElsewhere ? (
@@ -458,7 +459,7 @@ export default function CraftingScreen({ onBack, onGoToRun, address }: CraftingS
         )}
 
         <section>
-          <h2 className="mb-2 font-mono text-xs font-bold uppercase tracking-[3px] text-[#e6c07a]">⚒ Your Weapons</h2>
+          <h2 className="mb-2 flex items-center gap-1.5 font-mono text-xs font-bold uppercase tracking-[3px] text-[#e6c07a]"><GiAnvil aria-hidden size={15} /> Your Weapons</h2>
           {weapons.length === 0 ? (
             <div className="rounded-lg border border-[#7a4f24]/40 bg-[#2b1a0d]/60 p-4 text-center font-mono text-[11px] text-[#9c7a4f]">
               No weapons to evolve yet. Buy one in the Marketplace, then level it here with Glitch Shards.
@@ -475,7 +476,7 @@ export default function CraftingScreen({ onBack, onGoToRun, address }: CraftingS
             owning an act's sector spawns a guaranteed Glitch-Shard cache each
             run of that act. Never gates or alters the 5 core story acts. */}
         <section className="mt-6">
-          <h2 className="mb-1 font-mono text-xs font-bold uppercase tracking-[3px] text-[#e6c07a]">⛨ Premium Sectors</h2>
+          <h2 className="mb-1 flex items-center gap-1.5 font-mono text-xs font-bold uppercase tracking-[3px] text-[#e6c07a]"><GiCheckedShield aria-hidden size={15} /> Premium Sectors</h2>
           <p className="mb-2 font-mono text-[9px] leading-relaxed text-[#9c7a4f]">
             Optional bonus sectors. Each unlocks a guaranteed Glitch-Shard cache on that act&apos;s first floor — a faster, free-to-farm path to evolution shards. Purely optional; the core story is unaffected.
           </p>
