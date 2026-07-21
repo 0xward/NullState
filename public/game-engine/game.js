@@ -959,28 +959,7 @@ function applyUltiDamage(t){
   dmgNum(t.x,t.y-t.r,dmg,true);
   spark(t.x,t.y-10,'#ffae00',46,320);
   G.shake=8; G.ultiFlash=0.55; A.ultiBlast(); // was 13 — punch list #10, v38
-  return dmg; // needed by onUltiButtonTap so a failed fee tx can claw back
-              // part of it — see downgradeUltiDamage / punch list #11.
-}
-// #11 fix (option C, approved this session): NULL_STRIKE still lands at full
-// power instantly for feel, but if the background fee tx later fails, we
-// retroactively give back most of the HP it took — leaving only roughly
-// what a normal hit would have dealt. Closes the "spam ulti with no funds"
-// exploit without adding a wait before the strike itself.
-// Tune this fraction if a ~normal-hit's worth of "kept" damage feels off.
-const NULL_STRIKE_FEE_FAIL_KEEP_FRACTION = 0.2;
-function downgradeUltiDamage(t, dmgDealt){
-  // If the target is already dead (from this hit, since NULL_STRIKE always
-  // leaves foes at 1hp minimum rather than killing outright, this should be
-  // rare — or from anything else that landed since), the kill can't be
-  // un-done without looking like a bug. Accept it as-is rather than
-  // reviving a "dead" enemy.
-  if(!t || t.dead) return;
-  const keep = Math.max(1, Math.ceil(dmgDealt * NULL_STRIKE_FEE_FAIL_KEEP_FRACTION));
-  const giveBack = Math.max(0, dmgDealt - keep);
-  if(giveBack<=0) return;
-  t.hp = Math.min(t.maxHp, t.hp + giveBack);
-  lootText(t.x, t.y-t.r-16, `+${giveBack} (fee failed)`, '#ff8080');
+  return dmg;
 }
 // A room is "clear" once every enemy that spawned in it is dead (mirrors
 // isFloorClearForAdvance, but scoped to a single room so a container in an
@@ -1038,27 +1017,16 @@ function onActionBtnClick(){
   if(a.mode==='ulti') onUltiButtonTap();
   else if(a.mode==='open') onOpenButtonTap();
 }
-// NULL_STRIKE: apply the damage instantly (so it feels responsive), then
-// send the 0.005 USDm fee on-chain in the background via CHAIN.ultiTx (bridged
-// to walletRef.payUsdmFee in DungeonGame.tsx). The button shows a brief
-// loading state either way — the strike itself never waits on the tx.
-async function onUltiButtonTap(){
+// NULL_STRIKE is FREE (Phase 0 — owner decision). No on-chain fee, no
+// wallet tx. The special is gated purely by a cooldown: its cost is time,
+// not money. Apply the damage instantly and start the cooldown.
+function onUltiButtonTap(){
   const t=G.action.target; if(!t || t.dead) return;
   const btn=$('actionBtn');
-  const dmgDealt = applyUltiDamage(t);
+  applyUltiDamage(t);
   log('⚡ NULL_STRIKE landed — '+(t.name||'foe')+' reels, near death.', 'reward');
   if(btn){ btn.disabled=true; btn.classList.add('loading'); btn.textContent='…'; }
-  G.action.cd=1.5;
-  CHAIN.ultiTx({ damage: Math.ceil(t.hp*0.92), xp: t.xp, killed:false, onStatus:()=>{} })
-    .then(res=>{
-      if(res && !res.demo) log('✓ NULL_STRIKE fee confirmed on-chain.','dm');
-    })
-    .catch(()=>{
-      // fee tx failed — claw back most of the damage (#11 fix) instead of
-      // letting the strike stand at full ulti power for free.
-      downgradeUltiDamage(t, dmgDealt);
-      log('⚠ NULL_STRIKE fee tx failed — strike downgraded to a normal hit.', 'dm');
-    });
+  G.action.cd=8;
   setTimeout(()=>{
     if(btn){ btn.disabled=false; btn.classList.remove('loading'); }
   }, 450);

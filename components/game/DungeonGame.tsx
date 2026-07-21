@@ -3,9 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { attachLiveStatsBridge } from '@/lib/liveStatsBridge'
 import { useRouter } from 'next/navigation'
-import { usePublicClient } from 'wagmi'
-import { useWallet, CELO_CHAIN_ID, NULL_STRIKE_FEE_USDM_WEI } from '@/lib/WalletProvider'
-import { REWARD_CONTRACT_ADDRESS } from '@/lib/contract-abi'
+import { useWallet } from '@/lib/WalletProvider'
 import { PlayerProfile } from '@/lib/contract'
 import { loadGameSession, saveGameSession, clearGameSession } from '@/lib/gameSessionService'
 import { recordRunKills, recordRunProgress } from '@/lib/leaderboardService'
@@ -77,18 +75,6 @@ function loadEngine(): Promise<void> {
   return enginePromise
 }
 
-const wait = (ms: number) => new Promise(r => setTimeout(r, ms))
-const isNoWallet = (e: any) => {
-  const m = (e?.message || e?.shortMessage || '').toString().toLowerCase()
-  return (
-    e?.message === 'NO_WALLET' ||
-    m.includes('not connected') ||
-    m.includes('no wallet') ||
-    m.includes('connector') ||
-    m.includes('no injected')
-  )
-}
-
 interface DungeonGameProps {
   playerProfile: PlayerProfile | null
   setPlayerUsername: (username: string) => Promise<{ success: boolean; username: string }>
@@ -100,7 +86,6 @@ interface DungeonGameProps {
 
 export default function DungeonGame({ playerProfile, setPlayerUsername, isNewRun }: DungeonGameProps) {
   const wallet = useWallet()
-  const publicClient = usePublicClient({ chainId: CELO_CHAIN_ID })
   const router = useRouter()
 
   const [showSettings, setShowSettings] = useState(false)
@@ -293,10 +278,9 @@ export default function DungeonGame({ playerProfile, setPlayerUsername, isNewRun
       if (typeof snap.kills === 'number') {
         recordRunKills(addr, snap.kills)
       }
-      // Same reasoning applies to xp/level: since executeAction() is no
-      // longer called anywhere (combat now pays via payUsdmFee — see
-      // WalletProvider.tsx), the on-chain xp/level are permanently frozen at
-      // register()-time values. recordRunProgress keeps the Rewards screen's
+      // Same reasoning applies to xp/level: combat and progression are now
+      // fully off-chain (no executeAction / register() tx), so xp/level live
+      // only in Firestore. recordRunProgress keeps the Rewards screen's
       // numbers (which read from useContractPlayer -> this same Firestore
       // doc) in sync with what the in-game HUD actually shows.
       if (typeof snap.xp === 'number' && typeof snap.level === 'number') {
@@ -349,12 +333,10 @@ export default function DungeonGame({ playerProfile, setPlayerUsername, isNewRun
     router.push('/')
   }
 
-  // Keep the latest wallet/client in refs so the engine bridge always reads
+  // Keep the latest wallet in a ref so the engine bridge always reads
   // current values (wagmi state changes between renders after connect()).
   const walletRef = useRef(wallet)
-  const clientRef = useRef(publicClient)
   walletRef.current = wallet
-  clientRef.current = publicClient
 
   // Keep the engine's WALLET_ADDRESS in sync so the 'nullstate-items-burned'
   // event always carries the correct address, even if the wallet connects
@@ -394,50 +376,14 @@ export default function DungeonGame({ playerProfile, setPlayerUsername, isNewRun
   useEffect(() => {
     let cancelled = false
 
-    // Wait for a tx receipt (best-effort; never throws).
-    const waitForTx = async (hash?: string) => {
-      const client = clientRef.current
-      if (!hash || !client) return
-      try {
-        await client.waitForTransactionReceipt({ hash: hash as `0x${string}` })
-      } catch {
-        /* ignore — surface failures via executeAction instead */
-      }
-    }
-
-    // The chain bridge handed to the engine. Mirrors the original
-    // NS_CHAIN.ultiTx({ onStatus }) -> { ok, demo, hash }. NULL_STRIKE is now
-    // a flat 0.005 USDm ERC20 transfer to the reward contract (funds the
-    // weekly pool) instead of an on-chain executeAction — see
-    // NULL_STRIKE_FEE_USDM_WEI / payUsdmFee in WalletProvider.tsx.
+    // The chain bridge handed to the engine. NULL_STRIKE is now FREE
+    // (Phase 0 — owner decision): the special is gated by an in-engine
+    // cooldown instead of an on-chain fee, so this bridge is a no-op that
+    // always resolves successfully. Kept only to satisfy the engine's
+    // NS_CHAIN.ultiTx() -> { ok, demo, hash } contract at mount time.
     const chain = {
-      async ultiTx({ onStatus }: { onStatus?: (s: string) => void }) {
-        try {
-          if (!walletRef.current.isConnected) {
-            onStatus?.('connecting')
-            await walletRef.current.connect()
-            let waited = 0
-            while (!walletRef.current.isConnected && waited < 30000) {
-              await wait(400)
-              waited += 400
-            }
-            if (!walletRef.current.isConnected) {
-              return { ok: true, demo: true, hash: null }
-            }
-          }
-
-          onStatus?.('signing')
-          const hash = await walletRef.current.payUsdmFee(
-            NULL_STRIKE_FEE_USDM_WEI,
-            REWARD_CONTRACT_ADDRESS
-          )
-          onStatus?.('pending')
-          await waitForTx(hash)
-          return { ok: true, demo: false, hash }
-        } catch (e) {
-          if (isNoWallet(e)) return { ok: true, demo: true, hash: null }
-          throw e
-        }
+      async ultiTx() {
+        return { ok: true, demo: true, hash: null }
       },
     }
 

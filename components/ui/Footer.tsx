@@ -16,7 +16,7 @@ export default function Footer() {
       <div className="border-b border-[rgba(0,255,136,0.06)] mb-6 pb-4 ticker-wrap overflow-hidden">
         <div className="ticker-inner font-mono text-[9px] text-null-muted tracking-[3px] uppercase">
           {Array(3).fill(
-            '// NULLSTATE LIVE :: BLOCK #28,441,902 :: 247 PLAYERS ACTIVE :: NULL_STRIKE FEE: 0.005 USDM :: NEXT DROP: 47H :: NETWORK FEE: $0.001 :: BUILT ON CELO :: MINIPAY NATIVE :: REAL-TIME DUNGEON CRAWLER :: '
+            '// NULLSTATE LIVE :: BLOCK #28,441,902 :: 247 PLAYERS ACTIVE :: NULL_STRIKE: FREE :: NEXT DROP: 47H :: NETWORK FEE: $0.001 :: BUILT ON CELO :: MINIPAY NATIVE :: REAL-TIME DUNGEON CRAWLER :: '
           ).join('')}
         </div>
       </div>

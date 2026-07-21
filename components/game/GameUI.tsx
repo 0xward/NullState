@@ -47,7 +47,7 @@ export default function GameUI() {
 
         <p className="text-[rgba(212,255,232,0.55)] font-light leading-relaxed text-[15px] max-w-lg mx-auto mb-10">
           A real-time dungeon crawler, right in your browser. Pick your Walker, descend
-          the Forsaken Depths, and channel on-chain NULL_STRIKEs against elites and The Gatekeeper.
+          the Forsaken Depths, and channel free NULL_STRIKEs against elites and The Gatekeeper.
         </p>
 
         <div className="flex gap-4 justify-center flex-wrap">

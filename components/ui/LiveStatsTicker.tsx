@@ -39,7 +39,7 @@ export default function LiveStatsTicker() {
     { label: 'CELO BLOCK',     value: `#${block.toLocaleString()}`,          color: 'var(--null-green)'  },
     { label: 'ACTIVE PLAYERS', value: players,                               color: 'var(--null-green)'  },
     { label: 'TOTAL TXS',      value: txCount.toLocaleString(),              color: 'var(--null-amber)'  },
-    { label: 'NULL_STRIKE FEE',value: '0.005 USDm',                          color: 'var(--null-blue)'   },
+    { label: 'NULL_STRIKE',    value: 'FREE',                                color: 'var(--null-blue)'   },
     { label: 'NETWORK FEE',    value: '~$0.001',                             color: 'var(--null-green)'  },
     { label: 'ENGINE',        value: 'REAL-TIME',                            color: 'var(--null-acid)'   },
     { label: 'NETWORK',        value: 'CELO L1',                             color: 'var(--null-green)'  },
