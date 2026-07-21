@@ -9,8 +9,8 @@ export default function FeaturesSection() {
     },
     {
       num: '02',
-      title: 'Pick A Class',
-      desc: 'Knight, Rogue, or Wizzard — each with its own sprite set and attack effect. One class per run.',
+      title: 'Gear Up The Knight',
+      desc: 'You play as the Knight. Weapons, armor, and cosmetic outfits — earned or bought — shape how you look and hit.',
     },
     {
       num: '03',

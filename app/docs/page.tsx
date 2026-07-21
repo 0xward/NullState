@@ -97,12 +97,13 @@ export default function DocsPage() {
           <div className="pl-4 flex flex-col gap-6 text-[15px] leading-relaxed text-null-muted">
             <div>
               <h3 className="text-null-green font-mono text-xs tracking-[2px] uppercase mb-2">
-                Classes
+                The Knight
               </h3>
               <p>
-                Pick one of three classes per run: Knight (high HP, steel
-                slash), Rogue (fast, dagger flicker), or Wizzard (ranged fire
-                burst, lower HP). Classes can&apos;t be switched mid-run.
+                You play as the Knight — an armored melee crawler with a
+                steel-slash attack. Your power and look come from the gear you
+                equip (weapons, armor, and cosmetic outfits), not from a class
+                choice.
               </p>
             </div>
             <div>
