@@ -50,6 +50,11 @@ export default function CustomCursor() {
       }
     }
 
+    // Hide the OS cursor ONLY while this component is mounted (landing page).
+    // The class is scoped in globals.css so other routes (/game etc.) keep a
+    // normal, visible cursor.
+    document.body.classList.add('custom-cursor-active')
+
     document.addEventListener('mousemove', handleMove)
 
     const addListeners = () => {
@@ -66,6 +71,7 @@ export default function CustomCursor() {
     observer.observe(document.body, { childList: true, subtree: true })
 
     return () => {
+      document.body.classList.remove('custom-cursor-active')
       document.removeEventListener('mousemove', handleMove)
       cancelAnimationFrame(raf)
       observer.disconnect()

@@ -13,7 +13,7 @@
   --null-amber: #ffaa00;
   --null-blue: #00aaff;
   --null-white: #d4ffe8;
-  --null-muted: #2a4a35;
+  --null-muted: #5f8873; /* was #2a4a35 — bumped for readable contrast (~5:1) */
   --null-border: rgba(0,255,136,0.15);
   --null-glow: 0 0 20px rgba(0,255,136,0.3);
   --null-glow-strong: 0 0 40px rgba(0,255,136,0.5), 0 0 80px rgba(0,255,136,0.2);
@@ -36,6 +36,14 @@ body {
   color: var(--null-white);
   font-family: var(--font-hud);
   overflow-x: hidden;
+}
+
+/* The OS cursor is only hidden where the JS custom cursor is actually
+   mounted (the landing page — see CustomCursor.tsx, which toggles this
+   class). Without this scoping, `cursor: none` on <body> hid the mouse on
+   EVERY route — including /game, /docs, /profile — leaving desktop players
+   with no visible cursor at all (Susanne & Dan's "cursor hilang" report). */
+body.custom-cursor-active {
   cursor: none;
 }
 
