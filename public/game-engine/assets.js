@@ -233,7 +233,7 @@ const NS_WEAPON = {
   // ancient_blade: sfx 'blade'->'ancient' (v80) — owner wants every weapon to
   // sound distinct; rusty and ancient shared the generic steel sing before.
   ancient_blade:     { src:`${NS_WPN}/ancient_blade.png`,     anim:'slash',  motion:'slash',    gy:0.88, ln:33, sfx:'ancient',   htk:3, glow:'#ffd24a', ovlTint:'#e0aa4f', ovlTintA:0.34 },
-  frost_spear:       { src:`${NS_WPN}/frost_spear.png`,       anim:'thrust', motion:'thrust',   gy:0.72, ln:40, sfx:'spear',     htk:3, glow:'#bdeeff', ovlTint:'#7ac8ff', ovlTintA:0.30 },
+  frost_spear:       { src:`${NS_WPN}/frost_spear.png`,       anim:'thrust', motion:'thrust',   gy:0.72, ln:40, sfx:'spear',     htk:3, glow:'#bdeeff', ovlTint:'#5fc8ff', ovlTintA:0.62 },
   verdant_reaper:    { src:`${NS_WPN}/verdant_reaper.png`,    anim:'slash',  motion:'reap',     gy:0.96, ln:38, sfx:'scythe',    htk:3, glow:'#57e389', ovlTint:'#3f9c38', ovlTintA:0.34 },
   void_katana:       { src:`${NS_WPN}/void_katana.png`,       anim:'slash',  motion:'iai',      gy:0.90, ln:36, sfx:'katana',    htk:2, glow:'#b46bff', ovlTint:'#8a2fd0', ovlTintA:0.34 },
   sunfire_bow:       { src:`${NS_WPN}/sunfire_bow.png`,       anim:'shoot',  motion:'bow',      gy:0.50, ln:30, sfx:'bow',       htk:2, carry:'back', glow:'#ffcf3d', ovlTint:'#ffb440', ovlTintA:0.28 },

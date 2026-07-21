@@ -1713,7 +1713,7 @@ function hitTest(){
   if(z){
     // v76 Task #7: each weapon has its own attack sound (NS_WEAPON.sfx, set on
     // the player by applyEquipment). Unarmed -> the original generic whoosh.
-    A.attackFor(p._weaponSfx || null);
+    A.attackFor(p._weaponSfx || null, p._wpnTier || 1);
     // Equipped-weapon behavior modifiers (Marketplace items). z.dmg already
     // includes the weapon's flat atkBonus via applyEquipment(); these tune the
     // *feel*: bigger reach (aoe), heavier knockback, and extra rapid hits
@@ -4277,6 +4277,25 @@ function drawPreview(elId){
 // through the SAME drawLPCComposite() used by in-dungeon Player.draw() —
 // no armor/weapon passed (opts.armorId/weaponId omitted) since no gear is
 // equipped yet at char-select, before a run has even started.
+// Issue #4: the char-select preview should show the SAME evolved aura the
+// dungeon does. Derive the equipped weapon's tier + tint/glow overrides from
+// WEAPON_TIERS (bridged per wallet) exactly like applyEquipment() does, so a
+// leveled weapon previews brighter — not stuck at base tier.
+function _previewWeaponFx(weaponId){
+  const out = { evo:1, tint:null, glow:null };
+  if(!weaponId || !window.NS_MARKET || typeof NS_MARKET.getEquipment!=='function') return out;
+  const w = NS_MARKET.getEquipment(weaponId);
+  if(!w || !Array.isArray(w.evolutionTiers) || !w.evolutionTiers.length) return out;
+  const owned = Math.max(1, (WEAPON_TIERS[weaponId] | 0) || 1);
+  const wTier = Math.min(owned, w.evolutionTiers.length + 1);
+  for(let i=0;i<wTier-1;i++){
+    const st = w.evolutionTiers[i]||{};
+    if(st.spriteOverrideTint) out.tint = st.spriteOverrideTint;
+    if(st.glowOverride)       out.glow = st.glowOverride;
+  }
+  out.evo = wTier;
+  return out;
+}
 function drawLPCPreview(elId){
   const host = $(elId);
   const A = window.NS_ASSETS;
@@ -4340,8 +4359,10 @@ function drawLPCPreview(elId){
   // internally, so cy itself just needs to be the desired FEET baseline —
   // BOX-6, matching the old normalize path's bottom margin.
   const cx=BOX/2, cy=BOX-6;
+  const _wfx = _previewWeaponFx(weaponId);
   drawLPCComposite(g, cx, cy, s, dirIndex, 0, { animKey:'idle', attacking:false, foot:hero.foot, alpha:1,
-    weaponId: weaponId||undefined, armorId: armorId||undefined, outfitId: outfitId||undefined });
+    weaponId: weaponId||undefined, armorId: armorId||undefined, outfitId: outfitId||undefined,
+    weaponEvo: _wfx.evo, weaponTint: _wfx.tint||undefined, weaponGlow: _wfx.glow||undefined });
   host.innerHTML=''; host.appendChild(c);
   host.style.cssText=`width:${BOX}px;height:${BOX}px;`;
   _previewPainted = true; // the knight body is now on screen at least once

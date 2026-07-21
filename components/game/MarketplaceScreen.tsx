@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { usePublicClient } from 'wagmi'
 import { useWallet, CELO_CHAIN_ID } from '@/lib/WalletProvider'
-import { GiCrossedSwords, GiCheckedShield } from 'react-icons/gi'
+import { GiCrossedSwords, GiCheckedShield, GiMagnifyingGlass } from 'react-icons/gi'
 import { pickBestPaymentToken } from '@/lib/constants/tokens'
 import { MARKETPLACE_ITEMS, ACCEPTED_TOKENS, getMarketplaceItem, resolveItemId, type MarketplaceItem, type MarketplaceTokenSymbol } from '@/lib/constants/marketplace'
 
@@ -47,6 +47,8 @@ export default function MarketplaceScreen({ onBack, address }: MarketplaceScreen
   const [msg, setMsg] = useState<{ text: string; kind: 'info' | 'ok' | 'err' } | null>(null)
   const [tokenBalance, setTokenBalance] = useState<number | null>(null)
   const [swapConfirmId, setSwapConfirmId] = useState<string | null>(null)
+  // Issue #5: tap any item's icon/name to open a larger preview popup.
+  const [previewItem, setPreviewItem] = useState<MarketplaceItem | null>(null)
 
   // NullState Point balance — off-chain, credited from burning items
   // (see /api/burn/record). Used to gate the "Swap" option below.
@@ -177,21 +179,29 @@ export default function MarketplaceScreen({ onBack, address }: MarketplaceScreen
       <div key={item.id}>
       <div
         className={`flex items-center gap-3 rounded-lg border border-[#7a4f24]/60 bg-gradient-to-b from-[#2b1a0d] to-[#1a0f06] p-3 ${tierGlow}`}>
-        <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded bg-black/40 border border-[#7a4f24]/50">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={item.sprite} alt={item.name} className="h-9 w-9 [image-rendering:pixelated]"
-            onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden' }} />
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <span className="truncate font-mono text-sm font-bold text-[#f0dcb8]">{item.name}</span>
-            <span className="rounded bg-[#e8bd6f] px-1.5 text-[9px] font-bold text-[#2a1705]">T{item.fxTier}</span>
+        <button
+          type="button"
+          onClick={() => setPreviewItem(item)}
+          aria-label={`Preview ${item.name}`}
+          className="flex min-w-0 flex-1 items-center gap-3 text-left transition hover:opacity-90"
+        >
+          <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded bg-black/40 border border-[#7a4f24]/50">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={item.sprite} alt={item.name} className="h-9 w-9 [image-rendering:pixelated]"
+              onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden' }} />
           </div>
-          {stat && (
-            <div className="font-mono text-[10px] uppercase tracking-wide text-[#c39a5f]">{stat} · {item.type}</div>
-          )}
-          <div className="mt-0.5 truncate font-mono text-[10px] text-[#9c7a4f]">{item.desc}</div>
-        </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <span className="truncate font-mono text-sm font-bold text-[#f0dcb8]">{item.name}</span>
+              <span className="rounded bg-[#e8bd6f] px-1.5 text-[9px] font-bold text-[#2a1705]">T{item.fxTier}</span>
+              <GiMagnifyingGlass aria-hidden className="shrink-0 text-[#9c7a4f]" size={12} />
+            </div>
+            {stat && (
+              <div className="font-mono text-[10px] uppercase tracking-wide text-[#c39a5f]">{stat} · {item.type}</div>
+            )}
+            <div className="mt-0.5 truncate font-mono text-[10px] text-[#9c7a4f]">{item.desc}</div>
+          </div>
+        </button>
         <div className="flex flex-shrink-0 flex-col items-end gap-1">
           <span className="font-mono text-sm font-bold text-[#f2cd82]">${item.price.toFixed(2)}</span>
           {isOwned ? (
@@ -324,6 +334,64 @@ export default function MarketplaceScreen({ onBack, address }: MarketplaceScreen
           <div className="flex flex-col gap-2">{outfits.map(renderItem)}</div>
         </section>
       </div>
+
+      {/* Issue #5 — item preview popup. Opened by tapping any item's icon/name. */}
+      {previewItem && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-4"
+          onClick={() => setPreviewItem(null)}
+        >
+          <div
+            className="relative w-full max-w-xs rounded-xl border border-[#7a4f24] bg-gradient-to-b from-[#2b1a0d] to-[#140b04] p-6 text-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setPreviewItem(null)}
+              aria-label="Close preview"
+              className="absolute right-3 top-3 font-mono text-sm text-[#c39a5f] transition hover:text-[#f0dcb8]"
+            >
+              ✕
+            </button>
+            <div className="mx-auto mb-4 flex h-32 w-32 items-center justify-center rounded-lg border border-[#7a4f24]/60 bg-black/40">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={previewItem.sprite}
+                alt={previewItem.name}
+                className="h-24 w-24 [image-rendering:pixelated]"
+                onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden' }}
+              />
+            </div>
+            <div className="flex items-center justify-center gap-2">
+              <h3 className="font-mono text-base font-bold text-[#f0dcb8]">{previewItem.name}</h3>
+              <span className="rounded bg-[#e8bd6f] px-1.5 text-[9px] font-bold text-[#2a1705]">T{previewItem.fxTier}</span>
+            </div>
+            <div className="mt-1 font-mono text-[11px] uppercase tracking-wide text-[#c39a5f]">
+              {previewItem.type === 'armor'
+                ? `+${Math.round((previewItem.effect.hpBonus || 0) * 100)}% HP`
+                : previewItem.type === 'weapon'
+                ? `+${previewItem.effect.atkBonus || 0} ATK`
+                : 'Cosmetic'} · {previewItem.type}
+            </div>
+            {previewItem.desc && (
+              <p className="mt-3 font-mono text-[11px] leading-relaxed text-[#9c7a4f]">{previewItem.desc}</p>
+            )}
+            <div className="mt-4 font-mono text-lg font-bold text-[#f2cd82]">${previewItem.price.toFixed(2)}</div>
+            {owned.includes(previewItem.id) ? (
+              <div className="mt-3 rounded border border-[#8a5a2b] px-4 py-2 font-mono text-[11px] font-bold uppercase tracking-wider text-[#c39a5f]">
+                Owned — equip it in your inventory
+              </div>
+            ) : (
+              <button
+                onClick={() => { const it = previewItem; setPreviewItem(null); handleBuy(it) }}
+                disabled={busy !== null || isGuest}
+                className="mt-3 w-full rounded bg-gradient-to-b from-[#e8bd6f] to-[#c9962f] px-4 py-2.5 font-mono text-xs font-bold uppercase tracking-wider text-[#2a1705] transition hover:brightness-110 disabled:opacity-50"
+              >
+                Buy — ${previewItem.price.toFixed(2)} {token}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
