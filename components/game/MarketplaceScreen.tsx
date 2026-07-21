@@ -1,7 +1,9 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
-import { useWallet } from '@/lib/WalletProvider'
+import { useEffect, useState, useCallback, useRef } from 'react'
+import { usePublicClient } from 'wagmi'
+import { useWallet, CELO_CHAIN_ID } from '@/lib/WalletProvider'
+import { pickBestPaymentToken } from '@/lib/constants/tokens'
 import { MARKETPLACE_ITEMS, ACCEPTED_TOKENS, getMarketplaceItem, resolveItemId, type MarketplaceItem, type MarketplaceTokenSymbol } from '@/lib/constants/marketplace'
 
 interface MarketplaceScreenProps {
@@ -15,7 +17,21 @@ function ownedKey(addr?: string) {
 
 export default function MarketplaceScreen({ onBack, address }: MarketplaceScreenProps) {
   const { buyMarketplaceItem, insufficientFunds, addCashUrl, isGuest } = useWallet()
+  const publicClient = usePublicClient({ chainId: CELO_CHAIN_ID })
   const [token, setToken] = useState<MarketplaceTokenSymbol>('USDm')
+  // Flexible stablecoin (Phase 2): default the "Pay with" token to whichever of
+  // USDm/USDC/USDT the wallet holds the most of, so a player isn't forced to
+  // top up a specific coin. The manual selector below still lets them switch;
+  // once they do, we stop auto-overriding their choice.
+  const manualTokenRef = useRef(false)
+  useEffect(() => {
+    if (isGuest || !address || !publicClient) return
+    let cancelled = false
+    pickBestPaymentToken(publicClient, address as `0x${string}`).then(best => {
+      if (!cancelled && !manualTokenRef.current) setToken(best)
+    })
+    return () => { cancelled = true }
+  }, [address, publicClient, isGuest])
   const [owned, setOwned] = useState<string[]>([])
   // v76 Task #7: four weapons were re-skinned with new ids, four items removed.
   // Normalise any pre-v76 id coming from cache/server so a wallet that already
@@ -259,7 +275,7 @@ export default function MarketplaceScreen({ onBack, address }: MarketplaceScreen
           <p className="mb-2 font-mono text-[10px] uppercase tracking-[2px] text-[#9c7a4f]">Pay with</p>
           <div className="flex gap-2">
             {ACCEPTED_TOKENS.map(t => (
-              <button key={t} onClick={() => setToken(t)}
+              <button key={t} onClick={() => { manualTokenRef.current = true; setToken(t) }}
                 className={`flex-1 rounded-lg border px-3 py-2 font-mono text-xs font-bold uppercase tracking-wider transition ${
                   token === t
                     ? 'border-[#e8bd6f] bg-gradient-to-b from-[#e8bd6f] to-[#c9962f] text-[#2a1705]'

@@ -1,7 +1,9 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
-import { useWallet } from '@/lib/WalletProvider'
+import { useEffect, useState, useCallback, useRef } from 'react'
+import { usePublicClient } from 'wagmi'
+import { useWallet, CELO_CHAIN_ID } from '@/lib/WalletProvider'
+import { pickBestPaymentToken } from '@/lib/constants/tokens'
 import {
   ACCEPTED_TOKENS, getMarketplaceItem, resolveItemId, maxWeaponTier,
   type MarketplaceItem, type MarketplaceTokenSymbol,
@@ -41,7 +43,19 @@ function fmtDur(ms: number): string {
 
 export default function CraftingScreen({ onBack, onGoToRun, address }: CraftingScreenProps) {
   const { buyMarketplaceItem, insufficientFunds, addCashUrl } = useWallet()
+  const publicClient = usePublicClient({ chainId: CELO_CHAIN_ID })
   const [token, setToken] = useState<MarketplaceTokenSymbol>('USDm')
+  // Flexible stablecoin (Phase 2): default the pay-with token to the largest
+  // balance the wallet holds; the manual selector still overrides.
+  const manualTokenRef = useRef(false)
+  useEffect(() => {
+    if (!address || !publicClient) return
+    let cancelled = false
+    pickBestPaymentToken(publicClient, address as `0x${string}`).then(best => {
+      if (!cancelled && !manualTokenRef.current) setToken(best)
+    })
+    return () => { cancelled = true }
+  }, [address, publicClient])
   const [owned, setOwned] = useState<string[]>([])
   const [tiers, setTiers] = useState<Record<string, number>>({})
   const [shards, setShards] = useState<ShardBal>({ t1: 0, t2: 0, t3: 0 })
@@ -415,7 +429,7 @@ export default function CraftingScreen({ onBack, onGoToRun, address }: CraftingS
           <p className="mb-2 font-mono text-[10px] uppercase tracking-[2px] text-[#9c7a4f]">Payments use</p>
           <div className="flex gap-2">
             {ACCEPTED_TOKENS.map(t => (
-              <button key={t} onClick={() => setToken(t)}
+              <button key={t} onClick={() => { manualTokenRef.current = true; setToken(t) }}
                 className={`flex-1 rounded-lg border px-3 py-2 font-mono text-xs font-bold uppercase tracking-wider transition ${
                   token === t
                     ? 'border-[#e8bd6f] bg-gradient-to-b from-[#e8bd6f] to-[#c9962f] text-[#2a1705]'
