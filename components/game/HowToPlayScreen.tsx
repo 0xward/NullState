@@ -158,6 +158,7 @@ export default function HowToPlayScreen({ onBack }: HowToPlayScreenProps) {
               <p>• Clear Act 1 to unlock the <span className="text-null-white">Armory Trial</span> — pick 2 premium weapons to try free for 48h each (clock starts on first equip).</p>
               <p>• Invite friends from the <span className="text-null-white">Referral</span> menu — free weapon trials, a permanent skin at 3 friends, and a free Season Pass when an invitee makes their first purchase.</p>
               <p>• The Vault code resets weekly and the Leaderboard resets each season — fresh <Tag kind="stablecoin" /> to chase on a timer.</p>
+              <p>• Finish all 5 Acts to unlock <span className="text-null-white">New Game+</span> — replay the campaign at a higher Cycle: enemies hit +35% harder per Cycle and shards drop +25% richer.</p>
             </div>
           </div>
         </div>

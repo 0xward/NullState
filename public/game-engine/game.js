@@ -712,7 +712,8 @@ function descend(toDepth){
   G.action.mode=null; G.action.target=null;
   setActionButton(null);
   const isBoss = G.depth%5===0;
-  showBanner(`FLOOR ${G.depth}`, isBoss?(nsIcon('guard','banner-ico')+' GUARDED'):backgrounds[G.bgIndex].split('/').pop().replace(/\.[a-z0-9]+$/i,'').toUpperCase());
+  const _floorLabel = campaignCycle>0 ? `FLOOR ${G.depth} · CYCLE ${toRoman(campaignCycle+1)}` : `FLOOR ${G.depth}`;
+  showBanner(_floorLabel, isBoss?(nsIcon('guard','banner-ico')+' GUARDED'):backgrounds[G.bgIndex].split('/').pop().replace(/\.[a-z0-9]+$/i,'').toUpperCase());
   if(isBoss && floor.bossAlive){
     cutscene(Story.bossIntro);
   } else {
@@ -4281,6 +4282,23 @@ let selectedChar='knight';
 // Campaign progress — survives across dungeon sessions (unlike G, which is
 // torn down and rebuilt each time newGame() runs for a fresh bunker).
 let campaignActIndex = 0;
+// NULL CYCLES / New Game+ (blueprint 3C). 0 = first playthrough. Each cycle
+// scales enemy HP/DMG (+35%/cycle, read in entities.js Enemy ctor via
+// window.__NS.campaignCycle) and shard drops (+25%/cycle, banked in
+// onActBunkerCleared). A normal "New Game" (DESCEND) is always cycle 0; only
+// the post-completion NEW GAME+ button advances the cycle. Persisted per
+// wallet so a resumed/continued run keeps its difficulty.
+let campaignCycle = 0;
+function cycleKey(){ return 'nullstate-cycle-'+(WALLET_ADDRESS?WALLET_ADDRESS.toLowerCase():'guest'); }
+function loadStoredCycle(){ try{ return Math.max(0, parseInt(localStorage.getItem(cycleKey())||'0',10)||0); }catch(e){ return 0; } }
+function storeCycle(n){ try{ localStorage.setItem(cycleKey(), String(n|0)); }catch(e){ /* storage off */ } }
+// Has this wallet finished the campaign at least once? (PROTOCOL ZERO flag,
+// set in showCampaignEpilogue.) Gates the post-game NEW GAME+ / ABYSS buttons.
+function hasCompletedCampaign(){ try{ return localStorage.getItem('nullstate-protocolzero-'+(WALLET_ADDRESS?WALLET_ADDRESS.toLowerCase():'guest'))==='1'; }catch(e){ return false; } }
+// NULL ABYSS (blueprint 3B) — endless descent below Bunker 5. false during
+// the whole campaign, so every abyss-only branch is a no-op on the normal
+// path. Fully wired in a follow-up; declared here so window.__NS is stable.
+let abyssMode = false;
 let campaignReturningFromBunker = false;
 // draw a character preview at a CONSISTENT on-screen height by detecting the
 // sprite's alpha bounding box (frame 0) and normalizing — so male & female match.
@@ -4460,9 +4478,33 @@ async function onStart(){
   }
 
   campaignActIndex = 0;
+  campaignCycle = 0;                 // a normal DESCEND is always cycle 0
+  abyssMode = false;
   campaignReturningFromBunker = false;
   enterOutdoorAct(campaignActIndex, false);
 }
+
+// NEW GAME+ (Null Cycles). Post-completion only. Replays the campaign from
+// Act 1 at the next cycle: enemies +35% HP/DMG per cycle, shard drops +25%,
+// carrying career level (INITIAL_STATS) + owned/equipped gear exactly like a
+// normal fresh run. Reuses the ordinary campaign flow entirely — the ONLY
+// difference from DESCEND is the raised campaignCycle.
+function startCycle(){
+  if(!hasCompletedCampaign()) return; // guard: button only shows post-PROTOCOL ZERO
+  campaignCycle = loadStoredCycle() + 1;
+  storeCycle(campaignCycle);
+  abyssMode = false;
+  SAVED_SESSION = null; CARRY_OVER_SNAPSHOT = null;
+  const t=$('title'); if(t) t.classList.add('hidden');
+  $('hud').classList.remove('hidden');
+  if(atkBtn) atkBtn.classList.remove('hidden');
+  campaignActIndex = 0;
+  campaignReturningFromBunker = false;
+  if(window.NS_RUN) NS_RUN.start(0, false);
+  enterOutdoorAct(0, false);
+  log('◆ NULL CYCLE '+toRoman(campaignCycle+1)+' — the depths remember you. Enemies hit harder; shards flow richer.', 'reward');
+}
+function toRoman(n){ const r=['','I','II','III','IV','V','VI','VII','VIII','IX','X']; return r[n]||('x'+n); }
 
 // Exact resume: skip the outdoor walk entirely, drop the player back into
 // the bunker floor they saved on. Single-use — clear it now so a page
@@ -4471,6 +4513,8 @@ async function onStart(){
 function enterSavedSession(){
   selectedChar = SAVED_SESSION.charKey || selectedChar;
   campaignActIndex = SAVED_SESSION.campaignActIndex || 0;
+  campaignCycle = SAVED_SESSION.campaignCycle || 0; // Null Cycles — restore NG+ difficulty
+  abyssMode = false;
   // Phase 1: resuming a saved run re-opens the SAME RunSession unit —
   // resumed=true, and it costs no energy (the fresh entry already paid).
   if(window.NS_RUN) NS_RUN.start(campaignActIndex, true);
@@ -4570,7 +4614,9 @@ function onActBunkerCleared(){
   // bunker starts a fresh count and nothing double-banks.
   if(G && G.inventory && G.inventory.gshards){
     const g = G.inventory.gshards;
-    const mult = window.NS_RUN ? NS_RUN.rewardMultiplier() : 1;
+    // Null Cycles: +25% shard yield per NG+ cycle, stacking on the death
+    // multiplier. cycle 0 => x1, unchanged on the first playthrough.
+    const mult = (window.NS_RUN ? NS_RUN.rewardMultiplier() : 1) * (1 + campaignCycle*0.25);
     const payout = {
       t1: Math.ceil((g.t1||0)*mult),
       t2: Math.ceil((g.t2||0)*mult),
@@ -4722,6 +4768,7 @@ function attach(){
   $('itemZoomBurn').addEventListener('click', onItemZoomBurn);
   $('itemZoomClose').addEventListener('click', closeItemZoom);
   $('startBtn').addEventListener('click', onStart);
+  { const cb=$('cycleBtn'); if(cb) cb.addEventListener('click', startCycle); }
   $('invBtn').addEventListener('click', onInvToggle);
   $('invClose').addEventListener('click', onInvToggle);
   document.querySelectorAll('.inv-tab').forEach(b=>b.addEventListener('click', ()=>setInvTab(b.getAttribute('data-tab'))));
@@ -4736,7 +4783,9 @@ window.__NS = { get G(){ return G; },
     G.enemies.push(new Enemy(a, G.player.x+120, G.player.y, G.depth, false, true)); },
   addDecor(t){ if(!G) return; G.decor.push(new Decor(t||'vase', G.player.x+40, G.player.y)); },
   onEnemyKilled, // debug-only: lets tests exercise act-completion without a full attack simulation
-  get campaignActIndex(){ return campaignActIndex; } };
+  get campaignActIndex(){ return campaignActIndex; },
+  get campaignCycle(){ return campaignCycle; },      // Null Cycles — enemy scaling
+  get abyssMode(){ return abyssMode; } };            // Null Abyss — see below
 
 // ---- boot ----
 // Full-game asset load (every monster/decor/background sprite) kept as a
@@ -4780,6 +4829,15 @@ async function boot(){
   if (SAVED_SESSION) {
     const _b = $('startBtn'); if(_b) _b.textContent = 'CONTINUE ▾';
   }
+  // NEW GAME+ (Null Cycles): reveal the post-completion button on the title
+  // screen once this wallet has finished the campaign at least once. Label it
+  // with the cycle they'd START (stored cycle + 1). Hidden otherwise, so
+  // first-time players never see it.
+  { const cb=$('cycleBtn');
+    if(cb){
+      if(hasCompletedCampaign()){ cb.textContent = 'NEW GAME+ ('+toRoman(loadStoredCycle()+2)+') ▾'; cb.style.display=''; }
+      else cb.style.display='none';
+    } }
 
   // Load ONLY the 3 hero idle sprites first so the character-select
   // previews appear almost immediately, instead of waiting on the full
@@ -4882,6 +4940,7 @@ function getSaveSnapshot(){
   const snap = {
     charKey: selectedChar,
     campaignActIndex,
+    campaignCycle,           // Null Cycles — keep NG+ difficulty across Continue
     depth: G.depth,
     maxDepthReached: G.maxDepthReached,
     xp: p.xp, level: p.level, kills: p.kills,

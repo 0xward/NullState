@@ -1011,6 +1011,11 @@ class Enemy {
     const _actIdx = (window.__NS && typeof window.__NS.campaignActIndex === 'number') ? window.__NS.campaignActIndex : -1;
     const _hardCfg = (window.NS_MONSTER_CONFIG && window.NS_MONSTER_CONFIG.actHardMode) ? window.NS_MONSTER_CONFIG.actHardMode[_actIdx] : null;
     if (_hardCfg) { hpMul *= _hardCfg.hpMul; dmgMul *= _hardCfg.dmgMul; }
+    // NULL CYCLES / New Game+ (game.js campaignCycle): +35% HP & DMG per
+    // cycle, stacking on everything above. 0 on the first playthrough, so
+    // this multiplies by 1 and changes nothing on the normal path.
+    const _cyc = (window.__NS && typeof window.__NS.campaignCycle === 'number') ? window.__NS.campaignCycle : 0;
+    if (_cyc > 0) { const m = 1 + _cyc * 0.35; hpMul *= m; dmgMul *= m; }
     this.maxHp=Math.round(arch.hp*scale*hpMul);
     this.hp=this.maxHp;
     this.dmg=Math.round(arch.dmg*(1+(depth-1)*0.12)*dmgMul);

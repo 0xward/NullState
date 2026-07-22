@@ -284,6 +284,11 @@
   padding:14px 40px;box-shadow:0 0 24px rgba(0,255,136,.45);transition:.15s;}
 .ns-game-root .big-btn:hover{transform:translateY(-2px);box-shadow:0 0 34px rgba(0,255,136,.7);}
 .ns-game-root .big-btn:active{transform:translateY(0);}
+/* Post-completion endgame entries (NEW GAME+, and later THE ABYSS): a
+   smaller, voidstone-tinted variant so they read as secondary to DESCEND. */
+.ns-game-root .big-btn.big-btn-alt{margin-top:10px;font-size:14px;padding:11px 30px;
+  color:#e6d8ff;background:linear-gradient(180deg,#3a2a5e,#241a3a);box-shadow:0 0 20px rgba(150,90,255,.4);}
+.ns-game-root .big-btn.big-btn-alt:hover{box-shadow:0 0 30px rgba(150,90,255,.6);}
 .ns-game-root .title-foot{margin-top:24px;color:#3f5b4f;font-size:11px;letter-spacing:2px;}
 
 .ns-game-root .story-text{font-family:var(--font-cinzel),serif;font-size:clamp(16px,3.4vw,23px);line-height:1.9;color:#e7fff5;

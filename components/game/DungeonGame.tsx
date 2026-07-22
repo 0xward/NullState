@@ -1065,6 +1065,10 @@ export default function DungeonGame({ playerProfile, setPlayerUsername, isNewRun
               </div>
             </div>
             <button id="startBtn" className="big-btn">DESCEND ▾</button>
+            {/* Post-completion endgame entries — the engine (game.js boot())
+                unhides these only after this wallet finishes the campaign
+                (PROTOCOL ZERO). Hidden for first-time players. */}
+            <button id="cycleBtn" className="big-btn big-btn-alt" style={{ display: 'none' }}>NEW GAME+ ▾</button>
             <div className="title-foot">Every fall costs you. The depths remember.</div>
           </div>
         </div>
