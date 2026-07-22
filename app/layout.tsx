@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import '../styles/globals.css'
 import { fontVariables } from '@/lib/fonts'
+import SplashScreen from '@/components/ui/SplashScreen'
 
 // ─── NOTE: Web3Providers moved to per-route nested layouts ───────────────────
 // app/game/layout.tsx and app/profile/layout.tsx wrap those routes with
@@ -38,6 +39,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="color-scheme" content="dark" />
       </head>
       <body className="min-h-screen bg-null-bg text-null-white antialiased">
+        {/* Boot splash — deep-black logo screen + 2.5s loading bar shown on
+            open, then fades to reveal the page. Client component; renders over
+            {children}, which loads normally behind it. */}
+        <SplashScreen />
         {/*
           Web3Providers adalah 'use client' component yang membungkus:
           WagmiProvider → QueryClientProvider → RainbowKitProvider → WalletProvider
