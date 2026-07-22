@@ -14,6 +14,9 @@ interface DungeonGameWrapperProps {
   // skip loading (and to discard) any saved bunker session. See
   // GameFlowManager.tsx's handleNewGame/handleContinueGame.
   isNewRun?: boolean
+  // Which run the Main Menu chose — threaded to DungeonGame -> engine mount so
+  // it starts straight into that mode (no canvas title/preview).
+  startMode?: 'new' | 'continue' | 'cycle' | 'abyss'
 }
 
 /**
@@ -34,7 +37,7 @@ interface DungeonGameWrapperProps {
  *    it can validate it and record it (Firestore + on-chain recordBurn via
  *    the backend signer — see app/api/burn/record/route.ts).
  */
-export default function DungeonGameWrapper({ playerProfile, setPlayerUsername, isNewRun }: DungeonGameWrapperProps) {
+export default function DungeonGameWrapper({ playerProfile, setPlayerUsername, isNewRun, startMode }: DungeonGameWrapperProps) {
   const { address, isGuest } = useWallet()
 
   useEffect(() => {
@@ -76,6 +79,6 @@ export default function DungeonGameWrapper({ playerProfile, setPlayerUsername, i
   }, [])
 
   return (
-    <DungeonGame playerProfile={playerProfile} setPlayerUsername={setPlayerUsername} isNewRun={isNewRun} />
+    <DungeonGame playerProfile={playerProfile} setPlayerUsername={setPlayerUsername} isNewRun={isNewRun} startMode={startMode} />
   )
 }

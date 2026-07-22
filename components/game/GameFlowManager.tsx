@@ -101,6 +101,9 @@ export default function GameFlowManager() {
   // knows whether to load the saved bunker session or skip it entirely.
   // See handleNewGame/handleContinueGame below.
   const [isNewRun, setIsNewRun] = useState(false)
+  // Which run the player chose from the menu — threaded to the engine so it
+  // skips the canvas title/preview and starts that mode directly.
+  const [startMode, setStartMode] = useState<'new' | 'continue' | 'cycle' | 'abyss'>('new')
   // True while handleNewGame is checking Firestore for an existing saved
   // session (so the New Game button can show a brief pending state if the
   // caller wants it — currently unused by MainMenu but kept for parity with
@@ -169,8 +172,24 @@ export default function GameFlowManager() {
   // being routed back through "SET USERNAME" on every New Game read as a
   // blocking bug popup. Only first-time (unregistered) players see setup.
   const proceedToNewGame = () => {
+    setStartMode('new')
     setIsNewRun(true)
     setPhase(playerProfile?.isRegistered ? 'game' : 'username-setup')
+  }
+
+  // Post-completion modes (unlocked once the campaign is finished — the menu
+  // only shows these buttons then). Both start a FRESH run (isNewRun) so no
+  // saved bunker is resumed; the engine reads startMode to pick New Game+
+  // (Null Cycles) or The Null Abyss.
+  const handleNewGamePlus = () => {
+    setStartMode('cycle')
+    setIsNewRun(true)
+    setPhase('game')
+  }
+  const handleAbyss = () => {
+    setStartMode('abyss')
+    setIsNewRun(true)
+    setPhase('game')
   }
 
   const handleNewGame = async () => {
@@ -226,6 +245,7 @@ export default function GameFlowManager() {
 
   const handleContinueGame = (profile: PlayerProfile) => {
     // Jump straight into the game with their existing profile
+    setStartMode('continue')
     setIsNewRun(false)
     setPhase('game')
   }
@@ -304,6 +324,8 @@ export default function GameFlowManager() {
         <MainMenu
           onContinueGame={handleContinueGame}
           onNewGame={handleNewGame}
+          onNewGamePlus={handleNewGamePlus}
+          onAbyss={handleAbyss}
           onLeaderboard={handleLeaderboardClick}
           onRewards={handleRewardsClick}
           onReferral={handleReferralClick}
@@ -456,6 +478,7 @@ export default function GameFlowManager() {
         playerProfile={playerProfile}
         setPlayerUsername={setPlayerUsername}
         isNewRun={isNewRun}
+        startMode={startMode}
       />
     )
   }

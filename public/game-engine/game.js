@@ -60,6 +60,13 @@ let INITIAL_STATS = null;
 // onStart() restores it, so it can't be replayed (matches "Death is
 // permanent" — no save-scumming a dangerous fight).
 let SAVED_SESSION = null;
+// START_MODE (owner request): the React Main Menu is now the ONE entry point,
+// so its "New Game" / "Continue" / "New Game+" / "The Null Abyss" buttons
+// should drop STRAIGHT into play — the canvas title + character preview is
+// skipped. Set from mount({ startMode }); boot() auto-starts the matching run.
+// null = show the title as before (demo / direct mounts). The title is still
+// reachable in-session via returnToTitleScreen() after finishing the campaign.
+let START_MODE = null;
 // CARRY_OVER_SNAPSHOT: bridges progress (loot, xp/level/kills/celo/hp, key/
 // paper run-caps) across the outdoor walk between two bunkers in the SAME
 // run. Captured in onActBunkerCleared() right before that bunker's G is
@@ -4981,6 +4988,30 @@ async function boot(){
     } }
   { const ab=$('abyssBtn'); if(ab) ab.style.display = hasCompletedCampaign() ? '' : 'none'; }
 
+  // AUTO-START (owner request): the React Main Menu already asked what the
+  // player wants, so skip the canvas title + character preview and drop
+  // straight into that mode. The frame loop must be running first (title,
+  // outdoor and dungeon all render through frame()); we hide the title before
+  // anything paints so it never flashes.
+  if(START_MODE){
+    const t=$('title'); if(t) t.classList.add('hidden');
+    $('hud').classList.remove('hidden');
+    _fullPreloadPromise = preloadAll();
+    rafId=requestAnimationFrame(frame);
+    if(START_MODE==='new' || START_MODE==='continue'){
+      // onStart() awaits the preload itself, then enters a fresh run or
+      // resumes SAVED_SESSION (Continue). SAVED_SESSION already came in via
+      // mount(), so the same branch handles both.
+      onStart();
+    } else {
+      // New Game+ / Abyss build a run synchronously (no internal preload
+      // await), so gate them on the full preload here first.
+      const _go = ()=>{ if(destroyed) return; if(START_MODE==='cycle') startCycle(); else startAbyss(); };
+      _fullPreloadPromise.then(_go).catch(_go);
+    }
+    return;
+  }
+
   // Load ONLY the 3 hero idle sprites first so the character-select
   // previews appear almost immediately, instead of waiting on the full
   // preload above (all monsters, dungeon décor, backgrounds — several MB)
@@ -5035,6 +5066,7 @@ function mount(opts){
   WALLET_ADDRESS = opts.walletAddress || null;
   INITIAL_STATS = opts.initialStats || null;
   SAVED_SESSION = opts.savedSession || null;
+  START_MODE = opts.startMode || null;
   cv = document.getElementById('game');
   ctx = cv ? cv.getContext('2d') : null;
   stick = document.getElementById('stick');

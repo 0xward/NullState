@@ -83,9 +83,13 @@ interface DungeonGameProps {
   // the mount effect below skips loadGameSession() entirely instead of
   // silently resuming whatever bunker was last saved.
   isNewRun?: boolean
+  // Which run the Main Menu chose. Passed to the engine's mount() as
+  // startMode so it drops straight into play (no canvas title/preview):
+  // 'new' | 'continue' | 'cycle' (New Game+) | 'abyss' (The Null Abyss).
+  startMode?: 'new' | 'continue' | 'cycle' | 'abyss'
 }
 
-export default function DungeonGame({ playerProfile, setPlayerUsername, isNewRun }: DungeonGameProps) {
+export default function DungeonGame({ playerProfile, setPlayerUsername, isNewRun, startMode }: DungeonGameProps) {
   const wallet = useWallet()
   const router = useRouter()
 
@@ -494,6 +498,10 @@ export default function DungeonGame({ playerProfile, setPlayerUsername, isNewRun
 
         NSG.mount({
           chain,
+          // Skip the canvas title/preview and start the chosen run directly.
+          // Fall back to new/continue from isNewRun for any caller that
+          // doesn't pass an explicit mode.
+          startMode: startMode ?? (isNewRun ? 'new' : 'continue'),
           initialStats: playerProfile
             ? { xp: playerProfile.xp, level: playerProfile.level }
             : null,
