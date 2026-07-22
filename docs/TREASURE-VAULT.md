@@ -174,6 +174,17 @@ node scripts/deploy-reward-v3.js                             # deploy (deployer 
 Constructor arg is the PassSBTv3 address (auto-filled). The deployer wallet
 needs a little CELO for gas.
 
+### Verify on Celoscan (Termux)
+Deployed V3: `0xec2e7fe57a92ada02c1ab37d9415dad508b7f111`. The exact
+Standard-JSON-Input it was compiled from is committed at
+`scripts/artifacts/NullStateRewardV3.standard-input.json` (bytecode confirmed
+byte-identical to the deployed code), so verification is a guaranteed match:
+```
+# free key from https://etherscan.io/myapikey (Etherscan V2 covers Celo)
+echo 'ETHERSCAN_API_KEY=yourkey' >> scripts/.env
+node scripts/verify-reward-v3.js
+```
+
 ### After deploy
 1. Set `NEXT_PUBLIC_REWARD_CONTRACT_ADDRESS=<new address>` in Vercel, redeploy
    the app. Send the address back so `lib/contract-abi.ts`'s hardcoded
