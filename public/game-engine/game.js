@@ -812,6 +812,10 @@ function spawnDecorInto(floor, d){
     'oak_barrel','barrel_stack','bucket','bucket_water','boulder','hay_pile','chalice',
     'basin','plaque_sword','plaque_coin','skull_heap','cot'];
   const rare=['wardrobe','chest','safe','footlocker','shelf_stocked','dresser','cabinet_ornate'];
+  // Types with real 4-direction sprite art (a proper cut 's'/back view) — the
+  // only ones allowed to hug the SOUTH wall so the back view reads as "top
+  // edge poking out of the wall" instead of a front sprite clipping through.
+  const SOUTH_OK=['cabinet_s','wardrobe','safe','table_w'];
   const g=d.grid, W=d.W, H=d.H;
   const isWall=(x,y)=> !(x>=0&&y>=0&&x<W&&y<H) || g[y][x]===0;
   for(const r of d.rooms){
@@ -828,11 +832,15 @@ function spawnDecorInto(floor, d){
         if(wU && !wD){ facing='down';  ox=0.5;  oy=0.66; }   // against top wall
         else if(wL && !wR){ facing='right'; ox=0.33; oy=0.92; } // against left wall
         else if(wR && !wL){ facing='left';  ox=0.67; oy=0.92; } // against right wall
-        // Bottom-wall (SOUTH) placement REMOVED (owner report): the back-view
-        // props there were drawn short + shadowless, sitting IN the S wall, so
-        // small items read as clipping through / floating. No decor hugs the
-        // south wall anymore — top/left/right walls + the mid-room pass keep
-        // rooms dressed without the S-wall artefacts.
+        // Bottom-wall (SOUTH) placement is back, but RESTRICTED (owner: "gpp
+        // ada di S tapi munculkan ujung atas aja, sisanya tertutup tembok").
+        // The 'up' back-view render is pre-cut to 55% height so only the top
+        // edge shows past the S wall — but that only reads right for props
+        // with real 4-direction sprite art (cabinet/safe/table). The
+        // placement pass below forces an 'up' candidate to one of those types
+        // (SOUTH_OK); small/procedural props (the old "clipping/floating"
+        // offenders) never get an S-wall slot.
+        else if(wD && !wU){ facing='up'; ox=0.5; oy=0.58; }   // against bottom (S) wall
         if(!facing) continue;
         const px=(tx+ox)*TILE, py=(ty+oy)*TILE;
         // Wider keep-outs (owner report: props too close to the entrance and to
@@ -864,6 +872,10 @@ function spawnDecorInto(floor, d){
       // flagged northOnly in DECOR_TYPES ships front-view-only art, so
       // anywhere but the top wall it falls back to a table.
       if(DECOR_TYPES[t] && DECOR_TYPES[t].northOnly && c.facing!=='down') t='table_w';
+      // SOUTH (bottom) wall: only the 4-direction sprite types have a proper
+      // cut back-view ('s' dir), so force an 'up' candidate to one of them —
+      // everything else would render as the front view sitting in the wall.
+      if(c.facing==='up') t = SOUTH_OK[(Math.random()*SOUTH_OK.length)|0];
       floor.decor.push(new Decor(t,c.px,c.py,c.facing));
       placed++;
     }
