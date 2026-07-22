@@ -4,6 +4,7 @@ import { privateKeyToAccount } from 'viem/accounts'
 import { celo } from 'viem/chains'
 import { publicClient } from '@/lib/web3-client'
 import { getAdminDb } from '@/firebase-config'
+import { maybeGiftReferralPass } from '@/lib/server/referrals'
 import { MARKETPLACE_TOKENS, TREASURY_WALLET, type MarketplaceTokenSymbol } from '@/lib/constants/marketplace'
 import { parseTokenAmount } from '@/lib/constants/tokens'
 import { PASS_SBT_ADDRESS, PASS_SBT_ABI, getPassPriceUsd } from '@/lib/contract-abi'
@@ -217,6 +218,10 @@ export async function POST(req: NextRequest) {
     }
 
     await db.ref(`passMintTxHashes/${txHash}`).update({ status: 'success', mintTxHash: mintHash })
+
+    // Referral bonus (blueprint 2A): a referred player's first pass mint
+    // gifts their referrer a free Season Pass too. Never throws.
+    await maybeGiftReferralPass(db, wallet.toLowerCase())
 
     return NextResponse.json({ success: true, mintTxHash: mintHash })
   } catch (e: unknown) {

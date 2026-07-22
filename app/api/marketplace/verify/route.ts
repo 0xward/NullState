@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { decodeEventLog, parseAbi, getAddress } from 'viem'
 import { publicClient } from '@/lib/web3-client'
 import { getAdminDb } from '@/firebase-config'
+import { maybeGiftReferralPass } from '@/lib/server/referrals'
 import { getMarketplaceItem, MARKETPLACE_TOKENS, TREASURY_WALLET, type MarketplaceTokenSymbol } from '@/lib/constants/marketplace'
 import { parseTokenAmount } from '@/lib/constants/tokens'
 
@@ -135,6 +136,11 @@ export async function POST(req: NextRequest) {
 
     const ownedSnap = await db.ref(`marketplaceOwned/${buyer}`).get()
     const owned = ownedSnap.exists() ? Object.keys(ownedSnap.val()) : [itemId]
+
+    // Referral bonus (blueprint 2A): if this buyer was referred, their
+    // referrer gets a free Season Pass on the invitee's first purchase.
+    // Never throws, one-per-referrer-per-season, on-chain double-checked.
+    await maybeGiftReferralPass(db, buyer)
 
     return NextResponse.json({ success: true, owned })
   } catch (e: unknown) {
