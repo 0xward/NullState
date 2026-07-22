@@ -10,10 +10,13 @@
  * key, because every function it calls is onlyOwner:
  *
  *   Treasure Vault (TreasureVaultV2)
- *     - vault-set-token   setRewardToken(token)        switch payout token
- *     - vault-reward      setVaultReward(amount)        reward paid per win
- *     - vault-deposit     approve + depositVaultPool    fund the pool
- *     - vault-withdraw    withdrawVaultPool             pull unclaimed funds
+ *     - vault-set-token    setRewardToken(token)        switch payout token
+ *     - vault-reward       setVaultReward(amount)        reward paid per win
+ *     - vault-deposit      approve + depositVaultPool    fund the pool
+ *     - vault-withdraw     withdrawVaultPool             pull unclaimed funds
+ *     - store-vault-code   storeWeeklyVaultCode(wk,code) set this week's code
+ *                                                        ON-CHAIN (must match
+ *                                                        the Paper) so wins pay
  *
  *   Season leaderboard bonus (NullStateRewardV3 — season ids are YYYYMM)
  *     - season-rewards      setRankRewards(r1,r2,r3)      top-3 bonus amounts
@@ -47,6 +50,7 @@
  *   node scripts/deposit-reward.js vault-set-token --token USDT
  *   node scripts/deposit-reward.js vault-reward   --token USDT --amount 0.5
  *   node scripts/deposit-reward.js vault-deposit  --token USDT --amount 10
+ *   node scripts/deposit-reward.js store-vault-code --code 0729   # week defaults to now
  *   node scripts/deposit-reward.js season-rewards --token USDT --r1 20 --r2 5 --r3 3
  *   node scripts/deposit-reward.js update-leaderboard --season 202607 --p1 0x.. --p2 0x.. --p3 0x.. --s1 120 --s2 90 --s3 70
  *   node scripts/deposit-reward.js season-deposit --season 202607 --token USDT --amount 28
@@ -94,6 +98,8 @@ const VAULT_ABI = [
   { name: 'setVaultReward', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: '_newReward', type: 'uint256' }], outputs: [] },
   { name: 'depositVaultPool', type: 'function', stateMutability: 'payable', inputs: [{ name: '_token', type: 'address' }, { name: '_amount', type: 'uint256' }], outputs: [] },
   { name: 'withdrawVaultPool', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: '_token', type: 'address' }, { name: '_amount', type: 'uint256' }], outputs: [] },
+  { name: 'storeWeeklyVaultCode', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: '_weekId', type: 'uint256' }, { name: '_code', type: 'string' }], outputs: [] },
+  { name: 'isCodeSetForWeek', type: 'function', stateMutability: 'view', inputs: [{ name: '_weekId', type: 'uint256' }], outputs: [{ type: 'bool' }] },
 ]
 const REWARD_ABI = [
   { name: 'owner', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'address' }] },
@@ -167,6 +173,27 @@ function seasonArg(v) {
   if (!Number.isInteger(n) || yyyy < 2024 || yyyy > 2099 || mm < 1 || mm > 12) {
     die(`--season must be YYYYMM (e.g. 202607). Got "${v}". ` +
         `Season ids are the same YYYYMM the app uses — NOT 1..6.`)
+  }
+  return n
+}
+
+// The TREASURE VAULT weeks are ISO weeks (YYYYWW) — DIFFERENT from the
+// season's YYYYMM. Same algorithm as the app (getISOWeekId / getVaultWeekId).
+function currentVaultWeek() {
+  const now = new Date()
+  const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
+  const dayNum = d.getUTCDay() || 7
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum)
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1))
+  const week = Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7)
+  return d.getUTCFullYear() * 100 + week
+}
+function weekArg(v) {
+  if (v === undefined || v === true) return currentVaultWeek() // default to this week
+  const n = Number(v)
+  const yyyy = Math.floor(n / 100), ww = n % 100
+  if (!Number.isInteger(n) || yyyy < 2024 || yyyy > 2099 || ww < 1 || ww > 53) {
+    die(`--week must be YYYYWW ISO week (e.g. ${currentVaultWeek()}). Got "${v}".`)
   }
   return n
 }
@@ -330,6 +357,25 @@ async function main() {
       await requireOwner(vOwner, 'Treasure Vault')
       if (!(await confirm(`Withdraw $${amtDollars} ${token.symbol} from the vault pool back to you?`, autoYes))) return info('cancelled')
       await send(`withdrawVaultPool($${amtDollars} ${token.symbol})`, { address: VAULT_ADDRESS, abi: VAULT_ABI, functionName: 'withdrawVaultPool', args: [token.address, amount] })
+      break
+    }
+
+    case 'store-vault-code': {
+      // Store this week's 4-digit code ON-CHAIN. The contract's
+      // submitVaultCode() reverts with "Code not set for this week" until
+      // this is done, which surfaced in-app as a false "Wrong code". The
+      // code MUST match the value the player's Paper shows (the Firebase
+      // code) — read it from your own Paper, or set it yourself in Firebase.
+      const week = weekArg(args.week)
+      const code = String(args.code || '')
+      if (!/^\d{4}$/.test(code)) die('--code must be 4 digits (the value shown on the Paper), e.g. --code 0729')
+      const [vOwner] = await readVault()
+      await requireOwner(vOwner, 'Treasure Vault')
+      const already = await publicClient.readContract({ address: VAULT_ADDRESS, abi: VAULT_ABI, functionName: 'isCodeSetForWeek', args: [BigInt(week)] }).catch(() => false)
+      if (already) die(`A code is ALREADY stored on-chain for week ${week} and can't be overwritten (contract rule). If it's wrong, you'll have to wait for next week.`)
+      warn(`This can be set only ONCE for week ${week} — make sure ${code} matches the code on the Paper exactly.`)
+      if (!(await confirm(`Store on-chain vault code ${code} for week ${week}?`, autoYes))) return info('cancelled')
+      await send(`storeWeeklyVaultCode(${week}, ${code})`, { address: VAULT_ADDRESS, abi: VAULT_ABI, functionName: 'storeWeeklyVaultCode', args: [BigInt(week), code] })
       break
     }
 
