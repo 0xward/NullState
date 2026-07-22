@@ -85,9 +85,15 @@ if (PASS_SBT_ADDRESS && RETIRED_PASS_SBT_ADDRESSES.includes(PASS_SBT_ADDRESS.toL
   console.error(msg)
 }
 
+// NullStateRewardV3 (deployed 2026-07, Celo mainnet). Replaces V2
+// (0x38F85c7cE8757E2940938D4e49bCDaE1CB5D475A) — see RETIRED list below.
+// V2 capped seasonId at 1..6 while PassSBTv3 + the app use YYYYMM, which
+// made the season-bonus reward impossible to deposit/claim; V3 relaxes that
+// guard (see contracts/NullStateRewardV3.sol). Weekly-burn rewards are
+// unaffected (that pool is already off-chain).
 export const REWARD_CONTRACT_ADDRESS = (process.env
   .NEXT_PUBLIC_REWARD_CONTRACT_ADDRESS ||
-  '0x38F85c7cE8757E2940938D4e49bCDaE1CB5D475A') as `0x${string}`
+  '0xec2e7fe57a92ada02c1ab37d9415dad508b7f111') as `0x${string}`
 
 // Retired-address guard (added session v55, same pattern as PASS_SBT_ADDRESS
 // above — that guard caught a real live misconfiguration this session, so
@@ -98,7 +104,9 @@ export const REWARD_CONTRACT_ADDRESS = (process.env
 // empty for now — add the old address here if it's ever found (e.g. in a
 // Vercel dashboard history or a teammate's notes), and this will start
 // catching it automatically.
-const RETIRED_REWARD_ADDRESSES: string[] = []
+const RETIRED_REWARD_ADDRESSES: string[] = [
+  '0x38f85c7ce8757e2940938d4e49bcdae1cb5d475a', // NullStateRewardV2 — seasonId capped 1..6 (broke season bonus), replaced by V3
+]
 if (
   REWARD_CONTRACT_ADDRESS &&
   RETIRED_REWARD_ADDRESSES.includes(REWARD_CONTRACT_ADDRESS.toLowerCase())
@@ -106,7 +114,7 @@ if (
   console.error(
     `[NullState] REWARD_CONTRACT_ADDRESS (${REWARD_CONTRACT_ADDRESS}) is a RETIRED ` +
       `NullStateReward contract. Fix: update NEXT_PUBLIC_REWARD_CONTRACT_ADDRESS in ` +
-      `Vercel's env vars to 0x38F85c7cE8757E2940938D4e49bCDaE1CB5D475A (or remove the var ` +
+      `Vercel's env vars to 0xec2e7fe57a92ada02c1ab37d9415dad508b7f111 (or remove the var ` +
       `entirely so the hardcoded fallback above is used), then redeploy.`
   )
 }
