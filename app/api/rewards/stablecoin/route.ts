@@ -1,7 +1,47 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createPublicClient, http, formatUnits } from 'viem'
+import { celo } from 'viem/chains'
 import { getAdminDb } from '@/firebase-config'
 import { walletAddressSchema } from '@/lib/validation'
 import { normalizeWalletAddress } from '@/lib/vault-utils'
+import { TREASURE_VAULT_ADDRESS } from '@/lib/contract-abi'
+import { MARKETPLACE_TOKENS } from '@/lib/constants/tokens'
+
+// Minimal read ABI matching the DEPLOYED TreasureVault (public `vaultReward`
+// getter, lowercase — the shared TREASURE_VAULT_ABI still carries the old
+// `VAULT_REWARD` constant name, which the live contract no longer exposes).
+const VAULT_READ_ABI = [
+  { name: 'vaultReward', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
+  { name: 'currentRewardToken', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'address' }] },
+] as const
+
+// address(lowercase) -> { symbol, decimals } for turning a reward-token address
+// into a human amount. Built once at module load from the shared token table.
+const TOKEN_BY_ADDRESS: Record<string, { symbol: string; decimals: number }> = {}
+for (const t of Object.values(MARKETPLACE_TOKENS)) {
+  TOKEN_BY_ADDRESS[t.address.toLowerCase()] = { symbol: t.symbol, decimals: t.decimals }
+}
+
+// Best-effort read of the vault's CURRENT per-win reward (amount + token
+// symbol). Used only to fill in the display amount for older vault wins whose
+// Firebase record predates amount-stamping (see /api/vault/submit). Wrapped so
+// a flaky RPC never fails the history response — returns null and the entry
+// just shows without an amount, exactly as before.
+async function currentVaultRewardInfo(): Promise<{ amount: number; token: string } | null> {
+  try {
+    if (!TREASURE_VAULT_ADDRESS || TREASURE_VAULT_ADDRESS === '0x') return null
+    const transport = http(process.env.CELO_RPC_URL ?? process.env.NEXT_PUBLIC_CELO_RPC ?? 'https://forno.celo.org')
+    const publicClient = createPublicClient({ chain: celo, transport })
+    const [reward, tokenAddr] = await Promise.all([
+      publicClient.readContract({ address: TREASURE_VAULT_ADDRESS, abi: VAULT_READ_ABI, functionName: 'vaultReward' }) as Promise<bigint>,
+      publicClient.readContract({ address: TREASURE_VAULT_ADDRESS, abi: VAULT_READ_ABI, functionName: 'currentRewardToken' }) as Promise<`0x${string}`>,
+    ])
+    const info = TOKEN_BY_ADDRESS[String(tokenAddr).toLowerCase()] ?? { symbol: 'USD', decimals: 18 }
+    return { amount: Number(formatUnits(reward, info.decimals)), token: info.symbol }
+  } catch {
+    return null
+  }
+}
 
 // =============================================
 // STABLECOIN REWARD HISTORY (Rewards screen — left tab)
@@ -74,17 +114,36 @@ export async function GET(req: NextRequest) {
     const history: StablecoinEntry[] = []
 
     // ---- Treasure Vault wins ----
+    // Collect first; some (older) records don't have amount/token stamped, so
+    // we do ONE best-effort on-chain read of the current reward afterwards to
+    // fill those in for display.
+    let vaultEntriesNeedReward = false
     if (vaultAllSnap.exists()) {
       const byWeek = (vaultAllSnap.val() ?? {}) as Record<string, Record<string, any>>
       for (const [weekIdStr, wallets] of Object.entries(byWeek)) {
         const rec = wallets?.[wallet]
         if (!rec) continue
+        const amount = num(rec.amount)
+        if (amount === undefined) vaultEntriesNeedReward = true
         history.push({
           kind: 'vault',
           weekId: Number(weekIdStr),
+          amount,
+          token: typeof rec.token === 'string' ? rec.token : undefined,
           txHash: typeof rec.txHash === 'string' ? rec.txHash : null,
           at: num(rec.completedAt) ?? 0,
         })
+      }
+    }
+    if (vaultEntriesNeedReward) {
+      const info = await currentVaultRewardInfo()
+      if (info) {
+        for (const e of history) {
+          if (e.kind === 'vault' && e.amount === undefined) {
+            e.amount = info.amount
+            e.token = e.token ?? info.token
+          }
+        }
       }
     }
 

@@ -495,7 +495,7 @@ export default function RewardsScreen({ onBack, address }: RewardsScreenProps) {
                       </div>
                       <div className="flex flex-shrink-0 flex-col items-end gap-1">
                         {typeof e.amount === 'number' && (
-                          <span className="font-mono text-sm font-bold text-[#7ef0a6]">+{e.amount} USD</span>
+                          <span className="font-mono text-sm font-bold text-[#7ef0a6]">+{e.amount} {e.token ?? 'USD'}</span>
                         )}
                         {e.txHash && (
                           <a

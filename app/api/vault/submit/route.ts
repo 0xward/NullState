@@ -2,7 +2,17 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createPublicClient, createWalletClient, http } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { celo } from 'viem/chains'
+import { formatUnits } from 'viem'
 import { TREASURE_VAULT_ABI, TREASURE_VAULT_ADDRESS } from '@/lib/contract-abi'
+import { MARKETPLACE_TOKENS } from '@/lib/constants/tokens'
+
+// Minimal read ABI matching the DEPLOYED TreasureVault (public `vaultReward`
+// getter is lowercase; TREASURE_VAULT_ABI still carries the old `VAULT_REWARD`
+// constant name the live contract no longer exposes).
+const VAULT_READ_ABI = [
+  { name: 'vaultReward', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
+  { name: 'currentRewardToken', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'address' }] },
+] as const
 import { getAdminDb } from '@/firebase-config'
 import { vaultSubmitBodySchema } from '@/lib/validation'
 import {
@@ -87,7 +97,27 @@ async function finalizeVaultPayout(params: {
       account,
     })
     await publicClient.waitForTransactionReceipt({ hash })
-    await db.ref(`vaultCompleted/${weekId}/${normalizedWallet}/txHash`).set(hash)
+
+    // Stamp what was actually paid (amount + token symbol) so the Rewards
+    // history can show "+0.05 USDT" without a later RPC read. Best-effort —
+    // the payout already succeeded, so a failed read here must not undo it.
+    let paidAmount: number | undefined
+    let paidToken: string | undefined
+    try {
+      const [reward, tokenAddr] = await Promise.all([
+        publicClient.readContract({ address: TREASURE_VAULT_ADDRESS, abi: VAULT_READ_ABI, functionName: 'vaultReward' }) as Promise<bigint>,
+        publicClient.readContract({ address: TREASURE_VAULT_ADDRESS, abi: VAULT_READ_ABI, functionName: 'currentRewardToken' }) as Promise<`0x${string}`>,
+      ])
+      const match = Object.values(MARKETPLACE_TOKENS).find((t) => t.address.toLowerCase() === String(tokenAddr).toLowerCase())
+      const decimals = match?.decimals ?? 18
+      paidAmount = Number(formatUnits(reward, decimals))
+      paidToken = match?.symbol ?? 'USD'
+    } catch { /* leave amount/token unset; history falls back to a live read */ }
+
+    await db.ref(`vaultCompleted/${weekId}/${normalizedWallet}`).update({
+      txHash: hash,
+      ...(paidAmount !== undefined ? { amount: paidAmount, token: paidToken } : {}),
+    })
     return { rewardStatus: 'paid', txHash: hash }
   } catch (payErr) {
     // Correct code, but the on-chain payout couldn't complete (RPC hiccup,
