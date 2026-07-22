@@ -542,6 +542,9 @@ function newGame(charKey, restoreSnapshot){
     applyRestoredState(G, p, snap);
     startDepth = snap.depth || 1;
   }
+  // Reconcile any burns the player made from the OUT-OF-GAME Rewards screen
+  // while the engine wasn't running — must run after the stash is restored.
+  applyExternalBurns();
   applyEquipment(p);   // normalize atk/HP from any equipped gear (safe if none)
   descend(startDepth);
 }
@@ -3300,6 +3303,35 @@ function persistStashSnapshot(){
     const snapshot = { items: itemEntries, updatedAt: Date.now() };
     localStorage.setItem('nullstate-stash-'+WALLET_ADDRESS.toLowerCase(), JSON.stringify(snapshot));
   }catch(e){ /* localStorage unavailable/full — non-critical, just skip */ }
+}
+// Reconcile burns the player made from the OUT-OF-GAME Rewards screen
+// (components/game/RewardsScreen.tsx). That screen renders as its own phase
+// with this engine unmounted, so it can't touch the live G.inventory — it
+// credits the NullState Point server-side and records what it burned into a
+// localStorage queue (`nullstate-extburn-<wallet>` = { [itemId]: qtyBurned }).
+// On the next run load we subtract those quantities from the real stash so
+// the same items can never be burned a second time in-game (double-credit).
+// Fully guarded — a malformed/absent queue must never abort newGame().
+function applyExternalBurns(){
+  if(!G || !WALLET_ADDRESS || typeof localStorage==='undefined') return;
+  const key='nullstate-extburn-'+WALLET_ADDRESS.toLowerCase();
+  let queue=null;
+  try{ const raw=localStorage.getItem(key); if(raw) queue=JSON.parse(raw); }catch(e){ queue=null; }
+  if(!queue || typeof queue!=='object'){ return; }
+  let changed=false;
+  try{
+    for(const [id,rawQty] of Object.entries(queue)){
+      const qty=Math.max(0, Math.floor(Number(rawQty)||0));
+      if(!qty) continue;
+      const entry=G.inventory.items[id];
+      if(!entry) continue;
+      entry.qty-=qty;
+      if(entry.qty<=0) delete G.inventory.items[id];
+      changed=true;
+    }
+  }catch(e){ /* partial reconcile is fine — still clear the queue below */ }
+  try{ localStorage.removeItem(key); }catch(e){ /* ignore */ }
+  if(changed) persistStashSnapshot();
 }
 // Generic stash renderer, reused for both the player's own inventory panel
 // (#invItems) and the read-only reference panel inside the container window
