@@ -88,6 +88,17 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    // The Firebase code (the exact value the player's Paper shows) is the
+    // SOURCE OF TRUTH for correctness. The on-chain reward is a SEPARATE,
+    // best-effort step — it must NEVER turn a correct code into an error.
+    //
+    // The old flow called submitVaultCode() on-chain unconditionally and
+    // awaited the receipt inside the main try; the contract reverts when the
+    // code wasn't ALSO stored on-chain (storeWeeklyVaultCode) or the reward
+    // pool isn't funded, which threw -> route 500 -> the client's fallback
+    // branch printed "Wrong code" for a CORRECT code. That's the reported
+    // bug: a correct code read off the Paper looked wrong because USDT
+    // hadn't been deposited / the on-chain code wasn't set.
     const expectedCode = String(codeSnap.val()?.code ?? '')
     const isCorrect = expectedCode === code
     const updatedAttempts = attemptsUsed + 1
@@ -95,39 +106,56 @@ export async function POST(req: NextRequest) {
     await db.ref(`vaultAttempts/${weekId}/${normalizedWallet}`).set(updatedAttempts)
 
     let txHash: string | null = null
-    const backendPrivateKey = process.env.BACKEND_PRIVATE_KEY as `0x${string}` | undefined
-    if (backendPrivateKey && TREASURE_VAULT_ADDRESS && TREASURE_VAULT_ADDRESS !== '0x') {
-      const account = privateKeyToAccount(backendPrivateKey)
-      const transport = http(process.env.CELO_RPC_URL ?? process.env.NEXT_PUBLIC_CELO_RPC ?? 'https://forno.celo.org')
-      const publicClient = createPublicClient({ chain: celo, transport })
-      const walletClient = createWalletClient({ chain: celo, transport, account })
-
-      const hash = await walletClient.writeContract({
-        address: TREASURE_VAULT_ADDRESS,
-        abi: TREASURE_VAULT_ABI,
-        functionName: 'submitVaultCode',
-        args: [walletAddress as `0x${string}`, BigInt(weekId), code],
-        account,
-      })
-      await publicClient.waitForTransactionReceipt({ hash })
-      txHash = hash
-    }
+    let rewardStatus: 'paid' | 'pending' | 'none' = isCorrect ? 'pending' : 'none'
 
     if (isCorrect) {
+      // Record the win immediately — independent of the payout.
       await db.ref(`vaultCompleted/${weekId}/${normalizedWallet}`).set({
         completedAt: Date.now(),
         attempts: updatedAttempts,
-        txHash,
+        txHash: null,
       })
+
+      const backendPrivateKey = process.env.BACKEND_PRIVATE_KEY as `0x${string}` | undefined
+      if (backendPrivateKey && TREASURE_VAULT_ADDRESS && TREASURE_VAULT_ADDRESS !== '0x') {
+        try {
+          const account = privateKeyToAccount(backendPrivateKey)
+          const transport = http(process.env.CELO_RPC_URL ?? process.env.NEXT_PUBLIC_CELO_RPC ?? 'https://forno.celo.org')
+          const publicClient = createPublicClient({ chain: celo, transport })
+          const walletClient = createWalletClient({ chain: celo, transport, account })
+
+          const hash = await walletClient.writeContract({
+            address: TREASURE_VAULT_ADDRESS,
+            abi: TREASURE_VAULT_ABI,
+            functionName: 'submitVaultCode',
+            args: [walletAddress as `0x${string}`, BigInt(weekId), code],
+            account,
+          })
+          await publicClient.waitForTransactionReceipt({ hash })
+          txHash = hash
+          rewardStatus = 'paid'
+          await db.ref(`vaultCompleted/${weekId}/${normalizedWallet}/txHash`).set(hash)
+        } catch (payErr) {
+          // Correct code, but the on-chain payout couldn't complete — almost
+          // always because the owner hasn't stored this week's code on-chain
+          // (storeWeeklyVaultCode) and/or funded the reward pool. The player
+          // still gets a CORRECT result; the reward is marked pending.
+          console.error('[vault/submit] correct code but payout failed:', payErr instanceof Error ? payErr.message : payErr)
+          rewardStatus = 'pending'
+        }
+      }
     }
 
     return NextResponse.json(
       {
         success: isCorrect,
         isCorrect,
+        rewardStatus,
         attemptsRemaining: getAttemptsRemaining(updatedAttempts),
         attemptsUsed: updatedAttempts,
-        message: isCorrect ? 'Correct code! Vault unlocked.' : 'Wrong code. Try again.',
+        message: isCorrect
+          ? (rewardStatus === 'paid' ? 'Correct code! Reward sent.' : 'Correct code! Reward will arrive once the vault pool is funded.')
+          : 'Wrong code. Try again.',
         txHash,
       },
       { status: 200 },

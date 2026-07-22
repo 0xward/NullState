@@ -34,7 +34,7 @@ const MONSTER_FLOOR_CONFIG = {
   // just the boss floor) hits noticeably harder and takes twice the hits to
   // kill compared to the same floor number in an earlier bunker.
   actHardMode: {
-    4: { hpMul: 2.0, dmgMul: 1.6, label: 'THE LAST LIGHT — Hard Mode' },
+    4: { hpMul: 2.0, dmgMul: 1.3, label: 'THE LAST LIGHT — Hard Mode' }, // dmg 1.6 -> 1.3: Bunker 5 boss was one-shotting; the per-hit cap in game.js is the main fix, this just eases the spike
   },
 
   // ---- Game-feel knobs (used by effects.js) ----

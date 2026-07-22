@@ -1290,17 +1290,25 @@ function openVaultWindow(decor){
   win.classList.remove('hidden');
   if(input) setTimeout(()=>input.focus(), 50);
 }
+// Just close the popup and RESUME the bunker. Bug fix: this used to also
+// finish Bunker 5 (onActBunkerCleared), so tapping "close" to go read the
+// code off your Paper in the inventory kicked you out of the bunker. Now
+// closing simply hides the window — the vault door stays interactive, so
+// you can check your Paper and re-open it to enter the code.
 function closeVaultWindow(){
   const win=$('vaultWindow'); if(win) win.classList.add('hidden');
-  const decor=G ? G._vaultDecor : null;
   if(G){ G._vaultDecor=null; G.paused=false; }
-  // Whatever happened inside (correct code, wrong code, or the player just
-  // closes without trying) — closing the vault window is what finally lets
-  // Bunker 5 finish, same as every other bunker's boss-kill used to do
-  // automatically. See onEnemyKilled()'s Bunker-5 branch above.
+}
+// Finish Bunker 5 and roll into the ending. Called on a SOLVED vault, or
+// when the player explicitly chooses "leave the bunker" (they don't have /
+// don't want the code). This is the only path that ends the last bunker.
+function finishBunkerFromVault(){
+  const win=$('vaultWindow'); if(win) win.classList.add('hidden');
+  const decor=G ? G._vaultDecor : null;
+  if(G){ G._vaultDecor=null; }
   if(decor && decor.def && decor.def.isVaultDoor){
     setTimeout(()=>onActBunkerCleared(),400);
-  }
+  } else if(G){ G.paused=false; }
 }
 async function submitVaultCode(){
   if(!G) return;
@@ -1325,11 +1333,17 @@ async function submitVaultCode(){
     if(data && data.error==='missing_items'){
       if(msg){ msg.textContent=data.message||'You need this week\'s Paper and Golden Key first.'; msg.className='vault-msg err'; }
     } else if(data && data.isCorrect){
-      if(msg){ msg.textContent='✓ Correct! 1 USDm reward sent to your wallet.'; msg.className='vault-msg ok'; }
+      const _paid = data.rewardStatus==='paid';
+      if(msg){
+        msg.textContent = _paid ? '✓ Correct! Reward sent to your wallet.'
+                                : '✓ Correct! Vault unlocked — your reward arrives once the pool is funded.';
+        msg.className='vault-msg ok';
+      }
       A.levelup(); spark(G.player.x, G.player.y-30, '#b46bff', 40, 260);
-      log('Vault unlocked — 1 USDm reward claimed.', 'reward');
+      log(_paid ? 'Vault unlocked — reward claimed.' : 'Vault unlocked — reward pending pool funding.', 'reward');
       if(submitBtn){ submitBtn.textContent='DONE'; }
-      setTimeout(closeVaultWindow, 1400);
+      // A solved vault DOES finish the bunker (the reward loop is complete).
+      setTimeout(()=>finishBunkerFromVault(), 1400);
       return;
     } else if(data){
       const remaining = typeof data.attemptsRemaining==='number' ? data.attemptsRemaining : null;
@@ -1798,7 +1812,16 @@ function hitTest(){
   // enemies hitting player
   for(const e of G.enemies){
     if(e.dead) continue;
-    const wd=e.takeWantHit?e.takeWantHit():0;
+    let wd=e.takeWantHit?e.takeWantHit():0;
+    // ANTI-BURST (owner report: deep/Act-5 bosses one-shot you before you can
+    // react to reach the Abyss). At depth ~25 the linear + exponential floor
+    // scaling compound with the boss + hard-mode multipliers into a single
+    // hit far bigger than the 100-300 HP pool. Cap ANY single hit at 40% of
+    // max HP so no enemy can one-shot: with the 0.7s i-frame after each hit,
+    // you always get at least ~3 hits (a couple of seconds) to heal or run.
+    // Normal enemies never hit this hard, so this only tames the overtuned
+    // deep bosses — it doesn't make ordinary floors easier.
+    if(wd>0){ wd = Math.min(wd, Math.ceil(p.maxHp*0.40)); }
     if(wd>0){
       if(p.hurt(wd)){
         dmgNum(p.x,p.y-30,wd); A.hurt(); G.shake=Math.min(G.shake+4,8); // was +7,12 — punch list #10, v38
@@ -4841,6 +4864,7 @@ function attach(){
   $('containerClose').addEventListener('click', closeContainerWindow);
   $('containerTakeAll').addEventListener('click', takeAllContainerSlots);
   $('vaultClose').addEventListener('click', closeVaultWindow);
+  { const vl=$('vaultLeave'); if(vl) vl.addEventListener('click', finishBunkerFromVault); }
   $('vaultSubmitBtn').addEventListener('click', submitVaultCode);
   $('vaultCodeInput').addEventListener('keydown', (e)=>{ if(e.key==='Enter') submitVaultCode(); });
   $('burnConfirm').addEventListener('click', onInvConfirmClick); // #5 (v41) — dispatches to confirmBurn (Loot) or confirmEatSelected (Food)
