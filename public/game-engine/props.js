@@ -507,35 +507,56 @@ class Decor {
         }
       }
     } else if(t==='vault_door'){
-      // v67 T13: vault door keeps the ORIGINAL front rule (everything except
-      // 'up' shows the seam/glow) — it can legally face left/right from the
-      // wall snap (placeVaultDoorSpot) and must never hide its story visuals.
+      // Heavy steel bank-vault door ("brankas") — deliberately NOT a
+      // cabinet. Owner report: the old flat slab-with-a-seam read as just
+      // another loot cabinet. This is now a monumental riveted steel frame
+      // with a central SPOKED WHEEL-LOCK, sealed by a glowing violet
+      // rune-ring (Act 5 story). It can face left/right/down from the wall
+      // snap (placeVaultDoorSpot); only the pure back ('up') hides the
+      // mechanism. The mirror flip in draw() keeps the wheel centred on the
+      // side walls (it's rotationally symmetric).
       const vfront = facing!=='up';
-      // Tall arched voidstone door — dark and sealed with a glowing violet
-      // seam before opening; the seam splits into two lit half-doors once
-      // opened (matches Act 5's "the lights came on" story beat).
-      R(-25,-4,50,4,'#141018');                                 // floor sill
+      const pulse  = 0.55+0.45*Math.sin(this.bob*2.2);
+      R(-30,-4,60,4,'#0e0b12');                                 // floor sill shadow
+      // ---- outer steel frame (thick, beveled, lit from the left) ----
+      R(-30,-78,60,76,'#221d2e');                               // frame recess/back
+      R(-30,-78,60,6,'#453e5c');                                // top lintel (lit)
+      R(-30,-78,6,76,'#4d4666');                                // left jamb (lit)
+      R(24,-78,6,76,'#171320');                                 // right jamb (shade)
+      R(-30,-8,60,6,'#171320');                                 // bottom threshold
       if(this.opened){
-        // Two halves swung open, warm light spilling from the gap.
-        ctx.fillStyle='rgba(200,170,255,.22)';
-        ctx.beginPath(); ctx.ellipse(0,-38,26,40,0,0,7); ctx.fill();
-        R(-25,-70,20,66,'#2a2438'); R(5,-70,20,66,'#2a2438');   // door halves, pushed apart
-        R(-25,-70,4,66,'#3d3550'); R(21,-70,4,66,'#3d3550');
-        if(vfront){
-          R(-19,-16,2,50,'#b46bff'); R(15,-16,2,50,'#b46bff');  // inner glow edges
-        }
+        // Wheel disengaged, the two leaves parted, warm light spilling out.
+        ctx.fillStyle='rgba(210,180,255,.20)';
+        ctx.beginPath(); ctx.ellipse(0,-40,24,42,0,0,7); ctx.fill();
+        R(-24,-72,20,64,'#2c2640'); R(4,-72,20,64,'#2c2640');   // leaves pushed apart
+        R(-24,-72,4,64,'#4d4666');  R(20,-72,4,64,'#4d4666');   // lit inner edges
+        if(vfront){ R(-6,-70,2,60,'#c79bff'); R(4,-70,2,60,'#c79bff'); } // light gap
       } else {
-        R(-24,-70,48,70,'#1c1826');                             // sealed door body
-        R(-24,-70,48,4,'#2e283c');                               // lintel
-        ctx.strokeStyle='#3d3550'; ctx.lineWidth=2; ctx.strokeRect(-24,-70,48,70);
+        // Sealed slab carrying the wheel-lock.
+        R(-23,-72,46,64,'#1b1626');                             // door slab
+        ctx.strokeStyle='#3d3550'; ctx.lineWidth=2; ctx.strokeRect(-23,-72,46,64);
         if(vfront){
-          const pulse=0.55+0.45*Math.sin(this.bob*2.2);
-          ctx.strokeStyle='rgba(180,107,255,'+pulse.toFixed(3)+')'; ctx.lineWidth=2.5;
-          ctx.beginPath(); ctx.moveTo(0,-70); ctx.lineTo(0,0); ctx.stroke();       // vertical seam
+          ctx.fillStyle='#5b5478';                              // corner + edge rivets
+          for(const rx of [-19,19]) for(const ry of [-68,-40,-12]){ ctx.beginPath(); ctx.arc(rx,ry,1.6,0,7); ctx.fill(); }
+          ctx.fillStyle='#120e1a';                              // recessed central disc
+          ctx.beginPath(); ctx.arc(0,-40,17,0,7); ctx.fill();
+          ctx.strokeStyle='#4d4666'; ctx.lineWidth=3;
+          ctx.beginPath(); ctx.arc(0,-40,17,0,7); ctx.stroke(); // disc rim
+          ctx.strokeStyle='#6b6488'; ctx.lineWidth=3; ctx.lineCap='round';  // spoked wheel
+          for(let k=0;k<4;k++){ const wa=k*Math.PI/4;
+            ctx.beginPath();
+            ctx.moveTo(Math.cos(wa)*13,-40+Math.sin(wa)*13);
+            ctx.lineTo(-Math.cos(wa)*13,-40-Math.sin(wa)*13);
+            ctx.stroke();
+          }
+          ctx.lineCap='butt';
+          ctx.fillStyle='#7d76a0'; ctx.beginPath(); ctx.arc(0,-40,4,0,7); ctx.fill(); // hub
+          ctx.strokeStyle='rgba(180,107,255,'+pulse.toFixed(3)+')'; ctx.lineWidth=2.5; // violet seal ring
+          ctx.beginPath(); ctx.arc(0,-40,20,0,7); ctx.stroke();
           ctx.fillStyle='rgba(180,107,255,'+(pulse*0.5).toFixed(3)+')';
-          ctx.beginPath(); ctx.arc(0,-36,4+2*pulse,0,7); ctx.fill();               // sealed rune-lock
+          ctx.beginPath(); ctx.arc(0,-40,3,0,7); ctx.fill();    // lit hub core
         } else {
-          R(-20,-64,40,58,'#171320');
+          R(-19,-66,38,54,'#141019');                           // plain back slab
         }
       }
     } else if(t==='urn'){
