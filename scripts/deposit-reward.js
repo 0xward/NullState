@@ -15,9 +15,10 @@
  *     - vault-deposit     approve + depositVaultPool    fund the pool
  *     - vault-withdraw    withdrawVaultPool             pull unclaimed funds
  *
- *   Season leaderboard bonus (NullStateRewardV2)
- *     - season-rewards    setRankRewards(r1,r2,r3)      top-3 bonus amounts
- *     - season-deposit    approve + depositSeasonBonus  fund a season
+ *   Season leaderboard bonus (NullStateRewardV3 — season ids are YYYYMM)
+ *     - season-rewards      setRankRewards(r1,r2,r3)      top-3 bonus amounts
+ *     - update-leaderboard  updateLeaderboard(id,top3)    publish the winners
+ *     - season-deposit      approve + depositSeasonBonus  fund a season
  *
  *   status                read-only overview of both contracts
  *
@@ -47,7 +48,8 @@
  *   node scripts/deposit-reward.js vault-reward   --token USDT --amount 0.5
  *   node scripts/deposit-reward.js vault-deposit  --token USDT --amount 10
  *   node scripts/deposit-reward.js season-rewards --token USDT --r1 20 --r2 5 --r3 3
- *   node scripts/deposit-reward.js season-deposit --season 3 --token USDT --amount 28
+ *   node scripts/deposit-reward.js update-leaderboard --season 202607 --p1 0x.. --p2 0x.. --p3 0x.. --s1 120 --s2 90 --s3 70
+ *   node scripts/deposit-reward.js season-deposit --season 202607 --token USDT --amount 28
  *
  * The DEPLOYER_PRIVATE_KEY must be the wallet that owns the contracts. The
  * script reads owner() on-chain first and refuses to send if your key isn't
@@ -95,6 +97,7 @@ const REWARD_ABI = [
   { name: 'rank3Reward', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
   { name: 'setRankRewards', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: '_r1', type: 'uint256' }, { name: '_r2', type: 'uint256' }, { name: '_r3', type: 'uint256' }], outputs: [] },
   { name: 'depositSeasonBonus', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: '_seasonId', type: 'uint256' }, { name: '_rewardToken', type: 'address' }, { name: '_amount', type: 'uint256' }], outputs: [] },
+  { name: 'updateLeaderboard', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: '_seasonId', type: 'uint256' }, { name: '_topPlayers', type: 'address[3]' }, { name: '_topScores', type: 'uint256[3]' }], outputs: [] },
 ]
 
 // ── tiny .env loader (no dotenv dependency) ──
@@ -148,6 +151,19 @@ function tokenBySymbolFromAddress(addr) {
   if (k) return TOKENS[k]
   if (String(addr).toLowerCase() === CELO_NATIVE.toLowerCase()) return { symbol: 'CELO', address: CELO_NATIVE, decimals: 18 }
   return { symbol: 'unknown', address: addr, decimals: 18 }
+}
+
+// Season ids are YYYYMM (e.g. 202607), matching PassSBTv3 + the app +
+// NullStateRewardV3. Validate the shape so a stray "3" can't be sent.
+function seasonArg(v) {
+  if (v === undefined || v === true) die('missing --season <YYYYMM> (e.g. 202607)')
+  const n = Number(v)
+  const yyyy = Math.floor(n / 100), mm = n % 100
+  if (!Number.isInteger(n) || yyyy < 2024 || yyyy > 2099 || mm < 1 || mm > 12) {
+    die(`--season must be YYYYMM (e.g. 202607). Got "${v}". ` +
+        `Season ids are the same YYYYMM the app uses — NOT 1..6.`)
+  }
+  return n
 }
 
 async function confirm(question, autoYes) {
@@ -324,10 +340,30 @@ async function main() {
       break
     }
 
+    case 'update-leaderboard': {
+      // Publish the season's top-3 on-chain so claimSeasonBonus can pay them.
+      // onlyBackend/owner. Addresses + scores come from your leaderboard.
+      const seasonId = seasonArg(args.season)
+      const players = [args.p1, args.p2, args.p3]
+      const scores = [args.s1, args.s2, args.s3]
+      for (let i = 0; i < 3; i++) {
+        if (!players[i] || players[i] === true || !/^0x[0-9a-fA-F]{40}$/.test(String(players[i]))) die(`--p${i + 1} must be a 0x address`)
+        if (scores[i] === undefined || scores[i] === true || !Number.isFinite(Number(scores[i]))) die(`--s${i + 1} must be a number (score)`)
+      }
+      const [rOwner] = await readReward()
+      await requireOwner(rOwner, 'Reward')
+      info(`  season ${seasonId} top-3: ${players.map((p, i) => `#${i + 1} ${p} (${scores[i]})`).join(', ')}`)
+      if (!(await confirm(`Publish this top-3 for season ${seasonId} on-chain?`, autoYes))) return info('cancelled')
+      await send(`updateLeaderboard(${seasonId})`, {
+        address: REWARD_ADDRESS, abi: REWARD_ABI, functionName: 'updateLeaderboard',
+        args: [BigInt(seasonId), players, scores.map((s) => BigInt(Math.floor(Number(s))))],
+      })
+      break
+    }
+
     case 'season-deposit': {
       const token = resolveToken(args.token)
-      const seasonId = Number(args.season)
-      if (!Number.isInteger(seasonId) || seasonId < 1 || seasonId > 6) die('--season must be 1..6')
+      const seasonId = seasonArg(args.season)
       const amtDollars = dollars(args.amount, '--amount')
       const amount = parseUnits(amtDollars, token.decimals)
       const [rOwner, r1, r2, r3] = await readReward()
