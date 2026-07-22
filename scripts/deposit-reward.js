@@ -65,7 +65,12 @@ const { celo } = require('viem/chains')
 
 // ── addresses (Celo mainnet — mirror lib/contract-abi.ts / lib/constants/tokens.ts) ──
 const VAULT_ADDRESS = (process.env.NEXT_PUBLIC_TREASURE_VAULT_ADDRESS || '0xB145dE296cD37Cb2A62Ced70Ee4d93c1d78df742')
-const REWARD_ADDRESS = (process.env.NEXT_PUBLIC_REWARD_CONTRACT_ADDRESS || '0x38F85c7cE8757E2940938D4e49bCDaE1CB5D475A')
+// NullStateRewardV3 (YYYYMM season ids). The old V2
+// (0x38F85c7cE8757E2940938D4e49bCDaE1CB5D475A) is retired — its owner-only
+// setters still WORK, so a stale default here would let season-rewards
+// "succeed" against the wrong contract with no error. Keep this in sync
+// with lib/contract-abi.ts.
+const REWARD_ADDRESS = (process.env.NEXT_PUBLIC_REWARD_CONTRACT_ADDRESS || '0xec2e7fe57a92ada02c1ab37d9415dad508b7f111')
 
 const TOKENS = {
   USDm: { symbol: 'USDm', address: '0x765DE816845861e75A25fCA122bb6898B8B1282a', decimals: 18, fee: '0x765DE816845861e75A25fCA122bb6898B8B1282a' },
