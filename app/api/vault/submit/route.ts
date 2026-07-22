@@ -124,6 +124,37 @@ export async function POST(req: NextRequest) {
           const publicClient = createPublicClient({ chain: celo, transport })
           const walletClient = createWalletClient({ chain: celo, transport, account })
 
+          // AUTO on-chain code sync (owner shouldn't have to store the code
+          // manually every week): the contract's submitVaultCode() reverts
+          // unless this week's code is already stored on-chain. The backend
+          // signer is authorized (backendAddresses[0xAb73…]=true), so the
+          // FIRST time a correct code is submitted for the week, store the
+          // canonical Firebase code on-chain first — automatically. Guarded
+          // by isCodeSetForWeek so it happens at most once per week; a race
+          // that reverts with "already set" is caught and we proceed to pay.
+          const alreadySet = await publicClient
+            .readContract({ address: TREASURE_VAULT_ADDRESS, abi: TREASURE_VAULT_ABI, functionName: 'isCodeSetForWeek', args: [BigInt(weekId)] })
+            .catch(() => false)
+          if (!alreadySet) {
+            try {
+              const storeHash = await walletClient.writeContract({
+                address: TREASURE_VAULT_ADDRESS,
+                abi: TREASURE_VAULT_ABI,
+                functionName: 'storeWeeklyVaultCode',
+                args: [BigInt(weekId), expectedCode], // the Firebase code the Paper shows
+                account,
+              })
+              await publicClient.waitForTransactionReceipt({ hash: storeHash })
+            } catch (storeErr) {
+              // Another concurrent submit may have set it first — that's fine;
+              // only rethrow if the code still isn't set (a real failure).
+              const nowSet = await publicClient
+                .readContract({ address: TREASURE_VAULT_ADDRESS, abi: TREASURE_VAULT_ABI, functionName: 'isCodeSetForWeek', args: [BigInt(weekId)] })
+                .catch(() => false)
+              if (!nowSet) throw storeErr
+            }
+          }
+
           const hash = await walletClient.writeContract({
             address: TREASURE_VAULT_ADDRESS,
             abi: TREASURE_VAULT_ABI,
