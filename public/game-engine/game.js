@@ -4462,7 +4462,7 @@ function currentEquippedIds(){
   const eq = (G && G.equipment && G.equipment.equipped)
     ? G.equipment.equipped
     : loadPersistedEquipment().equipped;
-  return { weaponId: eq.mainhand || null, armorId: eq.body || null };
+  return { weaponId: eq.mainhand || null, armorId: eq.body || null, outfitId: eq.outfit || null };
 }
 function enterOutdoorAct(actIndex, resumeAtDoor){
   const heroCfg = HERO[selectedChar];
@@ -4470,7 +4470,7 @@ function enterOutdoorAct(actIndex, resumeAtDoor){
   const _eq = currentEquippedIds();
   Outdoor.enter(actIndex, CAMPAIGN, {
     heroCfg, charKey: selectedChar, resumeAtDoor, canvasWidth: cw,
-    weaponId: _eq.weaponId, armorId: _eq.armorId,
+    weaponId: _eq.weaponId, armorId: _eq.armorId, outfitId: _eq.outfitId,
     onReachDoor: onOutdoorReachedDoor,
   });
   if(atkBtn) atkBtn.classList.add('hidden');
@@ -4569,7 +4569,7 @@ function onActBunkerCleared(){
     resetInput(); // #7 fix — one-time clear on entry, see render()'s Outdoor branch for why this moved here
     Outdoor.enter(campaignActIndex, CAMPAIGN, {
       heroCfg: HERO[selectedChar], charKey: selectedChar, canvasWidth: cw,
-      weaponId: _eq.weaponId, armorId: _eq.armorId,
+      weaponId: _eq.weaponId, armorId: _eq.armorId, outfitId: _eq.outfitId,
       resumeAtDoor: true, // skip arrival speech bubbles, this act was already greeted
       bunkerCleared: true, // door now advances to the next act instead of re-entering
       onReachDoor: onOutdoorAdvanceToNextAct,
