@@ -20,6 +20,9 @@ A: 5 bunkers (story Acts) × 5 floors = 25 depths.
 **Q: What is the Armory Trial?**
 A: A one-time reward for clearing Act 1 — pick any 2 premium weapons in the Marketplace and use them free for 48 hours each. Each weapon's timer starts the first time you equip it; when it expires the weapon returns to the shop.
 
+**Q: How do referrals work?**
+A: Share your code from the Referral menu. A friend counts once they clear Act 1 using your link. Rewards: 1 friend = a 3-day weapon trial; 3 friends = a permanent skin + three 48h weapon trials; 10 friends = two 7-day weapon trials. Bonus: your invitee's first weapon purchase or pass mint automatically mints a free Season Pass to your wallet.
+
 ---
 
 ## 💰 Rewards & Earning

@@ -4593,6 +4593,16 @@ function onActBunkerCleared(){
       if(localStorage.getItem(k)!=='1'){
         localStorage.setItem(k,'1');
         log('◆ ARMORY TRIAL unlocked — pick 2 premium weapons to try FREE for 48h in the Marketplace.', 'reward');
+        // Referral credit (blueprint 2A): clearing Act 1 is the moment an
+        // invited player COUNTS for their referrer. Fire-and-forget — the
+        // server no-ops if this wallet was never referred (or already
+        // counted), so there's nothing to gate here.
+        if(WALLET_ADDRESS){
+          fetch('/api/referrals', {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ action:'credit', wallet: WALLET_ADDRESS })
+          }).catch(()=>{ /* offline — credit retries next time via the same one-time flag? no: acceptable loss, server-side idempotent */ });
+        }
       }
     }catch(e){ /* storage off — the marketplace banner just won't show */ }
   }

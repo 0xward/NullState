@@ -5,6 +5,7 @@ import {
   TRIAL_COUNT,
   TRIAL_DURATION_H,
   activeTrialInfos,
+  hasArmoryGrant,
   isTrialableWeapon,
   type TrialRecord,
 } from '@/lib/server/trials'
@@ -40,7 +41,7 @@ export async function GET(req: NextRequest) {
     const snap = await db.ref(`trials/${normalize(wallet)}`).get()
     const rec = (snap.val() ?? null) as TrialRecord | null
     return NextResponse.json({
-      eligible: !rec,
+      eligible: !hasArmoryGrant(rec),
       durationH: TRIAL_DURATION_H,
       trials: activeTrialInfos(rec),
     })
@@ -75,12 +76,16 @@ export async function POST(req: NextRequest) {
     if (!db) return NextResponse.json({ error: 'Server storage unavailable' }, { status: 503 })
 
     const ref = db.ref(`trials/${normalize(wallet)}`)
-    // Atomic one-time grant: two racing requests can only commit one record.
-    const items: Record<string, { activatedAt: null }> = {}
-    for (const id of itemIds) items[id] = { activatedAt: null }
+    // Atomic one-time grant: two racing requests can only commit one armory
+    // claim. Referral trials may already live in the record — merge, never
+    // overwrite them.
     const tx = await ref.transaction((current: TrialRecord | null) => {
-      if (current) return undefined // abort — already granted
-      return { grantedAt: Date.now(), durationH: TRIAL_DURATION_H, items }
+      if (hasArmoryGrant(current)) return undefined // abort — already granted
+      const next: TrialRecord = current ? { ...current } : { durationH: TRIAL_DURATION_H }
+      next.armory = { claimedAt: Date.now() }
+      next.items = { ...(next.items || {}) }
+      for (const id of itemIds) next.items[id] = { activatedAt: null, durationH: TRIAL_DURATION_H }
+      return next
     })
     if (!tx.committed) {
       return NextResponse.json({ error: 'Trial already claimed for this wallet' }, { status: 409 })

@@ -10,6 +10,7 @@ interface MainMenuProps {
   onNewGame: () => void
   onLeaderboard: () => void
   onRewards: () => void
+  onReferral: () => void
   onMintPass: () => void
   onMarketplace: () => void
   onCrafting: () => void
@@ -62,6 +63,7 @@ export default function MainMenu({
   onNewGame,
   onLeaderboard,
   onRewards,
+  onReferral,
   onMintPass,
   onMarketplace,
   onCrafting,
@@ -149,6 +151,7 @@ export default function MainMenu({
           <MenuItem label="Crafting" onClick={onCrafting} />
           <MenuItem label="Leaderboard" onClick={onLeaderboard} />
           <MenuItem label="Rewards" onClick={onRewards} />
+          <MenuItem label="Referral" onClick={onReferral} />
           <MenuItem label="Mint Pass" onClick={onMintPass} />
           <MenuItem label="How to Play" onClick={onHowToPlay} />
         </nav>

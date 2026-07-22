@@ -31,6 +31,10 @@ const RewardsScreen = dynamic(() => import('./RewardsScreen'), {
   ssr: false,
   loading: () => <ScreenLoadingFallback label="LOADING REWARDS" />,
 })
+const ReferralScreen = dynamic(() => import('./ReferralScreen'), {
+  ssr: false,
+  loading: () => <ScreenLoadingFallback label="LOADING REFERRAL" />,
+})
 const SeasonPassScreen = dynamic(() => import('./SeasonPassScreen'), {
   ssr: false,
   loading: () => <ScreenLoadingFallback label="LOADING SEASON PASS" />,
@@ -65,7 +69,7 @@ function ScreenLoadingFallback({ label }: { label: string }) {
   )
 }
 
-type GamePhase = 'menu' | 'username-setup' | 'character-select' | 'game' | 'leaderboard' | 'rewards' | 'season-pass' | 'marketplace' | 'crafting' | 'how-to-play'
+type GamePhase = 'menu' | 'username-setup' | 'character-select' | 'game' | 'leaderboard' | 'rewards' | 'referral' | 'season-pass' | 'marketplace' | 'crafting' | 'how-to-play'
 
 /**
  * GameFlowManager orchestrates the entire NullState game flow:
@@ -110,6 +114,39 @@ export default function GameFlowManager() {
       setPhase('menu')
     }
   }, [isConnected])
+
+  // Referral bind (growth blueprint 2A). A share link lands on
+  // /game?ref=CODE — stash the code immediately (the wallet may not be
+  // connected yet), then bind it server-side once a real wallet exists.
+  // The server is idempotent (binds once ever, rejects self-referrals),
+  // so re-running on every mount is harmless.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    try {
+      const ref = new URLSearchParams(window.location.search).get('ref')
+      if (ref && /^[A-Za-z0-9]{6,12}$/.test(ref)) localStorage.setItem('nullstate-refcode-pending', ref.toUpperCase())
+    } catch { /* ignore */ }
+  }, [])
+  useEffect(() => {
+    if (!realAddress || typeof window === 'undefined') return
+    let code: string | null = null
+    try { code = localStorage.getItem('nullstate-refcode-pending') } catch { /* ignore */ }
+    if (!code) return
+    fetch('/api/referrals', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'bind', wallet: realAddress, code }),
+    })
+      .then(r => r.json())
+      .then(d => {
+        // Bound (or already bound / self-ref rejected) — either way the
+        // pending code has served its purpose.
+        if (d && (d.success || d.error)) {
+          try { localStorage.removeItem('nullstate-refcode-pending') } catch { /* ignore */ }
+        }
+      })
+      .catch(() => { /* offline — keep pending, retry next mount */ })
+  }, [realAddress])
 
   // Guest → wallet migration (Phase 1). The moment a real wallet connects while
   // a local guest id still exists, move the guest's off-chain progress onto the
@@ -244,6 +281,10 @@ export default function GameFlowManager() {
     setPhase('season-pass')
   }
 
+  const handleReferralClick = () => {
+    setPhase('referral')
+  }
+
   const handleMarketplaceClick = () => {
     setPhase('marketplace')
   }
@@ -265,6 +306,7 @@ export default function GameFlowManager() {
           onNewGame={handleNewGame}
           onLeaderboard={handleLeaderboardClick}
           onRewards={handleRewardsClick}
+          onReferral={handleReferralClick}
           onMintPass={handleMintPassClick}
           onMarketplace={handleMarketplaceClick}
           onCrafting={handleCraftingClick}
@@ -357,6 +399,16 @@ export default function GameFlowManager() {
         onBack={handleBackToMenu}
         address={address || undefined}
         playerProfile={playerProfile}
+      />
+    )
+  }
+
+  // PHASE: REFERRAL
+  if (phase === 'referral') {
+    return (
+      <ReferralScreen
+        onBack={handleBackToMenu}
+        address={address || undefined}
       />
     )
   }
