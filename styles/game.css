@@ -1014,6 +1014,10 @@
    then owned-but-unequipped below. Section headers + hairline divider. */
 .ns-game-root .equip-row.equip-sect{display:block;background:none;border:none;box-shadow:none;padding:6px 2px 2px;
   color:#e8bd6f;font-size:10px;letter-spacing:2px;font-weight:700;text-transform:uppercase;opacity:.85;}
+/* category sub-header inside the OWNED list (Weapons / Armor / Skins) — a shade
+   smaller/dimmer + indented so it reads as a level below the OWNED section. */
+.ns-game-root .equip-row.equip-sect.equip-subsect{padding:5px 2px 1px 8px;font-size:9px;letter-spacing:1.5px;
+  color:#c39a5f;opacity:.7;}
 .ns-game-root .equip-row.equip-divider{display:block;background:none;border:none;box-shadow:none;padding:0;margin:6px 2px;
   height:1px;background:linear-gradient(90deg,transparent,rgba(232,189,111,.45),transparent);}
 .ns-game-root .equip-icon{width:36px;height:36px;image-rendering:pixelated;flex-shrink:0;

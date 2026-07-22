@@ -4189,7 +4189,22 @@ function renderEquipmentPanel(targetId){
   host.appendChild(div);
   host.appendChild(sect('OWNED \u00b7 NOT EQUIPPED'));
   if(unequippedItems.length){
-    for(const it of unequippedItems) host.appendChild(buildRow(it, false));
+    // Owner: the owned list mixed weapons, armor and skins together. Group it
+    // by slot so each category is its own labelled block instead of one
+    // jumble. Order: Weapons -> Armor -> Skins -> anything unknown.
+    const KNOWN=['mainhand','body','outfit'];
+    const groups=[
+      ['\u2694 WEAPONS', unequippedItems.filter(it=>it.slot==='mainhand')],
+      ['\u26e8 ARMOR',   unequippedItems.filter(it=>it.slot==='body')],
+      ['\u2726 SKINS',   unequippedItems.filter(it=>it.slot==='outfit')],
+      ['\u25c6 OTHER',   unequippedItems.filter(it=>!KNOWN.includes(it.slot))],
+    ];
+    for(const [label,list] of groups){
+      if(!list.length) continue;
+      const sh=document.createElement('div'); sh.className='equip-row equip-sect equip-subsect';
+      sh.textContent=label; host.appendChild(sh);
+      for(const it of list) host.appendChild(buildRow(it, false));
+    }
   } else {
     const e=document.createElement('div'); e.className='equip-row equip-empty';
     e.textContent='Everything you own is equipped.';
