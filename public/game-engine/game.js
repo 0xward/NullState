@@ -4604,7 +4604,33 @@ function onActBunkerCleared(){
       bunkerCleared: true, // door now advances to the next act instead of re-entering
       onReachDoor: onOutdoorAdvanceToNextAct,
     });
-  }, () => { cutscene(act.postBunker, ()=>{}); }, 'RETURNING TO THE SURFACE…');
+  }, () => {
+    // v83 (blueprint 3A): the FINAL act chains the campaign epilogue after
+    // its postBunker beat instead of just... stopping. Every other act ends
+    // with its NEXT → signpost line (story_campaign.js).
+    const isFinale = campaignActIndex >= CAMPAIGN.length-1;
+    cutscene(act.postBunker, ()=>{ if(isFinale) showCampaignEpilogue(act); });
+  }, 'RETURNING TO THE SURFACE…');
+}
+// Campaign-completion epilogue (v83, blueprint 3A). Shows the act's
+// `epilogue` beat and, ONCE per wallet, grants the PROTOCOL ZERO completion
+// bundle (5× T3 Glitch Shards via the existing materials bridge — the same
+// server-credited path onActBunkerCleared() banks run shards through).
+// One-time gate is a per-wallet localStorage flag: the reward is a modest
+// convenience bundle, not an economy faucet, so a client-side gate is
+// proportionate. Replays of Bunker 5 just replay postBunker, no epilogue.
+function showCampaignEpilogue(act){
+  const lines = act.epilogue;
+  if(!lines || !lines.length) return;
+  const flagKey = 'nullstate-protocolzero-' + (WALLET_ADDRESS ? WALLET_ADDRESS.toLowerCase() : 'guest');
+  let alreadyDone = false;
+  try{ alreadyDone = localStorage.getItem(flagKey) === '1'; }catch(e){ /* storage off — treat as first time */ }
+  if(alreadyDone) return; // story already closed for this wallet — don't re-run the finale
+  cutscene(lines, ()=>{
+    try{ localStorage.setItem(flagKey, '1'); }catch(e){ /* non-critical */ }
+    log('◆ PROTOCOL ZERO — campaign complete. +5 T3 Glitch Shards.', 'reward');
+    Promise.resolve(MATERIALS.credit ? MATERIALS.credit({ t1:0, t2:0, t3:5 }) : null).catch(()=>{});
+  });
 }
 function onOutdoorAdvanceToNextAct(){
   const finishedAct = CAMPAIGN[campaignActIndex];
