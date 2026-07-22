@@ -123,7 +123,7 @@ export default function HeroSection() {
           variants={ps1JitterLight}
           animate="animate"
         >
-          // WEB3 RPG ON CELO
+          // PLAY-TO-EARN RPG ON CELO
         </motion.div>
 
         {/* Title */}
@@ -159,7 +159,7 @@ export default function HeroSection() {
           className="font-mono text-[11px] sm:text-sm text-null-muted tracking-[2px] sm:tracking-[3px] mb-8 sm:mb-10 uppercase max-w-[300px] sm:max-w-none"
           style={{ animation: 'fadeUp 0.6s 0.6s both' }}
         >
-          Every Bug is a Beast. Every Transaction is a War.
+          Crawl the bunkers. Crack the vault. Earn real stablecoin.
         </div>
 
         {/* CTAs */}
@@ -184,7 +184,7 @@ export default function HeroSection() {
               el.style.transform = 'translateY(0)'
             }}
           >
-            <span>⬡</span> LAUNCH GAME
+            <span>⬡</span> PLAY &amp; EARN
           </a>
           <a
             href="/docs"
@@ -203,10 +203,10 @@ export default function HeroSection() {
           animate="animate"
         >
           {[
-            { label: 'CELO MAINNET',     active: true },
+            { label: 'EARN REAL USDT',   active: true },
             { label: 'MINIPAY NATIVE',   active: true },
             { label: 'REAL-TIME ACTION', active: true },
-            { label: 'THE GATEKEEPER',   active: true },
+            { label: 'CELO MAINNET',     active: true },
           ].map(badge => (
             <span
               key={badge.label}
