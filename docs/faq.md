@@ -18,7 +18,10 @@ A: No class picks — you play the Knight. Your power and look come from the gea
 A: 5 bunkers (story Acts) × 5 floors = 25 depths.
 
 **Q: Is there anything after I finish all 5 bunkers?**
-A: Yes. Finishing the campaign triggers the PROTOCOL ZERO ending and unlocks **New Game+** on the title screen — replay from Act 1 at a higher Cycle where enemies are +35% tougher per Cycle and Glitch Shards drop +25% richer, carrying your gear and level.
+A: Yes — two modes unlock on the title screen. **New Game+**: replay from Act 1 at a higher Cycle where enemies are +35% tougher per Cycle and Glitch Shards drop +25% richer, carrying your gear and level. **The Null Abyss**: an endless descent below Bunker 5 — go as deep as you can; your deepest floor is your season rank, the deep floors drop the best (T3) shards, and death ends the dive.
+
+**Q: How does the Null Abyss leaderboard work?**
+A: Your deepest floor reached in the Abyss this season is your score. The top 3 divers at season end split the real stablecoin season bonus (claiming needs that season's Pass, same as the leaderboard bonus).
 
 **Q: What is the Armory Trial?**
 A: A one-time reward for clearing Act 1 — pick any 2 premium weapons in the Marketplace and use them free for 48 hours each. Each weapon's timer starts the first time you equip it; when it expires the weapon returns to the shop.

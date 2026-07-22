@@ -587,7 +587,7 @@ function ensureFloor(depth){
     // boss to die. It still can't be OPENED until the boss's room is clear
     // (isRoomClear() gate in updateActionButton(), untouched) — only WHEN
     // it becomes visible and WHERE it sits are changing here.
-    if(campaignActIndex===4){
+    if(campaignActIndex===4 && !abyssMode){
       const bossRoom = d.roomAt((d.stairsPx.x/TILE)|0, (d.stairsPx.y/TILE)|0);
       const spot = placeVaultDoorSpot(d, bossRoom);
       floor.decor.push(new Decor('vault_door', spot.x, spot.y, spot.facing));
@@ -694,7 +694,9 @@ function descend(toDepth){
   // Pull the current act's color theme so drawTiles/drawWallFaces render
   // with the right palette for this leg of the campaign.
   const act = CAMPAIGN[campaignActIndex];
-  G.dungeonTheme = DUNGEON_THEMES[(act && act.dungeonTheme) || 'bluestone'];
+  // NULL ABYSS: always the voidstone palette, regardless of campaignActIndex
+  // (which is 0 in the abyss to avoid act-4 hard-mode / vault logic).
+  G.dungeonTheme = DUNGEON_THEMES[abyssMode ? 'voidstone' : ((act && act.dungeonTheme) || 'bluestone')];
   // Only drop the player at the entrance the FIRST time a floor is visited;
   // revisiting (lift travel) places them at the lift landing instead so
   // backtracking doesn't feel like restarting the floor from its far entrance.
@@ -712,8 +714,11 @@ function descend(toDepth){
   G.action.mode=null; G.action.target=null;
   setActionButton(null);
   const isBoss = G.depth%5===0;
-  const _floorLabel = campaignCycle>0 ? `FLOOR ${G.depth} · CYCLE ${toRoman(campaignCycle+1)}` : `FLOOR ${G.depth}`;
-  showBanner(_floorLabel, isBoss?(nsIcon('guard','banner-ico')+' GUARDED'):backgrounds[G.bgIndex].split('/').pop().replace(/\.[a-z0-9]+$/i,'').toUpperCase());
+  const _floorLabel = abyssMode ? `THE NULL ABYSS · DEPTH ${G.depth}`
+    : campaignCycle>0 ? `FLOOR ${G.depth} · CYCLE ${toRoman(campaignCycle+1)}` : `FLOOR ${G.depth}`;
+  const _floorSub = abyssMode ? (isBoss ? (nsIcon('guard','banner-ico')+' ABYSS GUARDIAN') : 'THE DARK BELOW')
+    : isBoss ? (nsIcon('guard','banner-ico')+' GUARDED') : backgrounds[G.bgIndex].split('/').pop().replace(/\.[a-z0-9]+$/i,'').toUpperCase();
+  showBanner(_floorLabel, _floorSub);
   if(isBoss && floor.bossAlive){
     cutscene(Story.bossIntro);
   } else {
@@ -914,6 +919,11 @@ function applyLoot(kind,amt,x,y){
 // Phase 2: which Glitch Shard tier this act drops (1-indexed fxTier).
 // Acts 1-2 -> t1, acts 3-4 -> t2, act 5 -> t3.
 function _shardTierForAct(){
+  // NULL ABYSS: shard tier scales with DEPTH instead of act — the deeper you
+  // fall, the higher-tier shards drop (t3 is the deep-farm reward the
+  // blueprint promised). campaignActIndex is 0 in the abyss, so this branch
+  // must come first.
+  if(abyssMode){ const d = (G && G.depth) || 1; return d>=15 ? 3 : d>=8 ? 2 : 1; }
   if(campaignActIndex >= 4) return 3;
   if(campaignActIndex >= 2) return 2;
   return 1;
@@ -1346,7 +1356,8 @@ function openLiftMenu(){
   const opts = [];
   for(let f=1; f<=G.maxDepthReached; f++) opts.push({ floor:f, locked:false });
   const nextFloor = G.depth+1;
-  if(nextFloor<=5 && !opts.find(o=>o.floor===nextFloor)){
+  // NULL ABYSS: never cap the descent at floor 5 — the abyss goes down forever.
+  if((nextFloor<=5 || abyssMode) && !opts.find(o=>o.floor===nextFloor)){
     opts.push({ floor:nextFloor, locked: !isFloorClearForAdvance(G.depth) });
   }
   opts.sort((a,b)=>a.floor-b.floor);
@@ -1847,7 +1858,12 @@ function onEnemyKilled(e){
   checkFloorClearReward();
   if(e.isBoss){
     G.bossAlive=false;
-    if(G.depth>=5){
+    if(abyssMode){
+      // NULL ABYSS: a boss floor is just a gate — clearing it opens the lift
+      // to go deeper, forever. No act exit, no vault. The lift (openLift,
+      // uncapped for abyss) handles the descent.
+      setTimeout(()=>{ log('The Abyss guardian shatters. The floor gives way — descend.', 'reward'); }, 700);
+    } else if(G.depth>=5){
       // Bunker 5 "THE LAST LIGHT" (campaignActIndex===4): don't auto-exit to
       // the outdoor scene like every other bunker's boss floor does. Spawn
       // the weekly Vault door instead and wait for the player to open it —
@@ -4232,10 +4248,15 @@ function onTutorialNext(){
 function gameOver(){
   if(G.over) return; G.over=true;
   const p=G.player;
+  // NULL ABYSS: relabel the button (no revive — leaving banks your depth) and
+  // report the deepest floor as this season's abyss score now, at the moment
+  // of death, so the record survives even if the player closes the tab.
+  { const rb=$('reviveBtn'); if(rb) rb.textContent = abyssMode ? 'LEAVE THE ABYSS ▾' : 'RISE AGAIN ▾'; }
+  if(abyssMode) reportAbyssScore(G.maxDepthReached);
   setTimeout(()=>{
-    $('deathSub').textContent=Story.deathLine();
+    $('deathSub').textContent = abyssMode ? `The Abyss claims you at depth ${G.depth}.` : Story.deathLine();
     $('deathStats').innerHTML=
-      `<div class="ds"><b>${G.depth}</b><span>FLOOR REACHED</span></div>`+
+      `<div class="ds"><b>${G.depth}</b><span>${abyssMode?'DEPTH REACHED':'FLOOR REACHED'}</span></div>`+
       `<div class="ds"><b>${p.level}</b><span>LEVEL</span></div>`+
       `<div class="ds"><b>${p.kills}</b><span>SOULS PURGED</span></div>`;
     $('death').classList.remove('hidden');
@@ -4251,6 +4272,9 @@ function gameOver(){
   },650);
 }
 function onRevive(){
+  // NULL ABYSS: no revive — death ends the descent and banks your depth as
+  // your season score. The death button is relabelled in gameOver().
+  if(abyssMode){ endAbyssRun(); return; }
   $('death').classList.add('hidden');
   // Phase 1 (blueprint §2.1): the in-place revive stays exactly as designed,
   // but each death is now counted against the run — the RunSession reward
@@ -4506,6 +4530,62 @@ function startCycle(){
 }
 function toRoman(n){ const r=['','I','II','III','IV','V','VI','VII','VIII','IX','X']; return r[n]||('x'+n); }
 
+// ============ THE NULL ABYSS (blueprint 3B) ============
+// Endless descent below Bunker 5, unlocked after campaign completion. It
+// reuses the whole floor/lift/boss engine; the only differences from a
+// normal run are gated on `abyssMode`:
+//   • the lift never caps at floor 5 (openLift)
+//   • boss floors don't end the run — they just clear and let you descend
+//     (onEnemyKilled)
+//   • no vault door (ensureFloor), voidstone theme throughout (descend)
+//   • shard tier scales with depth (_shardTierForAct)
+//   • death ENDS the run and reports your deepest floor as your season score
+//     (onRevive -> endAbyssRun -> POST /api/abyss/score)
+// campaignActIndex is set to 0 so no act-4 hard-mode / vault logic fires;
+// the void look comes from the abyssMode theme override in descend().
+function startAbyss(){
+  if(!hasCompletedCampaign()) return; // button only shows post-PROTOCOL ZERO
+  abyssMode = true;
+  campaignCycle = 0;
+  campaignActIndex = 0;
+  SAVED_SESSION = null; CARRY_OVER_SNAPSHOT = null;
+  const t=$('title'); if(t) t.classList.add('hidden');
+  $('hud').classList.remove('hidden');
+  if(atkBtn) atkBtn.classList.remove('hidden');
+  if(window.NS_RUN) NS_RUN.start(0, false);
+  const snap = INITIAL_STATS
+    ? { xp:INITIAL_STATS.xp, level:INITIAL_STATS.level, kills:0, depth:1, maxDepthReached:1 }
+    : null;
+  newGame(selectedChar, snap); // builds G + descend(1)
+  log('◆ THE NULL ABYSS opens. There is no bottom — your deepest fall is your rank this season. Death ends the descent.', 'reward');
+}
+// Post the deepest floor reached as this wallet's abyss score for the
+// current season. Best-effort; the server keeps only the max.
+function reportAbyssScore(depth){
+  if(!WALLET_ADDRESS || !depth || depth<1) return;
+  try{
+    fetch('/api/abyss/score', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ wallet: WALLET_ADDRESS, depth: depth|0 })
+    }).catch(()=>{});
+  }catch(e){ /* offline — score just isn't recorded */ }
+}
+// Tear the abyss run down and return to the in-game title screen (the same
+// resting state as a fresh mount before DESCEND). Reports the final depth.
+function endAbyssRun(){
+  reportAbyssScore(G ? G.maxDepthReached : 0);
+  abyssMode = false;
+  const d=$('death'); if(d) d.classList.add('hidden');
+  const lm=$('liftMenu'); if(lm) lm.classList.add('hidden');
+  G = null; resetInput();
+  $('hud').classList.add('hidden');
+  if(atkBtn) atkBtn.classList.add('hidden');
+  const t=$('title'); if(t) t.classList.remove('hidden');
+  // re-reveal the post-completion buttons (title was rebuilt on this return)
+  const cb=$('cycleBtn'); if(cb && hasCompletedCampaign()){ cb.textContent='NEW GAME+ ('+toRoman(loadStoredCycle()+2)+') ▾'; cb.style.display=''; }
+  const ab=$('abyssBtn'); if(ab && hasCompletedCampaign()){ ab.style.display=''; }
+}
+
 // Exact resume: skip the outdoor walk entirely, drop the player back into
 // the bunker floor they saved on. Single-use — clear it now so a page
 // reload without saving again can't replay this snapshot. Shared by the
@@ -4514,7 +4594,7 @@ function enterSavedSession(){
   selectedChar = SAVED_SESSION.charKey || selectedChar;
   campaignActIndex = SAVED_SESSION.campaignActIndex || 0;
   campaignCycle = SAVED_SESSION.campaignCycle || 0; // Null Cycles — restore NG+ difficulty
-  abyssMode = false;
+  abyssMode = !!SAVED_SESSION.abyssMode;            // Null Abyss — restore dive state
   // Phase 1: resuming a saved run re-opens the SAME RunSession unit —
   // resumed=true, and it costs no energy (the fresh entry already paid).
   if(window.NS_RUN) NS_RUN.start(campaignActIndex, true);
@@ -4769,6 +4849,7 @@ function attach(){
   $('itemZoomClose').addEventListener('click', closeItemZoom);
   $('startBtn').addEventListener('click', onStart);
   { const cb=$('cycleBtn'); if(cb) cb.addEventListener('click', startCycle); }
+  { const ab=$('abyssBtn'); if(ab) ab.addEventListener('click', startAbyss); }
   $('invBtn').addEventListener('click', onInvToggle);
   $('invClose').addEventListener('click', onInvToggle);
   document.querySelectorAll('.inv-tab').forEach(b=>b.addEventListener('click', ()=>setInvTab(b.getAttribute('data-tab'))));
@@ -4838,6 +4919,7 @@ async function boot(){
       if(hasCompletedCampaign()){ cb.textContent = 'NEW GAME+ ('+toRoman(loadStoredCycle()+2)+') ▾'; cb.style.display=''; }
       else cb.style.display='none';
     } }
+  { const ab=$('abyssBtn'); if(ab) ab.style.display = hasCompletedCampaign() ? '' : 'none'; }
 
   // Load ONLY the 3 hero idle sprites first so the character-select
   // previews appear almost immediately, instead of waiting on the full
@@ -4941,6 +5023,7 @@ function getSaveSnapshot(){
     charKey: selectedChar,
     campaignActIndex,
     campaignCycle,           // Null Cycles — keep NG+ difficulty across Continue
+    abyssMode,               // Null Abyss — a resumed dive stays a dive
     depth: G.depth,
     maxDepthReached: G.maxDepthReached,
     xp: p.xp, level: p.level, kills: p.kills,

@@ -144,6 +144,15 @@ one-time completion bundle (Point + t3 shard cache). An ending is not
 content, it's *respect* — players who finish tell people about games that
 end properly.
 
+> **Status (shipped):** 3A ending + 3D signposting (PR #71), 3C Null Cycles
+> (PR #74), and 3B Null Abyss core (PR #75) are live. Deferred as follow-ups
+> on the Abyss: the **weekly shared seed** (all players get the same map that
+> week — currently each dive is randomly generated; depth is still directly
+> comparable) and the **interactive pick-1-of-3 mutator** every 5 floors
+> (depth scaling already escalates difficulty). Owner reads
+> `GET /api/abyss/score` for the season top-3 to publish via the
+> `update-leaderboard` CLI.
+
 ### 3B. THE NULL ABYSS — endless descent (the real endgame)
 Unlocks on campaign completion, advertised the moment the final boss dies:
 **"THE FLOOR BREAKS. The Abyss is open."**

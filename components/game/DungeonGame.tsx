@@ -1069,6 +1069,7 @@ export default function DungeonGame({ playerProfile, setPlayerUsername, isNewRun
                 unhides these only after this wallet finishes the campaign
                 (PROTOCOL ZERO). Hidden for first-time players. */}
             <button id="cycleBtn" className="big-btn big-btn-alt" style={{ display: 'none' }}>NEW GAME+ ▾</button>
+            <button id="abyssBtn" className="big-btn big-btn-alt" style={{ display: 'none' }}>THE NULL ABYSS ▾</button>
             <div className="title-foot">Every fall costs you. The depths remember.</div>
           </div>
         </div>
