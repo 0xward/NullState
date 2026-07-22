@@ -159,6 +159,7 @@ export default function HowToPlayScreen({ onBack }: HowToPlayScreenProps) {
               <p>• Invite friends from the <span className="text-null-white">Referral</span> menu — free weapon trials, a permanent skin at 3 friends, and a free Season Pass when an invitee makes their first purchase.</p>
               <p>• The Vault code resets weekly and the Leaderboard resets each season — fresh <Tag kind="stablecoin" /> to chase on a timer.</p>
               <p>• Finish all 5 Acts to unlock <span className="text-null-white">New Game+</span> — replay the campaign at a higher Cycle: enemies hit +35% harder per Cycle and shards drop +25% richer.</p>
+              <p>• …and <span className="text-null-white">THE NULL ABYSS</span> — an endless descent below Bunker 5. Your deepest floor is your season rank (top 3 split the <Tag kind="stablecoin" /> bonus), the deep floors drop the best shards, and death ends the dive.</p>
             </div>
           </div>
         </div>
