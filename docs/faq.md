@@ -17,6 +17,9 @@ A: No class picks — you play the Knight. Your power and look come from the gea
 **Q: How many bunkers are there?**
 A: 5 bunkers (story Acts) × 5 floors = 25 depths.
 
+**Q: What is the Armory Trial?**
+A: A one-time reward for clearing Act 1 — pick any 2 premium weapons in the Marketplace and use them free for 48 hours each. Each weapon's timer starts the first time you equip it; when it expires the weapon returns to the shop.
+
 ---
 
 ## 💰 Rewards & Earning

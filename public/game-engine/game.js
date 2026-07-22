@@ -4584,6 +4584,18 @@ function onActBunkerCleared(){
     G.inventory.gshards = { t1:0, t2:0, t3:0 };
   }
   if(window.NS_RUN) NS_RUN.close('Cleared'); // Phase 1: run unit ends here
+  // ARMORY TRIAL unlock (growth blueprint 1B): clearing Act 1 unlocks the
+  // one-time pick-2-premium-weapons trial in the Marketplace. The flag is
+  // per-wallet; the server separately enforces one grant per wallet ever.
+  if(campaignActIndex===0){
+    try{
+      const k='nullstate-act1clear-'+(WALLET_ADDRESS?WALLET_ADDRESS.toLowerCase():'guest');
+      if(localStorage.getItem(k)!=='1'){
+        localStorage.setItem(k,'1');
+        log('◆ ARMORY TRIAL unlocked — pick 2 premium weapons to try FREE for 48h in the Marketplace.', 'reward');
+      }
+    }catch(e){ /* storage off — the marketplace banner just won't show */ }
+  }
   showLoadingTransition(() => {
     // Snapshot everything (loot, xp/level/kills/celo/hp, run-caps) BEFORE
     // this bunker's G is discarded, so onOutdoorReachedDoor() can carry it
