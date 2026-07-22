@@ -629,9 +629,31 @@ function ensureFloor(depth){
   return floor;
 }
 
-// Phase 8 — sealed/premium caches. Decor is non-solid (movement is tile-grid
-// only) so a cache can never block or trap the player; placement is purely
-// cosmetic + interactable. Part A: ~30% chance of one utility-gated cache per
+// Owner bug: props (cabinets, barrels, crates…) could be walked THROUGH.
+// Decor now blocks the PLAYER with a footprint box derived from its art size
+// (def.w/h; (x,y) is the base/feet). Flat ground/wall clutter you'd naturally
+// step over or that sits inside the wall stays passable so nothing narrows a
+// corridor. Enemies are intentionally NOT blocked (keeps their pathing simple;
+// decor just becomes cover for the player). Exposed on window for entities.js.
+const NS_FLAT_DECOR = new Set(['bones', 'rubble', 'skull_heap', 'plaque_sword', 'plaque_coin']);
+function decorSolidAt(px, py){
+  if(!G || !G.decor) return false;
+  for(const o of G.decor){
+    if(!o || o.broken) continue;
+    if(NS_FLAT_DECOR.has(o.type)) continue;
+    const def = o.def; if(!def) continue;
+    const hw = (def.w || 24) * 0.40;            // horizontal half-footprint
+    const top = o.y - (def.h || 24) * 0.28;     // a little up from the base
+    const bot = o.y + 5;                         // just past the feet line
+    if(px >= o.x - hw && px <= o.x + hw && py >= top && py <= bot) return true;
+  }
+  return false;
+}
+if(typeof window !== 'undefined') window.NS_solidDecorAt = decorSolidAt;
+
+// Phase 8 — sealed/premium caches. Placement stays tile-grid safe (never in a
+// corridor/doorway), so the player-only footprint block above turns a cache
+// into cover, never a trap. Part A: ~30% chance of one utility-gated cache per
 // floor. Part B: a guaranteed Premium Sector cache on the act's FIRST floor
 // when that act's blueprint is owned — bonus loot, never on the core-act path.
 function _spawnPhase8Caches(floor, d, depth){
