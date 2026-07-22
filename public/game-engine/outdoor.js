@@ -74,6 +74,8 @@ window.NS_OUTDOOR = (function(){
       useLPCHero: opts.charKey === 'knight',
       weaponId: opts.weaponId || null,
       armorId: opts.armorId || null,
+      outfitId: opts.outfitId || null, // Phase 9 cosmetic skin — carry it outdoors too
+
       _lpcDir: 2, _lpcFrame: 0, _lpcT: 0, _lpcAnimKey: 'idle',
     };
     state.anim.set(state.heroCfg.idle, 'idle');
@@ -224,6 +226,7 @@ window.NS_OUTDOOR = (function(){
         // the weapon renders via the ULPC walk/idle carry overlay).
         weaponId: s.weaponId || undefined,
         armorId: s.armorId || undefined,
+        outfitId: s.outfitId || undefined,
       });
     }
     if(!drewLPC){
