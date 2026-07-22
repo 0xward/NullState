@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getAddress } from 'viem'
 import { getAdminDb } from '@/firebase-config'
 import { getMarketplaceItem } from '@/lib/constants/marketplace'
+import { activeTrialInfos, type TrialRecord } from '@/lib/server/trials'
 
 // =============================================
 // MARKETPLACE EQUIPPED-SLOT SAVE
@@ -44,8 +45,17 @@ export async function POST(req: NextRequest) {
     // Only ever persist ids that (a) are real marketplace items in the
     // right slot, and (b) this wallet actually owns — never trust the
     // client's word for either, since this is a server-side save.
-    const ownedSnap = await db.ref(`marketplaceOwned/${buyer}`).get()
+    // ARMORY TRIAL: active trial weapons count as owned for equipping,
+    // and equipping an unactivated trial is the moment its 48h clock
+    // starts ("in inventory until used" — growth blueprint 1B).
+    const [ownedSnap, trialsSnap] = await Promise.all([
+      db.ref(`marketplaceOwned/${buyer}`).get(),
+      db.ref(`trials/${buyer}`).get(),
+    ])
     const owned: string[] = ownedSnap.exists() ? Object.keys(ownedSnap.val()) : []
+    const trialRec = (trialsSnap.val() ?? null) as TrialRecord | null
+    const activeTrials = activeTrialInfos(trialRec)
+    for (const t of activeTrials) if (!owned.includes(t.itemId)) owned.push(t.itemId)
 
     function sanitize(id: unknown, slot: 'mainhand' | 'body' | 'outfit'): string | null {
       if (typeof id !== 'string' || !id) return null
@@ -59,6 +69,13 @@ export async function POST(req: NextRequest) {
       mainhand: sanitize(mainhandRaw, 'mainhand'),
       body: sanitize(bodyRaw, 'body'),
       outfit: sanitize(outfitRaw, 'outfit'), // Phase 9 cosmetic skin slot
+    }
+
+    // First equip of an unactivated trial starts its countdown.
+    const worn = equipped.mainhand
+    if (worn) {
+      const t = activeTrials.find(x => x.itemId === worn && x.activatedAt == null)
+      if (t) await db.ref(`trials/${buyer}/items/${worn}/activatedAt`).set(Date.now())
     }
 
     await db.ref(`marketplaceEquipped/${buyer}`).set({ ...equipped, at: Date.now() })

@@ -115,7 +115,13 @@ export default function CraftingScreen({ onBack, onGoToRun, address }: CraftingS
       .then(r => r.json())
       .then(d => {
         if (Array.isArray(d.owned)) {
+          // ARMORY TRIAL: trial weapons are merged into `owned` for equipping
+          // but can NOT be evolved (the craft routes reject them server-side
+          // anyway — marketplaceOwned only). Filter them out of the forge list
+          // so the UI never offers a craft that would just fail.
+          const trialIds: string[] = Array.isArray(d.trialIds) ? d.trialIds : []
           const weapons = d.owned
+            .filter((id: string) => !trialIds.includes(id))
             .map(resolveItemId)
             .filter((id: string) => {
               const it = getMarketplaceItem(id)

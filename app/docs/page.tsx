@@ -132,6 +132,19 @@ export default function DocsPage() {
             </div>
             <div>
               <h3 className="text-null-green font-mono text-xs tracking-[2px] uppercase mb-2">
+                Armory Trial
+              </h3>
+              <p>
+                Clearing Act 1 unlocks a one-time Armory Trial: pick any 2
+                premium weapons in the Marketplace and use them free for 48
+                hours each. A weapon&apos;s clock only starts the first time
+                you equip it — until then it waits in your inventory. When a
+                trial expires the weapon returns to the shop, ready to buy if
+                you miss it.
+              </p>
+            </div>
+            <div>
+              <h3 className="text-null-green font-mono text-xs tracking-[2px] uppercase mb-2">
                 NULL_STRIKE
               </h3>
               <p>

@@ -50,6 +50,47 @@ export default function MarketplaceScreen({ onBack, address }: MarketplaceScreen
   // Issue #5: tap any item's icon/name to open a larger preview popup.
   const [previewItem, setPreviewItem] = useState<MarketplaceItem | null>(null)
 
+  // ── ARMORY TRIAL (growth blueprint 1B) ──────────────────────────────────
+  // One-time: after clearing Act 1 (per-wallet localStorage flag set by the
+  // engine), pick 2 premium weapons to try free. The 48h clock per weapon
+  // starts on its FIRST EQUIP (server-side, /api/marketplace/equip), not at
+  // grant time. Active trials come back merged into `owned` by the server;
+  // `trials` here carries the countdown metadata for badges.
+  const [trialEligible, setTrialEligible] = useState(false)
+  const [trials, setTrials] = useState<{ itemId: string; activatedAt: number | null; expiresAt: number | null }[]>([])
+  const [trialPick, setTrialPick] = useState<string[]>([])
+  const [trialNow, setTrialNow] = useState(Date.now())
+  const act1Cleared = (() => {
+    if (typeof window === 'undefined' || !address) return false
+    try { return localStorage.getItem('nullstate-act1clear-' + address.toLowerCase()) === '1' } catch { return false }
+  })()
+
+  const loadTrials = useCallback(() => {
+    if (!address) return
+    fetch(`/api/trials?wallet=${address}`)
+      .then(r => r.json())
+      .then(d => {
+        setTrialEligible(!!d?.eligible)
+        setTrials(Array.isArray(d?.trials) ? d.trials : [])
+      })
+      .catch(() => { /* offline — no trial UI */ })
+  }, [address])
+  useEffect(() => { loadTrials() }, [loadTrials])
+
+  // 1-minute tick keeps the countdown labels honest while the screen is open.
+  useEffect(() => {
+    if (trials.length === 0) return
+    const id = setInterval(() => setTrialNow(Date.now()), 60_000)
+    return () => clearInterval(id)
+  }, [trials.length])
+
+  const trialMap = Object.fromEntries(trials.map(t => [t.itemId, t]))
+  const fmtTrialLeft = (expiresAt: number) => {
+    const ms = Math.max(0, expiresAt - trialNow)
+    const h = Math.floor(ms / 3600_000), m = Math.floor((ms % 3600_000) / 60_000)
+    return h > 0 ? `${h}h ${m}m left` : `${m}m left`
+  }
+
   // NullState Point balance — off-chain, credited from burning items
   // (see /api/burn/record). Used to gate the "Swap" option below.
   const loadTokenBalance = useCallback(() => {
@@ -165,8 +206,35 @@ export default function MarketplaceScreen({ onBack, address }: MarketplaceScreen
   // Phase 9 — cosmetic skins ($5-$10), pure visuals with no stats.
   const outfits = MARKETPLACE_ITEMS.filter(i => i.type === 'outfit' && !i.hidden).sort((a, b) => b.price - a.price)
 
+  const startTrial = useCallback(async () => {
+    if (!address || trialPick.length !== 2 || busy) return
+    setBusy('__trial__')
+    setMsg({ text: 'Unlocking your Armory Trial…', kind: 'info' })
+    try {
+      const res = await fetch('/api/trials', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ wallet: address, itemIds: trialPick }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Trial claim failed')
+      setTrialEligible(false)
+      setTrials(Array.isArray(data?.trials) ? data.trials : [])
+      setTrialPick([])
+      // Refresh owned so the trial weapons appear equippable immediately.
+      const od = await fetch(`/api/marketplace/owned?wallet=${address}`).then(r => r.json()).catch(() => null)
+      if (od && Array.isArray(od.owned)) persist(od.owned)
+      setMsg({ text: 'Armory Trial active — equip a weapon to start its 48h clock.', kind: 'ok' })
+    } catch (e: unknown) {
+      setMsg({ text: e instanceof Error ? e.message : 'Trial claim failed', kind: 'err' })
+    } finally {
+      setBusy(null)
+    }
+  }, [address, trialPick, busy, persist])
+
   const renderItem = (item: MarketplaceItem) => {
-    const isOwned = owned.includes(item.id)
+    const trial = trialMap[item.id]
+    const isOwned = owned.includes(item.id) && !trial
     // Skins (outfits) intentionally show NO stat/type descriptor line (owner:
     // don't spell out that they're cosmetic). Only weapons/armor get a stat line.
     const stat = item.type === 'armor'
@@ -204,6 +272,11 @@ export default function MarketplaceScreen({ onBack, address }: MarketplaceScreen
         </button>
         <div className="flex flex-shrink-0 flex-col items-end gap-1">
           <span className="font-mono text-sm font-bold text-[#f2cd82]">${item.price.toFixed(2)}</span>
+          {trial && (
+            <span className="rounded border border-[#e8bd6f]/70 bg-[#e8bd6f]/10 px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-wider text-[#f2cd82]">
+              Trial · {trial.expiresAt == null ? 'starts on equip' : fmtTrialLeft(trial.expiresAt)}
+            </span>
+          )}
           {isOwned ? (
             <span className="rounded border border-[#8a5a2b] px-3 py-1.5 font-mono text-[10px] font-bold uppercase tracking-wider text-[#c39a5f]">Owned</span>
           ) : (
@@ -272,6 +345,45 @@ export default function MarketplaceScreen({ onBack, address }: MarketplaceScreen
             ◂ Back
           </button>
         </header>
+
+        {/* ARMORY TRIAL picker — shows once: Act 1 cleared + never granted.
+            Icon-first, two taps + one button, no paragraphs to read. */}
+        {act1Cleared && trialEligible && !isGuest && (
+          <div className="mb-4 rounded-lg border border-[#e8bd6f]/60 bg-gradient-to-b from-[#2b1a0d] to-[#1a0f06] p-3">
+            <div className="mb-1 flex items-center gap-1.5 font-mono text-xs font-bold uppercase tracking-[3px] text-[#f2cd82]">
+              <GiCrossedSwords aria-hidden size={15} /> Armory Trial
+            </div>
+            <p className="mb-2 font-mono text-[10px] leading-relaxed text-[#c39a5f]">
+              Act 1 cleared — pick <span className="font-bold text-[#f2cd82]">2</span> premium weapons to try
+              <span className="font-bold text-[#7ef0a6]"> FREE for 48h</span> each. The clock starts when you first equip one.
+            </p>
+            <div className="mb-2 flex flex-wrap gap-1.5">
+              {weapons.map(w => {
+                const on = trialPick.includes(w.id)
+                return (
+                  <button
+                    key={w.id}
+                    onClick={() => setTrialPick(prev => on ? prev.filter(x => x !== w.id) : prev.length >= 2 ? prev : [...prev, w.id])}
+                    className={`inline-flex items-center gap-1.5 rounded border px-2 py-1.5 font-mono text-[10px] font-bold uppercase tracking-wide transition ${
+                      on ? 'border-[#e8bd6f] bg-[#e8bd6f]/15 text-[#f2cd82]' : 'border-[#7a4f24]/60 text-[#c39a5f] hover:border-[#8a5a2b]'
+                    }`}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={w.sprite} alt="" className="h-4 w-4 [image-rendering:pixelated]" />
+                    {w.name}
+                  </button>
+                )
+              })}
+            </div>
+            <button
+              onClick={startTrial}
+              disabled={trialPick.length !== 2 || busy !== null}
+              className="w-full rounded bg-gradient-to-b from-[#e8bd6f] to-[#c9962f] px-4 py-2 font-mono text-[11px] font-bold uppercase tracking-wider text-[#2a1705] transition hover:brightness-110 disabled:opacity-40"
+            >
+              {busy === '__trial__' ? '…' : trialPick.length === 2 ? 'Start Trial' : `Pick ${2 - trialPick.length} more`}
+            </button>
+          </div>
+        )}
 
         {/* Guest note — buying with real currency needs a wallet, but swapping
             earned NullState Point for basic gear still works while playing. */}
