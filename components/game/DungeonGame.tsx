@@ -1172,7 +1172,8 @@ export default function DungeonGame({ playerProfile, setPlayerUsername, isNewRun
             <div id="vaultMsg" className="vault-msg" />
             <div className="vault-btns">
               <button id="vaultSubmitBtn" className="big-btn">SUBMIT</button>
-              <button id="vaultClose" className="ghost-btn">▾ close</button>
+              <button id="vaultClose" className="ghost-btn">▾ close (check Paper)</button>
+              <button id="vaultLeave" className="ghost-btn">leave the bunker →</button>
             </div>
           </div>
         </div>
