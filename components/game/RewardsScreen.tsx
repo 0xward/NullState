@@ -198,7 +198,10 @@ export default function RewardsScreen({ onBack, address }: RewardsScreenProps) {
     return seasonLeaderboard.topPlayers.findIndex((a) => a?.toLowerCase() === address.toLowerCase())
   }, [seasonLeaderboard, address])
 
-  const seasonClaimable = myRank >= 0 && !!seasonLeaderboard?.finalized && !hasClaimedSeasonBonus
+  // Gate on `deposited` (not `finalized`): the contract's claimSeasonBonus
+  // requires only `lb.deposited` — `finalized` exists in the struct but is
+  // never set true on-chain, so gating on it would hide a valid claim.
+  const seasonClaimable = myRank >= 0 && !!seasonLeaderboard?.deposited && !hasClaimedSeasonBonus
   const weeklyHasClaim = (weeklyClaimable ?? BigInt(0)) > BigInt(0)
   const hasClaimable = seasonClaimable || weeklyHasClaim
 

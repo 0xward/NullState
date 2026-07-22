@@ -149,6 +149,50 @@ CELO), `--dry-run` (simulate, no send), `--yes` (skip the confirm prompt),
 > not per-token. If you ever deposited USDm then switched to USDT, withdraw
 > the old USDm first so the counter reflects the token you actually pay in.
 
+## Season bonus — fixed via `NullStateRewardV3` (redeploy)
+
+**Why:** `NullStateRewardV2` capped `seasonId` at 1–6, but PassSBTv3 and the
+app key seasons by **YYYYMM** (e.g. `202607`). So `depositSeasonBonus(202607)`
+reverted, and even at 1–6 the pass check `hasPassForSeason(user, 1..6)` was
+always false (passes live under YYYYMM) — the season bonus was impossible to
+use. V2 isn't upgradeable, so the fix is a redeploy.
+
+`contracts/NullStateRewardV3.sol` is V2 verbatim with only the three
+`_seasonId <= TOTAL_SEASONS` guards relaxed to `_seasonId > 0`, so season ids
+are the same YYYYMM the app already sends. No funds to migrate (V2's season
+pool was never funded; passes live on PassSBTv3).
+
+### Deploy (Termux, no solc needed)
+The contract is pre-compiled to `scripts/artifacts/NullStateRewardV3.json`
+(solc 0.8.20, optimizer 200 runs — same verified compiler as the other
+contracts). The deploy script just needs `node` + `viem`.
+```
+cp scripts/.env.example scripts/.env && nano scripts/.env    # DEPLOYER_PRIVATE_KEY
+node scripts/deploy-reward-v3.js --dry-run                   # sanity check
+node scripts/deploy-reward-v3.js                             # deploy (deployer becomes owner)
+```
+Constructor arg is the PassSBTv3 address (auto-filled). The deployer wallet
+needs a little CELO for gas.
+
+### After deploy
+1. Set `NEXT_PUBLIC_REWARD_CONTRACT_ADDRESS=<new address>` in Vercel, redeploy
+   the app. Send the address back so `lib/contract-abi.ts`'s hardcoded
+   fallback + retired-list can be updated (and the old V2 marked retired).
+2. Set the top-3 bonus amounts (USDT, 6-dec):
+   ```
+   node scripts/deposit-reward.js season-rewards --token USDT --r1 20 --r2 5 --r3 3
+   ```
+3. Each season, publish the winners on-chain, then fund the pool:
+   ```
+   node scripts/deposit-reward.js update-leaderboard --season 202607 \
+       --p1 0x.. --p2 0x.. --p3 0x.. --s1 120 --s2 90 --s3 70
+   node scripts/deposit-reward.js season-deposit --season 202607 --token USDT --amount 28
+   ```
+   (`--season` is YYYYMM now, not 1–6. Point the CLI at the new contract by
+   setting `NEXT_PUBLIC_REWARD_CONTRACT_ADDRESS` in your shell/`.env`.)
+
+Top-3 pass-holders then claim in-app (Rewards → Claim Rewards).
+
 ## Quick reference
 
 | What | Where | Who sets it |
