@@ -234,7 +234,17 @@ class Decor {
         slots.push({slotId:'s'+i, kind:draw.kind, amt:draw.amt, taken:false});
       }
     }
-    const isVaultContainer = this.type==='wardrobe' || this.type==='chest';
+    // Vault-like containers that can roll a Golden Key / Paper. This must
+    // track the full "rare" interactive-container pool in game.js
+    // spawnDecorInto — when that pool was widened (v80) from
+    // [wardrobe, chest, safe] to 7 types but this stayed at just
+    // wardrobe/chest, effective discovery of Paper/Golden Key fell ~3.5x
+    // and owners reported Paper had "gone missing". The weekly server gate
+    // (NS_PAPER/NS_GOLDKEY, 1 per wallet per week) still hard-caps the
+    // actual grant, so widening eligibility only helps the player FIND
+    // that one drop sooner — it can never over-grant.
+    const VAULT_CONTAINERS = ['wardrobe','chest','safe','footlocker','dresser','cabinet_ornate','shelf_stocked'];
+    const isVaultContainer = VAULT_CONTAINERS.includes(this.type);
     if(isVaultContainer && window.NS_GOLDKEY && window.NS_GOLDKEY.remaining()>0 && Math.random()<0.16){
       if(window.NS_GOLDKEY.take()){
         slots.push({slotId:'s'+n, kind:'goldkey', amt:1, taken:false});
