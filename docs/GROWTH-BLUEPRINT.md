@@ -31,7 +31,13 @@ underneath. NullState has the depth; it's missing the daily surface.
 
 ## Phase 1 — New-user week (D0–D7): "the first 7 days pay you"
 
-### 1A. Daily USDT drip for new users (0.01 USDT × 7 days)
+### 1A. Daily USDT drip for new users (0.01 USDT × 7 days) — ❌ CANCELLED
+
+> **Owner decision (2026-07-22): NOT building this.** No capital allocated
+> yet and the sybil risk isn't worth it pre-revenue. The design below is
+> kept for reference only — revisit after the marketplace generates
+> steady revenue to fund it. The daily-habit slot it would have filled is
+> covered by Point-based daily play rewards instead.
 **What the user sees:** a "Daily Reward" card on the main menu with a
 7-slot tracker (day 1 → day 7). Each day: play ≥1 floor → tap claim →
 +0.01 USDT lands in their MiniPay balance. Real money, visible in the
@@ -177,7 +183,7 @@ player should never have to wonder what the game wants from them next.
 | # | Item | Cost to owner | Eng. effort |
 |---|---|---|---|
 | 1 | 3A ending + 3D signposting | $0 | S |
-| 2 | 1A daily drip (with caps) | ≤$0.077/new user | M |
+| 2 | ~~1A daily drip~~ — CANCELLED (owner: no capital yet) | — | — |
 | 3 | 1B weapon trials | $0 (opportunity cost only) | M |
 | 4 | 2B rewards inbox + menu surfacing | $0 | M |
 | 5 | 2A referral tiers | pass mints are free; trials $0 | M–L |

@@ -87,11 +87,10 @@ Each item has a hidden burn value (random within its rarity range):
 
 ## ⚡ NULL_STRIKE Ultimate
 
-When your HP drops critically low (or you want to gamble), trigger **NULL_STRIKE** for a powerful all-consuming attack.
+When your HP drops critically low (or a boss is in range), trigger **NULL_STRIKE** for a powerful all-consuming attack.
 
-- **Cost**: Real on-chain transaction
+- **Cost**: Free — no wallet transaction; gated only by a short cooldown
 - **Effect**: Massive damage to elites/bosses
-- **Risk**: If it fails, you lose
 
 ---
 

@@ -12,13 +12,19 @@ tx hash on Celoscan.
 
 | Contract | Address (Celo Mainnet) | Method | User-facing action | Sample tx (Celoscan) |
 |---|---|---|---|---|
-| NullState.sol | `0xE6C471DD3C715DB8B10457113867885AFA12eC13` | `register()` | Player registers / creates identity | tx: `<TX_HASH>` |
-| NullState.sol | `0xE6C471DD3C715DB8B10457113867885AFA12eC13` | `payUsdmFee()` | NULL_STRIKE fee payment | tx: `<TX_HASH>` |
 | PassSBTv3 | `0x44065B9faf1149FEB4D6Dcdb10d864B2054c7f39` | `mintFreePass()` | Free Season Pass mint | tx: `<TX_HASH>` |
-| PassSBTv3 | `0x44065B9faf1149FEB4D6Dcdb10d864B2054c7f39` | `mintPaidPass()` (via `backendMintPass()` — confirm which is externally called from `/api/passsbt/mint`) | Paid Season Pass mint | tx: `<TX_HASH>` |
+| PassSBTv3 | `0x44065B9faf1149FEB4D6Dcdb10d864B2054c7f39` | `backendMintPass()` (backend-signed after off-chain payment verification — `/api/passsbt/mint`) | Paid Season Pass mint | tx: `<TX_HASH>` |
 | — (marketplace) | Treasury wallet `0xAb73e0E942ecAAF634216EFb78786fa0F92f2eb6` | ERC-20 `transfer()` (plain token transfer, NOT a TreasureVaultV2 method — confirmed via `buyMarketplaceItem` → `payToTreasury` in `lib/WalletProvider.tsx`) | Marketplace item purchase | tx: `<TX_HASH>` |
-| NullStateRewardV2 | `0x38F85c7cE8757E2940938D4e49bCDaE1CB5D475A` | `claimWeeklyRewards(uint256 _week)` | Weekly reward claim | tx: `<TX_HASH>` |
-| NullStateRewardV2 | `0x38F85c7cE8757E2940938D4e49bCDaE1CB5D475A` | `claimSeasonBonus(uint256 _seasonId)` | Season bonus claim | tx: `<TX_HASH>` |
+| TreasureVaultV2 | `0xB145dE296cD37Cb2A62Ced70Ee4d93c1d78df742` | `submitVaultCode()` (backend-signed — `/api/vault/submit`) | Vault Quest code submission + payout | tx: `<TX_HASH>` |
+| NullStateRewardV3 | `0xec2e7fe57a92ada02c1ab37d9415dad508b7f111` | `claimSeasonBonus(uint256 _seasonId)` | Season bonus claim (top-3, seasonId = YYYYMM) | tx: `<TX_HASH>` |
+
+Retired / removed (do NOT list these on the submission):
+- **NullState.sol `register()` / `payUsdmFee()`** — the old game contract is
+  retired: registration is off-chain now and NULL_STRIKE is free (no fee
+  transaction exists to link).
+- **NullStateRewardV2 (`0x38F85c…`)** — replaced by NullStateRewardV3
+  (season-id scheme fix). `claimWeeklyRewards` is dormant product-wise
+  (burns are off-chain NullState Point now), so it needs no sample tx.
 
 Notes:
 - **Correction from v56 draft**: TreasureVaultV2 does NOT have a
