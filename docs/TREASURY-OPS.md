@@ -91,6 +91,29 @@ not money. Get them from the Abyss leaderboard.
 
 ---
 
+## Recovery — a winner didn't get paid
+
+If a player entered the correct code but no USDT arrived, the payout got stuck
+(the backend recorded the win but its `submitVaultCode` tx never landed — e.g.
+a serverless timeout on the first win of the week, or the backend wallet was
+out of CELO gas). Two ways to recover:
+
+1. **Easiest:** make sure the backend wallet `0xAb73…` has a little CELO, then
+   have the player **reopen the vault and enter the code again**. The server
+   now self-heals — it retries only the payout (the code is already stored
+   on-chain, so it's a single fast tx) and pays out.
+
+2. **Manual (owner pays directly from Termux):**
+   ```bash
+   node scripts/deposit-reward.js vault-pay --user 0xWINNER_WALLET --code 0729
+   ```
+   `submitVaultCode` is owner-authorized, so the deployer key pays the winner
+   the configured `vaultReward`. It refuses if the winner was already paid, or
+   if this week's code isn't stored on-chain yet. `--week` defaults to the
+   current ISO week; pass `--week YYYYWW` to target another.
+
+Verify with `status` afterwards — `pool available` should drop by one reward.
+
 ## Deposit log
 
 Append a line each time you fund something. Format:
