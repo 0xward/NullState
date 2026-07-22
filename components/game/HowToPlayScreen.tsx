@@ -113,10 +113,11 @@ export default function HowToPlayScreen({ onBack }: HowToPlayScreenProps) {
 
           <LoopCard cadence="EVERY SEASON" title="Rank &amp; Pass" accent="#ffaa00">
             <p>
-              Climb the seasonal <span className="text-null-white">Leaderboard</span> — the top 3 at season end split a real <Tag kind="stablecoin" /> prize pool.
+              Climb the seasonal <span className="text-null-white">Leaderboard</span> — the top 3 at season end split a real <Tag kind="stablecoin" /> prize pool (claiming needs that season&apos;s Pass).
             </p>
             <p>
-              A <span className="text-null-white">Season Pass</span> (Soulbound NFT) unlocks normal drop rates and its own reward track.
+              A <span className="text-null-white">Season Pass</span> (Soulbound NFT) grants the exclusive Warden outfit, daily perks
+              (bonus energy or Glitch Shards), and top-3 bonus eligibility.
             </p>
           </LoopCard>
         </div>

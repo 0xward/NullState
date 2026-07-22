@@ -10,7 +10,7 @@
 
 ## What is NULL_STATE?
 
-NULL_STATE is a pixel-art dungeon crawler that runs directly in the browser — no installs, no app store. Pick a class, descend into a procedurally generated bunker, fight your way through Orc and Skeleton crews, and ride the lift between floors as you push deeper into the depths.
+NULL_STATE is a pixel-art dungeon crawler that runs directly in the browser — no installs, no app store. Take up the Knight's armor, descend into a procedurally generated bunker, fight your way through Orc and Skeleton crews, and ride the lift between floors as you push deeper into the depths.
 
 Playing, looting, and the **NULL_STRIKE** ultimate are all free — no wallet transaction required; NULL_STRIKE is gated by a short cooldown, not a fee. Weapons and armor can be bought on the in-game Marketplace with USDm/USDC/USDT, or swapped for using **NullState Point** — an off-chain, faucet-only currency earned by burning items (not real money, not withdrawable). Payments default to whichever stablecoin your wallet holds the most of.
 
@@ -90,16 +90,20 @@ npm run dev     # development server — http://localhost:3000
 | `npm run build` | Production build (static bundle) |
 | `npm start` | Serve the production build |
 | `npm run lint` | ESLint check |
-| `npm run typecheck` | TypeScript type check |
+| `npx tsc --noEmit` | TypeScript type check |
 
 ### Environment Variables
 
-Copy `.env.local.example` to `.env.local` and fill in:
+Create `.env.local` with:
 
 ```
-NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=your_project_id_here
-FIREBASE_DATABASE_URL=your_firebase_url
+FIREBASE_DATABASE_URL=your_firebase_rtdb_url
 FIREBASE_SERVICE_ACCOUNT_JSON=your_service_account_json
+BACKEND_PRIVATE_KEY=0x...            # backend signer (vault payouts, pass mints)
+# Optional overrides — hardcoded mainnet fallbacks exist in lib/contract-abi.ts:
+# NEXT_PUBLIC_PASS_SBT_CONTRACT_ADDRESS=
+# NEXT_PUBLIC_REWARD_CONTRACT_ADDRESS=
+# NEXT_PUBLIC_TREASURE_VAULT_ADDRESS=
 ```
 
 ---
@@ -126,7 +130,7 @@ public/sprites/            Character, monster, and decoration sprite sheets
   monsters2/               Skel Reaper & Vampire — full idle/walk/attack/death sheets
 styles/globals.css         Tailwind base + wooden inventory UI theme
 lib/                       Web3 provider setup (wagmi/viem, injected connector) + WalletProvider
-contracts/                 Solidity contracts (PassSBTv3.sol, NullStateRewardV2.sol, TreasureVaultV2.sol)
+contracts/                 Solidity contracts (PassSBTv3.sol, NullStateRewardV3.sol, TreasureVaultV2.sol)
 ```
 
 ---

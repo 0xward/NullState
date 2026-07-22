@@ -68,17 +68,17 @@ export default function DocsPage() {
           <div className="pl-4 flex flex-col gap-4 text-[15px] leading-relaxed text-null-muted">
             <p>
               NULL_STATE is a top-down, real-time dungeon crawler. Connect a
-              wallet, pick a class, and descend through procedurally generated
-              bunkers — fighting enemies, looting containers, and gearing up
-              along the way. Your wallet address is your player identity; there
-              is no separate account or sign-up.
+              wallet, take up the Knight&apos;s armor, and descend through
+              procedurally generated bunkers — fighting enemies, looting
+              containers, and gearing up along the way. Your wallet address is
+              your player identity; there is no separate account or sign-up.
             </p>
             <p>
               Most of the run — movement, combat, and looting — happens
               instantly and off-chain, so there is no network fee or wallet prompt
               for every hit. What settles on Celo are the things that carry
-              real value: your Season Pass, Vault Quest rewards, Marketplace
-              purchases, and the NULL_STRIKE ultimate.
+              real value: your Season Pass, Vault Quest rewards, and Marketplace
+              purchases.
             </p>
             <p>
               Death is softened, not final: dying drops you back on the floor
@@ -198,11 +198,11 @@ export default function DocsPage() {
                 Season Pass
               </h3>
               <p>
-                A Season Pass is a non-transferable (Soulbound) NFT that
-                unlocks normal item drop rates for the season. Without a
-                pass you can still play and earn, just with lower odds at
-                rare-and-up items. Its price is set on-chain and payable in
-                USDm, USDC, or USDT.
+                A Season Pass is a non-transferable (Soulbound) NFT. Holding
+                one grants the exclusive Warden outfit, daily perks (bonus
+                energy runs or Glitch Shards, claimable once per day), and
+                eligibility for the seasonal top-3 leaderboard bonus. Its
+                price is payable in USDm, USDC, or USDT.
               </p>
             </div>
             <div>
@@ -210,10 +210,10 @@ export default function DocsPage() {
                 Leaderboard
               </h3>
               <p>
-                Each month, players are ranked by a combined score across
-                USDm earned, items collected, kills, active days, and vault
-                codes solved. The top 3 at season end split a real USDm
-                prize pool; rankings reset for the new season.
+                Each season (monthly), players are ranked by experience
+                earned in their runs. The top 3 Season-Pass holders at
+                season end split a real stablecoin prize pool; rankings
+                reset for the new season.
               </p>
             </div>
           </div>
@@ -227,9 +227,10 @@ export default function DocsPage() {
           <div className="pl-4 flex flex-col gap-4 text-[15px] leading-relaxed text-null-muted">
             <p>
               NULL_STATE runs on Celo mainnet. Real-money actions — the
-              Season Pass, Vault Quest payouts, Marketplace purchases, and
-              NULL_STRIKE — settle as normal Celo transactions. Inventory and
-              run progress are stored off-chain for instant, gasless play.
+              Season Pass, Vault Quest payouts, and Marketplace purchases —
+              settle as normal Celo transactions. Inventory and run progress
+              are stored off-chain for instant, gasless play; NULL_STRIKE is
+              free and never touches the chain.
             </p>
             <ul className="flex flex-col gap-2 font-mono text-sm">
               <li>
@@ -331,7 +332,7 @@ export default function DocsPage() {
             {[
               {
                 q: 'What does it cost to play?',
-                a: 'Playing, looting, and NULL_STRIKE are all free. A Season Pass (paid in USDm/USDC/USDT) unlocks normal drop rates, and the Marketplace sells gear for stablecoin — but nothing is required to play and earn.',
+                a: 'Playing, looting, and NULL_STRIKE are all free. A Season Pass (paid in USDm/USDC/USDT) adds the exclusive Warden outfit, daily perks, and top-3 season bonus eligibility, and the Marketplace sells gear for stablecoin — but nothing is required to play and earn.',
               },
               {
                 q: 'What happens when my character dies?',

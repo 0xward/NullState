@@ -92,61 +92,28 @@ Each month, the top 3 players by **combined score** earn bonus USDm:
 
 ### How Rankings Work
 
-Your seasonal score is calculated from:
-
-- **45%** - Total USDm Earned (Vault Quest + Season bonuses — burns no longer count here since Phase 5.5 #8 moved them to NullState Point)
-- **20%** - Total Items Collected
-- **15%** - Enemies Killed
-- **15%** - Days Active (loyalty)
-- **5%** - Vault Codes Solved (bonus)
-
-**Example Leaderboard:**
-```
-Rank 1: Alice
-  - USDm Earned: 8.5 (45%)
-  - Items: 450 (20%)
-  - Kills: 8,000 (15%)
-  - Days Active: 25 (15%)
-  - Vault: 4 correct (5%)
-  - Score: 87.3 / 100
-  - Reward: 20 USDm ✅
-
-Rank 2: Bob
-  - USDm Earned: 7.2
-  - Items: 420
-  - Kills: 7,500
-  - Days Active: 22
-  - Vault: 3 correct
-  - Score: 81.1 / 100
-  - Reward: 5 USDm ✅
-
-Rank 3: Carol
-  - ... (Score: 78.5 / 100)
-  - Reward: 3 USDm ✅
-```
+Rankings are by **experience (XP) earned** during the season — your rank
+updates as you play. No composite formulas; the leaderboard screen shows
+exactly what counts.
 
 ### When to Claim
 
-- **Season ends**: Last day of UTC month (23:59)
-- **Claim window**: 7 days after season end
-- **After owner deposits**: Requires owner to deposit bonus pool
-- **Instant payout**: Click "Claim Season Bonus" → USDm transfers
+- **Season ends**: last day of the UTC month.
+- **After the winners are published on-chain and the owner deposits the
+  bonus pool**, the top 3 claim from Rewards → Claim Rewards in-app.
+- Claiming requires holding that season's Season Pass. There is no
+  claim deadline — a past season's bonus stays claimable.
 
 ---
 
-## 📊 Total Earning Potential
+## 📊 Earning Potential
 
-### Per Month
-
-```
-If you:
-- Solve vault code weekly (1 × 4 weeks) = 4.0 USDm
-- Rank 3 in leaderboard = 3.0 USDm
-
-Total: ~7 USDm/month (plus however much NullState Point you burn for gear)
-
-If you rank 1: +17 more USDm = 24 USDm total!
-```
+Amounts are **owner-configured on-chain** and can change per week/season —
+the in-game Rewards screen always shows the current values. Directionally:
+the weekly Vault code pays a fixed amount per correct solve (once per
+wallet per week), and the seasonal top-3 split a fixed bonus pool. Neither
+requires spending anything. NullState Point from burns is in-game only and
+not part of stablecoin earnings.
 
 ### Earning Tips
 
