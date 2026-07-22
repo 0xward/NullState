@@ -4733,6 +4733,23 @@ function onActBunkerCleared(){
     G.inventory.gshards = { t1:0, t2:0, t3:0 };
   }
   if(window.NS_RUN) NS_RUN.close('Cleared'); // Phase 1: run unit ends here
+  // v84 (owner bug): the FINAL act must NOT walk back out onto the overworld.
+  // onOutdoorAdvanceToNextAct() clamps campaignActIndex back to the last act,
+  // so surfacing after Bunker 5 sent the player straight back INTO Bunker 5 —
+  // re-spawning the vault door ("found the vault twice") and never returning
+  // them to the title screen where THE NULL ABYSS / NEW GAME+ unlock (so the
+  // Abyss "never appeared"). For the finale: surface → postBunker → PROTOCOL
+  // ZERO epilogue → title screen, with the endgame buttons now revealed.
+  const isFinale = campaignActIndex >= CAMPAIGN.length-1;
+  if(isFinale){
+    showLoadingTransition(() => {
+      G = null; resetInput();
+    }, () => {
+      const act2 = CAMPAIGN[campaignActIndex];
+      cutscene(act2.postBunker, () => { showCampaignEpilogue(act2, returnToTitleScreen); });
+    }, 'RETURNING TO THE SURFACE…');
+    return;
+  }
   // ARMORY TRIAL unlock (growth blueprint 1B): clearing Act 1 unlocks the
   // one-time pick-2-premium-weapons trial in the Marketplace. The flag is
   // per-wallet; the server separately enforces one grant per wallet ever.
@@ -4776,11 +4793,10 @@ function onActBunkerCleared(){
       onReachDoor: onOutdoorAdvanceToNextAct,
     });
   }, () => {
-    // v83 (blueprint 3A): the FINAL act chains the campaign epilogue after
-    // its postBunker beat instead of just... stopping. Every other act ends
-    // with its NEXT → signpost line (story_campaign.js).
-    const isFinale = campaignActIndex >= CAMPAIGN.length-1;
-    cutscene(act.postBunker, ()=>{ if(isFinale) showCampaignEpilogue(act); });
+    // Non-finale acts end with their postBunker beat + NEXT → signpost line
+    // (story_campaign.js). The finale is handled separately above and returns
+    // early, so this path never needs the epilogue.
+    cutscene(act.postBunker, ()=>{});
   }, 'RETURNING TO THE SURFACE…');
 }
 // Campaign-completion epilogue (v83, blueprint 3A). Shows the act's
@@ -4790,18 +4806,38 @@ function onActBunkerCleared(){
 // One-time gate is a per-wallet localStorage flag: the reward is a modest
 // convenience bundle, not an economy faucet, so a client-side gate is
 // proportionate. Replays of Bunker 5 just replay postBunker, no epilogue.
-function showCampaignEpilogue(act){
+function showCampaignEpilogue(act, onDone){
+  const done = typeof onDone === 'function' ? onDone : function(){};
   const lines = act.epilogue;
-  if(!lines || !lines.length) return;
+  if(!lines || !lines.length){ done(); return; }
   const flagKey = 'nullstate-protocolzero-' + (WALLET_ADDRESS ? WALLET_ADDRESS.toLowerCase() : 'guest');
   let alreadyDone = false;
   try{ alreadyDone = localStorage.getItem(flagKey) === '1'; }catch(e){ /* storage off — treat as first time */ }
-  if(alreadyDone) return; // story already closed for this wallet — don't re-run the finale
+  // A replay of Bunker 5 skips the one-time epilogue, but STILL hands control
+  // back to the caller (returnToTitleScreen) so the run always ends at the
+  // title where THE NULL ABYSS / NEW GAME+ live — never dumped back onto the
+  // overworld to re-enter the bunker.
+  if(alreadyDone){ done(); return; }
   cutscene(lines, ()=>{
     try{ localStorage.setItem(flagKey, '1'); }catch(e){ /* non-critical */ }
     log('◆ PROTOCOL ZERO — campaign complete. +5 T3 Glitch Shards.', 'reward');
     Promise.resolve(MATERIALS.credit ? MATERIALS.credit({ t1:0, t2:0, t3:5 }) : null).catch(()=>{});
+    done();
   });
+}
+// Tear the current run down and return to the in-game title screen with the
+// post-completion buttons revealed. Shared endpoint for the campaign finale
+// (onActBunkerCleared) — mirrors the tail of endAbyssRun.
+function returnToTitleScreen(){
+  const d=$('death'); if(d) d.classList.add('hidden');
+  const lm=$('liftMenu'); if(lm) lm.classList.add('hidden');
+  const vw=$('vaultWindow'); if(vw) vw.classList.add('hidden');
+  G = null; resetInput();
+  $('hud').classList.add('hidden');
+  if(atkBtn) atkBtn.classList.add('hidden');
+  const t=$('title'); if(t) t.classList.remove('hidden');
+  const cb=$('cycleBtn'); if(cb && hasCompletedCampaign()){ cb.textContent='NEW GAME+ ('+toRoman(loadStoredCycle()+2)+') ▾'; cb.style.display=''; }
+  const ab=$('abyssBtn'); if(ab && hasCompletedCampaign()){ ab.style.display=''; }
 }
 function onOutdoorAdvanceToNextAct(){
   const finishedAct = CAMPAIGN[campaignActIndex];
