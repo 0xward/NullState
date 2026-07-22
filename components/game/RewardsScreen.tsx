@@ -1,6 +1,15 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import {
+  GiTwoCoins,
+  GiCutDiamond,
+  GiFlame,
+  GiOpenTreasureChest,
+  GiTrophyCup,
+  GiReceiveMoney,
+  GiPayMoney,
+} from 'react-icons/gi'
 import { PlayerProfile } from '@/lib/contract'
 import { useReward } from '@/hooks/useReward'
 
@@ -26,10 +35,7 @@ interface BurnRecord {
 }
 
 interface ProfileResponse {
-  profile: {
-    walletAddress: string
-    nickname?: string
-  }
+  profile: { walletAddress: string; nickname?: string }
   summary?: {
     totalBurnEvents: number
     totalBurnedValue: number
@@ -64,24 +70,24 @@ interface RewardsScreenProps {
   playerProfile: PlayerProfile | null
 }
 
-type Tab = 'stablecoin' | 'points'
+type Tab = 'claim' | 'points'
 
 // Contract defaults for the seasonal top-3 leaderboard bonus
 // (NullStateRewardV2 rank1/2/3Reward — owner-settable via setRankRewards,
-// so this is an indicative amount; the exact payout is enforced on-chain).
-const RANK_BONUS_USDM = [20, 5, 3]
-
+// so this is indicative; the exact payout is enforced on-chain). Shown in
+// USD since every supported reward token (USDm/USDT/USDC) is USD-pegged.
+const RANK_BONUS_USD = [20, 5, 3]
 const CELOSCAN_TX = 'https://celoscan.io/tx/'
 
-export default function RewardsScreen({ onBack, address, playerProfile }: RewardsScreenProps) {
-  const [tab, setTab] = useState<Tab>('stablecoin')
+export default function RewardsScreen({ onBack, address }: RewardsScreenProps) {
+  const [tab, setTab] = useState<Tab>('claim')
 
   const [data, setData] = useState<ProfileResponse | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [stash, setStash] = useState<StashItem[]>([])
 
-  // Stablecoin (left tab) — received history + live claimable
+  // Stablecoin (Claim tab) — received history + live claimable
   const [scHistory, setScHistory] = useState<StablecoinEntry[]>([])
   const [scLoading, setScLoading] = useState(false)
   const {
@@ -94,14 +100,13 @@ export default function RewardsScreen({ onBack, address, playerProfile }: Reward
     claimWeeklyRewards,
   } = useReward(address)
 
-  // Burn (right tab) — multi-select
+  // Burn (Reward Point tab) — multi-select
   const [sel, setSel] = useState<Record<string, number>>({})
   const [burning, setBurning] = useState(false)
-  const [burnMsg, setBurnMsg] = useState<string | null>(null)
+  const [burnMsg, setBurnMsg] = useState<{ text: string; kind: 'ok' | 'err' } | null>(null)
 
-  // Claim feedback (left tab)
   const [claimBusy, setClaimBusy] = useState<'season' | 'weekly' | null>(null)
-  const [claimMsg, setClaimMsg] = useState<string | null>(null)
+  const [claimMsg, setClaimMsg] = useState<{ text: string; kind: 'ok' | 'err' } | null>(null)
 
   const loadProfile = useCallback(async () => {
     if (!address) {
@@ -190,13 +195,10 @@ export default function RewardsScreen({ onBack, address, playerProfile }: Reward
   // --- Stablecoin claimable (live, on-chain) ---
   const myRank = useMemo(() => {
     if (!seasonLeaderboard || !address) return -1
-    return seasonLeaderboard.topPlayers.findIndex(
-      (a) => a?.toLowerCase() === address.toLowerCase()
-    )
+    return seasonLeaderboard.topPlayers.findIndex((a) => a?.toLowerCase() === address.toLowerCase())
   }, [seasonLeaderboard, address])
 
-  const seasonClaimable =
-    myRank >= 0 && !!seasonLeaderboard?.finalized && !hasClaimedSeasonBonus
+  const seasonClaimable = myRank >= 0 && !!seasonLeaderboard?.finalized && !hasClaimedSeasonBonus
   const weeklyHasClaim = (weeklyClaimable ?? BigInt(0)) > BigInt(0)
   const hasClaimable = seasonClaimable || weeklyHasClaim
 
@@ -206,9 +208,9 @@ export default function RewardsScreen({ onBack, address, playerProfile }: Reward
     setClaimMsg(null)
     try {
       const { hash } = await claimSeasonBonus(currentSeason)
-      setClaimMsg(`Season bonus claimed ✓ (${hash.slice(0, 10)}…)`)
+      setClaimMsg({ text: `Season bonus claimed — ${hash.slice(0, 10)}…`, kind: 'ok' })
     } catch (e) {
-      setClaimMsg(e instanceof Error ? e.message : 'Claim failed')
+      setClaimMsg({ text: e instanceof Error ? e.message : 'Claim failed', kind: 'err' })
     } finally {
       setClaimBusy(null)
     }
@@ -220,9 +222,9 @@ export default function RewardsScreen({ onBack, address, playerProfile }: Reward
     setClaimMsg(null)
     try {
       const { hash } = await claimWeeklyRewards()
-      setClaimMsg(`Weekly reward claimed ✓ (${hash.slice(0, 10)}…)`)
+      setClaimMsg({ text: `Weekly reward claimed — ${hash.slice(0, 10)}…`, kind: 'ok' })
     } catch (e) {
-      setClaimMsg(e instanceof Error ? e.message : 'Claim failed')
+      setClaimMsg({ text: e instanceof Error ? e.message : 'Claim failed', kind: 'err' })
     } finally {
       setClaimBusy(null)
     }
@@ -232,6 +234,7 @@ export default function RewardsScreen({ onBack, address, playerProfile }: Reward
   const selectedEntries = stash.filter((it) => (sel[it.id] || 0) > 0)
   const selectedCount = selectedEntries.reduce((s, it) => s + (sel[it.id] || 0), 0)
   const selectedValue = selectedEntries.reduce((s, it) => s + it.burnValue * (sel[it.id] || 0), 0)
+  const allSelected = stash.length > 0 && stash.every((it) => (sel[it.id] || 0) >= it.qty)
 
   const setQty = (id: string, qty: number, max: number) => {
     const clamped = Math.max(0, Math.min(max, qty))
@@ -259,7 +262,7 @@ export default function RewardsScreen({ onBack, address, playerProfile }: Reward
       for (const [id, qty] of Object.entries(burned)) q[id] = (q[id] || 0) + qty
       localStorage.setItem(k, JSON.stringify(q))
     } catch {
-      /* storage full/unavailable — engine simply won't reconcile; non-fatal */
+      /* storage unavailable — engine simply won't reconcile; non-fatal */
     }
     try {
       const k = 'nullstate-stash-' + lower
@@ -305,11 +308,8 @@ export default function RewardsScreen({ onBack, address, playerProfile }: Reward
       for (const it of selectedEntries) burnedMap[it.id] = sel[it.id]
       recordExternalBurn(address, burnedMap)
 
-      // Reflect locally without a full reload
       setStash((prev) =>
-        prev
-          .map((it) => (burnedMap[it.id] ? { ...it, qty: it.qty - burnedMap[it.id] } : it))
-          .filter((it) => it.qty > 0)
+        prev.map((it) => (burnedMap[it.id] ? { ...it, qty: it.qty - burnedMap[it.id] } : it)).filter((it) => it.qty > 0)
       )
       setData((prev) =>
         prev
@@ -324,119 +324,115 @@ export default function RewardsScreen({ onBack, address, playerProfile }: Reward
           : prev
       )
       setSel({})
-      setBurnMsg(`Burned ${selectedCount} item(s) → +${Math.round(payload.totalValue ?? selectedValue)} NullState Point`)
-      // Refresh burn history so the new event shows up
+      setBurnMsg({ text: `Burned ${selectedCount} item(s) — +${Math.round(payload.totalValue ?? selectedValue)} Point`, kind: 'ok' })
       loadProfile()
     } catch (e) {
-      setBurnMsg(e instanceof Error ? e.message : 'Burn failed')
+      setBurnMsg({ text: e instanceof Error ? e.message : 'Burn failed', kind: 'err' })
     } finally {
       setBurning(false)
     }
   }
 
-  const tabBtn = (id: Tab, label: string, sub: string) => (
-    <button
-      onClick={() => setTab(id)}
-      className={`flex-1 min-h-14 flex flex-col items-center justify-center gap-0.5 border font-mono uppercase transition-all duration-200 ${
-        tab === id
-          ? 'border-null-amber bg-[rgba(255,190,11,0.08)] text-null-amber'
-          : 'border-[rgba(255,255,255,0.12)] text-null-muted hover:border-[rgba(255,190,11,0.4)]'
-      }`}
-      style={{ clipPath: 'polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%)' }}
-    >
-      <span className="text-xs sm:text-sm tracking-[2px] font-bold">{label}</span>
-      <span className="text-[8px] sm:text-[9px] tracking-[1px] opacity-70">{sub}</span>
-    </button>
-  )
+  const shortAddr = address ? `${address.slice(0, 6)}…${address.slice(-4)}` : 'NOT CONNECTED'
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-[rgba(0,0,0,0.95)] p-4 sm:p-6 overflow-y-auto">
-      <div
-        className="absolute pointer-events-none inset-0"
-        style={{ background: 'radial-gradient(circle at 50% 30%, rgba(255,190,11,0.08) 0%, transparent 60%)' }}
-      />
-
-      <div className="relative z-10 max-w-3xl w-full mx-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-4 sm:mb-6 gap-3">
-          <div className="min-w-0">
-            <div className="font-mono text-[9px] sm:text-[10px] tracking-[4px] sm:tracking-[6px] text-null-amber uppercase mb-1 sm:mb-2">
-              // REWARDS
-            </div>
-            <h2
-              className="font-display font-black text-null-white leading-none"
-              style={{ fontSize: 'clamp(28px, 8vw, 48px)' }}
-            >
-              REWARDS
-            </h2>
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-[rgba(10,7,4,0.97)] p-4 sm:p-6">
+      <div className="mx-auto w-full max-w-lg pb-16">
+        <header className="mb-4 flex items-center justify-between border-b border-[#7a4f24]/40 pb-3">
+          <div>
+            <p className="font-mono text-[10px] uppercase tracking-[4px] text-[#c39a5f]">// NullState</p>
+            <h1 className="font-mono text-2xl font-bold text-[#f2cd82]">REWARDS</h1>
           </div>
-
           <button
             onClick={onBack}
-            className="shrink-0 inline-flex items-center justify-center min-h-11 font-mono text-[10px] sm:text-xs tracking-[1px] sm:tracking-[2px] uppercase text-null-green border border-[rgba(0,255,136,0.4)] px-3 sm:px-4 py-2 transition-all duration-200 hover:border-null-green hover:bg-[rgba(0,255,136,0.05)]"
-            style={{ clipPath: 'polygon(4px 0, 100% 0, calc(100% - 4px) 100%, 0 100%)' }}
+            className="rounded border border-[#7a4f24] px-3 py-2 font-mono text-xs uppercase tracking-wider text-[#c39a5f] hover:bg-[#7a4f24]/20"
           >
-            ✕ CLOSE
+            ◂ Back
           </button>
+        </header>
+
+        <p className="mb-4 font-mono text-[10px] uppercase tracking-[2px] text-[#9c7a4f]">
+          Wallet <span className="normal-case tracking-normal text-[#c39a5f]">{shortAddr}</span>
+        </p>
+
+        {/* Two-reward tab switch — same pill style as the token selectors */}
+        <div className="mb-5 flex gap-2">
+          {([
+            ['claim', 'Claim Rewards'],
+            ['points', 'Reward Point'],
+          ] as [Tab, string][]).map(([id, label]) => (
+            <button
+              key={id}
+              onClick={() => setTab(id)}
+              className={`flex-1 rounded-lg border px-3 py-2.5 font-mono text-xs font-bold uppercase tracking-wider transition ${
+                tab === id
+                  ? 'border-[#e8bd6f] bg-gradient-to-b from-[#e8bd6f] to-[#c9962f] text-[#2a1705]'
+                  : 'border-[#7a4f24]/60 bg-[#2b1a0d] text-[#c39a5f] hover:border-[#8a5a2b]'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
         </div>
 
-        {/* Wallet line */}
-        <div className="mb-4 font-mono text-[10px] sm:text-xs">
-          <span className="text-null-muted uppercase tracking-[1px]">Wallet </span>
-          <span className="text-null-white break-all">{address || 'NOT CONNECTED'}</span>
-        </div>
-
-        {/* Two-reward tab switch */}
-        <div className="flex gap-2 sm:gap-3 mb-6">
-          {tabBtn('stablecoin', 'Stablecoin', 'USDm rewards')}
-          {tabBtn('points', 'Reward Point', 'from burning')}
-        </div>
-
-        {/* ================= STABLECOIN TAB ================= */}
-        {tab === 'stablecoin' && (
+        {/* ================= CLAIM (STABLECOIN) TAB ================= */}
+        {tab === 'claim' && (
           <div>
-            {/* Claimable now */}
-            <div className="font-mono text-[10px] tracking-[2px] text-null-green uppercase mb-2">
-              // Claimable now
-            </div>
+            <h2 className="mb-2 flex items-center gap-1.5 font-mono text-xs font-bold uppercase tracking-[3px] text-[#e6c07a]">
+              <GiPayMoney aria-hidden size={15} /> Claimable now
+            </h2>
             {claimMsg && (
-              <div className="mb-3 rounded border border-[rgba(0,255,136,0.35)] bg-[rgba(0,255,136,0.06)] p-2.5 text-xs text-null-green font-mono break-words">
-                {claimMsg}
+              <div
+                className={`mb-3 rounded-lg border p-3 font-mono text-xs ${
+                  claimMsg.kind === 'ok'
+                    ? 'border-[#4ade80]/50 bg-[#4ade80]/10 text-[#7ef0a6]'
+                    : 'border-[#e07a3a]/50 bg-[#e07a3a]/10 text-[#f0a878]'
+                }`}
+              >
+                {claimMsg.text}
               </div>
             )}
             {!hasClaimable ? (
-              <p className="text-null-muted font-mono text-sm py-5 text-center border border-[rgba(255,255,255,0.08)] rounded-md mb-8">
+              <div className="mb-6 rounded-lg border border-[#7a4f24]/40 bg-[#2b1a0d]/60 p-4 text-center font-mono text-[11px] text-[#9c7a4f]">
                 No rewards
-              </p>
+              </div>
             ) : (
-              <div className="space-y-2 mb-8">
+              <div className="mb-6 flex flex-col gap-2">
                 {seasonClaimable && (
-                  <div className="flex items-center justify-between gap-3 border border-[rgba(255,190,11,0.3)] bg-[rgba(255,190,11,0.04)] rounded-md p-3">
-                    <div className="font-mono text-xs">
-                      <div className="text-null-amber font-bold">Season #{String(currentSeason)} — Rank #{myRank + 1} bonus</div>
-                      <div className="text-null-muted text-[10px] mt-0.5">≈ {RANK_BONUS_USDM[myRank] ?? '?'} USDm · top-3 leaderboard</div>
+                  <div className="flex items-center gap-3 rounded-lg border border-[#7a4f24]/60 bg-gradient-to-b from-[#2b1a0d] to-[#1a0f06] p-3">
+                    <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded border border-[#7a4f24]/50 bg-black/40 text-[#f2cd82]">
+                      <GiTrophyCup aria-hidden size={20} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="font-mono text-sm font-bold text-[#f0dcb8]">
+                        Season {String(currentSeason)} · Rank {myRank + 1}
+                      </div>
+                      <div className="font-mono text-[10px] uppercase tracking-wide text-[#c39a5f]">
+                        ≈ {RANK_BONUS_USD[myRank] ?? '?'} USD · top-3 bonus
+                      </div>
                     </div>
                     <button
                       onClick={onClaimSeason}
                       disabled={claimBusy !== null || rewardBusy}
-                      className="shrink-0 min-h-10 px-4 font-mono text-[10px] tracking-[1px] uppercase text-null-green border border-[rgba(0,255,136,0.5)] disabled:opacity-40 hover:bg-[rgba(0,255,136,0.08)]"
-                      style={{ clipPath: 'polygon(4px 0, 100% 0, calc(100% - 4px) 100%, 0 100%)' }}
+                      className="flex-shrink-0 rounded bg-gradient-to-b from-[#4ade80] to-[#22b862] px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-wider text-[#062b13] transition hover:brightness-110 disabled:opacity-40"
                     >
                       {claimBusy === 'season' ? '…' : 'Claim'}
                     </button>
                   </div>
                 )}
                 {weeklyHasClaim && (
-                  <div className="flex items-center justify-between gap-3 border border-[rgba(255,190,11,0.3)] bg-[rgba(255,190,11,0.04)] rounded-md p-3">
-                    <div className="font-mono text-xs">
-                      <div className="text-null-amber font-bold">Weekly burn reward</div>
-                      <div className="text-null-muted text-[10px] mt-0.5">On-chain USDm pool</div>
+                  <div className="flex items-center gap-3 rounded-lg border border-[#7a4f24]/60 bg-gradient-to-b from-[#2b1a0d] to-[#1a0f06] p-3">
+                    <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded border border-[#7a4f24]/50 bg-black/40 text-[#f2cd82]">
+                      <GiTwoCoins aria-hidden size={20} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="font-mono text-sm font-bold text-[#f0dcb8]">Weekly burn reward</div>
+                      <div className="font-mono text-[10px] uppercase tracking-wide text-[#c39a5f]">On-chain USD pool</div>
                     </div>
                     <button
                       onClick={onClaimWeekly}
                       disabled={claimBusy !== null || rewardBusy}
-                      className="shrink-0 min-h-10 px-4 font-mono text-[10px] tracking-[1px] uppercase text-null-green border border-[rgba(0,255,136,0.5)] disabled:opacity-40 hover:bg-[rgba(0,255,136,0.08)]"
-                      style={{ clipPath: 'polygon(4px 0, 100% 0, calc(100% - 4px) 100%, 0 100%)' }}
+                      className="flex-shrink-0 rounded bg-gradient-to-b from-[#4ade80] to-[#22b862] px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-wider text-[#062b13] transition hover:brightness-110 disabled:opacity-40"
                     >
                       {claimBusy === 'weekly' ? '…' : 'Claim'}
                     </button>
@@ -445,55 +441,60 @@ export default function RewardsScreen({ onBack, address, playerProfile }: Reward
               </div>
             )}
 
-            {/* Received history */}
-            <div className="font-mono text-[10px] tracking-[2px] text-null-amber uppercase mb-2">
-              // Received ({scHistory.length})
-            </div>
+            <h2 className="mb-2 flex items-center gap-1.5 font-mono text-xs font-bold uppercase tracking-[3px] text-[#e6c07a]">
+              <GiReceiveMoney aria-hidden size={15} /> Received{scHistory.length ? ` (${scHistory.length})` : ''}
+            </h2>
             {scLoading ? (
-              <div className="text-null-amber font-mono text-sm py-6 text-center animate-pulse">// loading…</div>
+              <div className="rounded-lg border border-[#7a4f24]/40 bg-[#2b1a0d]/60 p-4 text-center font-mono text-[11px] text-[#c39a5f]">
+                Loading…
+              </div>
             ) : scHistory.length === 0 ? (
-              <p className="text-null-muted font-mono text-sm py-5 text-center border border-[rgba(255,255,255,0.08)] rounded-md">
+              <div className="rounded-lg border border-[#7a4f24]/40 bg-[#2b1a0d]/60 p-4 text-center font-mono text-[11px] text-[#9c7a4f]">
                 No rewards
-              </p>
+              </div>
             ) : (
-              <div className="space-y-2">
-                {scHistory.map((e, i) => (
-                  <div key={i} className="border border-[rgba(0,255,136,0.15)] rounded-md p-3 font-mono text-xs">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-null-white/90 font-bold">
-                        {e.kind === 'vault'
-                          ? `🔓 Treasure Vault${e.weekId ? ` · wk ${e.weekId}` : ''}`
-                          : e.kind === 'season'
-                            ? `🏆 Season bonus${e.seasonId ? ` · S${e.seasonId}` : ''}`
-                            : `⛏ Weekly reward${e.weekId ? ` · wk ${e.weekId}` : ''}`}
-                      </span>
-                      {typeof e.amount === 'number' && (
-                        <span className="text-null-green font-bold">
-                          +{e.amount} {e.token ?? 'USDm'}
-                        </span>
-                      )}
+              <div className="flex flex-col gap-2">
+                {scHistory.map((e, i) => {
+                  const Icon = e.kind === 'season' ? GiTrophyCup : e.kind === 'weekly' ? GiTwoCoins : GiOpenTreasureChest
+                  const label =
+                    e.kind === 'vault'
+                      ? `Treasure Vault${e.weekId ? ` · wk ${e.weekId}` : ''}`
+                      : e.kind === 'season'
+                        ? `Season bonus${e.seasonId ? ` · S${e.seasonId}` : ''}`
+                        : `Weekly reward${e.weekId ? ` · wk ${e.weekId}` : ''}`
+                  return (
+                    <div key={i} className="flex items-center gap-3 rounded-lg border border-[#7a4f24]/50 bg-gradient-to-b from-[#2b1a0d] to-[#1a0f06] p-3">
+                      <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded border border-[#7a4f24]/40 bg-black/40 text-[#c39a5f]">
+                        <Icon aria-hidden size={17} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate font-mono text-xs font-bold text-[#f0dcb8]">{label}</div>
+                        <div className="font-mono text-[10px] text-[#9c7a4f]">{e.at ? new Date(e.at).toLocaleString() : ''}</div>
+                      </div>
+                      <div className="flex flex-shrink-0 flex-col items-end gap-1">
+                        {typeof e.amount === 'number' && (
+                          <span className="font-mono text-sm font-bold text-[#7ef0a6]">+{e.amount} USD</span>
+                        )}
+                        {e.txHash && (
+                          <a
+                            href={CELOSCAN_TX + e.txHash}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="font-mono text-[10px] text-[#c39a5f] underline underline-offset-2 hover:text-[#f2cd82]"
+                          >
+                            View tx →
+                          </a>
+                        )}
+                      </div>
                     </div>
-                    <div className="mt-1 flex items-center justify-between gap-2 text-[10px]">
-                      <span className="text-null-muted">{e.at ? new Date(e.at).toLocaleString() : ''}</span>
-                      {e.txHash && (
-                        <a
-                          href={CELOSCAN_TX + e.txHash}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-null-blue hover:underline"
-                        >
-                          tx ↗
-                        </a>
-                      )}
-                    </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             )}
 
-            <p className="mt-6 text-center font-mono text-[9px] text-null-muted leading-relaxed">
-              Stablecoin comes from the Treasure Vault (weekly code) and the seasonal top-3 leaderboard
-              bonus. Vault rewards are paid instantly on a correct code; season bonuses are claimed here.
+            <p className="mt-4 font-mono text-[9px] leading-relaxed text-[#9c7a4f]">
+              Stablecoin comes from the Treasure Vault weekly code (paid instantly on a correct code) and the
+              seasonal top-3 leaderboard bonus, claimed here.
             </p>
           </div>
         )}
@@ -502,110 +503,115 @@ export default function RewardsScreen({ onBack, address, playerProfile }: Reward
         {tab === 'points' && (
           <div>
             {/* Totals */}
-            <div className="grid grid-cols-2 gap-4 mb-6">
-              <div className="border border-[rgba(0,255,136,0.25)] bg-[rgba(0,255,136,0.04)] rounded-md p-4 text-center">
-                <div className="font-mono text-[10px] uppercase tracking-[1px] text-null-muted mb-1">NullState Point</div>
-                <div className="font-display font-black text-null-green text-2xl">{Math.round(tokenBalance)}</div>
+            <div className="mb-4 grid grid-cols-2 gap-2">
+              <div className="rounded-lg border border-[#7a4f24]/50 bg-[#2b1a0d] px-3 py-3 text-center">
+                <div className="flex items-center justify-center gap-1 font-mono text-[9px] uppercase tracking-wider text-[#9c7a4f]">
+                  <GiCutDiamond aria-hidden size={11} /> NullState Point
+                </div>
+                <div className="font-mono text-xl font-bold text-[#f2cd82]">{Math.round(tokenBalance)}</div>
               </div>
-              <div className="border border-[rgba(255,190,11,0.25)] bg-[rgba(255,190,11,0.04)] rounded-md p-4 text-center">
-                <div className="font-mono text-[10px] uppercase tracking-[1px] text-null-muted mb-1">Unburned Stash</div>
-                <div className="font-display font-black text-null-amber text-2xl">{Math.round(unburnedTotal)}</div>
+              <div className="rounded-lg border border-[#7a4f24]/50 bg-[#2b1a0d] px-3 py-3 text-center">
+                <div className="flex items-center justify-center gap-1 font-mono text-[9px] uppercase tracking-wider text-[#9c7a4f]">
+                  <GiFlame aria-hidden size={11} /> Unburned Stash
+                </div>
+                <div className="font-mono text-xl font-bold text-[#f2cd82]">{Math.round(unburnedTotal)}</div>
               </div>
             </div>
-            <p className="-mt-3 mb-6 text-center font-mono text-[9px] text-null-muted">
+            <p className="mb-4 font-mono text-[9px] leading-relaxed text-[#9c7a4f]">
               Spend NullState Point on Marketplace gear ($0.5–$2 items) via the Swap button.
             </p>
 
             {isLoading && (
-              <div className="flex items-center justify-center py-8">
-                <div className="text-null-amber font-mono text-sm animate-pulse">// fetching…</div>
+              <div className="mb-4 rounded-lg border border-[#7a4f24]/40 bg-[#2b1a0d]/60 p-4 text-center font-mono text-[11px] text-[#c39a5f]">
+                Loading…
               </div>
             )}
             {error && (
-              <div className="mb-6 rounded border border-[rgba(255,190,11,0.35)] bg-[rgba(255,190,11,0.08)] p-3 text-sm text-null-amber font-mono">
+              <div className="mb-4 rounded-lg border border-[#e07a3a]/50 bg-[#e07a3a]/10 p-3 font-mono text-xs text-[#f0a878]">
                 {error}
               </div>
             )}
 
             {/* Burnable stash — multi-select */}
             {!isLoading && (
-              <div className="mb-8">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="font-mono text-[10px] tracking-[2px] text-null-amber uppercase">
-                    // Burn for Points ({stash.length})
-                  </div>
+              <section className="mb-6">
+                <div className="mb-2 flex items-center justify-between">
+                  <h2 className="flex items-center gap-1.5 font-mono text-xs font-bold uppercase tracking-[3px] text-[#e6c07a]">
+                    <GiFlame aria-hidden size={15} /> Burn for Points{stash.length ? ` (${stash.length})` : ''}
+                  </h2>
                   {stash.length > 0 && (
                     <button
                       onClick={() =>
-                        setSel((prev) => {
-                          const allSelected = stash.every((it) => (prev[it.id] || 0) >= it.qty)
+                        setSel(() => {
                           if (allSelected) return {}
                           const next: Record<string, number> = {}
                           for (const it of stash) next[it.id] = it.qty
                           return next
                         })
                       }
-                      className="font-mono text-[9px] tracking-[1px] uppercase text-null-blue border border-[rgba(74,215,255,0.35)] px-2 py-1 hover:bg-[rgba(74,215,255,0.06)]"
+                      className="rounded border border-[#7a4f24] px-2 py-1 font-mono text-[9px] uppercase tracking-wider text-[#c39a5f] hover:bg-[#7a4f24]/20"
                     >
-                      {stash.every((it) => (sel[it.id] || 0) >= it.qty) && stash.length > 0 ? 'Clear' : 'Select all'}
+                      {allSelected ? 'Clear' : 'Select all'}
                     </button>
                   )}
                 </div>
 
                 {burnMsg && (
-                  <div className="mb-3 rounded border border-[rgba(0,255,136,0.35)] bg-[rgba(0,255,136,0.06)] p-2.5 text-xs text-null-green font-mono break-words">
-                    {burnMsg}
+                  <div
+                    className={`mb-3 rounded-lg border p-3 font-mono text-xs ${
+                      burnMsg.kind === 'ok'
+                        ? 'border-[#4ade80]/50 bg-[#4ade80]/10 text-[#7ef0a6]'
+                        : 'border-[#e07a3a]/50 bg-[#e07a3a]/10 text-[#f0a878]'
+                    }`}
+                  >
+                    {burnMsg.text}
                   </div>
                 )}
 
                 {stash.length === 0 ? (
-                  <p className="text-null-muted font-mono text-sm py-6 text-center border border-[rgba(255,255,255,0.08)] rounded-md">
-                    Nothing to burn — loot items in a run first, then open your in-game inventory once so it syncs here.
-                  </p>
+                  <div className="rounded-lg border border-[#7a4f24]/40 bg-[#2b1a0d]/60 p-4 text-center font-mono text-[11px] text-[#9c7a4f]">
+                    Nothing to burn yet. Loot items in a run, then open your in-game inventory once so it syncs here.
+                  </div>
                 ) : (
                   <>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div className="flex flex-col gap-2">
                       {stash.map((it) => {
                         const q = sel[it.id] || 0
                         const active = q > 0
                         return (
                           <div
                             key={it.id}
-                            className="flex items-center gap-3 border rounded p-2 font-mono"
-                            style={{ borderColor: active ? it.color || '#ffbe0b' : 'rgba(255,255,255,0.1)' }}
+                            className={`flex items-center gap-3 rounded-lg border bg-gradient-to-b from-[#2b1a0d] to-[#1a0f06] p-2.5 ${
+                              active ? 'border-[#e8bd6f]' : 'border-[#7a4f24]/50'
+                            }`}
                           >
-                            {it.icon ? (
-                              <img
-                                src={it.icon}
-                                alt={it.name}
-                                draggable={false}
-                                className="w-8 h-8 shrink-0"
-                                style={{ imageRendering: 'pixelated' }}
-                              />
-                            ) : (
-                              <div className="w-8 h-8 shrink-0 rounded bg-white/5" />
-                            )}
+                            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded border border-[#7a4f24]/40 bg-black/40">
+                              {it.icon ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img src={it.icon} alt={it.name} className="h-8 w-8 [image-rendering:pixelated]" draggable={false} />
+                              ) : (
+                                <GiTwoCoins aria-hidden size={18} className="text-[#7a4f24]" />
+                              )}
+                            </div>
                             <div className="min-w-0 flex-1">
-                              <div className="text-[11px] uppercase truncate" style={{ color: it.color }}>
-                                {it.name}
-                              </div>
-                              <div className="text-null-amber text-[9px]">
+                              <div className="truncate font-mono text-xs font-bold text-[#f0dcb8]">{it.name}</div>
+                              <div className="font-mono text-[10px] uppercase tracking-wide text-[#c39a5f]">
                                 {Math.round(it.burnValue)} pt · have ×{it.qty}
                               </div>
                             </div>
-                            <div className="flex items-center gap-1 shrink-0">
+                            <div className="flex flex-shrink-0 items-center gap-1">
                               <button
                                 onClick={() => setQty(it.id, q - 1, it.qty)}
-                                className="w-7 h-7 border border-[rgba(255,255,255,0.15)] text-null-white/70 disabled:opacity-30"
                                 disabled={q <= 0}
+                                className="h-7 w-7 rounded border border-[#7a4f24]/60 font-mono text-[#c39a5f] disabled:opacity-30 hover:bg-[#7a4f24]/20"
                               >
                                 −
                               </button>
-                              <span className="w-6 text-center text-null-white text-xs">{q}</span>
+                              <span className="w-6 text-center font-mono text-xs text-[#f0dcb8]">{q}</span>
                               <button
                                 onClick={() => setQty(it.id, q + 1, it.qty)}
-                                className="w-7 h-7 border border-[rgba(255,255,255,0.15)] text-null-white/70 disabled:opacity-30"
                                 disabled={q >= it.qty}
+                                className="h-7 w-7 rounded border border-[#7a4f24]/60 font-mono text-[#c39a5f] disabled:opacity-30 hover:bg-[#7a4f24]/20"
                               >
                                 +
                               </button>
@@ -616,55 +622,49 @@ export default function RewardsScreen({ onBack, address, playerProfile }: Reward
                     </div>
 
                     {/* Burn action bar */}
-                    <div className="sticky bottom-0 mt-3 flex items-center justify-between gap-3 bg-[rgba(0,0,0,0.9)] border border-[rgba(255,190,11,0.3)] rounded-md p-3">
+                    <div className="sticky bottom-0 mt-3 flex items-center justify-between gap-3 rounded-lg border border-[#7a4f24]/60 bg-[rgba(10,7,4,0.96)] p-3">
                       <div className="font-mono text-xs">
-                        <span className="text-null-white">{selectedCount}</span>
-                        <span className="text-null-muted"> selected → </span>
-                        <span className="text-null-green font-bold">+{Math.round(selectedValue)} pt</span>
+                        <span className="font-bold text-[#f0dcb8]">{selectedCount}</span>
+                        <span className="text-[#9c7a4f]"> selected → </span>
+                        <span className="font-bold text-[#7ef0a6]">+{Math.round(selectedValue)} pt</span>
                       </div>
                       <button
                         onClick={doBurn}
                         disabled={selectedCount === 0 || burning || !address}
-                        className="min-h-10 px-5 font-mono text-[11px] tracking-[2px] uppercase font-bold text-null-amber border border-null-amber disabled:opacity-40 hover:bg-[rgba(255,190,11,0.1)]"
-                        style={{ clipPath: 'polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%)' }}
+                        className="inline-flex items-center gap-1.5 rounded bg-gradient-to-b from-[#e8bd6f] to-[#c9962f] px-5 py-2 font-mono text-[11px] font-bold uppercase tracking-wider text-[#2a1705] transition hover:brightness-110 disabled:opacity-40"
                       >
-                        {burning ? 'Burning…' : '🔥 Burn'}
+                        <GiFlame aria-hidden size={14} /> {burning ? 'Burning…' : 'Burn'}
                       </button>
                     </div>
                   </>
                 )}
-              </div>
+              </section>
             )}
 
             {/* Burn history */}
             {!isLoading && (
-              <div>
-                <div className="font-mono text-[10px] tracking-[2px] text-null-green uppercase mb-2">
-                  // Burn History ({burns.length})
-                </div>
+              <section>
+                <h2 className="mb-2 flex items-center gap-1.5 font-mono text-xs font-bold uppercase tracking-[3px] text-[#e6c07a]">
+                  <GiReceiveMoney aria-hidden size={15} /> Burn History{burns.length ? ` (${burns.length})` : ''}
+                </h2>
                 {burns.length === 0 ? (
-                  <p className="text-null-muted font-mono text-sm py-6 text-center">
+                  <div className="rounded-lg border border-[#7a4f24]/40 bg-[#2b1a0d]/60 p-4 text-center font-mono text-[11px] text-[#9c7a4f]">
                     No burns recorded yet this season.
-                  </p>
+                  </div>
                 ) : (
-                  <div className="space-y-2">
+                  <div className="flex flex-col gap-2">
                     {burns.map((b) => (
-                      <div key={b.burnId} className="border border-[rgba(0,255,136,0.15)] rounded-md p-3 font-mono text-xs">
-                        <div className="flex items-center justify-between gap-2 mb-1.5">
-                          <span className="text-null-muted">{new Date(b.recordedAt || b.timestamp).toLocaleString()}</span>
-                          <span className="text-null-green font-bold">+{Math.round(b.totalValue)} pt</span>
+                      <div key={b.burnId} className="rounded-lg border border-[#7a4f24]/50 bg-gradient-to-b from-[#2b1a0d] to-[#1a0f06] p-3 font-mono text-xs">
+                        <div className="mb-1.5 flex items-center justify-between gap-2">
+                          <span className="text-[#9c7a4f]">{new Date(b.recordedAt || b.timestamp).toLocaleString()}</span>
+                          <span className="font-bold text-[#7ef0a6]">+{Math.round(b.totalValue)} pt</span>
                         </div>
-                        <div className="text-null-white/80 flex flex-wrap gap-x-3 gap-y-1.5">
+                        <div className="flex flex-wrap gap-x-3 gap-y-1.5 text-[#f0dcb8]/90">
                           {b.items.map((it, i) => (
                             <span key={i} className="inline-flex items-center gap-1.5">
                               {it.icon && (
-                                <img
-                                  src={it.icon}
-                                  alt={it.name}
-                                  draggable={false}
-                                  className="w-4 h-4"
-                                  style={{ imageRendering: 'pixelated' }}
-                                />
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img src={it.icon} alt={it.name} className="h-4 w-4 [image-rendering:pixelated]" draggable={false} />
                               )}
                               <span style={{ color: it.color }}>{it.name}</span> ×{it.qty}
                             </span>
@@ -674,7 +674,7 @@ export default function RewardsScreen({ onBack, address, playerProfile }: Reward
                     ))}
                   </div>
                 )}
-              </div>
+              </section>
             )}
           </div>
         )}
