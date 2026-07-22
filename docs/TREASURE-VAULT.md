@@ -102,6 +102,53 @@ Contract: **`TreasureVaultV2.sol`**, function **`setVaultReward(uint256 _newRewa
 
 ---
 
+## Deposit & config from the phone — `scripts/deposit-reward.js`
+
+An owner CLI that funds/configures both pools without hand-writing wei. It
+signs with the **contract owner (deployer) key**, because every deposit and
+setter is `onlyOwner` — the app cannot do these from a normal MiniPay wallet
+unless that wallet is the owner. It reads `owner()` on-chain first and
+refuses to send if your key isn't the owner (fails safe, no wasted gas).
+
+**Why a CLI and not raw Celoscan:** USDT/USDC on Celo are **6-decimal**,
+USDm is 18. Passing `--amount 10` means **$10** and the script scales to the
+right base units, so you can't accidentally send `1e18` USDT ($1 trillion).
+It also warns if `vaultReward` was left in 18-decimal format while the
+payout token is 6-decimal.
+
+### Setup (Termux)
+```
+pkg install nodejs git
+# lightweight: just viem, no full app install
+mkdir ns-treasury && cd ns-treasury && npm init -y && npm i viem
+# copy scripts/deposit-reward.js + scripts/.env.example here (or clone the repo)
+cp .env.example .env && nano .env      # paste DEPLOYER_PRIVATE_KEY
+node deposit-reward.js status
+```
+`scripts/.env` is gitignored — **never commit a real private key.**
+
+### Switch both pools to USDT (one-time)
+```
+node deposit-reward.js vault-set-token --token USDT          # vault pays USDT
+node deposit-reward.js vault-reward   --token USDT --amount 0.5   # $0.50 per win
+node deposit-reward.js season-rewards --token USDT --r1 20 --r2 5 --r3 3
+```
+
+### Fund (repeat monthly with whatever budget)
+```
+node deposit-reward.js vault-deposit  --token USDT --amount 10       # $10 into the vault pool
+node deposit-reward.js season-deposit --season 3 --token USDT --amount 28
+```
+
+Other flags: `--fee USDT` (pay gas in a stablecoin if the wallet has no
+CELO), `--dry-run` (simulate, no send), `--yes` (skip the confirm prompt),
+`--rpc <url>`. Run with no arguments for full help. `vault-withdraw
+--token USDT --amount <n>` pulls unclaimed funds back out.
+
+> Accounting note: the vault tracks one `totalVaultPoolDeposited` counter,
+> not per-token. If you ever deposited USDm then switched to USDT, withdraw
+> the old USDm first so the counter reflects the token you actually pay in.
+
 ## Quick reference
 
 | What | Where | Who sets it |
