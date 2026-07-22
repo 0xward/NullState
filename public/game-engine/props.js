@@ -54,7 +54,7 @@ const DECOR_TYPES = {
   skull_heap:   { hp:1, w:32, h:16, label:'Skull Heap',      loot:[['xp',12,44],['relic',1,7],['hp',6,20],['gshard',1,8],['none',0,29]] },
   cot:          { hp:2, w:26, h:56, label:'Rotten Cot',      loot:[['hp',12,36],['xp',14,30],['item',1,12],['none',0,22]], northOnly:true },
   // ---- interactive containers (opened via OPEN button, like cabinet_s) ----
-  footlocker:     { hp:2, w:34, h:30, label:'Iron Footlocker', loot:[['item',2,32],['xp',30,26],['hp',16,20],['relic',1,10]], interactive:true, containerMaterial:'iron' },
+  footlocker:     { hp:2, w:34, h:30, label:'Iron Footlocker', loot:[['item',2,32],['xp',30,26],['hp',16,20],['relic',1,10]], interactive:true, containerMaterial:'iron', northOnly:true }, // boxy, front-view-only art: keep on the top wall so it never faces the wrong way on a side wall (owner: "lemari di W/E menghadap S/N")
   shelf_stocked:  { hp:2, w:52, h:52, label:'Stocked Shelf',   loot:[['item',1,34],['hp',14,26],['xp',22,26],['relic',1,6]], interactive:true, containerMaterial:'wood', northOnly:true },
   dresser:        { hp:2, w:48, h:40, label:'Old Dresser',     loot:[['item',1,30],['xp',20,28],['hp',12,26],['relic',1,6]], interactive:true, containerMaterial:'wood', northOnly:true },
   cabinet_ornate: { hp:2, w:46, h:52, label:'Ornate Cabinet',  loot:[['item',2,30],['xp',26,26],['hp',14,22],['relic',1,10]], interactive:true, containerMaterial:'wood', northOnly:true },
