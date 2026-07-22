@@ -65,6 +65,7 @@ const CAMPAIGN = [
       "I didn't find anyone alive down there. But I found a key. Gold, warm to the touch, humming faintly like it remembers being something else.",
       "And the things I fought... one of them was wearing my neighbor's scarf.",
       "I told myself it didn't mean anything.",
+      "NEXT → THE SUNKEN FIELD. The road keeps going east.",
     ],
     onWeaponEvolve: [
       "The blade's humming now — the same note as the key in my pack.",
@@ -93,6 +94,7 @@ const CAMPAIGN = [
       "I found a logbook in the lower chamber. Most of it was corrupted past reading. One line wasn't:",
       "\"Subjects do not become monsters. Subjects are overwritten by what already lived in the chain. We only gave it a door.\"",
       "I don't know who wrote that. I don't know if I want to.",
+      "NEXT → THE FROSTLINE BUNKER. The third fragment is somewhere under the ice.",
     ],
     onWeaponEvolve: [
       "Sharper — and not just the edge.",
@@ -120,6 +122,7 @@ const CAMPAIGN = [
       "Third key. It's warmer than the other two combined, like it's the closest to finishing something.",
       "Down in the frost chamber, the walls weren't stone under the ice. They were screens — dead ones, but screens. Old machines that this whole bunker was built around, not in.",
       "Whatever NULL_STATE actually is, it didn't choose these places. We built the doors for it a long time ago. We just forgot we did.",
+      "NEXT → THE HOLLOW MARKET. Two fragments left. Keep walking.",
     ],
     onWeaponEvolve: [
       "The keys are fragments of a lock. This is starting to feel like the other half —",
@@ -149,6 +152,7 @@ const CAMPAIGN = [
       "The voice didn't come back down there. But something did watch me. I felt it the way you feel a held breath in a quiet room.",
       "Whoever — whatever — is trying to keep this sealed, they're not the enemy I came here for. But I don't think they're on my side either.",
       "One more bunker. One more key, maybe. And then I find out what door four fragments actually opens.",
+      "NEXT → THE LAST LIGHT. The final bunker — bring this week's Paper and Golden Key for the vault below.",
     ],
     onWeaponEvolve: [
       "The voice told me to stop collecting fragments.",
@@ -172,6 +176,7 @@ const CAMPAIGN = [
       "If the keys power a generator, light up the whole structure, open every cell at once... I either find everyone who's still alive in there, or I find out exactly what 'overwritten' really means.",
       "My hand's been shaking since the field. I told myself it was the cold.",
       "It isn't the cold.",
+      "One more thing I know for sure: the deepest vault down there only answers to this week's Paper and Golden Key. If I'm missing either, the containers on the way down still hold them.",
     ],
     postBunker: [
       "The lights came on. All of them, for the first time since whatever happened to this place happened.",
@@ -184,6 +189,18 @@ const CAMPAIGN = [
     onWeaponEvolve: [
       "It answers before I swing now — like it already knows the shape of this place.",
       "My hand and the blade, agreeing on something I never said out loud.",
+    ],
+    // Campaign-completion epilogue (v83, blueprint 3A): shown ONCE, right
+    // after this act's postBunker beat, chained by onActBunkerCleared()'s
+    // finale branch in game.js. Closes Act I's story on a real note and
+    // hands the player their next goal instead of a dead end.
+    epilogue: [
+      "SYSTEM REBOOT — PROTOCOL ZERO.",
+      "Five bunkers. Five fragments. The Last Light burning behind me like a second sunrise.",
+      "I didn't save the villagers. I couldn't — they were gone before I ever picked up a blade. But every light I turned on is one the NULL_STATE can't use again.",
+      "My hand still shakes. Whatever's happening to me isn't finished. Neither am I.",
+      "The Last Light stays open — I can descend again whenever I choose. The deepest vault resets its code every week. And somewhere below the bottom floor, something is still waiting.",
+      "PROTOCOL ZERO complete. The Walker walks on.",
     ],
   },
 ];
