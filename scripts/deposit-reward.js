@@ -17,6 +17,9 @@
  *     - store-vault-code   storeWeeklyVaultCode(wk,code) set this week's code
  *                                                        ON-CHAIN (must match
  *                                                        the Paper) so wins pay
+ *     - vault-pay          submitVaultCode(user,wk,code) manually pay a winner
+ *                                                        (recovery for a stuck
+ *                                                        payout; owner-signed)
  *
  *   Season leaderboard bonus (NullStateRewardV3 — season ids are YYYYMM)
  *     - season-rewards      setRankRewards(r1,r2,r3)      top-3 bonus amounts
@@ -51,6 +54,7 @@
  *   node scripts/deposit-reward.js vault-reward   --token USDT --amount 0.5
  *   node scripts/deposit-reward.js vault-deposit  --token USDT --amount 10
  *   node scripts/deposit-reward.js store-vault-code --code 0729   # week defaults to now
+ *   node scripts/deposit-reward.js vault-pay --user 0xWINNER --code 0729   # recover a stuck payout
  *   node scripts/deposit-reward.js season-rewards --token USDT --r1 20 --r2 5 --r3 3
  *   node scripts/deposit-reward.js update-leaderboard --season 202607 --p1 0x.. --p2 0x.. --p3 0x.. --s1 120 --s2 90 --s3 70
  *   node scripts/deposit-reward.js season-deposit --season 202607 --token USDT --amount 28
@@ -114,6 +118,8 @@ const VAULT_ABI = [
   { name: 'withdrawVaultPool', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: '_token', type: 'address' }, { name: '_amount', type: 'uint256' }], outputs: [] },
   { name: 'storeWeeklyVaultCode', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: '_weekId', type: 'uint256' }, { name: '_code', type: 'string' }], outputs: [] },
   { name: 'isCodeSetForWeek', type: 'function', stateMutability: 'view', inputs: [{ name: '_weekId', type: 'uint256' }], outputs: [{ type: 'bool' }] },
+  { name: 'submitVaultCode', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: '_user', type: 'address' }, { name: '_weekId', type: 'uint256' }, { name: '_code', type: 'string' }], outputs: [] },
+  { name: 'hasClaimedThisWeek', type: 'function', stateMutability: 'view', inputs: [{ name: '_user', type: 'address' }, { name: '_weekId', type: 'uint256' }], outputs: [{ type: 'bool' }] },
 ]
 const REWARD_ABI = [
   { name: 'owner', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'address' }] },
@@ -390,6 +396,30 @@ async function main() {
       warn(`This can be set only ONCE for week ${week} — make sure ${code} matches the code on the Paper exactly.`)
       if (!(await confirm(`Store on-chain vault code ${code} for week ${week}?`, autoYes))) return info('cancelled')
       await send(`storeWeeklyVaultCode(${week}, ${code})`, { address: VAULT_ADDRESS, abi: VAULT_ABI, functionName: 'storeWeeklyVaultCode', args: [BigInt(week), code] })
+      break
+    }
+
+    case 'vault-pay': {
+      // Manually pay a vault winner — recovery for a payout that got stuck
+      // (e.g. the backend's first-win-of-the-week request timed out after
+      // storing the code but before submitVaultCode ever ran, so the win was
+      // recorded off-chain but no USDT moved). submitVaultCode is onlyBackend,
+      // and the contract treats the OWNER as an authorized backend
+      // (`msg.sender == owner()`), so the deployer key can pay directly.
+      const week = weekArg(args.week)
+      const user = String(args.user || '')
+      const code = String(args.code || '')
+      if (!/^0x[0-9a-fA-F]{40}$/.test(user)) die('--user must be the winner\'s 0x wallet address')
+      if (!/^\d{4}$/.test(code)) die('--code must be the 4-digit code (the value on the Paper), e.g. --code 0729')
+      const [vOwner] = await readVault()
+      await requireOwner(vOwner, 'Treasure Vault')
+      const isSet = await publicClient.readContract({ address: VAULT_ADDRESS, abi: VAULT_ABI, functionName: 'isCodeSetForWeek', args: [BigInt(week)] }).catch(() => false)
+      if (!isSet) die(`No code stored on-chain for week ${week} yet — run store-vault-code --code ${code} first, then re-run this.`)
+      const already = await publicClient.readContract({ address: VAULT_ADDRESS, abi: VAULT_ABI, functionName: 'hasClaimedThisWeek', args: [user, BigInt(week)] }).catch(() => false)
+      if (already) die(`${user} has ALREADY been paid for week ${week} on-chain — nothing to do.`)
+      warn(`This pays the vault reward (see status) to ${user} for week ${week}. The code must match what's stored on-chain or it won't pay.`)
+      if (!(await confirm(`Pay the vault reward to ${user} for week ${week}?`, autoYes))) return info('cancelled')
+      await send(`submitVaultCode(${user}, ${week})`, { address: VAULT_ADDRESS, abi: VAULT_ABI, functionName: 'submitVaultCode', args: [user, BigInt(week), code] })
       break
     }
 
