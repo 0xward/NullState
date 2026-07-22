@@ -63,9 +63,23 @@
 const fs = require('fs')
 const path = require('path')
 const readline = require('readline')
-const { createPublicClient, createWalletClient, http, parseUnits, formatUnits } = require('viem')
-const { privateKeyToAccount } = require('viem/accounts')
-const { celo } = require('viem/chains')
+// viem is the only external dep. In Termux the simplest install that node
+// finds automatically (no NODE_PATH needed) is in your HOME dir:
+//   cd ~ && npm install viem
+// (node resolves require('viem') by walking up: scripts/ -> repo -> ~ ->
+// ~/node_modules/viem). Fail with that hint instead of a raw stack trace.
+let _viem, _viemAccounts, _viemChains
+try {
+  _viem = require('viem'); _viemAccounts = require('viem/accounts'); _viemChains = require('viem/chains')
+} catch (_e) {
+  console.error('\x1b[31m✗ viem is not installed.\x1b[0m Install it once (node finds it from your home dir):\n' +
+    '    cd ~ && npm install viem\n' +
+    'then re-run from the repo. (Alt: export NODE_PATH=$HOME/nsviem/node_modules if you installed it there.)')
+  process.exit(1)
+}
+const { createPublicClient, createWalletClient, http, parseUnits, formatUnits } = _viem
+const { privateKeyToAccount } = _viemAccounts
+const { celo } = _viemChains
 
 // ── addresses (Celo mainnet — mirror lib/contract-abi.ts / lib/constants/tokens.ts) ──
 const VAULT_ADDRESS = (process.env.NEXT_PUBLIC_TREASURE_VAULT_ADDRESS || '0xB145dE296cD37Cb2A62Ced70Ee4d93c1d78df742')

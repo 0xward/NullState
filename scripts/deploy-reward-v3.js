@@ -34,9 +34,16 @@
 const fs = require('fs')
 const path = require('path')
 const readline = require('readline')
-const { createPublicClient, createWalletClient, http } = require('viem')
-const { privateKeyToAccount } = require('viem/accounts')
-const { celo } = require('viem/chains')
+let _viem, _viemAccounts, _viemChains
+try {
+  _viem = require('viem'); _viemAccounts = require('viem/accounts'); _viemChains = require('viem/chains')
+} catch (_e) {
+  console.error('\x1b[31m✗ viem is not installed.\x1b[0m Install it once:\n    cd ~ && npm install viem\nthen re-run from the repo.')
+  process.exit(1)
+}
+const { createPublicClient, createWalletClient, http } = _viem
+const { privateKeyToAccount } = _viemAccounts
+const { celo } = _viemChains
 
 const PASS_SBT = process.env.NEXT_PUBLIC_PASS_SBT_CONTRACT_ADDRESS || '0x44065B9faf1149FEB4D6Dcdb10d864B2054c7f39'
 const ARTIFACT = path.join(__dirname, 'artifacts', 'NullStateRewardV3.json')
