@@ -121,3 +121,6 @@ Append a line each time you fund something. Format:
 
 - 2026-07-22 · vault reward set $0.05 USDT · tx 0xa211c9f3b982e31812bcde5ce7757c14a9957f9d8ff63acf3d92ae9f0b0a018c
 - 2026-07-22 · vault · +$1 USDT · tx 0x8cf4a8a8276167b9765562922378faa6ab32bcfa3de7615a36908c0ede10ab5f
+- 2026-07-22 · vault-pay winner 0x444e…c0Bb (recovery, week 202630) · −$0.05 USDT · tx 0x6b7e6605919d6fd8d17aa37b0e56104b0b0c1bb143d022ccbd7f6202a3c30225
+- 2026-07-22 · season 202607 rank rewards set $1 / $0.60 / $0.40 USDT · tx 0xf4ab89932f5a496fba0eb227d812a0ebdf1617255719336ea2d9dbd2b16ad735
+- 2026-07-22 · season 202607 · +$2 USDT · tx 0x8bdaa6b3ab8423a0bc8baf82988867e3f943b8b7b0ad52e1bbb92ec3777a085c
