@@ -787,22 +787,23 @@ function spawnDecorInto(floor, d){
         if(g[ty][tx]===0) continue; // must stand on a floor tile
         const wU=isWall(tx,ty-1), wD=isWall(tx,ty+1), wL=isWall(tx-1,ty), wR=isWall(tx+1,ty);
         let facing=null, ox=0.5, oy=0.9;
-        // v75: bottom-wall ('up'-facing) placement RE-ENABLED — the new
-        // sprite decor ships a pre-cut back view (only the object's top
-        // edge peeks past the S wall), which is exactly why this was
-        // disabled for the old procedural art. Kept less frequent than the
-        // other walls so rooms don't crowd their lower edge.
         if(wU && !wD){ facing='down';  ox=0.5;  oy=0.66; }   // against top wall
         else if(wL && !wR){ facing='right'; ox=0.33; oy=0.92; } // against left wall
         else if(wR && !wL){ facing='left';  ox=0.67; oy=0.92; } // against right wall
-        else if(wD && !wU && Math.random()<0.5){ facing='up'; ox=0.5; oy=0.98; } // against bottom wall
+        // Bottom-wall (SOUTH) placement REMOVED (owner report): the back-view
+        // props there were drawn short + shadowless, sitting IN the S wall, so
+        // small items read as clipping through / floating. No decor hugs the
+        // south wall anymore — top/left/right walls + the mid-room pass keep
+        // rooms dressed without the S-wall artefacts.
         if(!facing) continue;
         const px=(tx+ox)*TILE, py=(ty+oy)*TILE;
-        if(Math.hypot(px-d.startPx.x,py-d.startPx.y)<TILE*1.8) continue;
-        if(Math.hypot(px-d.stairsPx.x,py-d.stairsPx.y)<TILE*1.8) continue;
+        // Wider keep-outs (owner report: props too close to the entrance and to
+        // corridor doorways). Was 1.8 (start/stairs) / 1.4 (doors).
+        if(Math.hypot(px-d.startPx.x,py-d.startPx.y)<TILE*2.4) continue;
+        if(Math.hypot(px-d.stairsPx.x,py-d.stairsPx.y)<TILE*2.4) continue;
         let nearDoor=false;
         for(const door of r.doors){
-          if(Math.hypot(px-(door.x+0.5)*TILE, py-(door.y+0.5)*TILE) < TILE*1.4){ nearDoor=true; break; }
+          if(Math.hypot(px-(door.x+0.5)*TILE, py-(door.y+0.5)*TILE) < TILE*2.2){ nearDoor=true; break; }
         }
         if(nearDoor) continue;
         cand.push({px,py,facing});
@@ -825,9 +826,6 @@ function spawnDecorInto(floor, d){
       // flagged northOnly in DECOR_TYPES ships front-view-only art, so
       // anywhere but the top wall it falls back to a table.
       if(DECOR_TYPES[t] && DECOR_TYPES[t].northOnly && c.facing!=='down') t='table_w';
-      // 'up'-facing slots only take the sprite-decor types that actually
-      // ship a pre-cut back view; procedural props stay off the S wall.
-      if(c.facing==='up' && !['cabinet_s','wardrobe','safe','table_w'].includes(t)) t='table_w';
       floor.decor.push(new Decor(t,c.px,c.py,c.facing));
       placed++;
     }
