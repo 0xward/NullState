@@ -684,11 +684,18 @@ class Player {
     const moving = (mx||my) && !lock;
     if(moving){ this._lastMove={x:mx,y:my}; this.dirY=my; }
     const sp=this.speed*(this.attacking?0.55:1);
-    // collide per-axis
+    // collide per-axis — walls (tile grid) AND solid decor footprints
+    // (window.NS_solidDecorAt, set by game.js) so props like cabinets/barrels
+    // can't be walked through. Tested at the leading edge (±r) like the wall
+    // check; per-axis so the player still slides along a prop instead of
+    // sticking, and can always back out if knocked into one.
+    const _decorSolid = (typeof window!=='undefined' && window.NS_solidDecorAt) ? window.NS_solidDecorAt : null;
     const nx=this.x+mx*sp*dt;
-    if(!dun.isWall(nx,this.y) && !dun.isWall(nx+Math.sign(mx)*this.r,this.y)) this.x=nx;
+    if(!dun.isWall(nx,this.y) && !dun.isWall(nx+Math.sign(mx)*this.r,this.y)
+       && !(_decorSolid && _decorSolid(nx+Math.sign(mx)*this.r, this.y))) this.x=nx;
     const ny=this.y+my*sp*dt;
-    if(!dun.isWall(this.x,ny) && !dun.isWall(this.x,ny+Math.sign(my)*this.r)) this.y=ny;
+    if(!dun.isWall(this.x,ny) && !dun.isWall(this.x,ny+Math.sign(my)*this.r)
+       && !(_decorSolid && _decorSolid(this.x, ny+Math.sign(my)*this.r))) this.y=ny;
     if(mx!==0) this.facing=mx>0?1:-1;
 
     // attack timeline (pose stays idle throughout — see startAttack note)
