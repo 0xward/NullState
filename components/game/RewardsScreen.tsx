@@ -64,6 +64,25 @@ interface StablecoinEntry {
   at: number
 }
 
+// The raw ids are machine formats — weekId is ISO YYYYWW (e.g. 202630 = the
+// 30th week of 2026) and seasonId is YYYYMM (e.g. 202607 = July 2026). Showing
+// "wk 202630" reads as a random number to players, so humanize them.
+function formatWeekId(weekId?: number): string {
+  if (!weekId) return ''
+  const year = Math.floor(weekId / 100)
+  const week = weekId % 100
+  if (year < 2024 || week < 1 || week > 53) return `wk ${weekId}`
+  return `Week ${week} · ${year}`
+}
+const MONTH_ABBR = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+function formatSeasonId(seasonId?: number): string {
+  if (!seasonId) return ''
+  const year = Math.floor(seasonId / 100)
+  const month = seasonId % 100
+  if (year < 2024 || month < 1 || month > 12) return `S${seasonId}`
+  return `${MONTH_ABBR[month - 1]} ${year}`
+}
+
 interface RewardsScreenProps {
   onBack: () => void
   address?: string
@@ -461,10 +480,10 @@ export default function RewardsScreen({ onBack, address }: RewardsScreenProps) {
                   const Icon = e.kind === 'season' ? GiTrophyCup : e.kind === 'weekly' ? GiTwoCoins : GiOpenTreasureChest
                   const label =
                     e.kind === 'vault'
-                      ? `Treasure Vault${e.weekId ? ` · wk ${e.weekId}` : ''}`
+                      ? `Treasure Vault${e.weekId ? ` · ${formatWeekId(e.weekId)}` : ''}`
                       : e.kind === 'season'
-                        ? `Season bonus${e.seasonId ? ` · S${e.seasonId}` : ''}`
-                        : `Weekly reward${e.weekId ? ` · wk ${e.weekId}` : ''}`
+                        ? `Season bonus${e.seasonId ? ` · ${formatSeasonId(e.seasonId)}` : ''}`
+                        : `Weekly reward${e.weekId ? ` · ${formatWeekId(e.weekId)}` : ''}`
                   return (
                     <div key={i} className="flex items-center gap-3 rounded-lg border border-[#7a4f24]/50 bg-gradient-to-b from-[#2b1a0d] to-[#1a0f06] p-3">
                       <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded border border-[#7a4f24]/40 bg-black/40 text-[#c39a5f]">
