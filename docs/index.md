@@ -38,6 +38,12 @@ Welcome to **NullState** — a prove-you-exist game on Celo where every move cos
 
 ---
 
+## 🔧 For Operators
+
+- **[Treasury Operations](./TREASURY-OPS.md)** - Owner cheat sheet for funding the weekly Vault & monthly Season pools from Termux (includes a running deposit log).
+
+---
+
 ## 🛡️ About Us
 
 **NullState** is built on Celo, a mobile-first blockchain. Your data is encrypted and saved securely. Every transaction is real and verifiable on-chain.
