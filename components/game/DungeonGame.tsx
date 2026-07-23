@@ -502,9 +502,15 @@ export default function DungeonGame({ playerProfile, setPlayerUsername, isNewRun
           // Fall back to new/continue from isNewRun for any caller that
           // doesn't pass an explicit mode.
           startMode: startMode ?? (isNewRun ? 'new' : 'continue'),
-          initialStats: playerProfile
-            ? { xp: playerProfile.xp, level: playerProfile.level }
-            : null,
+          // New Game = a total reset (owner): the run starts at Level 1 / 0 XP
+          // regardless of career level. Continue keeps the player's level.
+          // Gear/skins/Points/crafting/pass/referrals are separate systems and
+          // are untouched either way.
+          initialStats: isNewRun
+            ? { xp: 0, level: 1 }
+            : playerProfile
+              ? { xp: playerProfile.xp, level: playerProfile.level }
+              : null,
           savedSession,
           // Phase 1 energy bridge — server-authoritative spend at every
           // FRESH bunker entry. Fail-open by design: wallet-less mounts and
