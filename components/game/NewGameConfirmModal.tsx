@@ -35,20 +35,22 @@ export default function NewGameConfirmModal({
   return (
     <div className="ns-confirm-overlay" role="dialog" aria-label="Start new game">
       <div className="ns-confirm-box">
-        <div className="ns-confirm-title">Start a New Run?</div>
+        <div className="ns-confirm-title">New Game?</div>
         <p className="ns-confirm-text">
-          You have a saved bunker in progress. Starting a new game will erase that save —
-          your current floor, loot, and in-run progress will be gone for good.
+          You have progress in play. Choosing <strong>New Game</strong> starts over from
+          scratch — level, floor, food, loot, Golden Key and Paper all reset, and you drop
+          back to the surface before Bunker 1. Your Gear, skins, Points, crafting, Season
+          Pass and referrals are kept.
         </p>
         <div className="ns-confirm-btns">
-          <button className="ns-confirm-btn primary" onClick={onConfirm}>
-            Start New Run
-          </button>
           {onContinue && (
-            <button className="ns-confirm-btn ghost" onClick={onContinue}>
-              Continue Saved Run
+            <button className="ns-confirm-btn primary" onClick={onContinue}>
+              Continue Progress
             </button>
           )}
+          <button className="ns-confirm-btn ghost" onClick={onConfirm}>
+            New Game
+          </button>
           <button className="ns-confirm-btn ghost" onClick={onCancel}>
             Cancel
           </button>
