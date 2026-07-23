@@ -5,8 +5,8 @@
 NullState offers multiple income streams:
 
 1. **Burn Items** (Anytime) - Convert loot to NullState Point (off-chain, spend in Marketplace)
-2. **Vault Quest** (Weekly) - Solve code puzzle, earn real USDm
-3. **Seasonal Bonuses** (Monthly) - Rank in leaderboard, earn real USDm
+2. **Vault Quest** (Weekly) - Solve code puzzle, earn real USDT
+3. **Seasonal Bonuses** (Monthly) - Rank in leaderboard, earn real USDT
 
 ---
 
@@ -55,7 +55,7 @@ Each item's burn value is **randomized within its range**. Higher rarity = more 
 NullState Point can be spent in the **Marketplace** on lower-priced gear
 ($0.5–$2 items) via the **Swap** button (sits below the regular "Buy"
 button on eligible items). Pricier items ($3.5+) can only be bought with
-real USDm/USDC/USDT.
+real USDM/USDC/USDT.
 
 | Item Price (USD) | NullState Point Required |
 |--------------------|-----------------------------|
@@ -72,9 +72,9 @@ Rate: 6,000 NullState Point ≈ $1 of Marketplace gear.
 
 *Covered in [Treasure Vault Quest](./treasure-vault-quest.md)*
 
-- **Reward**: 1 USDm per correct code
+- **Reward**: 1 USDT per correct code
 - **Frequency**: 1x per week
-- **Total/month**: ~5 USDm (if you get it right each week)
+- **Total/month**: ~5 USDT (if you get it right each week)
 
 ---
 
@@ -82,13 +82,13 @@ Rate: 6,000 NullState Point ≈ $1 of Marketplace gear.
 
 ### Leaderboard Rankings
 
-Each month, the top 3 players by **combined score** earn bonus USDm:
+Each month, the top 3 players by **combined score** earn bonus USDT:
 
 | Rank | Reward | Distribution |
 |------|--------|---------------|
-| 🥇 1st | 20 USDm | Instant transfer |
-| 🥈 2nd | 5 USDm | Instant transfer |
-| 🥉 3rd | 3 USDm | Instant transfer |
+| 🥇 1st | 20 USDT | Instant transfer |
+| 🥈 2nd | 5 USDT | Instant transfer |
+| 🥉 3rd | 3 USDT | Instant transfer |
 
 ### How Rankings Work
 
@@ -119,24 +119,26 @@ not part of stablecoin earnings.
 
 1. **Burn any-rarity items** - Converts to NullState Point (spend on Marketplace gear, not real money)
 2. **Collect diverse rarities** - Legendary items = biggest NullState Point burns
-3. **Solve vault weekly** - Guaranteed 1 USDm/week
+3. **Solve vault weekly** - Guaranteed 1 USDT/week
 4. **Stay active daily** - Days Active = leaderboard points
 5. **Kill everything** - Combat engagement = leaderboard edge
 6. **Build consistent record** - No reset, stats carry over
 
 ---
 
-## 🪙 About USDm
+## 🪙 About the reward currency
 
-**USDm** (Mento Dollar) is a stablecoin on Celo. 
+All game rewards (Vault Quest + seasonal bonuses) pay out in **USDT** — a
+dollar-pegged stablecoin on Celo. For *purchases* (Marketplace gear, Season
+Pass) you can pay with **USDM, USDC, or USDT**, whichever you hold the most
+of — but what the game *pays you* is always USDT.
 
-- **Value**: 1 USDm ≈ $1 USD
-- **Backed by**: Mento protocol
+- **Value**: 1 USDT ≈ $1 USD
 - **Network**: Celo Mainnet
 - **Wallet**: Transfer to any Celo-compatible wallet
-- **Exchange**: Trade on DEX (Uniswap, etc.)
+- **Exchange**: Trade on a DEX (Uniswap, etc.)
 
-Your USDm earnings are **real, on-chain value**.
+Your USDT earnings are **real, on-chain value**.
 
 ---
 

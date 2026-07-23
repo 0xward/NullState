@@ -28,7 +28,7 @@ Both wallets need a small CELO balance for gas.
 
 Tokens (Celo): **USDT** `0x48065fbBE25f71C9282ddf5e1cD6D6A887483D5e` (6 dec) ·
 **USDC** `0xcebA9300f2b948710d2653dD7B07f33A8B32118C` (6 dec) ·
-**USDm** `0x765DE816845861e75A25fCA122bb6898B8B1282a` (18 dec).
+**USDM** `0x765DE816845861e75A25fCA122bb6898B8B1282a` (18 dec).
 All `--amount` flags are in **human dollars** — the script scales to the token's
 decimals for you.
 

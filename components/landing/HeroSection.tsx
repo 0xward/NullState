@@ -215,7 +215,7 @@ export default function HeroSection() {
           className="font-mono text-[11px] sm:text-sm text-null-muted tracking-[2px] sm:tracking-[3px] mb-8 sm:mb-10 uppercase max-w-[300px] sm:max-w-none"
           style={{ animation: 'fadeUp 0.6s 0.6s both' }}
         >
-          Crawl the bunkers. Crack the vault. Earn real stablecoin.
+          Crawl the bunkers. Crack the vault. Earn real USDT.
         </div>
 
         {/* CTAs */}

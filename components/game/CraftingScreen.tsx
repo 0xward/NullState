@@ -6,7 +6,7 @@ import { GiAnvil, GiCheckedShield, GiSandsOfTime } from 'react-icons/gi'
 import { useWallet, CELO_CHAIN_ID } from '@/lib/WalletProvider'
 import { pickBestPaymentToken } from '@/lib/constants/tokens'
 import {
-  ACCEPTED_TOKENS, getMarketplaceItem, resolveItemId, maxWeaponTier,
+  ACCEPTED_TOKENS, getMarketplaceItem, resolveItemId, maxWeaponTier, tokenLabel,
   type MarketplaceItem, type MarketplaceTokenSymbol,
 } from '@/lib/constants/marketplace'
 import { GAME_CONFIG } from '@/lib/constants/game-config'
@@ -146,7 +146,7 @@ export default function CraftingScreen({ onBack, onGoToRun, address }: CraftingS
   const handleBuySector = useCallback(async (sector: { id: string; name: string; priceUSD: number }) => {
     if (busy) return
     setBusy(sector.id)
-    setMsg({ text: isDevWallet ? 'DEV: unlocking sector…' : `Sending $${sector.priceUSD} ${token}…`, kind: 'info' })
+    setMsg({ text: isDevWallet ? 'DEV: unlocking sector…' : `Sending $${sector.priceUSD} ${tokenLabel(token)}…`, kind: 'info' })
     try {
       let txHash = ''
       if (!isDevWallet) {
@@ -227,7 +227,7 @@ export default function CraftingScreen({ onBack, onGoToRun, address }: CraftingS
     if (busy || !craft) return
     const price = FINISH_PRICE[craft.targetTier] ?? Math.max(...Object.values(FINISH_PRICE))
     setBusy(craft.itemId)
-    setMsg({ text: isDevWallet ? 'DEV: finishing instantly…' : `Sending $${price} ${token}…`, kind: 'info' })
+    setMsg({ text: isDevWallet ? 'DEV: finishing instantly…' : `Sending $${price} ${tokenLabel(token)}…`, kind: 'info' })
     try {
       let txHash = ''
       if (!isDevWallet) {
@@ -257,7 +257,7 @@ export default function CraftingScreen({ onBack, onGoToRun, address }: CraftingS
   const handleBuyPack = useCallback(async (item: MarketplaceItem, tierKey: TierKey) => {
     if (busy) return
     setBusy(item.id)
-    setMsg({ text: isDevWallet ? 'DEV: requesting free shards…' : `Sending $${pack.priceUSD} ${token}…`, kind: 'info' })
+    setMsg({ text: isDevWallet ? 'DEV: requesting free shards…' : `Sending $${pack.priceUSD} ${tokenLabel(token)}…`, kind: 'info' })
     try {
       let txHash = ''
       if (!isDevWallet) {
@@ -442,7 +442,7 @@ export default function CraftingScreen({ onBack, onGoToRun, address }: CraftingS
                     ? 'border-[#e8bd6f] bg-gradient-to-b from-[#e8bd6f] to-[#c9962f] text-[#2a1705]'
                     : 'border-[#7a4f24]/60 bg-[#2b1a0d] text-[#c39a5f] hover:border-[#8a5a2b]'
                 }`}>
-                {t}
+                {tokenLabel(t)}
               </button>
             ))}
           </div>

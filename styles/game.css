@@ -709,10 +709,10 @@
    visibly mid-frame.
    ════════════════════════════════════════════════════════════════════════ */
 .ns-game-root .loading-fade{position:absolute;inset:0;z-index:40;background:#020304;
-  opacity:0;transition:opacity .4s ease;pointer-events:none;
+  opacity:0;transition:opacity .28s ease;pointer-events:none;
   display:flex;align-items:center;justify-content:center;padding:40px;text-align:center;}
 .ns-game-root .loading-fade-text{font-family:var(--font-mono);color:#5c8a78;font-size:13px;
-  letter-spacing:1px;line-height:1.8;max-width:480px;opacity:0;transition:opacity .5s ease .3s;}
+  letter-spacing:1px;line-height:1.8;max-width:480px;opacity:0;transition:opacity .3s ease .05s;}
 .ns-game-root .loading-fade-text.show{opacity:1;}
 
 @media (orientation:portrait){

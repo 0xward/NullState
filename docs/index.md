@@ -6,7 +6,7 @@ Welcome to **NullState** — a prove-you-exist game on Celo where every move cos
 
 - **[Game Mechanics](./game-mechanics.md)** - Learn how to play
 - **[Treasure Vault Quest](./treasure-vault-quest.md)** - Secret quest guide
-- **[Rewards System](./rewards-system.md)** - How to earn USDm
+- **[Rewards System](./rewards-system.md)** - How to earn USDT
 - **[Pass System](./pass-system.md)** - Season passes explained
 - **[Leaderboard & Rankings](./leaderboard.md)** - Compete globally
 - **[Data & Safety](./data-safety.md)** - Your progress is safe
@@ -20,7 +20,7 @@ Welcome to **NullState** — a prove-you-exist game on Celo where every move cos
 2. **Choose Class** - Pick Knight, Rogue, or Wizzard
 3. **Enter Dungeon** - Start at Bunker 1, Floor 1
 4. **Collect Items** - Loot containers for rare treasures
-5. **Burn for Rewards** - Convert items to USDm
+5. **Burn for Points** - Convert items to NullState Point (spend on gear)
 6. **Climb the Leaderboard** - Compete monthly for bonus rewards
 
 ---
@@ -29,12 +29,12 @@ Welcome to **NullState** — a prove-you-exist game on Celo where every move cos
 
 | Activity | Earning | Frequency |
 |----------|---------|----------|
-| Vault Quest | 1 USDm | 1x/week |
-| Item Burns | 0-0.5 USDm | Unlimited/week |
-| Season Rank 1 | 20 USDm | 1x/month |
-| Season Rank 2 | 5 USDm | 1x/month |
-| Season Rank 3 | 3 USDm | 1x/month |
-| **Total Potential** | **~10 USDm/month** | - |
+| Vault Quest | 1 USDT | 1x/week |
+| Item Burns | NullState Point | Unlimited/week |
+| Season Rank 1 | 20 USDT | 1x/month |
+| Season Rank 2 | 5 USDT | 1x/month |
+| Season Rank 3 | 3 USDT | 1x/month |
+| **Total Potential** | **~10 USDT/month** | - |
 
 ---
 

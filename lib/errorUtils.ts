@@ -90,7 +90,7 @@ export function getUserFriendlyError(error: unknown): UserFriendlyWalletError {
   // the player's point of view, so it gets the same friendly message.
   if (/transfer amount exceeds balance/.test(text)) {
     return {
-      message: 'Insufficient USDm balance to complete this purchase.',
+      message: 'Insufficient stablecoin balance to complete this purchase.',
       insufficientFunds: true,
     }
   }

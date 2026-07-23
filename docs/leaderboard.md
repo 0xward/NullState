@@ -8,11 +8,11 @@ Every month, players compete on a **global leaderboard** ranked by a hybrid scor
 
 | Rank | Reward | Claim |
 |------|--------|-------|
-| 🥇 **1st** | **20 USDm** | After owner deposits |
-| 🥈 **2nd** | **5 USDm** | After owner deposits |
-| 🥉 **3rd** | **3 USDm** | After owner deposits |
+| 🥇 **1st** | **20 USDT** | After owner deposits |
+| 🥈 **2nd** | **5 USDT** | After owner deposits |
+| 🥉 **3rd** | **3 USDT** | After owner deposits |
 
-**Total**: 28 USDm distributed monthly to top 3 players
+**Total**: 28 USDT distributed monthly to top 3 players
 
 ---
 
@@ -23,12 +23,12 @@ Your **seasonal score** is calculated from 5 metrics:
 ### The 5 Pillars
 
 ```
-Seasonal Score = 45% USDm + 20% Items + 15% Kills + 15% Days + 5% Vault
+Seasonal Score = 45% USDT + 20% Items + 15% Kills + 15% Days + 5% Vault
 ```
 
 | Metric | Weight | Measured |
 |--------|--------|----------|
-| 💰 **Total USDm Earned** | 45% | Burn rewards + vault + bonuses |
+| 💰 **Total USDT Earned** | 45% | Burn rewards + vault + bonuses |
 | 📦 **Items Collected** | 20% | Total unique items looted |
 | ⚔️ **Enemies Killed** | 15% | Combat engagement metric |
 | 📅 **Days Active** | 15% | How often you play (loyalty) |
@@ -36,7 +36,7 @@ Seasonal Score = 45% USDm + 20% Items + 15% Kills + 15% Days + 5% Vault
 
 ### Why This Scoring?
 
-**45% USDm** - Rewards actual earnings  
+**45% USDT** - Rewards actual earnings  
 → Players who burn efficiently rank higher
 
 **20% Items** - Rewards exploration  
@@ -63,14 +63,14 @@ Each metric is normalized to 0-100 based on **the best player that month**:
 Example - Your Score:
 
 You:
-- USDm: 8 earned
+- USDT: 8 earned
 - Items: 450 collected
 - Kills: 8,000 total
 - Days: 25 active
 - Vault: 4 codes solved
 
 Top Player (Normalization):
-- USDm: 10 (best)
+- USDT: 10 (best)
 - Items: 500 (best)
 - Kills: 10,000 (best)
 - Days: 28 (best)
@@ -78,7 +78,7 @@ Top Player (Normalization):
 
 → Your Normalized Score:
 
-- USDm: (8/10) × 100 = 80 → 80 × 0.45 = 36.0
+- USDT: (8/10) × 100 = 80 → 80 × 0.45 = 36.0
 - Items: (450/500) × 100 = 90 → 90 × 0.20 = 18.0
 - Kills: (8000/10000) × 100 = 80 → 80 × 0.15 = 12.0
 - Days: (25/28) × 100 = 89 → 89 × 0.15 = 13.4
@@ -95,31 +95,31 @@ FINAL SCORE = 36 + 18 + 12 + 13.4 + 5 = 84.4 / 100
 
 ```
 Rank 1: Alice
-├─ USDm Earned: 10 USDm
+├─ USDT Earned: 10 USDT
 ├─ Items: 500 items
 ├─ Kills: 10,000 enemies
 ├─ Days Active: 28 days
 ├─ Vault Codes: 4 correct
 ├─ Score: 95.2
-└─ REWARD: 20 USDm 🥇
+└─ REWARD: 20 USDT 🥇
 
 Rank 2: Bob
-├─ USDm Earned: 8.5 USDm
+├─ USDT Earned: 8.5 USDT
 ├─ Items: 480 items
 ├─ Kills: 9,500 enemies
 ├─ Days Active: 27 days
 ├─ Vault Codes: 4 correct
 ├─ Score: 89.7
-└─ REWARD: 5 USDm 🥈
+└─ REWARD: 5 USDT 🥈
 
 Rank 3: Carol
-├─ USDm Earned: 8 USDm
+├─ USDT Earned: 8 USDT
 ├─ Items: 450 items
 ├─ Kills: 8,500 enemies
 ├─ Days Active: 25 days
 ├─ Vault Codes: 3 correct
 ├─ Score: 84.2
-└─ REWARD: 3 USDm 🥉
+└─ REWARD: 3 USDT 🥉
 
 Rank 4: Dave (No reward)
 ├─ Score: 78.9
@@ -142,7 +142,7 @@ Rank 4: Dave (No reward)
 - Top 3 determined
 
 **Days 32-39**: Claim period (7 days after season)
-- Owner deposits 28 USDm to reward pool
+- Owner deposits 28 USDT to reward pool
 - Top 3 players can claim bonuses
 - Rankings reset for new month
 
@@ -155,7 +155,7 @@ Rank 4: Dave (No reward)
 
 ## 💡 Winning Strategies
 
-### Strategy 1: "USDm Maximizer"
+### Strategy 1: "USDT Maximizer"
 Focus on: Burning high-value items  
 Result: 45% of score comes naturally  
 Best for: Players who farm efficiently
@@ -213,7 +213,7 @@ Every day at midnight UTC, the leaderboard is recalculated:
 A: Yes, daily. If other players earn more, you drop. Always grinding!
 
 **Q: What if I'm tied with someone?**  
-A: Tie-breaker: Who earned more USDm? Then who has more items? System breaks all ties.
+A: Tie-breaker: Who earned more USDT? Then who has more items? System breaks all ties.
 
 **Q: What if I don't play the last week?**  
 A: Your score freezes. Others will pass you. Stay active!

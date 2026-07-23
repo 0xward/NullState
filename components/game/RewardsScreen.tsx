@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import {
   GiTwoCoins,
   GiCutDiamond,
@@ -9,8 +9,11 @@ import {
   GiTrophyCup,
   GiReceiveMoney,
   GiPayMoney,
+  GiBattleGear,
 } from 'react-icons/gi'
+import type { IconType } from 'react-icons'
 import { PlayerProfile } from '@/lib/contract'
+import { tokenLabel } from '@/lib/constants/tokens'
 import { useReward } from '@/hooks/useReward'
 
 interface BurnItem {
@@ -97,6 +100,17 @@ type Tab = 'claim' | 'points'
 // USD since every supported reward token (USDm/USDT/USDC) is USD-pegged.
 const RANK_BONUS_USD = [20, 5, 3]
 const CELOSCAN_TX = 'https://celoscan.io/tx/'
+
+// The core play-to-earn loop, shown as a banner so a new player sees at a
+// glance how a run turns into real USDT. Game-icons only (react-icons/gi) —
+// owner: "jangan pake emoticon2 murahan".
+const LOOP_STEPS: { Icon: IconType; label: string; color: string }[] = [
+  { Icon: GiOpenTreasureChest, label: 'Loot', color: '#e6c07a' },
+  { Icon: GiFlame, label: 'Burn', color: '#f0a878' },
+  { Icon: GiCutDiamond, label: 'Points', color: '#9fd8ff' },
+  { Icon: GiBattleGear, label: 'Gear', color: '#c9a0ff' },
+  { Icon: GiReceiveMoney, label: 'USDT', color: '#7ef0a6' },
+]
 
 export default function RewardsScreen({ onBack, address }: RewardsScreenProps) {
   const [tab, setTab] = useState<Tab>('claim')
@@ -377,6 +391,39 @@ export default function RewardsScreen({ onBack, address }: RewardsScreenProps) {
           Wallet <span className="normal-case tracking-normal text-[#c39a5f]">{shortAddr}</span>
         </p>
 
+        {/* Reward loop — one glance at how a run becomes real USDT */}
+        <div className="mb-5 rounded-xl border border-[#7a4f24]/50 bg-gradient-to-b from-[#2b1a0d] to-[#160c05] p-3.5">
+          <p className="mb-3 text-center font-mono text-[9px] font-bold uppercase tracking-[4px] text-[#c39a5f]">
+            The Reward Loop
+          </p>
+          <div className="flex items-start justify-between gap-0.5">
+            {LOOP_STEPS.map((step, i) => (
+              <Fragment key={step.label}>
+                <div className="flex flex-1 flex-col items-center gap-1.5 text-center">
+                  <span
+                    className="flex h-9 w-9 items-center justify-center rounded-full border border-[#7a4f24]/60 bg-black/40"
+                    style={{ color: step.color }}
+                  >
+                    <step.Icon aria-hidden size={19} />
+                  </span>
+                  <span className="font-mono text-[8px] font-bold uppercase tracking-wide text-[#b58f5b]">
+                    {step.label}
+                  </span>
+                </div>
+                {i < LOOP_STEPS.length - 1 && (
+                  <span aria-hidden className="mt-2 select-none font-mono text-sm text-[#7a4f24]">
+                    ›
+                  </span>
+                )}
+              </Fragment>
+            ))}
+          </div>
+          <p className="mt-3 text-center font-mono text-[9px] leading-relaxed text-[#9c7a4f]">
+            Loot gear in runs, burn it into NullState Points, forge stronger gear — then crack the Vault and climb the
+            Season for real USDT.
+          </p>
+        </div>
+
         {/* Two-reward tab switch — same pill style as the token selectors */}
         <div className="mb-5 flex gap-2">
           {([
@@ -430,7 +477,7 @@ export default function RewardsScreen({ onBack, address }: RewardsScreenProps) {
                         Season {String(currentSeason)} · Rank {myRank + 1}
                       </div>
                       <div className="font-mono text-[10px] uppercase tracking-wide text-[#c39a5f]">
-                        ≈ {RANK_BONUS_USD[myRank] ?? '?'} USD · top-3 bonus
+                        ≈ {RANK_BONUS_USD[myRank] ?? '?'} USDT · top-3 bonus
                       </div>
                     </div>
                     <button
@@ -449,7 +496,7 @@ export default function RewardsScreen({ onBack, address }: RewardsScreenProps) {
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="font-mono text-sm font-bold text-[#f0dcb8]">Weekly burn reward</div>
-                      <div className="font-mono text-[10px] uppercase tracking-wide text-[#c39a5f]">On-chain USD pool</div>
+                      <div className="font-mono text-[10px] uppercase tracking-wide text-[#c39a5f]">On-chain USDT pool</div>
                     </div>
                     <button
                       onClick={onClaimWeekly}
@@ -495,7 +542,7 @@ export default function RewardsScreen({ onBack, address }: RewardsScreenProps) {
                       </div>
                       <div className="flex flex-shrink-0 flex-col items-end gap-1">
                         {typeof e.amount === 'number' && (
-                          <span className="font-mono text-sm font-bold text-[#7ef0a6]">+{e.amount} {e.token ?? 'USD'}</span>
+                          <span className="font-mono text-sm font-bold text-[#7ef0a6]">+{e.amount} {tokenLabel(e.token) || 'USD'}</span>
                         )}
                         {e.txHash && (
                           <a
@@ -515,7 +562,7 @@ export default function RewardsScreen({ onBack, address }: RewardsScreenProps) {
             )}
 
             <p className="mt-4 font-mono text-[9px] leading-relaxed text-[#9c7a4f]">
-              Stablecoin comes from the Treasure Vault weekly code (paid instantly on a correct code) and the
+              Real USDT comes from the Treasure Vault weekly code (paid instantly on a correct code) and the
               seasonal top-3 leaderboard bonus, claimed here.
             </p>
           </div>

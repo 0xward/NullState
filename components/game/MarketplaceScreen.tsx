@@ -5,7 +5,7 @@ import { usePublicClient } from 'wagmi'
 import { useWallet, CELO_CHAIN_ID } from '@/lib/WalletProvider'
 import { GiCrossedSwords, GiCheckedShield, GiMagnifyingGlass } from 'react-icons/gi'
 import { pickBestPaymentToken } from '@/lib/constants/tokens'
-import { MARKETPLACE_ITEMS, ACCEPTED_TOKENS, getMarketplaceItem, resolveItemId, type MarketplaceItem, type MarketplaceTokenSymbol } from '@/lib/constants/marketplace'
+import { MARKETPLACE_ITEMS, ACCEPTED_TOKENS, getMarketplaceItem, resolveItemId, tokenLabel, type MarketplaceItem, type MarketplaceTokenSymbol } from '@/lib/constants/marketplace'
 
 interface MarketplaceScreenProps {
   onBack: () => void
@@ -146,7 +146,7 @@ export default function MarketplaceScreen({ onBack, address }: MarketplaceScreen
     if (busy) return
     if (isGuest) { setMsg({ text: 'Connect a wallet to buy — you’re playing as a guest.', kind: 'err' }); return }
     setBusy(item.id)
-    setMsg({ text: isDevWallet ? 'DEV: requesting free unlock…' : `Sending ${item.price} ${token}…`, kind: 'info' })
+    setMsg({ text: isDevWallet ? 'DEV: requesting free unlock…' : `Sending ${item.price} ${tokenLabel(token)}…`, kind: 'info' })
     try {
       let txHash = ''
       if (!isDevWallet) {
@@ -389,7 +389,7 @@ export default function MarketplaceScreen({ onBack, address }: MarketplaceScreen
             earned NullState Point for basic gear still works while playing. */}
         {isGuest && (
           <div className="mb-4 rounded-lg border border-[#7a4f24]/50 bg-[#7a4f24]/10 p-3 font-mono text-[10px] leading-relaxed text-[#e8c37a]">
-            You’re playing as a guest. Buying with USDm/USDC/USDT needs a connected wallet — but you can still <span className="text-[#7ef0a6]">Swap ⇄ Point</span> for basic gear using Point you earn by burning loot.
+            You’re playing as a guest. Buying with USDM/USDC/USDT needs a connected wallet — but you can still <span className="text-[#7ef0a6]">Swap ⇄ Point</span> for basic gear using Point you earn by burning loot.
           </div>
         )}
 
@@ -404,7 +404,7 @@ export default function MarketplaceScreen({ onBack, address }: MarketplaceScreen
                     ? 'border-[#e8bd6f] bg-gradient-to-b from-[#e8bd6f] to-[#c9962f] text-[#2a1705]'
                     : 'border-[#7a4f24]/60 bg-[#2b1a0d] text-[#c39a5f] hover:border-[#8a5a2b]'
                 }`}>
-                {t}
+                {tokenLabel(t)}
               </button>
             ))}
           </div>
@@ -498,7 +498,7 @@ export default function MarketplaceScreen({ onBack, address }: MarketplaceScreen
                 disabled={busy !== null || isGuest}
                 className="mt-3 w-full rounded bg-gradient-to-b from-[#e8bd6f] to-[#c9962f] px-4 py-2.5 font-mono text-xs font-bold uppercase tracking-wider text-[#2a1705] transition hover:brightness-110 disabled:opacity-50"
               >
-                Buy — ${previewItem.price.toFixed(2)} {token}
+                Buy — ${previewItem.price.toFixed(2)} {tokenLabel(token)}
               </button>
             )}
           </div>

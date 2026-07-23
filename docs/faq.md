@@ -46,7 +46,7 @@ A: No. Drop rates are identical with or without a pass. The pass gives the exclu
 A: Celo fees are sub-cent, and the game defaults gas to whichever stablecoin you hold the most of (fee abstraction) — you don't need to hold CELO.
 
 **Q: Can I cash out stablecoin I earn?**
-A: Yes — vault and season payouts land directly in your wallet as USDm/USDT/USDC. It's yours; spend or transfer it like any MiniPay balance.
+A: Yes — vault and season payouts land directly in your wallet as USDT. It's yours; spend or transfer it like any MiniPay balance.
 
 ---
 

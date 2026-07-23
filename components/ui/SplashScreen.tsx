@@ -105,7 +105,7 @@ export default function SplashScreen() {
             color: 'rgba(255,255,255,0.55)',
           }}
         >
-          Crack the vault. Earn real stablecoin.
+          Crack the vault. Earn real USDT.
         </div>
       </div>
 

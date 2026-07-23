@@ -40,7 +40,19 @@ export function formatUSDm(amount: bigint | number, decimals: number = 2): strin
   const divisor = Math.pow(10, actualDecimals);
   const value = numAmount / divisor;
   
-  return `${value.toFixed(decimals)} USDm`;
+  return `${value.toFixed(decimals)} USDM`;
+}
+
+/**
+ * Human-facing label for a token symbol/key. The internal identifier for the
+ * Mento Dollar is 'USDm' (used as the MARKETPLACE_TOKENS key, the
+ * MarketplaceTokenSymbol type, and the string sent to the payment-verify API),
+ * but the brand is written 'USDM' everywhere the player can see it. Keep the
+ * identifier untouched and pass it through this at every DISPLAY site so the
+ * two never drift. USDC/USDT are returned unchanged.
+ */
+export function tokenLabel(symbol?: string | null): string {
+  return symbol === 'USDm' ? 'USDM' : (symbol ?? '');
 }
 
 /**
