@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 
 /**
@@ -62,12 +62,19 @@ const ps1JitterLight = {
 export default function HeroSection() {
   const [videoLoaded, setVideoLoaded] = useState(false)
   const [shouldLoadVideo, setShouldLoadVideo] = useState(false)
+  const videoRef = useRef<HTMLVideoElement>(null)
+  // Landing-page music toggle (owner request, top-right). The background video
+  // is the audio source; it always autoplays MUTED (browsers block autoplay
+  // with sound), and this toggle unmutes/mutes it — the tap itself is the user
+  // gesture that lets audio start. Default off; remembered per browser.
+  const [musicOn, setMusicOn] = useState(false)
 
   useEffect(() => {
     document.body.style.overflow = 'hidden'
     const enableVideo = () => setShouldLoadVideo(true)
     const idleCallback = window.requestIdleCallback?.(enableVideo)
     const timeoutId = idleCallback === undefined ? window.setTimeout(enableVideo, 0) : undefined
+    try { setMusicOn(localStorage.getItem('ns-landing-music') === '1') } catch { /* storage off */ }
     return () => {
       document.body.style.overflow = ''
       if (idleCallback !== undefined) window.cancelIdleCallback?.(idleCallback)
@@ -75,10 +82,59 @@ export default function HeroSection() {
     }
   }, [])
 
+  // Keep the actual <video> muted state in sync with the toggle.
+  useEffect(() => {
+    const v = videoRef.current
+    if (!v) return
+    v.muted = !musicOn
+    if (musicOn) v.play().catch(() => { /* autoplay/gesture race — ignored */ })
+  }, [musicOn, shouldLoadVideo])
+
+  const toggleMusic = () => {
+    setMusicOn(prev => {
+      const next = !prev
+      try { localStorage.setItem('ns-landing-music', next ? '1' : '0') } catch { /* storage off */ }
+      return next
+    })
+  }
+
   return (
     <section className="relative h-[100dvh] w-full flex flex-col items-center justify-center text-center px-6 overflow-hidden">
+      {/* Landing-only music toggle (top-right) */}
+      <button
+        onClick={toggleMusic}
+        aria-label={musicOn ? 'Mute music' : 'Play music'}
+        title={musicOn ? 'Music on' : 'Music off'}
+        className="fixed z-[60] flex items-center justify-center rounded-full border transition-colors duration-200"
+        style={{
+          top: 68,
+          right: 16,
+          width: 40,
+          height: 40,
+          borderColor: 'rgba(0,255,136,0.35)',
+          background: 'rgba(4,8,6,0.6)',
+          color: musicOn ? '#4dffa6' : 'rgba(255,255,255,0.55)',
+          backdropFilter: 'blur(4px)',
+        }}
+      >
+        {musicOn ? (
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+            <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+            <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+          </svg>
+        ) : (
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+            <line x1="23" y1="9" x2="17" y2="15" />
+            <line x1="17" y1="9" x2="23" y2="15" />
+          </svg>
+        )}
+      </button>
+
       {/* Background video loop */}
       <video
+        ref={videoRef}
         autoPlay={shouldLoadVideo}
         muted
         loop

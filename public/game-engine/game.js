@@ -5061,6 +5061,11 @@ async function boot(){
     return;
   }
 
+  // Reaching here means NO startMode (a demo / direct mount) — this is the
+  // only path that actually wants the canvas title, so reveal it (it's
+  // hidden-by-default in the JSX now). Main Menu entries returned above.
+  { const _t=$('title'); if(_t) _t.classList.remove('hidden'); }
+
   // Load ONLY the 3 hero idle sprites first so the character-select
   // previews appear almost immediately, instead of waiting on the full
   // preload above (all monsters, dungeon décor, backgrounds — several MB)
@@ -5116,6 +5121,11 @@ function mount(opts){
   INITIAL_STATS = opts.initialStats || null;
   SAVED_SESSION = opts.savedSession || null;
   START_MODE = opts.startMode || null;
+  // Belt-and-suspenders for the "preview still shows" bug: the moment we know
+  // this is a Main Menu entry (startMode set), hide the canvas title
+  // SYNCHRONOUSLY — before any async boot()/preload work — so it can never
+  // flash even for a frame. #title is also hidden-by-default in the JSX now.
+  if(START_MODE){ const _t=document.getElementById('title'); if(_t) _t.classList.add('hidden'); }
   cv = document.getElementById('game');
   ctx = cv ? cv.getContext('2d') : null;
   stick = document.getElementById('stick');

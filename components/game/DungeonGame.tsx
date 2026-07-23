@@ -1061,8 +1061,13 @@ export default function DungeonGame({ playerProfile, setPlayerUsername, isNewRun
           <div id="loadingFadeText" className="loading-fade-text" />
         </div>
 
-        {/* Title screen */}
-        <div id="title" className="overlay">
+        {/* Title screen — HIDDEN BY DEFAULT (owner: New Game/Continue must go
+            straight into play, never flash this preview). The engine only
+            reveals it when it actually wants it: a demo/no-startMode mount, or
+            the post-campaign screen (returnToTitleScreen). Every Main Menu
+            entry passes a startMode, so this stays hidden and the run starts
+            immediately. */}
+        <div id="title" className="overlay hidden">
           <div className="title-inner">
             <div className="logo">NULL_STATE</div>
             <div className="subtitle">// THE FORSAKEN DEPTHS</div>
