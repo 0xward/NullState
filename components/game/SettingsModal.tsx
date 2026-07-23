@@ -331,6 +331,10 @@ export default function SettingsModal({
             <a href="/privacy" className="ns-settings-link">
               Privacy
             </a>
+            <span className="ns-settings-legal-sep" aria-hidden="true">·</span>
+            <a href="/stats" className="ns-settings-link">
+              Stats
+            </a>
           </div>
 
           <div className="ns-settings-footer-logos">

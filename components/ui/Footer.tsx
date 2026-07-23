@@ -6,6 +6,7 @@ export default function Footer() {
     { href: 'https://t.me/nullstate_id', label: 'SUPPORT' },
     { href: 'https://github.com', label: 'GITHUB' },
     { href: '/docs', label: 'DOCS' },
+    { href: '/stats', label: 'STATS' },
     { href: '/terms', label: 'TERMS' },
     { href: '/privacy', label: 'PRIVACY' },
   ]
