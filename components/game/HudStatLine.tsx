@@ -48,27 +48,33 @@ export default function HudStatLine({ walletAddress, hidden }: HudStatLineProps)
     typeof n === 'number' ? Math.round(n).toLocaleString() : '—'
 
   return (
-    <div className="ns-hud-statline" aria-label="Player stats">
-      <span className="ns-hud-stat">
-        <span className="k">Point</span><span className="v">{fmt(point)}</span>
-      </span>
-      <span className="ns-hud-stat">
-        <span className="k">Level</span><span className="v">{fmt(live?.level)}</span>
-      </span>
-      <span className="ns-hud-stat">
-        <span className="k">Bunker</span>
-        <span className="v">
-          {typeof live?.bunker === 'number'
-            ? (live.bunker > 0 ? `${live.bunker}/${live.bunkerTotal ?? 5}` : 'Abyss')
-            : '—'}
+    <div className="ns-hud-statwrap" aria-label="Player stats">
+      {/* Progress stats stay bundled in the box as before */}
+      <div className="ns-hud-statline">
+        <span className="ns-hud-stat">
+          <span className="k">Level</span><span className="v">{fmt(live?.level)}</span>
         </span>
-      </span>
-      <span className="ns-hud-stat">
-        <span className="k">Floor</span><span className="v">{fmt(live?.floor)}</span>
-      </span>
-      <span className="ns-hud-stat">
-        <span className="k">Kills</span><span className="v">{fmt(live?.kills)}</span>
-      </span>
+        <span className="ns-hud-stat">
+          <span className="k">Bunker</span>
+          <span className="v">
+            {typeof live?.bunker === 'number'
+              ? (live.bunker > 0 ? `${live.bunker}/${live.bunkerTotal ?? 5}` : 'Abyss')
+              : '—'}
+          </span>
+        </span>
+        <span className="ns-hud-stat">
+          <span className="k">Floor</span><span className="v">{fmt(live?.floor)}</span>
+        </span>
+        <span className="ns-hud-stat">
+          <span className="k">Kills</span><span className="v">{fmt(live?.kills)}</span>
+        </span>
+      </div>
+      {/* Point is the currency — pulled out into its own gold "tag" (same pill
+          style as the How-To-Play tokens) directly under Level, so it reads as
+          special rather than just another progress number. */}
+      <div className="ns-hud-point">
+        <span className="k">Point</span><span className="v">{fmt(point)}</span>
+      </div>
     </div>
   )
 }
