@@ -32,6 +32,10 @@ export interface LiveRunStats {
   kills: number
   floor: number
   xpForNext: number
+  /** Current story bunker (1-based). 0 in the endless Abyss (no bunker). */
+  bunker?: number
+  /** Total story bunkers (5). */
+  bunkerTotal?: number
 }
 
 const EVENT_NAME = 'nullstate:live-stats'

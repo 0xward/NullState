@@ -56,6 +56,14 @@ export default function HudStatLine({ walletAddress, hidden }: HudStatLineProps)
         <span className="k">Level</span><span className="v">{fmt(live?.level)}</span>
       </span>
       <span className="ns-hud-stat">
+        <span className="k">Bunker</span>
+        <span className="v">
+          {typeof live?.bunker === 'number'
+            ? (live.bunker > 0 ? `${live.bunker}/${live.bunkerTotal ?? 5}` : 'Abyss')
+            : '—'}
+        </span>
+      </span>
+      <span className="ns-hud-stat">
         <span className="k">Floor</span><span className="v">{fmt(live?.floor)}</span>
       </span>
       <span className="ns-hud-stat">
