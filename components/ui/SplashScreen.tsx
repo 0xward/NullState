@@ -15,28 +15,18 @@ import { useEffect, useState } from 'react'
 // blends into the black fill on every aspect ratio.
 const HOLD_MS = 2500
 const FADE_MS = 500
-// Show the splash only ONCE per browser session. Clicking "Launch Game" on the
-// landing is a full navigation to /game, which reloads the document and would
-// otherwise replay the splash — the owner only wants it at the very start.
-// sessionStorage resets when the app/tab is opened fresh, so a new open still
-// shows it; internal navigations within the same session don't.
-const SEEN_KEY = 'ns-splash-seen'
 
+// "Show once per session" is enforced BEFORE paint by an inline script in the
+// document head (see app/layout.tsx): on an already-seen session it adds
+// `ns-splash-seen` to <html>, and CSS instantly hides #ns-splash-root — so a
+// full-page navigation to /terms, /privacy or /game (Launch Game) never flashes
+// the splash. This component only handles the FIRST-load timing (fade out after
+// 2.5s). On a hidden (already-seen) load it still mounts but is display:none,
+// and just unmounts itself after the timer with nothing shown.
 export default function SplashScreen() {
   const [phase, setPhase] = useState<'show' | 'fading' | 'gone'>('show')
 
   useEffect(() => {
-    let alreadySeen = false
-    try {
-      alreadySeen = sessionStorage.getItem(SEEN_KEY) === '1'
-      sessionStorage.setItem(SEEN_KEY, '1')
-    } catch {
-      /* storage blocked — just show it, no worse than before */
-    }
-    if (alreadySeen) {
-      setPhase('gone')
-      return
-    }
     const t1 = setTimeout(() => setPhase('fading'), HOLD_MS)
     const t2 = setTimeout(() => setPhase('gone'), HOLD_MS + FADE_MS)
     return () => {
@@ -49,6 +39,7 @@ export default function SplashScreen() {
 
   return (
     <div
+      id="ns-splash-root"
       aria-hidden="true"
       style={{
         position: 'fixed',
