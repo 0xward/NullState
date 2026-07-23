@@ -157,7 +157,7 @@ export default function RoadmapSection() {
               Zero setup friction — instant play for 10M+ MiniPay users in Africa &amp; Southeast Asia.
             </p>
             <div className="flex gap-2 flex-wrap">
-              {['✓ DEEPLINK READY', '✓ CELO PAYMENTS', '✓ MOBILE FIRST'].map(tag => (
+              {['✓ DEEPLINK READY', '✓ STABLECOIN PAYMENTS', '✓ MOBILE FIRST'].map(tag => (
                 <span key={tag} className="font-mono text-[9px] text-null-green border border-[rgba(0,255,136,0.15)] px-2 py-0.5 tracking-wider">
                   {tag}
                 </span>
