@@ -423,9 +423,13 @@ const ARCHETYPES = [
   { key:'frank_hulk',     name:'Sutured Hulk',     hp:220, dmg:19, spd:19, xp:92, color:'#7fae7a', r:18, isUndead:true,
     useLPC:true, lpc:_lpcMon('frank_hulk','slash',null,1.50) },
 ];
-const ORC_SHAMAN_ARCH = { key:'orc_shaman', name:'Orc Shaman', hp:104, dmg:14, spd:27, xp:60, color:'#4a7a3a', r:16,
+// Casters attack from RANGE (hard to avoid), so their per-hit was the worst
+// offender for the "HP bursts away" feel — dmg pulled down (14->9 / 15->9) so
+// their ranged pokes chip your health instead of gutting it (owner: caster
+// bone + strong monsters should drain slowly, leaving time to flee/heal).
+const ORC_SHAMAN_ARCH = { key:'orc_shaman', name:'Orc Shaman', hp:104, dmg:9, spd:27, xp:60, color:'#4a7a3a', r:16,
   useLPC:true, lpc:_lpcMon('orc_shaman','spellcast',null,1.26) };
-const SKEL_MAGE_ARCH   = { key:'skel_mage', name:'Bone Caster', hp:88, dmg:15, spd:27, xp:58, color:'#8f9bb8', r:15, isUndead:true,
+const SKEL_MAGE_ARCH   = { key:'skel_mage', name:'Bone Caster', hp:88, dmg:9, spd:27, xp:58, color:'#8f9bb8', r:15, isUndead:true,
   useLPC:true, lpc:_lpcMon('skel_mage','spellcast',null,1.26) };
 const SKEL_WARRIOR_ARCH= { key:'skel_warrior', name:'Bone Warrior', hp:138, dmg:14, spd:23, xp:56, color:'#9c8f6e', r:17, isUndead:true,
   useLPC:true, lpc:_lpcMon('skel_warrior','slash','emberwood_maul',1.34) };

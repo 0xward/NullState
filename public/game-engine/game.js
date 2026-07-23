@@ -1874,15 +1874,14 @@ function hitTest(){
   for(const e of G.enemies){
     if(e.dead) continue;
     let wd=e.takeWantHit?e.takeWantHit():0;
-    // ANTI-BURST (owner report: deep/Act-5 bosses one-shot you before you can
-    // react to reach the Abyss). At depth ~25 the linear + exponential floor
-    // scaling compound with the boss + hard-mode multipliers into a single
-    // hit far bigger than the 100-300 HP pool. Cap ANY single hit at 40% of
-    // max HP so no enemy can one-shot: with the 0.7s i-frame after each hit,
-    // you always get at least ~3 hits (a couple of seconds) to heal or run.
-    // Normal enemies never hit this hard, so this only tames the overtuned
-    // deep bosses — it doesn't make ordinary floors easier.
-    if(wd>0){ wd = Math.min(wd, Math.ceil(p.maxHp*0.40)); }
+    // ANTI-BURST (owner: enemy damage bursts your HP away instead of draining
+    // it — no time to run, eat food, or smash props for HP). Cap ANY single
+    // hit at 22% of max HP: combined with the ~0.7s i-frame after each hit,
+    // that's at least ~5 hits (several seconds) before death, so your health
+    // goes down gradually and you always have a window to react. Normal light
+    // enemies rarely reach this cap, so it mainly tames the casters + heavy
+    // hitters + deep-floor scaling that were doing the bursting.
+    if(wd>0){ wd = Math.min(wd, Math.ceil(p.maxHp*0.22)); }
     if(wd>0){
       if(p.hurt(wd)){
         dmgNum(p.x,p.y-30,wd); A.hurt(); G.shake=Math.min(G.shake+4,8); // was +7,12 — punch list #10, v38
