@@ -1136,6 +1136,18 @@ class Enemy {
       if(!this.hitDone && this.atkTime>0.16 && this.atkTime<0.5 && dist<reach+26){
         this.hitDone=true; this._wantHit=this.dmg;
       }
+      // LUNGE (owner: "monster tidak punya animasi attack"). The swing anim
+      // already plays, but a monster striking from a dead standstill reads as
+      // "no attack". Step it toward the player through the strike window so the
+      // attack is unmistakable — a committed lunge + the slash/thrust/spellcast
+      // body anim + the weapon swing together. Clamped to its home + walls.
+      if(this.atkTime>0.08 && this.atkTime<0.30){
+        const lx=dx/dist, ly=dy/dist, lunge=this.spd*1.7*dt;
+        const nx=this.x+lx*lunge, ny=this.y+ly*lunge;
+        if(!dun.isWall(nx,this.y)) this.x=nx;
+        if(!dun.isWall(this.x,ny)) this.y=ny;
+        this.clampHome();
+      }
       // attack flash + a forward particle "swing" burst once, right as the
       // swing starts — stands in for a dedicated attack sprite, but only
       // for archetypes that don't have one (Orc/Skeleton Crew); skel_reaper
