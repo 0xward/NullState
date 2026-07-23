@@ -237,6 +237,15 @@ const NS_WEAPON = {
   verdant_reaper:    { src:`${NS_WPN}/verdant_reaper.png`,    anim:'slash',  motion:'reap',     gy:0.96, ln:38, sfx:'scythe',    htk:3, glow:'#57e389', ovlTint:'#3f9c38', ovlTintA:0.34 },
   void_katana:       { src:`${NS_WPN}/void_katana.png`,       anim:'slash',  motion:'iai',      gy:0.90, ln:36, sfx:'katana',    htk:2, glow:'#b46bff', ovlTint:'#8a2fd0', ovlTintA:0.34 },
   sunfire_bow:       { src:`${NS_WPN}/sunfire_bow.png`,       anim:'shoot',  motion:'bow',      gy:0.50, ln:30, sfx:'bow',       htk:2, carry:'back', glow:'#ffcf3d', ovlTint:'#ffb440', ovlTintA:0.28 },
+  // ENEMY-ONLY weapons (owner: monsters must NOT wield the player's premium /
+  // marketplace weapons — they get their own crude bone/rusted gear). New
+  // pixel-art sprites, no `glow` (never premium), a dull tint so they read as
+  // grubby enemy kit. These are render defs only; they are NOT sold in the
+  // marketplace (see marketplace-items.js).
+  bone_blade:  { src:`${NS_WPN}/bone_blade.png`,  anim:'slash',  motion:'slash',  gy:0.90, ln:29, sfx:'blade', htk:4, ovlTint:'#6a6350', ovlTintA:0.16 },
+  rusted_shiv: { src:`${NS_WPN}/rusted_shiv.png`, anim:'slash',  motion:'slash',  gy:0.86, ln:24, sfx:'blade', htk:4, ovlTint:'#5a4a3a', ovlTintA:0.18 },
+  orc_hacker:  { src:`${NS_WPN}/orc_hacker.png`,  anim:'slash',  motion:'chop',   gy:0.92, ln:29, sfx:'axe',   htk:4, ovlTint:'#4a4038', ovlTintA:0.16 },
+  bone_spear:  { src:`${NS_WPN}/bone_spear.png`,  anim:'thrust', motion:'thrust', gy:0.90, ln:34, sfx:'spear', htk:4, ovlTint:'#6a6350', ovlTintA:0.14 },
 };
 
 // ---------------------------------------------------------------------------
@@ -370,20 +379,20 @@ function _lpcMon(id, atk, weaponId, scale, weaponTint){
 }
 const ARCHETYPES = [
   { key:'orc_base',    name:'Orc Raider',       hp:92, dmg:9,  spd:28, xp:38, color:'#7fae5a', r:15,
-    useLPC:true, lpc:_lpcMon('orc_raider','slash','rusty_blade',1.24) },
+    useLPC:true, lpc:_lpcMon('orc_raider','slash','bone_blade',1.24) },
   { key:'orc_rogue',   name:'Orc Skulker',      hp:80, dmg:11, spd:36, xp:44, color:'#6a9650', r:14,
     useLPC:true, lpc:_lpcMon('orc_skulker','slash',null,1.14) },
   { key:'orc_warrior', name:'Orc Warrior',      hp:126, dmg:13, spd:24, xp:52, color:'#5c8a46', r:17, isUndead:false,
-    useLPC:true, lpc:_lpcMon('orc_warrior','slash','argent_waraxe',1.34) },
+    useLPC:true, lpc:_lpcMon('orc_warrior','slash','orc_hacker',1.34) },
   { key:'skel_base',   name:'Restless Bones',   hp:76, dmg:8,  spd:29, xp:36, color:'#cbb98e', r:14, isUndead:true,
     useLPC:true, lpc:_lpcMon('skel_base','slash',null,1.22) },
   // Phase 3b beast — Giant Spider: KEPT as-is, its sheet already has a real
   // 4-direction walk + attack (the only old monster that met the v80 bar).
   { key:'giant_spider', mon:'giant_spider', name:'Giant Spider',     hp:88, dmg:12, spd:38, xp:52, color:'#5a3a2a', r:15, isUndead:false },
   { key:'skel_rogue',  name:'Bone Skulker',     hp:68, dmg:10, spd:39, xp:42, color:'#b3a378', r:14, isUndead:true,
-    useLPC:true, lpc:_lpcMon('skel_rogue','slash','rusty_blade',1.16) },
+    useLPC:true, lpc:_lpcMon('skel_rogue','slash','rusted_shiv',1.16) },
   { key:'skel_reaper', name:'Reaper Skeleton',  hp:100, dmg:12, spd:31, xp:50, color:'#cfd6e6', r:15, isUndead:true,
-    useLPC:true, lpc:_lpcMon('skel_reaper','slash','verdant_reaper',1.26) },
+    useLPC:true, lpc:_lpcMon('skel_reaper','slash','bone_blade',1.26) },
   // v80: the old Cave Golem sheet had no attack anim — recast as a Cave Troll
   // (same key so depth-gating/spawn logic is untouched, stats identical).
   { key:'cave_golem',  name:'Cave Troll',       hp:210, dmg:19, spd:20, xp:88, color:'#8a8f9a', r:18, isUndead:false,
@@ -395,9 +404,9 @@ const ARCHETYPES = [
   // ---- v80 new crews (appended; the act-sliding spawn window in game.js
   // brings a different slice of this list into each bunker) ----
   { key:'goblin_stalker', name:'Goblin Stalker',   hp:72, dmg:9,  spd:40, xp:40, color:'#79a352', r:13,
-    useLPC:true, lpc:_lpcMon('goblin_stalker','slash','rusty_blade',1.10) },
+    useLPC:true, lpc:_lpcMon('goblin_stalker','slash','rusted_shiv',1.10) },
   { key:'lizard_raider',  name:'Lizard Raider',    hp:98, dmg:12, spd:30, xp:48, color:'#5a9a5a', r:15,
-    useLPC:true, lpc:_lpcMon('lizard_raider','thrust','frost_spear',1.26) },
+    useLPC:true, lpc:_lpcMon('lizard_raider','thrust','bone_spear',1.26) },
   { key:'wolf_prowler',   name:'Wolfkin Prowler',  hp:90, dmg:12, spd:38, xp:50, color:'#7d7768', r:15,
     useLPC:true, lpc:_lpcMon('wolf_prowler','slash',null,1.26) },
   { key:'rat_scavenger',  name:'Rat Scavenger',    hp:64, dmg:8,  spd:41, xp:34, color:'#8a8478', r:13,
@@ -405,21 +414,21 @@ const ARCHETYPES = [
   { key:'zombie_shambler',name:'Shambling Corpse', hp:132, dmg:11, spd:18, xp:50, color:'#9aa77a', r:15, isUndead:true,
     useLPC:true, lpc:_lpcMon('zombie_shambler','slash',null,1.26) },
   { key:'mouse_skulker',  name:'Vermin Skulker',   hp:60, dmg:8,  spd:42, xp:32, color:'#857f72', r:12,
-    useLPC:true, lpc:_lpcMon('mouse_skulker','slash','rusty_blade',1.06) },
+    useLPC:true, lpc:_lpcMon('mouse_skulker','slash','rusted_shiv',1.06) },
   { key:'boar_charger',   name:'Boarman Charger',  hp:140, dmg:15, spd:30, xp:62, color:'#a5705c', r:17,
-    useLPC:true, lpc:_lpcMon('boar_charger','slash','emberwood_maul',1.36) },
+    useLPC:true, lpc:_lpcMon('boar_charger','slash','orc_hacker',1.36) },
   { key:'alien_husk',     name:'Pale Husk',        hp:86, dmg:11, spd:31, xp:46, color:'#9aa7b0', r:14,
     useLPC:true, lpc:_lpcMon('alien_husk','slash',null,1.22) },
   { key:'troll_shaman',   name:'Troll Shaman',     hp:110, dmg:14, spd:26, xp:60, color:'#6f8f7a', r:16,
     useLPC:true, lpc:_lpcMon('troll_shaman','spellcast',null,1.30) },
   { key:'pig_butcher',    name:'Sty Butcher',      hp:150, dmg:15, spd:26, xp:64, color:'#c58a7a', r:17,
-    useLPC:true, lpc:_lpcMon('pig_butcher','slash','argent_waraxe',1.36) },
+    useLPC:true, lpc:_lpcMon('pig_butcher','slash','orc_hacker',1.36) },
   { key:'jack_reaper',    name:'Hollow Jack',      hp:118, dmg:14, spd:29, xp:62, color:'#e07b28', r:15, isUndead:true,
-    useLPC:true, lpc:_lpcMon('jack_reaper','slash','verdant_reaper',1.28) },
+    useLPC:true, lpc:_lpcMon('jack_reaper','slash','bone_blade',1.28) },
   { key:'wartotaur',      name:'Wartotaur Guard',  hp:160, dmg:16, spd:24, xp:70, color:'#8a6f4a', r:17,
-    useLPC:true, lpc:_lpcMon('wartotaur','thrust','frost_spear',1.40) },
+    useLPC:true, lpc:_lpcMon('wartotaur','thrust','bone_spear',1.40) },
   { key:'minotaur_brute', name:'Minotaur Brute',   hp:185, dmg:18, spd:23, xp:80, color:'#7d5a3a', r:18,
-    useLPC:true, lpc:_lpcMon('minotaur_brute','slash','emberwood_maul',1.46) },
+    useLPC:true, lpc:_lpcMon('minotaur_brute','slash','orc_hacker',1.46) },
   { key:'frank_hulk',     name:'Sutured Hulk',     hp:220, dmg:19, spd:19, xp:92, color:'#7fae7a', r:18, isUndead:true,
     useLPC:true, lpc:_lpcMon('frank_hulk','slash',null,1.50) },
 ];
@@ -432,7 +441,7 @@ const ORC_SHAMAN_ARCH = { key:'orc_shaman', name:'Orc Shaman', hp:104, dmg:9, sp
 const SKEL_MAGE_ARCH   = { key:'skel_mage', name:'Bone Caster', hp:88, dmg:9, spd:27, xp:58, color:'#8f9bb8', r:15, isUndead:true,
   useLPC:true, lpc:_lpcMon('skel_mage','spellcast',null,1.26) };
 const SKEL_WARRIOR_ARCH= { key:'skel_warrior', name:'Bone Warrior', hp:138, dmg:14, spd:23, xp:56, color:'#9c8f6e', r:17, isUndead:true,
-  useLPC:true, lpc:_lpcMon('skel_warrior','slash','emberwood_maul',1.34) };
+  useLPC:true, lpc:_lpcMon('skel_warrior','slash','orc_hacker',1.34) };
 // Boss weapons: reuse an existing weapon overlay SHAPE but wash it in a dark
 // "corrupted" tint (5th _lpcMon arg) so a boss never appears to wield the
 // bright, glowing PREMIUM marketplace weapon its sprite is shared with (owner:
@@ -440,20 +449,20 @@ const SKEL_WARRIOR_ARCH= { key:'skel_warrior', name:'Bone Warrior', hp:138, dmg:
 // also pulled in (1.6–1.7 → 1.4–1.5) — bosses read as bigger than a normal
 // enemy without dominating the whole room (owner: "ukurannya terlalu Besar").
 const BOSS_ARCH = { key:'orc_warrior', name:'THE WARLORD', hp:1100, dmg:20, spd:25, xp:600, color:'#ff3b5c', r:30, isBossScale:true,
-  useLPC:true, lpc:_lpcMon('warlord','slash','argent_waraxe',1.4,'#2f2a33') };
+  useLPC:true, lpc:_lpcMon('warlord','slash','orc_hacker',1.4,'#2f2a33') };
 // v80: one distinct boss look per campaign act (all with real attack anims).
 // game.js picks ACT_BOSSES[campaignActIndex % length], falling back to
 // BOSS_ARCH. Stats mirror THE WARLORD so act difficulty tuning is unchanged.
 const ACT_BOSSES = [
   BOSS_ARCH,
   { key:'orc_warrior', name:'GRAVE MONARCH',  hp:1100, dmg:20, spd:25, xp:600, color:'#8a2f4a', r:30, isBossScale:true,
-    useLPC:true, lpc:_lpcMon('vampire_lord','slash','void_katana',1.4,'#3a0f1e') },
+    useLPC:true, lpc:_lpcMon('vampire_lord','slash','bone_blade',1.4,'#3a0f1e') },
   { key:'orc_warrior', name:'THE SUTURED ONE',hp:1100, dmg:20, spd:25, xp:600, color:'#7fae7a', r:30, isBossScale:true,
     useLPC:true, lpc:_lpcMon('frank_hulk','slash',null,1.5) },
   { key:'orc_warrior', name:'HORNED TYRANT',  hp:1100, dmg:20, spd:25, xp:600, color:'#8a6f4a', r:30, isBossScale:true,
-    useLPC:true, lpc:_lpcMon('wartotaur','thrust','frost_spear',1.45,'#26333f') },
+    useLPC:true, lpc:_lpcMon('wartotaur','thrust','bone_spear',1.45,'#26333f') },
   { key:'orc_warrior', name:'THE PUMPKIN KING',hp:1100, dmg:20, spd:25, xp:600, color:'#e07b28', r:30, isBossScale:true,
-    useLPC:true, lpc:_lpcMon('jack_reaper','slash','verdant_reaper',1.45,'#341a10') },
+    useLPC:true, lpc:_lpcMon('jack_reaper','slash','bone_blade',1.45,'#341a10') },
 ];
 
 const backgrounds = ['/backgrounds/forest.webp','/backgrounds/desert.webp',
