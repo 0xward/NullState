@@ -1,14 +1,14 @@
 'use client'
 
-import CustomCursor from '@/components/ui/CustomCursor'
 import Navbar from '@/components/ui/Navbar'
 import HeroSection from '@/components/landing/HeroSection'
 
 export default function Home() {
   return (
     <>
-      {/* Custom cursor */}
-      <CustomCursor />
+      {/* Custom cursor removed (Susanne & Dan: cursor disappears on desktop).
+          The native OS cursor is more reliable across navigation than a JS
+          cursor that hides the real one — keep the real one everywhere. */}
 
       {/* Background layers */}
       <div className="fixed inset-0 z-0 bg-grid pointer-events-none" />
