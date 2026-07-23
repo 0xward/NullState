@@ -248,3 +248,7 @@ files.
   (green checkmark). Sample transaction links for each user-facing contract method
   (`register()`, `mintFreePass()`, `mintPaidPass()`, marketplace ERC-20 `transfer()`) still
   need to be collected for the MiniPay submission form — not done yet.
+- **Contract verification re-confirmed (2026-07-23)**: Owner re-confirmed all deployed
+  contracts (including the current reward contract, NullStateRewardV3, and TreasureVaultV2)
+  remain verified on Celoscan. Still outstanding for the submission form: collect one sample
+  Celoscan transaction link per user-facing method (owner task — needs live tx hashes).
