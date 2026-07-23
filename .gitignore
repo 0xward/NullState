@@ -23,3 +23,6 @@ yarn-error.log*
 
 # Vercel
 .vercel
+
+# TypeScript incremental build cache (machine-specific, regenerated on build)
+*.tsbuildinfo
