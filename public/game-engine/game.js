@@ -1510,6 +1510,29 @@ function travelToFloor(depth){
 let _fadeActive = false;
 let _fadeTimers = [];
 function _clearFadeTimers(){ _fadeTimers.forEach(id=>clearTimeout(id)); _fadeTimers=[]; }
+
+// ---- scene loader (Continue / first scene render) ----
+// A small dark screen with flowing dots shown while the very first scene
+// (outdoor or bunker) preloads on Continue / New Game — the reported "Continue
+// lama masuk" wait — so it reads as "rendering" rather than a frozen/black
+// error. Separate from both the NullState logo splash and the floor-transition
+// fade. A safety timer force-hides it so a stalled preload can never strand
+// the player on the dots forever.
+let _sceneLoaderTimer = null;
+function showSceneLoader(){
+  const el = document.getElementById('sceneLoader');
+  if(!el) return;
+  el.classList.remove('hidden');
+  if(_sceneLoaderTimer) clearTimeout(_sceneLoaderTimer);
+  // Belt-and-suspenders: never let the loader outlive the load by more than a
+  // few seconds even if a hide call is somehow missed.
+  _sceneLoaderTimer = setTimeout(()=>{ const e=document.getElementById('sceneLoader'); if(e) e.classList.add('hidden'); }, 12000);
+}
+function hideSceneLoader(){
+  const el = document.getElementById('sceneLoader');
+  if(el) el.classList.add('hidden');
+  if(_sceneLoaderTimer){ clearTimeout(_sceneLoaderTimer); _sceneLoaderTimer = null; }
+}
 function showLoadingTransition(onDark, onDone, loadingText){
   const el = $('loadingFade');
   const textEl = $('loadingFadeText');
@@ -4601,12 +4624,13 @@ async function onStart(){
   // that line yet — belt-and-suspenders so gameplay can never start before
   // monster/decor art is ready.
   try{ await (_fullPreloadPromise || preloadAll()); }catch(e){}
-  if(destroyed) return;
+  if(destroyed){ hideSceneLoader(); return; }
   $('title').classList.add('hidden');
   $('hud').classList.remove('hidden');
 
   if (SAVED_SESSION) {
     enterSavedSession();
+    hideSceneLoader(); // Continue: scene is built, art is decoded — reveal it
     return;
   }
 
@@ -4615,6 +4639,7 @@ async function onStart(){
   abyssMode = false;
   campaignReturningFromBunker = false;
   enterOutdoorAct(campaignActIndex, false);
+  hideSceneLoader(); // New Game: outdoor scene is ready
 }
 
 // NEW GAME+ (Null Cycles). Post-completion only. Replays the campaign from
@@ -5075,17 +5100,22 @@ async function boot(){
   if(START_MODE){
     const t=$('title'); if(t) t.classList.add('hidden');
     $('hud').classList.remove('hidden');
+    // Show the dots loader immediately: from here until the first scene is
+    // ready the canvas is effectively blank while several MB of art decode —
+    // this is the "Continue lama masuk, kaya error" window.
+    showSceneLoader();
     _fullPreloadPromise = preloadAll();
     rafId=requestAnimationFrame(frame);
     if(START_MODE==='new' || START_MODE==='continue'){
       // onStart() awaits the preload itself, then enters a fresh run or
       // resumes SAVED_SESSION (Continue). SAVED_SESSION already came in via
-      // mount(), so the same branch handles both.
+      // mount(), so the same branch handles both. It hides the loader once the
+      // scene is entered.
       onStart();
     } else {
       // New Game+ / Abyss build a run synchronously (no internal preload
       // await), so gate them on the full preload here first.
-      const _go = ()=>{ if(destroyed) return; if(START_MODE==='cycle') startCycle(); else startAbyss(); };
+      const _go = ()=>{ if(destroyed){ hideSceneLoader(); return; } if(START_MODE==='cycle') startCycle(); else startAbyss(); hideSceneLoader(); };
       _fullPreloadPromise.then(_go).catch(_go);
     }
     return;

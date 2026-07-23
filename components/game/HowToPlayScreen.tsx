@@ -42,6 +42,17 @@ function Tag({ kind }: { kind: 'stablecoin' | 'point' }) {
   )
 }
 
+// Highlights a bunker's story name inline so it reads as a proper place, not
+// jargon like "Act 1" (owner: "user pasti bingung apa itu Act 1"). Styled like
+// the USDT/POINT pills so the important nouns pop the same way.
+function BunkerTag({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="inline-block rounded-sm border border-[rgba(0,255,136,0.4)] bg-[rgba(0,255,136,0.12)] px-1.5 py-0.5 font-mono text-[11px] font-bold uppercase tracking-[0.5px] text-null-green align-middle">
+      {children}
+    </span>
+  )
+}
+
 function LoopCard({
   cadence,
   title,
@@ -113,11 +124,28 @@ export default function HowToPlayScreen({ onBack }: HowToPlayScreenProps) {
 
           <LoopCard cadence="EVERY WEEK" title="Treasure Vault" accent="#00aaff">
             <p>
-              A <span className="text-null-white">Golden Key</span> and a <span className="text-null-white">Code Paper</span> occasionally drop as you
-              play (one of each per week).
+              You need <span className="text-null-white font-semibold">two special items</span> — both drop from ordinary
+              containers as you loot (one of each per week, and never locked behind an evolution weapon):
             </p>
+            {/* Golden Key + Old Paper shown with their real in-game sprites so
+                players recognise them on sight (owner: "kami bisa set gambar
+                disitu, ambil dari asset di repo"). */}
+            <div className="flex gap-2.5 my-1">
+              <div className="flex flex-1 items-center gap-2 rounded-md border border-[rgba(255,190,11,0.35)] bg-[rgba(255,190,11,0.06)] px-2.5 py-2">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/sprites/items/golden_key.png" alt="Golden Key" className="h-8 w-8 shrink-0 [image-rendering:pixelated]" draggable={false} />
+                <span className="font-mono text-[11px] font-bold uppercase tracking-wide text-null-amber leading-tight">Golden Key</span>
+              </div>
+              <div className="flex flex-1 items-center gap-2 rounded-md border border-[rgba(201,168,106,0.4)] bg-[rgba(201,168,106,0.08)] px-2.5 py-2">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/sprites/items/paper.png" alt="Old Paper" className="h-8 w-8 shrink-0 [image-rendering:pixelated]" draggable={false} />
+                <span className="font-mono text-[11px] font-bold uppercase tracking-wide text-[#d9b877] leading-tight">Old Paper</span>
+              </div>
+            </div>
             <p>
-              Bring both to the sealed Vault door and enter the weekly 4-digit code (3 tries) for a real <Tag kind="stablecoin" /> payout.
+              Carry <span className="text-null-white">both</span> to the sealed Vault door, then read the 4-digit code
+              off your Old Paper and enter it (3 tries that week) for a real <Tag kind="stablecoin" /> payout straight to
+              your wallet.
             </p>
           </LoopCard>
 
@@ -164,15 +192,15 @@ export default function HowToPlayScreen({ onBack }: HowToPlayScreenProps) {
 
             <div className="flex flex-col gap-2 text-[13px] leading-relaxed text-null-muted">
               <p className="text-null-white font-semibold">Why come back after a run?</p>
-              <p>• Each bunker is a story Act — clear all five floors to move outside and unlock the next.</p>
+              <p>• Each bunker is one chapter of the story — clear all five floors to move outside and unlock the next bunker.</p>
               <p>• Death is softened: you respawn on the same floor, so a run is never wiped to zero.</p>
               <p>• Gear, weapon tiers, and NullState Point <span className="text-null-white">carry over</span> — every run makes the next one stronger.</p>
-              <p>• Deeper acts drop higher-tier crafting shards for better weapons.</p>
-              <p>• Clear Act 1 to unlock the <span className="text-null-white">Armory Trial</span> — pick 2 premium weapons to try free for 48h each (clock starts on first equip).</p>
+              <p>• Deeper bunkers drop higher-tier crafting shards for better weapons.</p>
+              <p>• Clear <BunkerTag>The Treeline Bunker</BunkerTag> (Bunker 1) to unlock the <span className="text-null-white">Armory Trial</span> — pick 2 premium weapons to try free for 48h each (clock starts on first equip).</p>
               <p>• Invite friends from the <span className="text-null-white">Referral</span> menu — free weapon trials, a permanent skin at 3 friends, and a free Season Pass when an invitee makes their first purchase.</p>
               <p>• The Vault code resets weekly and the Leaderboard resets each season — fresh <Tag kind="stablecoin" /> to chase on a timer.</p>
-              <p>• Finish all 5 Acts to unlock <span className="text-null-white">New Game+</span> — replay the campaign at a higher Cycle: enemies hit +35% harder per Cycle and shards drop +25% richer.</p>
-              <p>• …and <span className="text-null-white">THE NULL ABYSS</span> — an endless descent below Bunker 5. Your deepest floor is your season rank (top 3 split the <Tag kind="stablecoin" /> bonus), the deep floors drop the best shards, and death ends the dive.</p>
+              <p>• Beat all 5 bunkers up to <BunkerTag>The Last Light</BunkerTag> to unlock <span className="text-null-white">New Game+</span> — replay the campaign at a higher Cycle: enemies hit +35% harder per Cycle and shards drop +25% richer.</p>
+              <p>• …and <span className="text-null-white">THE NULL ABYSS</span> — an endless descent below <BunkerTag>The Last Light</BunkerTag>. Your deepest floor is your season rank (top 3 split the <Tag kind="stablecoin" /> bonus), the deep floors drop the best shards, and death ends the dive.</p>
             </div>
           </div>
         </div>

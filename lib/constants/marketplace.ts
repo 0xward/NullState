@@ -10,7 +10,7 @@
  * <id>.png is the same artwork rotated to a canonical grip-down pose), so the
  * shop preview and the equipped weapon can never drift apart.
  */
-import { MARKETPLACE_TOKENS, TREASURY_WALLET, tokenLabel, type MarketplaceTokenSymbol } from './tokens'
+import { MARKETPLACE_TOKENS, TREASURY_WALLET, tokenLabel, TOKEN_LOGOS, type MarketplaceTokenSymbol } from './tokens'
 
 // Phase 9 adds a THIRD equipment slot for pure cosmetics ('outfit'). Outfits
 // change ONLY how the Knight looks (an LPC sprite layer — see assets.js
@@ -261,5 +261,5 @@ export function getMarketplaceItem(id: string): MarketplaceItem | undefined {
 }
 
 export const ACCEPTED_TOKENS = Object.keys(MARKETPLACE_TOKENS) as MarketplaceTokenSymbol[]
-export { MARKETPLACE_TOKENS, TREASURY_WALLET, tokenLabel }
+export { MARKETPLACE_TOKENS, TREASURY_WALLET, tokenLabel, TOKEN_LOGOS }
 export type { MarketplaceTokenSymbol }

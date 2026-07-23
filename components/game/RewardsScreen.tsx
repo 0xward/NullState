@@ -75,7 +75,9 @@ function formatWeekId(weekId?: number): string {
   const year = Math.floor(weekId / 100)
   const week = weekId % 100
   if (year < 2024 || week < 1 || week > 53) return `wk ${weekId}`
-  return `Week ${week} · ${year}`
+  // Owner: drop the year — "Treasure Vault · Week 30" reads cleaner and the
+  // year is redundant next to the timestamp shown on the same row.
+  return `Week ${week}`
 }
 const MONTH_ABBR = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 function formatSeasonId(seasonId?: number): string {

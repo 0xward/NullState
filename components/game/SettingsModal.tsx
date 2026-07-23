@@ -358,6 +358,14 @@ export default function SettingsModal({
             >
               <Image src="/footer-logos/talent-protocol.jpg" alt="Talent Protocol" width={26} height={26} />
             </a>
+            <a
+              href="https://www.minipay.xyz"
+              rel="noopener noreferrer"
+              aria-label="MiniPay"
+              className="ns-settings-footer-logo-link"
+            >
+              <Image src="/footer-logos/minipay.png" alt="MiniPay" width={26} height={26} />
+            </a>
           </div>
         </div>
       </div>
