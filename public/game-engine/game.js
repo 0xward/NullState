@@ -286,6 +286,10 @@ function applyLevelStats(p, level){
   p.maxHp = 100;
   p.atkDmg = 22 + 3 * steps;
   p.speed = 141 + 1.125 * steps; // v65 T1: whole curve scaled -25% (was 188 + 1.5*steps) to match Player constructor base.
+  // LEVEL = CRIT: restore the crit chance a naturally-levelled player would
+  // have (mirrors Player.updateCrit() in entities.js — keep in sync).
+  if (typeof p.updateCrit === 'function') p.updateCrit();
+  else p.critChance = Math.min(0.25, 0.004 * steps);
 }
 
 // Apply a saved/baseline snapshot to a freshly-constructed player + G.
@@ -1670,8 +1674,16 @@ function checkFloorClearReward(){
 // weapon behavior dealt the hit. fromX/fromY is the point knockback should
 // push away from (player position for melee, arrow position for ranged).
 function applyHitToEnemy(e, dmg, fromX, fromY, beh){
+  // LEVEL = CRIT: roll a critical hit off the player's level-derived crit
+  // chance. A crit doubles this hit's damage and shows a gold, bigger number
+  // (dmgNum's crit flag). Centralised here so it covers melee swings, the
+  // double/triple follow-up hits, AND ranged projectiles (all route through
+  // this function) with one implementation.
+  let crit=false;
+  { const _p=G && G.player;
+    if(_p && _p.critChance>0 && Math.random()<_p.critChance){ crit=true; dmg=Math.max(1, Math.round(dmg*2)); } }
   const killed=e.hurt(dmg);
-  dmgNum(e.x,e.y-e.r, dmg);
+  dmgNum(e.x,e.y-e.r, dmg, crit);
   const _fx = window.NS_FX;
   const _kbCfg = (window.NS_MONSTER_CONFIG||{}).knockback || {base:{x:220,y:145}};
   const _shakeCfg = (window.NS_MONSTER_CONFIG||{}).shake || {playerAttack:6};
@@ -1999,7 +2011,7 @@ function onEnemyKilled(e){
   p.kills++;
   const ups=p.gainXp(e.xp);
   log(`${e.arch.name} purged. +${e.xp} XP`, 'reward');
-  if(ups>0){ A.levelup(); log(`◆ LEVEL UP → ${p.level}. Max HP & power increased.`,'reward');
+  if(ups>0){ A.levelup(); log(`◆ LEVEL UP → ${p.level}. Crit chance ${Math.round((p.critChance||0)*100)}% · fully healed.`,'reward');
     spark(p.x,p.y-20,'#00ff88',30,220); applyEquipment(p); }
   G.combo.count = (G.combo.t>0 ? G.combo.count+1 : 1);
   G.combo.t = 3.2;

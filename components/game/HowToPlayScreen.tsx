@@ -162,6 +162,39 @@ export default function HowToPlayScreen({ onBack }: HowToPlayScreenProps) {
           </LoopCard>
         </div>
 
+        {/* Character stats: XP, Level, HP — how the three relate */}
+        <div className="mb-8">
+          <div className="font-mono text-[10px] tracking-[4px] uppercase text-null-green mb-3">// XP · LEVEL · HP</div>
+          <div className="rounded-md border border-[rgba(0,255,136,0.2)] bg-[rgba(0,255,136,0.03)] p-4 sm:p-6">
+            <div className="flex flex-col gap-3 text-[13px] leading-relaxed text-null-muted">
+              <p>
+                <span className="text-[#4ad7ff] font-semibold">XP</span> fills the blue bar. Kill enemies and grab XP
+                drops — when the bar is full you <span className="text-null-white">Level Up</span> (and heal to full).
+              </p>
+              <p>
+                <span className="text-null-white font-semibold">Level</span> raises your{' '}
+                <span className="text-null-white">Critical Hit chance</span> — a crit deals{' '}
+                <span className="text-null-acid font-semibold">double damage</span> (the big gold numbers). Level does
+                <span className="text-null-white"> not</span> add HP or base attack; it multiplies whatever your weapon
+                already deals, so the more you level, the harder your equipped weapon hits. Crit climbs ~0.4% per level,
+                up to 25%.
+              </p>
+              <p>
+                <span className="text-[#00ff88] font-semibold">HP</span> is the green bar — your health. Your base is
+                100; equip <span className="text-null-white">Armor</span> to raise your Max HP and eat{' '}
+                <span className="text-null-white">Food</span> to heal. Hit 0 and you respawn on the same floor, so a run
+                is never wiped to zero.
+              </p>
+              <p className="text-[12px] text-null-muted/90">
+                In short: <span className="text-null-white">Weapons</span> = base damage,{' '}
+                <span className="text-null-white">Armor</span> = survival (HP),{' '}
+                <span className="text-null-white">Level</span> = crit that makes your weapon hit harder. Each one pulls
+                its own weight.
+              </p>
+            </div>
+          </div>
+        </div>
+
         {/* Progression */}
         <div className="mb-8">
           <div className="font-mono text-[10px] tracking-[4px] uppercase text-null-green mb-3">// PROGRESSION</div>
