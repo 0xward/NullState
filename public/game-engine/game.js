@@ -3572,7 +3572,7 @@ function updateBurnBar(){
   btn.textContent='BURN SELECTED';
   const ids=[...G.burnQueue].filter(id=>G.inventory.items[id]);
   if(!ids.length){
-    bar.textContent='Select items to convert to NullState Point.';
+    bar.textContent='Burn loot → NullState Points → craft & upgrade gear. Real USDT comes from the Vault & Season.';
     btn.disabled=true;
     return;
   }
