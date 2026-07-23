@@ -616,6 +616,7 @@ class Player {
     this.anim=new Anim();
     this.maxHp=100; this.hp=100; // flat base — only equipped Armor raises this (see applyEquipment() in game.js)
     this.xp=0; this.level=1; this.kills=0;
+    this.critChance=0;   // grows with level (updateCrit) — level 1 = no crit
     this.atkDmg=22;
     this.attacking=false; this.atkTime=0; this.atkCd=0; this.hitDone=false;
     this.swingFlash=0; this._lastMove={x:1,y:0};
@@ -635,6 +636,14 @@ class Player {
     this._lpcT = 0;
   }
   xpForNext(){ return this.level*200; }
+  // LEVEL = CRIT (owner/Celo-team decision). Level deliberately does NOT raise
+  // Max HP (that's Armor's job) or base attack (that's Weapons' job) — instead
+  // every level grows your Critical Hit chance, which multiplies whatever your
+  // weapon already deals (crit = x2 damage, see applyHitToEnemy in game.js).
+  // So leveling makes your equipped weapon hit HARDER rather than replacing it.
+  // +0.4%/level, capped at 25%. MIRRORED in game.js applyLevelStats() — keep
+  // the two formulas in sync.
+  updateCrit(){ this.critChance = Math.min(0.25, 0.004*(this.level-1)); }
   gainXp(n){
     this.xp+=n;
     let ups=0;
@@ -645,6 +654,7 @@ class Player {
       // in game.js). Level-up still fully heals the player, same as before.
       this.hp=this.maxHp; this.atkDmg+=3; this.speed+=1.5;
     }
+    if(ups>0) this.updateCrit();  // refresh crit chance for the new level
     return ups;
   }
   startAttack(){
