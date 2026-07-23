@@ -99,7 +99,9 @@
 .ns-game-root .bar.hp.tier-high .bar-fill{background:linear-gradient(90deg,#0a6,#00ff88);}
 .ns-game-root .bar.hp.tier-mid .bar-fill{background:linear-gradient(90deg,#c98a00,#ffd54f);}
 .ns-game-root .bar.hp.tier-low .bar-fill{background:linear-gradient(90deg,#ff2d4f,#ff7b54);}
-.ns-game-root .bar.xp .bar-fill{background:linear-gradient(90deg,#0a6,#00ff88);}
+/* XP bar is BLUE so it reads as clearly different from the green HP bar
+   (owner: "bar xp itu warna biru"). */
+.ns-game-root .bar.xp .bar-fill{background:linear-gradient(90deg,#1e5fd0,#4ad7ff);}
 
 /* #12 — low-HP vignette. Opacity is set inline from game.js (proportional
    to how far HP has dropped below the 20% tier threshold), this class

@@ -3414,7 +3414,13 @@ function updateHUD(){
       level: p.level,
       kills: p.kills,
       floor: G.depth,
-      xpForNext: p.xpForNext()
+      xpForNext: p.xpForNext(),
+      // Which story bunker (Act) the player is in, so the HUD can show
+      // "Bunker 1/5" — owner: "biar user ga bingung dia lagi di bungker brp".
+      // In the endless Abyss there's no bunker, so send 0 (HudStatLine shows
+      // "Abyss" instead).
+      bunker: abyssMode ? 0 : (campaignActIndex + 1),
+      bunkerTotal: (typeof CAMPAIGN !== 'undefined' && CAMPAIGN.length) ? CAMPAIGN.length : 5,
     });
   }
 }
