@@ -128,11 +128,9 @@ export default function RewardsScreen({ onBack, address }: RewardsScreenProps) {
   const {
     seasonLeaderboard,
     hasClaimedSeasonBonus,
-    weeklyClaimable,
     currentSeason,
     isLoading: rewardBusy,
     claimSeasonBonus,
-    claimWeeklyRewards,
   } = useReward(address)
 
   // Burn (Reward Point tab) — multi-select
@@ -140,7 +138,7 @@ export default function RewardsScreen({ onBack, address }: RewardsScreenProps) {
   const [burning, setBurning] = useState(false)
   const [burnMsg, setBurnMsg] = useState<{ text: string; kind: 'ok' | 'err' } | null>(null)
 
-  const [claimBusy, setClaimBusy] = useState<'season' | 'weekly' | null>(null)
+  const [claimBusy, setClaimBusy] = useState<'season' | null>(null)
   const [claimMsg, setClaimMsg] = useState<{ text: string; kind: 'ok' | 'err' } | null>(null)
 
   const loadProfile = useCallback(async () => {
@@ -237,8 +235,10 @@ export default function RewardsScreen({ onBack, address }: RewardsScreenProps) {
   // requires only `lb.deposited` — `finalized` exists in the struct but is
   // never set true on-chain, so gating on it would hide a valid claim.
   const seasonClaimable = myRank >= 0 && !!seasonLeaderboard?.deposited && !hasClaimedSeasonBonus
-  const weeklyHasClaim = (weeklyClaimable ?? BigInt(0)) > BigInt(0)
-  const hasClaimable = seasonClaimable || weeklyHasClaim
+  // The weekly Treasure-Vault reward is paid instantly on a correct code (no
+  // claim step); the old on-chain weekly-burn claim was retired (see
+  // useReward.ts). So the only thing claimable here is the season bonus.
+  const hasClaimable = seasonClaimable
 
   const onClaimSeason = async () => {
     if (!seasonClaimable || claimBusy) return
@@ -247,20 +247,6 @@ export default function RewardsScreen({ onBack, address }: RewardsScreenProps) {
     try {
       const { hash } = await claimSeasonBonus(currentSeason)
       setClaimMsg({ text: `Season bonus claimed — ${hash.slice(0, 10)}…`, kind: 'ok' })
-    } catch (e) {
-      setClaimMsg({ text: e instanceof Error ? e.message : 'Claim failed', kind: 'err' })
-    } finally {
-      setClaimBusy(null)
-    }
-  }
-
-  const onClaimWeekly = async () => {
-    if (!weeklyHasClaim || claimBusy) return
-    setClaimBusy('weekly')
-    setClaimMsg(null)
-    try {
-      const { hash } = await claimWeeklyRewards()
-      setClaimMsg({ text: `Weekly reward claimed — ${hash.slice(0, 10)}…`, kind: 'ok' })
     } catch (e) {
       setClaimMsg({ text: e instanceof Error ? e.message : 'Claim failed', kind: 'err' })
     } finally {
@@ -488,24 +474,6 @@ export default function RewardsScreen({ onBack, address }: RewardsScreenProps) {
                       className="flex-shrink-0 rounded bg-gradient-to-b from-[#4ade80] to-[#22b862] px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-wider text-[#062b13] transition hover:brightness-110 disabled:opacity-40"
                     >
                       {claimBusy === 'season' ? '…' : 'Claim'}
-                    </button>
-                  </div>
-                )}
-                {weeklyHasClaim && (
-                  <div className="flex items-center gap-3 rounded-lg border border-[#7a4f24]/60 bg-gradient-to-b from-[#2b1a0d] to-[#1a0f06] p-3">
-                    <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded border border-[#7a4f24]/50 bg-black/40 text-[#f2cd82]">
-                      <GiTwoCoins aria-hidden size={20} />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="font-mono text-sm font-bold text-[#f0dcb8]">Weekly burn reward</div>
-                      <div className="font-mono text-[10px] uppercase tracking-wide text-[#c39a5f]">On-chain USDT pool</div>
-                    </div>
-                    <button
-                      onClick={onClaimWeekly}
-                      disabled={claimBusy !== null || rewardBusy}
-                      className="flex-shrink-0 rounded bg-gradient-to-b from-[#4ade80] to-[#22b862] px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-wider text-[#062b13] transition hover:brightness-110 disabled:opacity-40"
-                    >
-                      {claimBusy === 'weekly' ? '…' : 'Claim'}
                     </button>
                   </div>
                 )}
