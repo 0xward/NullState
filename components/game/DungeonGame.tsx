@@ -1069,10 +1069,14 @@ export default function DungeonGame({ playerProfile, setPlayerUsername, isNewRun
 
         {/* Scene loader — retro pixel "LOADING…" bar on a black screen, shown
             while the first scene (outdoor/bunker) preloads on Continue / New
-            Game so the wait reads as "rendering", not a frozen/black error. The
-            bar fills smoothly and completes exactly when the scene is ready.
+            Game so the wait reads as "rendering", not a frozen/black error.
+            VISIBLE BY DEFAULT: every DungeonGame mount loads a scene, and
+            rendering it un-hidden means React paints the loader on the very
+            first frame — BEFORE the HUD/stats can flash on a black canvas
+            (owner: "klik → HUD dulu baru loading" was the bug). game.js drives
+            the fill and only hides it once the scene has actually painted.
             Deliberately NOT the logo splash. */}
-        <div id="sceneLoader" className="scene-loader hidden" aria-hidden="true">
+        <div id="sceneLoader" className="scene-loader" aria-hidden="true">
           <div className="scene-loader-box">
             <div className="scene-loader-label">LOADING...</div>
             <div className="scene-loader-bar">

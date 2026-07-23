@@ -551,7 +551,10 @@ function newGame(charKey, restoreSnapshot){
   }
   // Reconcile any burns the player made from the OUT-OF-GAME Rewards screen
   // while the engine wasn't running — must run after the stash is restored.
+  // Then refresh the mirror so it reflects the reconciled inventory right away
+  // (persistStashSnapshot re-runs the reconcile harmlessly — queue is cleared).
   applyExternalBurns();
+  persistStashSnapshot();
   applyEquipment(p);   // normalize atk/HP from any equipped gear (safe if none)
   descend(startDepth);
 }
@@ -1538,20 +1541,28 @@ function _sceneTick(){
 function showSceneLoader(){
   const el = document.getElementById('sceneLoader');
   if(!el) return;
-  const wasHidden = el.classList.contains('hidden');
   el.classList.remove('hidden');
-  // Idempotent: a second show (mount() then boot()) must NOT restart the bar
-  // from 0 and cause a visible jump.
-  if(wasHidden){
-    _sceneProg = 0; _sceneTarget = 90; _sceneDone = false;
+  // The element is rendered visible by React from the first paint, so we key
+  // off the animation state (not the class): start the fill loop if it isn't
+  // already running and hasn't already completed. Idempotent — a second call
+  // (mount() then boot()) won't restart the bar from 0.
+  if(_sceneRAF == null && !_sceneDone){
+    _sceneProg = 0; _sceneTarget = 90;
     const f = document.getElementById('sceneLoaderFill'); if(f) f.style.width = '0%';
-    if(_sceneRAF) cancelAnimationFrame(_sceneRAF);
     _sceneRAF = requestAnimationFrame(_sceneTick);
   }
   if(_sceneLoaderTimer) clearTimeout(_sceneLoaderTimer);
   // Belt-and-suspenders: never let the loader outlive the load — force the
   // completion path after a few seconds even if a hide call is somehow missed.
   _sceneLoaderTimer = setTimeout(hideSceneLoader, 12000);
+}
+// Reset loader state for a fresh game session — module vars persist across
+// unmount/remount, so a previous session's "done" flag must not block the
+// next Continue/New Game from animating.
+function resetSceneLoader(){
+  if(_sceneRAF){ cancelAnimationFrame(_sceneRAF); _sceneRAF = null; }
+  _sceneProg = 0; _sceneTarget = 90; _sceneDone = false;
+  const f = document.getElementById('sceneLoaderFill'); if(f) f.style.width = '0%';
 }
 function hideSceneLoader(){
   if(_sceneLoaderTimer){ clearTimeout(_sceneLoaderTimer); _sceneLoaderTimer = null; }
@@ -3409,6 +3420,11 @@ function updateHUD(){
 }
 function updateInventoryPanel(){
   if(!G) return; const p=G.player;
+  // Reconcile out-of-game Rewards-screen burns BEFORE rendering, so an item the
+  // player already burned there can't still appear (and be burned again) in the
+  // in-game inventory. persistStashSnapshot() at the end reconciles too, but
+  // doing it up front keeps the rendered list itself correct.
+  applyExternalBurns();
   // Phase 2: Glitch Shard strip — this run's haul + the wallet's banked
   // balance (from the materials bridge cache). Hidden until any exist so
   // the panel looks unchanged for players who haven't met the system yet.
@@ -3463,6 +3479,14 @@ function updateInventoryPanel(){
 // wallet so it doesn't leak between accounts on a shared device.
 function persistStashSnapshot(){
   if(!G || !WALLET_ADDRESS || typeof localStorage==='undefined') return;
+  // CRITICAL (owner burn double-count): reconcile any out-of-game Rewards-screen
+  // burns into G.inventory BEFORE writing the mirror. Without this, an item the
+  // player already burned in the Rewards screen (recorded in the extburn queue)
+  // gets re-written into the mirror from the still-stale live inventory here,
+  // so it reappears in "Burn for Points" and can be burned again and again —
+  // each time crediting server points. Reconciling first makes the mirror and
+  // the live inventory agree, so a burned item can never resurrect.
+  applyExternalBurns();
   try{
     const itemEntries = Object.values(G.inventory.items||{}).map(e=>({
       id: e.item.id, name: e.item.name, rarity: e.item.rarity, color: e.item.color,
@@ -3499,7 +3523,11 @@ function applyExternalBurns(){
     }
   }catch(e){ /* partial reconcile is fine — still clear the queue below */ }
   try{ localStorage.removeItem(key); }catch(e){ /* ignore */ }
-  if(changed) persistStashSnapshot();
+  // NOTE: do NOT persistStashSnapshot() here — persistStashSnapshot() itself
+  // calls this function first, so persisting here would recurse. Callers that
+  // need the mirror rewritten (persistStashSnapshot / updateInventoryPanel) do
+  // it right after. Returns whether anything changed for callers that care.
+  return changed;
 }
 // Generic stash renderer, reused for both the player's own inventory panel
 // (#invItems) and the read-only reference panel inside the container window
@@ -5158,6 +5186,12 @@ async function boot(){
   // Reaching here means NO startMode (a demo / direct mount) — this is the
   // only path that actually wants the canvas title, so reveal it (it's
   // hidden-by-default in the JSX now). Main Menu entries returned above.
+  // The loader renders visible-by-default, so on this path (which never loads
+  // a scene up front) hide it instantly — no fill animation — or it would
+  // cover the title.
+  if(_sceneLoaderTimer){ clearTimeout(_sceneLoaderTimer); _sceneLoaderTimer=null; }
+  if(_sceneRAF){ cancelAnimationFrame(_sceneRAF); _sceneRAF=null; }
+  { const _sl=document.getElementById('sceneLoader'); if(_sl) _sl.classList.add('hidden'); }
   { const _t=$('title'); if(_t) _t.classList.remove('hidden'); }
 
   // Load ONLY the 3 hero idle sprites first so the character-select
@@ -5221,10 +5255,11 @@ function mount(opts){
   // flash even for a frame. #title is also hidden-by-default in the JSX now.
   if(START_MODE){
     const _t=document.getElementById('title'); if(_t) _t.classList.add('hidden');
-    // Raise the LOADING screen at the earliest possible moment — before the HUD
-    // or a blank canvas can paint — so Continue/New Game never flash "black +
-    // top-left stats" before the loader appears (owner: "ngeblank hitam dan
-    // tulisan2 kecil di kiri atas dibanding langsung loading").
+    // The loader is rendered visible from React's first paint (see
+    // DungeonGame.tsx) so it already covers the HUD before this runs. Reset any
+    // stale state from a previous session and kick off the fill animation so
+    // Continue/New Game go click → LOADING instantly, never "HUD first".
+    resetSceneLoader();
     showSceneLoader();
   }
   cv = document.getElementById('game');
