@@ -56,6 +56,18 @@ export function tokenLabel(symbol?: string | null): string {
 }
 
 /**
+ * Brand logo (small, transparent PNG) for each marketplace token, keyed by the
+ * internal token symbol/key. Rendered to the LEFT of the label in the
+ * "Pay with" selectors (Marketplace + Crafting). Local assets so there's no
+ * external fetch (compressed to ~64px). Unknown symbols return undefined.
+ */
+export const TOKEN_LOGOS: Record<string, string> = {
+  USDm: '/assets/tokens/usdm.png',
+  USDC: '/assets/tokens/usdc.png',
+  USDT: '/assets/tokens/usdt.png',
+};
+
+/**
  * Parse USDm string to smallest unit (wei)
  * @param amount - Amount in USDm (e.g., "1.5")
  */

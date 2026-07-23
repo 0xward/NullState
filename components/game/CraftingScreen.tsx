@@ -6,7 +6,7 @@ import { GiAnvil, GiCheckedShield, GiSandsOfTime } from 'react-icons/gi'
 import { useWallet, CELO_CHAIN_ID } from '@/lib/WalletProvider'
 import { pickBestPaymentToken } from '@/lib/constants/tokens'
 import {
-  ACCEPTED_TOKENS, getMarketplaceItem, resolveItemId, maxWeaponTier, tokenLabel,
+  ACCEPTED_TOKENS, getMarketplaceItem, resolveItemId, maxWeaponTier, tokenLabel, TOKEN_LOGOS,
   type MarketplaceItem, type MarketplaceTokenSymbol,
 } from '@/lib/constants/marketplace'
 import { GAME_CONFIG } from '@/lib/constants/game-config'
@@ -437,11 +437,15 @@ export default function CraftingScreen({ onBack, onGoToRun, address }: CraftingS
           <div className="flex gap-2">
             {ACCEPTED_TOKENS.map(t => (
               <button key={t} onClick={() => { manualTokenRef.current = true; setToken(t) }}
-                className={`flex-1 rounded-lg border px-3 py-2 font-mono text-xs font-bold uppercase tracking-wider transition ${
+                className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg border px-3 py-2 font-mono text-xs font-bold uppercase tracking-wider transition ${
                   token === t
                     ? 'border-[#e8bd6f] bg-gradient-to-b from-[#e8bd6f] to-[#c9962f] text-[#2a1705]'
                     : 'border-[#7a4f24]/60 bg-[#2b1a0d] text-[#c39a5f] hover:border-[#8a5a2b]'
                 }`}>
+                {TOKEN_LOGOS[t] && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={TOKEN_LOGOS[t]} alt="" className="h-4 w-4 shrink-0 rounded-full" draggable={false} />
+                )}
                 {tokenLabel(t)}
               </button>
             ))}

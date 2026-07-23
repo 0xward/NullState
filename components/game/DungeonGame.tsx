@@ -1067,6 +1067,16 @@ export default function DungeonGame({ playerProfile, setPlayerUsername, isNewRun
           <div id="loadingFadeText" className="loading-fade-text" />
         </div>
 
+        {/* Scene loader — small animated dots on a dark screen, shown while the
+            first scene (outdoor/bunker) preloads on Continue / New Game so the
+            wait reads as "rendering", not a frozen/black error. Deliberately
+            NOT the logo splash. */}
+        <div id="sceneLoader" className="scene-loader hidden" aria-hidden="true">
+          <div className="scene-loader-dots">
+            <span></span><span></span><span></span>
+          </div>
+        </div>
+
         {/* Title screen — HIDDEN BY DEFAULT (owner: New Game/Continue must go
             straight into play, never flash this preview). The engine only
             reveals it when it actually wants it: a demo/no-startMode mount, or
