@@ -18,8 +18,10 @@ import { usePathname } from 'next/navigation'
 //     `ns-splash-seen` to <html> so CSS can hide it before first paint on that
 //     second load, avoiding even a one-frame flash.
 //
-// Logo: 39KB webp (public/brand/nullstate-logo.webp), centred with object-fit
-// so it fits a tall phone and a wide desktop; its dark backdrop blends to black.
+// Logo: ~56KB webp, 680×680 (public/brand/nullstate-logo.webp), centred with
+// object-fit so it fits a tall phone and a wide desktop; its dark backdrop
+// blends to black. Sized to the display box (max 460px CSS, ~2x for retina)
+// rather than the old 819×820/90KB source that PageSpeed flagged as oversized.
 const HOLD_MS = 2500
 const FADE_MS = 500
 const SEEN_KEY = 'ns-splash-seen'
@@ -67,7 +69,7 @@ export default function SplashScreen() {
         transition: `opacity ${FADE_MS}ms ease`,
       }}
     >
-      <style>{`@keyframes nsSplashBar{from{width:0%}to{width:100%}}@keyframes nsSplashIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}`}</style>
+      <style>{`@keyframes nsSplashBar{from{transform:scaleX(0)}to{transform:scaleX(1)}}@keyframes nsSplashIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}`}</style>
 
       {/* Logo — responsive, keeps the dark-grid backdrop which blends to black */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -123,10 +125,14 @@ export default function SplashScreen() {
         <div
           style={{
             height: '100%',
-            width: '0%',
+            width: '100%',
+            transform: 'scaleX(0)',
+            transformOrigin: 'left',
             background: '#fff',
             borderRadius: 3,
             boxShadow: '0 0 10px rgba(255,255,255,0.7)',
+            // Animate transform (GPU-composited) instead of width — avoids the
+            // "non-composited animation" PageSpeed audit and is smoother.
             animation: `nsSplashBar ${HOLD_MS}ms linear forwards`,
           }}
         />
