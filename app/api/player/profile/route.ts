@@ -4,6 +4,10 @@ import { getAdminDb } from '@/firebase-config'
 import { seasonIdInputSchema, walletAddressSchema } from '@/lib/validation'
 import { normalizeWalletAddress } from '@/lib/vault-utils'
 
+// Reads request.url query params, so it's always dynamic — declare it so the
+// build doesn't try to prerender it statically and log DYNAMIC_SERVER_USAGE.
+export const dynamic = 'force-dynamic'
+
 // Fails fast with a normal, catchable error instead of letting a hung
 // Firebase call (e.g. FIREBASE_DATABASE_URL pointing at the wrong region)
 // run until Vercel's own function-timeout kicks in. A platform timeout

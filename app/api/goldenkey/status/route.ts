@@ -3,6 +3,11 @@ import { getAdminDb } from '@/firebase-config'
 import { walletAddressSchema } from '@/lib/validation'
 import { normalizeWalletAddress, getCurrentWeekIdString } from '@/lib/vault-utils'
 
+// Reads the ?walletAddress query param, so it can only be served on demand.
+// Declaring it dynamic stops Next.js from attempting (and loudly failing) to
+// statically prerender it at build time — the route table already marks it ƒ.
+export const dynamic = 'force-dynamic'
+
 // =============================================
 // GOLDEN KEY — WEEKLY STATUS (Phase 5.5 #9A)
 // GET /api/goldenkey/status?walletAddress=0x...
