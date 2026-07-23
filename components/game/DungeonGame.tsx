@@ -1067,13 +1067,17 @@ export default function DungeonGame({ playerProfile, setPlayerUsername, isNewRun
           <div id="loadingFadeText" className="loading-fade-text" />
         </div>
 
-        {/* Scene loader — small animated dots on a dark screen, shown while the
-            first scene (outdoor/bunker) preloads on Continue / New Game so the
-            wait reads as "rendering", not a frozen/black error. Deliberately
-            NOT the logo splash. */}
+        {/* Scene loader — retro pixel "LOADING…" bar on a black screen, shown
+            while the first scene (outdoor/bunker) preloads on Continue / New
+            Game so the wait reads as "rendering", not a frozen/black error. The
+            bar fills smoothly and completes exactly when the scene is ready.
+            Deliberately NOT the logo splash. */}
         <div id="sceneLoader" className="scene-loader hidden" aria-hidden="true">
-          <div className="scene-loader-dots">
-            <span></span><span></span><span></span>
+          <div className="scene-loader-box">
+            <div className="scene-loader-label">LOADING...</div>
+            <div className="scene-loader-bar">
+              <div id="sceneLoaderFill" className="scene-loader-fill" />
+            </div>
           </div>
         </div>
 

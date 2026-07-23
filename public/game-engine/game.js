@@ -1512,26 +1512,60 @@ let _fadeTimers = [];
 function _clearFadeTimers(){ _fadeTimers.forEach(id=>clearTimeout(id)); _fadeTimers=[]; }
 
 // ---- scene loader (Continue / first scene render) ----
-// A small dark screen with flowing dots shown while the very first scene
+// A black screen with a retro "LOADING…" bar, shown while the very first scene
 // (outdoor or bunker) preloads on Continue / New Game — the reported "Continue
-// lama masuk" wait — so it reads as "rendering" rather than a frozen/black
-// error. Separate from both the NullState logo splash and the floor-transition
-// fade. A safety timer force-hides it so a stalled preload can never strand
-// the player on the dots forever.
+// lama masuk, ngeblank hitam" wait — so it reads as "rendering" rather than a
+// frozen/black error. Separate from both the NullState logo splash and the
+// floor-transition fade. The bar EASES toward ~90% while loading, then snaps to
+// 100% and fades out the instant the scene is ready (hideSceneLoader). A safety
+// timer force-completes it so a stalled preload can never strand the player.
 let _sceneLoaderTimer = null;
+let _sceneRAF = null, _sceneProg = 0, _sceneTarget = 0, _sceneDone = false;
+function _sceneTick(){
+  // Ease toward the target; fast easing once we're completing so the snap to
+  // 100% still looks like motion, slow while loading so it never "finishes"
+  // early and then just sits there.
+  _sceneProg += (_sceneTarget - _sceneProg) * (_sceneDone ? 0.22 : 0.035);
+  const f = document.getElementById('sceneLoaderFill');
+  if(f) f.style.width = Math.min(100, _sceneProg).toFixed(1) + '%';
+  if(_sceneDone && _sceneProg >= 99.3){
+    if(f) f.style.width = '100%';
+    const el = document.getElementById('sceneLoader'); if(el) el.classList.add('hidden');
+    _sceneRAF = null; return;
+  }
+  _sceneRAF = requestAnimationFrame(_sceneTick);
+}
 function showSceneLoader(){
   const el = document.getElementById('sceneLoader');
   if(!el) return;
+  const wasHidden = el.classList.contains('hidden');
   el.classList.remove('hidden');
+  // Idempotent: a second show (mount() then boot()) must NOT restart the bar
+  // from 0 and cause a visible jump.
+  if(wasHidden){
+    _sceneProg = 0; _sceneTarget = 90; _sceneDone = false;
+    const f = document.getElementById('sceneLoaderFill'); if(f) f.style.width = '0%';
+    if(_sceneRAF) cancelAnimationFrame(_sceneRAF);
+    _sceneRAF = requestAnimationFrame(_sceneTick);
+  }
   if(_sceneLoaderTimer) clearTimeout(_sceneLoaderTimer);
-  // Belt-and-suspenders: never let the loader outlive the load by more than a
-  // few seconds even if a hide call is somehow missed.
-  _sceneLoaderTimer = setTimeout(()=>{ const e=document.getElementById('sceneLoader'); if(e) e.classList.add('hidden'); }, 12000);
+  // Belt-and-suspenders: never let the loader outlive the load — force the
+  // completion path after a few seconds even if a hide call is somehow missed.
+  _sceneLoaderTimer = setTimeout(hideSceneLoader, 12000);
 }
 function hideSceneLoader(){
-  const el = document.getElementById('sceneLoader');
-  if(el) el.classList.add('hidden');
   if(_sceneLoaderTimer){ clearTimeout(_sceneLoaderTimer); _sceneLoaderTimer = null; }
+  const el = document.getElementById('sceneLoader');
+  if(!el || el.classList.contains('hidden')) return;
+  // Complete the bar to 100%, then _sceneTick fades/hides it once it lands.
+  _sceneTarget = 100; _sceneDone = true;
+  if(!_sceneRAF) _sceneRAF = requestAnimationFrame(_sceneTick);
+}
+// Hide only AFTER the entered scene has painted at least one real frame under
+// the loader — two rAFs guarantee a paint — so there's never a black gap
+// (canvas blank + HUD peeking) between the loader hiding and the scene showing.
+function hideSceneLoaderAfterPaint(){
+  requestAnimationFrame(()=>requestAnimationFrame(hideSceneLoader));
 }
 function showLoadingTransition(onDark, onDone, loadingText){
   const el = $('loadingFade');
@@ -4630,7 +4664,7 @@ async function onStart(){
 
   if (SAVED_SESSION) {
     enterSavedSession();
-    hideSceneLoader(); // Continue: scene is built, art is decoded — reveal it
+    hideSceneLoaderAfterPaint(); // Continue: reveal once the bunker has painted
     return;
   }
 
@@ -4639,7 +4673,7 @@ async function onStart(){
   abyssMode = false;
   campaignReturningFromBunker = false;
   enterOutdoorAct(campaignActIndex, false);
-  hideSceneLoader(); // New Game: outdoor scene is ready
+  hideSceneLoaderAfterPaint(); // New Game: reveal once the outdoor has painted
 }
 
 // NEW GAME+ (Null Cycles). Post-completion only. Replays the campaign from
@@ -5115,7 +5149,7 @@ async function boot(){
     } else {
       // New Game+ / Abyss build a run synchronously (no internal preload
       // await), so gate them on the full preload here first.
-      const _go = ()=>{ if(destroyed){ hideSceneLoader(); return; } if(START_MODE==='cycle') startCycle(); else startAbyss(); hideSceneLoader(); };
+      const _go = ()=>{ if(destroyed){ hideSceneLoader(); return; } if(START_MODE==='cycle') startCycle(); else startAbyss(); hideSceneLoaderAfterPaint(); };
       _fullPreloadPromise.then(_go).catch(_go);
     }
     return;
@@ -5185,7 +5219,14 @@ function mount(opts){
   // this is a Main Menu entry (startMode set), hide the canvas title
   // SYNCHRONOUSLY — before any async boot()/preload work — so it can never
   // flash even for a frame. #title is also hidden-by-default in the JSX now.
-  if(START_MODE){ const _t=document.getElementById('title'); if(_t) _t.classList.add('hidden'); }
+  if(START_MODE){
+    const _t=document.getElementById('title'); if(_t) _t.classList.add('hidden');
+    // Raise the LOADING screen at the earliest possible moment — before the HUD
+    // or a blank canvas can paint — so Continue/New Game never flash "black +
+    // top-left stats" before the loader appears (owner: "ngeblank hitam dan
+    // tulisan2 kecil di kiri atas dibanding langsung loading").
+    showSceneLoader();
+  }
   cv = document.getElementById('game');
   ctx = cv ? cv.getContext('2d') : null;
   stick = document.getElementById('stick');

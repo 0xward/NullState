@@ -46,8 +46,10 @@ function Tag({ kind }: { kind: 'stablecoin' | 'point' }) {
 // jargon like "Act 1" (owner: "user pasti bingung apa itu Act 1"). Styled like
 // the USDT/POINT pills so the important nouns pop the same way.
 function BunkerTag({ children }: { children: React.ReactNode }) {
+  // Same footprint as the USDT/POINT pill (Tag) so bunker names sit inline
+  // without ballooning the line (owner: "kegedean, beda dari USDT yg lebih fit").
   return (
-    <span className="inline-block rounded-sm border border-[rgba(0,255,136,0.4)] bg-[rgba(0,255,136,0.12)] px-1.5 py-0.5 font-mono text-[11px] font-bold uppercase tracking-[0.5px] text-null-green align-middle">
+    <span className="inline-block rounded-sm border border-[rgba(0,255,136,0.4)] bg-[rgba(0,255,136,0.12)] px-1.5 py-0.5 font-mono text-[8px] font-bold uppercase tracking-[1px] text-null-green align-middle">
       {children}
     </span>
   )
