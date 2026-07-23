@@ -997,7 +997,11 @@ class Enemy {
     let scale = 1 + (depth-1)*0.14;
     let hpMul=1, dmgMul=1, xpMul=1, rMul=1, scMul=1;
     if(elite){ hpMul=2.3; dmgMul=1.45; xpMul=2.6; rMul=1.28; scMul=1.26; }
-    if(arch.isBossScale){ hpMul*=2.0; dmgMul*=1.4; rMul*=1.7; scMul*=1.85; }
+    // Boss visual + hitbox reduced ~40% (owner: "ukuran Boss terlalu besar").
+    // scMul is render scale (this._scaleMul), rMul the collision/target radius
+    // (this.r) — both dropped together so the smaller sprite still matches its
+    // hitbox. HP/DMG (stats) are untouched; only the size changed.
+    if(arch.isBossScale){ hpMul*=2.0; dmgMul*=1.4; rMul*=1.1; scMul*=1.1; }
     // Data-driven per-floor scaling (monster-config.js): Boss Floors 5/10/15/20
     // get fixed hp/dmg/xp multipliers, every other floor gets a compounding
     // +8%/floor. This STACKS on top of the elite/boss multipliers above, it

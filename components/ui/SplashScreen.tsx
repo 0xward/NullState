@@ -1,41 +1,51 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { usePathname } from 'next/navigation'
 
-// Boot splash (owner request): whenever the app is opened, show a deep-black
-// screen with the NULL STATE logo, a short play-to-earn jargon line, and a
-// smooth white loading bar for 2.5s — THEN reveal the page underneath.
+// Boot splash (owner request): the deep-black NULL STATE logo screen with a
+// play-to-earn line and a 2.5s white loading bar, shown ONLY at the very start.
 //
-// Lives in the root layout so it covers any entry route (landing, /game deep
-// link from MiniPay, etc.). It renders on top of {children}; the page loads
-// normally behind it and is simply revealed when the splash fades out. The
-// logo is a 39KB webp (public/brand/nullstate-logo.webp, compressed from the
-// 2.7MB source) and is centred with object-fit so it fits both a tall phone
-// and a wide desktop without distortion — the image's own dark background
-// blends into the black fill on every aspect ratio.
+// Two guards keep it to the very first open and nowhere else:
+//  1. ROUTE — it only ever renders on the landing ('/') and the game route
+//     ('/game'). Docs, Terms and Privacy structurally never render it, so
+//     navigating to those pages can NEVER flash the splash, regardless of
+//     caching or SSR. This is the real fix for "loading still shows on Terms/
+//     Privacy/Docs".
+//  2. SESSION — once shown, a sessionStorage flag suppresses it for the rest of
+//     the session, so Launch Game (/ -> /game full navigation) doesn't replay
+//     it. A tiny read-only script in the head (app/layout.tsx) also adds
+//     `ns-splash-seen` to <html> so CSS can hide it before first paint on that
+//     second load, avoiding even a one-frame flash.
+//
+// Logo: 39KB webp (public/brand/nullstate-logo.webp), centred with object-fit
+// so it fits a tall phone and a wide desktop; its dark backdrop blends to black.
 const HOLD_MS = 2500
 const FADE_MS = 500
+const SEEN_KEY = 'ns-splash-seen'
 
-// "Show once per session" is enforced BEFORE paint by an inline script in the
-// document head (see app/layout.tsx): on an already-seen session it adds
-// `ns-splash-seen` to <html>, and CSS instantly hides #ns-splash-root — so a
-// full-page navigation to /terms, /privacy or /game (Launch Game) never flashes
-// the splash. This component only handles the FIRST-load timing (fade out after
-// 2.5s). On a hidden (already-seen) load it still mounts but is display:none,
-// and just unmounts itself after the timer with nothing shown.
 export default function SplashScreen() {
+  const pathname = usePathname()
+  const onSplashRoute = pathname === '/' || pathname === '/game' || (pathname?.startsWith('/game/') ?? false)
   const [phase, setPhase] = useState<'show' | 'fading' | 'gone'>('show')
 
   useEffect(() => {
+    if (!onSplashRoute) { setPhase('gone'); return }
+    let seen = false
+    try {
+      seen = sessionStorage.getItem(SEEN_KEY) === '1'
+      sessionStorage.setItem(SEEN_KEY, '1')
+    } catch { /* storage blocked — just show it */ }
+    if (seen) { setPhase('gone'); return }
     const t1 = setTimeout(() => setPhase('fading'), HOLD_MS)
     const t2 = setTimeout(() => setPhase('gone'), HOLD_MS + FADE_MS)
     return () => {
       clearTimeout(t1)
       clearTimeout(t2)
     }
-  }, [])
+  }, [onSplashRoute])
 
-  if (phase === 'gone') return null
+  if (!onSplashRoute || phase === 'gone') return null
 
   return (
     <div
