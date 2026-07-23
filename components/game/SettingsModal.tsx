@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import { PlayerProfile } from '@/lib/contract'
 import { usernameSchema } from '@/lib/validation'
-import { useLiveStats } from './LiveStatsProvider'
 import { usePassSBT } from '@/hooks/usePassSBT'
 
 interface SessionStats {
@@ -58,19 +57,6 @@ export default function SettingsModal({
   const [usernameStatus, setUsernameStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const [usernameError, setUsernameError] = useState<string | null>(null)
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
-
-  // Item #10 fix (Option C): prefer the live engine numbers (announced by
-  // game.js on every HUD repaint — see lib/liveStatsBridge.ts) over the
-  // `playerProfile`/`sessionStats` props, which are Firestore snapshots that
-  // only refresh on death or explicit save. `liveStats` is non-null the
-  // entire time a run is mounted, so this is the common case; the props
-  // remain as a fallback for the brief window before the engine's first
-  // updateHUD() call has fired.
-  const liveStats = useLiveStats()
-  const displayLevel = liveStats?.level ?? playerProfile?.level
-  const displayXp = liveStats?.xp ?? playerProfile?.xp
-  const displayFloor = liveStats?.floor ?? sessionStats?.depth
-  const displayKills = liveStats?.kills ?? sessionStats?.kills
 
   // TASK #7 (owner request): the pass badge is NOT shown on the in-game HUD.
   // Instead a connected wallet that has minted the active-season pass sees a
@@ -132,33 +118,8 @@ export default function SettingsModal({
           </button>
         </div>
 
-        {/* Progress */}
-        <div className="ns-settings-section">
-          <div className="ns-settings-label">Progress</div>
-          <div className="ns-settings-progress-grid">
-            <div className="ns-settings-stat">
-              <span className="v">{displayLevel ?? '—'}</span>
-              <span className="k">Level</span>
-            </div>
-            <div className="ns-settings-stat">
-              <span className="v">{displayXp ?? '—'}</span>
-              <span className="k">XP</span>
-            </div>
-            <div className="ns-settings-stat">
-              <span className="v">{displayFloor ?? '—'}</span>
-              <span className="k">Floor</span>
-            </div>
-            <div className="ns-settings-stat">
-              <span className="v">{displayKills ?? '—'}</span>
-              <span className="k">Kills</span>
-            </div>
-          </div>
-          <p className="ns-settings-hint">
-            These numbers update live as you play — same figures the in-game HUD
-            shows. Your lifetime totals are saved to the leaderboard whenever you
-            save or your character dies.
-          </p>
-        </div>
+        {/* Progress panel removed (owner: it duplicates the in-game HUD, which
+            already shows Level / XP / Floor / Kills live). */}
 
         {/* Season Pass status (TASK #7) — shown here in Settings instead of on
             the HUD. A connected wallet that has minted the active season's pass

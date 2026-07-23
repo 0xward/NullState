@@ -13,7 +13,7 @@
   --null-amber: #ffaa00;
   --null-blue: #00aaff;
   --null-white: #d4ffe8;
-  --null-muted: #5f8873; /* was #2a4a35 — bumped for readable contrast (~5:1) */
+  --null-muted: #a0c9b4; /* was #5f8873 — bumped again (~9:1) for readable body/legal text on desktop (Susanne+Dan: docs low contrast) */
   --null-border: rgba(0,255,136,0.15);
   --null-glow: 0 0 20px rgba(0,255,136,0.3);
   --null-glow-strong: 0 0 40px rgba(0,255,136,0.5), 0 0 80px rgba(0,255,136,0.2);

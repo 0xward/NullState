@@ -37,16 +37,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" suppressHydrationWarning className={fontVariables}>
       <head>
         <meta name="color-scheme" content="dark" />
-        {/* Splash "show once per session" — decided BEFORE first paint so a
-            full-page navigation (Terms, Privacy, Launch Game→/game) never
-            flashes the splash. On an already-seen session we add a class that
-            CSS uses to hide #ns-splash-root instantly; otherwise we mark the
-            session seen and let the splash play on this first load. */}
+        {/* Pre-paint flash guard for the splash on a second full-page load
+            (Launch Game → /game): if this session already saw the splash, hide
+            #ns-splash-root before first paint. READ-ONLY — the SplashScreen
+            component owns setting the flag, so there's no race that would skip
+            the very first show. Route-level suppression (Terms/Privacy/Docs)
+            lives in the component itself. */}
         <style>{`html.ns-splash-seen #ns-splash-root{display:none!important}`}</style>
         <script
           dangerouslySetInnerHTML={{
             __html:
-              "try{if(sessionStorage.getItem('ns-splash-seen')==='1'){document.documentElement.classList.add('ns-splash-seen')}else{sessionStorage.setItem('ns-splash-seen','1')}}catch(e){}",
+              "try{if(sessionStorage.getItem('ns-splash-seen')==='1'){document.documentElement.classList.add('ns-splash-seen')}}catch(e){}",
           }}
         />
       </head>
