@@ -950,7 +950,9 @@ function applyLoot(kind,amt,x,y){
   else if(kind==='xp'){ const ups=p.gainXp(amt); lootText(x,y,'+'+amt+' XP','#4ad7ff');
     if(ups>0){ A.levelup(); log('◆ LEVEL UP → '+p.level,'reward'); spark(p.x,p.y-20,'#00ff88',24,200); } }
   else if(kind==='relic'){
-    G.inventory.relics = (G.inventory.relics||0) + amt;
+    // Owner: Relic + Null Shard aren't useful as stashed loot. Auto-consume a
+    // relic the moment it's picked up — apply its instant power buff and DON'T
+    // store it in the inventory (no clutter, no manual burning).
     applyRelicPower(amt, x, y);
   }
   else if(kind==='goldkey'){
@@ -1018,7 +1020,8 @@ function addItemToStash(item, qty){
 }
 function applyRelicPower(amt,x,y){
   const p=G.player;
-  const roll=(G.inventory.relics + G.depth + p.level) % 4;
+  // Relics are no longer stored, so the roll seed can't use the relic count.
+  const roll=(G.depth + p.level + p.kills) % 4;
   if(roll===0){ p.atkDmg += 2*amt; lootText(x,y,'RELIC: +DMG','#ffdf8a'); }
   else if(roll===1){
     // VITALITY used to permanently add +maxHp with no cap — that's exactly
@@ -1034,7 +1037,8 @@ function applyRelicPower(amt,x,y){
     }
   }
   else if(roll===2){ p.speed += 2.5*amt; lootText(x,y,'RELIC: +SPEED','#8ad8ff'); }
-  else { G.inventory.shards=(G.inventory.shards||0)+amt; lootText(x,y,'RELIC: +NULL SHARD','#d88cff'); }
+  else { const ups=p.gainXp(8*amt); lootText(x,y,'RELIC: +BONUS XP','#d88cff');
+    if(ups>0){ A.levelup(); log('◆ LEVEL UP → '+p.level,'reward'); spark(p.x,p.y-20,'#00ff88',24,200); } }
   spark(p.x,p.y-18,'#d88cff',24,180);
   log('◆ Relic absorbed — your Walker mutates.', 'reward');
 }
@@ -3450,11 +3454,9 @@ function renderStashPanel(targetId, emptyId, opts){
   host.querySelectorAll('.equip-row,.equip-slotline').forEach(n=>n.remove());
   host.querySelectorAll('.inv-item').forEach(n=>n.remove());
   const keyCount = G.inventory.keys||0;
-  const relicCount = G.inventory.relics||0;
-  const shardCount = G.inventory.shards||0;
   const paperCount = G.inventory.paper||0;
   const itemEntries = Object.values(G.inventory.items||{});
-  const anything = keyCount+relicCount+shardCount+paperCount+itemEntries.length>0;
+  const anything = keyCount+paperCount+itemEntries.length>0;
   // The grid itself is always shown as a fixed 5x5 (25-slot) layout, filled
   // out with empty placeholder cells — see fillGridPlaceholders(). The
   // "nothing here yet" text is redundant with a visibly empty grid, so it
@@ -3471,15 +3473,19 @@ function renderStashPanel(targetId, emptyId, opts){
     const row=document.createElement('div');
     row.className='inv-item'+(special?' inv-item-special':'');
     row.dataset.id=id;
-    row.innerHTML=`<img class="inv-item-icon" src="${iconSrc}" alt="${name}" draggable="false"><span class="inv-item-name">${name}</span><span class="inv-item-count">×${count}</span>`;
+    // NO ×N badge — Golden Key / Old Paper are unique vault items (max one),
+    // not stackable loot (owner). Distinct .inv-item-special background marks
+    // them as special.
+    row.innerHTML=`<img class="inv-item-icon" src="${iconSrc}" alt="${name}" draggable="false"><span class="inv-item-name">${name}</span>`;
     host.appendChild(row);
     rowCount++;
     return row;
   };
-  const keyRow   = addRow('goldkey','/sprites/items/golden_key.png','Golden Key', opts.filter==='food'?0:keyCount,  true);
-  const relicRow = addRow('relic','/sprites/items/relic.png',        'Relic',      opts.filter==='food'?0:relicCount,true);
-  const shardRow = addRow('shard','/sprites/items/shard.png',        'Null Shard', opts.filter==='food'?0:shardCount,true);
-  const paperRow = addRow('paper','/sprites/items/paper.png',        'Old Paper',  opts.filter==='food'?0:paperCount,true);
+  // Golden Key + Old Paper are the special vault items — always FIRST in the
+  // list, no count badge, distinct background. Relic + Null Shard are no longer
+  // stored (auto-consumed on pickup, see applyLoot), so they're gone from here.
+  const keyRow   = addRow('goldkey','/sprites/items/golden_key.png','Golden Key', opts.filter==='food'?0:keyCount, true);
+  const paperRow = addRow('paper','/sprites/items/paper.png',        'Old Paper',  opts.filter==='food'?0:paperCount, true);
   // Issue 1 fix: ALL FOUR special items open the zoom overlay on tap, not
   // just Old Paper.  Paper keeps its existing 'paper-code' mode (live vault
   // code fetch).  Golden Key / Relic / Null Shard use the new 'special-item'
@@ -3488,8 +3494,6 @@ function renderStashPanel(targetId, emptyId, opts){
   // remains interaction-free.
   if(!opts.readonly){
     if(keyRow)   keyRow.addEventListener(  'click',()=>openItemZoom({mode:'special-item',kind:'goldkey', count:keyCount}));
-    if(relicRow) relicRow.addEventListener('click',()=>openItemZoom({mode:'special-item',kind:'relic',   count:relicCount}));
-    if(shardRow) shardRow.addEventListener('click',()=>openItemZoom({mode:'special-item',kind:'shard',   count:shardCount}));
     if(paperRow) paperRow.addEventListener('click',()=>openItemZoom({mode:'paper-code'}));
   }
   for(const entry of itemEntries){
