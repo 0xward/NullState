@@ -177,20 +177,10 @@ export default function GameFlowManager() {
     setPhase(playerProfile?.isRegistered ? 'game' : 'username-setup')
   }
 
-  // Post-completion modes (unlocked once the campaign is finished — the menu
-  // only shows these buttons then). Both start a FRESH run (isNewRun) so no
-  // saved bunker is resumed; the engine reads startMode to pick New Game+
-  // (Null Cycles) or The Null Abyss.
-  const handleNewGamePlus = () => {
-    setStartMode('cycle')
-    setIsNewRun(true)
-    setPhase('game')
-  }
-  const handleAbyss = () => {
-    setStartMode('abyss')
-    setIsNewRun(true)
-    setPhase('game')
-  }
+  // New Game+ and The Null Abyss are NOT menu entries — they unlock and are
+  // entered from INSIDE the game (the post-campaign title screen the engine
+  // shows via returnToTitleScreen once PROTOCOL ZERO is reached). The Main
+  // Menu stays focused on New Game / Continue.
 
   const handleNewGame = async () => {
     if (!address) {
@@ -324,8 +314,6 @@ export default function GameFlowManager() {
         <MainMenu
           onContinueGame={handleContinueGame}
           onNewGame={handleNewGame}
-          onNewGamePlus={handleNewGamePlus}
-          onAbyss={handleAbyss}
           onLeaderboard={handleLeaderboardClick}
           onRewards={handleRewardsClick}
           onReferral={handleReferralClick}

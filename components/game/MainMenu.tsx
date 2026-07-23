@@ -1,6 +1,5 @@
 'use client'
 
-import { useState, useEffect } from 'react'
 import { useWallet } from '@/lib/WalletProvider'
 import { maskAddress } from '@/lib/addressMask'
 import { PlayerProfile } from '@/lib/contract'
@@ -8,8 +7,6 @@ import { PlayerProfile } from '@/lib/contract'
 interface MainMenuProps {
   onContinueGame: (profile: PlayerProfile) => void
   onNewGame: () => void
-  onNewGamePlus: () => void
-  onAbyss: () => void
   onLeaderboard: () => void
   onRewards: () => void
   onReferral: () => void
@@ -63,8 +60,6 @@ function MenuItem({
 export default function MainMenu({
   onContinueGame,
   onNewGame,
-  onNewGamePlus,
-  onAbyss,
   onLeaderboard,
   onRewards,
   onReferral,
@@ -80,23 +75,8 @@ export default function MainMenu({
   // falls back to a generated guest id, PR #43) shows "Guest Mode" instead of
   // that raw guest id, so we never present a fake "connected wallet".
   // `realAddress` is null for guests.
-  const { realAddress, address } = useWallet()
+  const { realAddress } = useWallet()
   const hasSave = !!playerProfile?.isRegistered
-
-  // Post-completion modes (New Game+ / The Null Abyss) live here now — the
-  // canvas title screen is skipped on entry (owner request). They only appear
-  // once this wallet has finished the campaign (PROTOCOL ZERO), matching the
-  // same per-wallet localStorage flag game.js writes in showCampaignEpilogue().
-  // Read client-side in an effect to avoid an SSR hydration mismatch.
-  const [campaignDone, setCampaignDone] = useState(false)
-  useEffect(() => {
-    try {
-      const key = `nullstate-protocolzero-${(address || 'guest').toLowerCase()}`
-      setCampaignDone(localStorage.getItem(key) === '1')
-    } catch {
-      setCampaignDone(false)
-    }
-  }, [address])
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col items-center overflow-y-auto ns-fade-in">
@@ -166,8 +146,6 @@ export default function MainMenu({
             onClick={hasSave ? () => onContinueGame(playerProfile!) : undefined}
           />
           <MenuItem label="New Game" primary={!hasSave} onClick={onNewGame} />
-          {campaignDone && <MenuItem label="New Game+" onClick={onNewGamePlus} />}
-          {campaignDone && <MenuItem label="The Null Abyss" onClick={onAbyss} />}
           <MenuItem label="Marketplace" onClick={onMarketplace} />
           <MenuItem label="Crafting" onClick={onCrafting} />
           <MenuItem label="Leaderboard" onClick={onLeaderboard} />
