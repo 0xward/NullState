@@ -57,7 +57,7 @@ Each item has a hidden burn value (random within its rarity range):
 | Epic | 150 - 350 | ✅ YES |
 | Legendary | 350 - 500 | ✅ YES |
 
-> Burn values are **NullState Point** (off-chain, faucet-only in-game currency — spendable on Marketplace "Swap" purchases, not withdrawable/real money), not USDm. See `docs/rewards-system.md` and `public/game-engine/items.js` for the source of truth.
+> Burn values are **NullState Point** (off-chain, faucet-only in-game currency — spendable on Marketplace "Swap" purchases, not withdrawable/real money), not USDT. See `docs/rewards-system.md` and `public/game-engine/items.js` for the source of truth.
 
 **Special Items:**
 - 📄 **Paper (Epic)** - Cannot burn, contains vault code
@@ -112,7 +112,7 @@ You can close anytime and return exactly where you left off. Your game is persis
 Your profile tracks:
 
 - **Total Items Collected** (lifetime)
-- **Total USDm Earned** (from Vault Quest + Season bonuses)
+- **Total USDT Earned** (from Vault Quest + Season bonuses)
 - **NullState Point Balance** (from burning items — spendable on Marketplace gear)
 - **Enemies Killed** (combat metric)
 - **Days Active** (loyalty metric)

@@ -27,7 +27,7 @@ export default function RoadmapSection() {
   const phases = [
     {
       phase: 'PHASE 01', timing: 'LIVE', title: 'Genesis', active: true,
-      items: ['Real-time dungeon engine', 'MiniPay native wallet', 'Marketplace (USDm / USDC / USDT)', 'Golden Key & Treasure Vault Quest', 'Season Pass system', 'Monthly leaderboard'],
+      items: ['Real-time dungeon engine', 'MiniPay native wallet', 'Marketplace (USDM / USDC / USDT)', 'Golden Key & Treasure Vault Quest', 'Season Pass system', 'Monthly leaderboard'],
     },
     {
       phase: 'PHASE 02', timing: 'PLANNED', title: 'Expansion', active: false,

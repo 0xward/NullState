@@ -244,7 +244,16 @@ class Decor {
     // actual grant, so widening eligibility only helps the player FIND
     // that one drop sooner — it can never over-grant.
     const VAULT_CONTAINERS = ['wardrobe','chest','safe','footlocker','dresser','cabinet_ornate','shelf_stocked'];
-    const isVaultContainer = VAULT_CONTAINERS.includes(this.type);
+    // Owner (hard rule): Old Paper / Golden Key must NEVER land inside an
+    // evolution-locked container ("jangan sampe ada di Berangkas yg di kunci
+    // dan butuh evolution weapon"). Sealed/premium caches (cache_grapple,
+    // cache_melt, premium_cache) already live under their own decor types and
+    // route through grantCacheLoot() — they never even call rollLootSlots for
+    // a container window — but guard explicitly so a future edit that adds a
+    // cache type to VAULT_CONTAINERS can't silently strand the weekly Paper
+    // behind a Grapple/Wall-Melt gate.
+    const isVaultContainer = VAULT_CONTAINERS.includes(this.type)
+      && !this.def.isSealedCache && !this.def.isPremiumCache && !this.def.isVaultDoor;
     if(isVaultContainer && window.NS_GOLDKEY && window.NS_GOLDKEY.remaining()>0 && Math.random()<0.16){
       if(window.NS_GOLDKEY.take()){
         slots.push({slotId:'s'+n, kind:'goldkey', amt:1, taken:false});

@@ -71,7 +71,7 @@ export default function TermsPage() {
                 season competitions. Movement, combat, looting, and NULL_STRIKE are all free and
                 off-chain; only specific optional actions — such as Marketplace purchases and
                 Season Pass minting — are executed as signed transactions on Celo mainnet. Weekly
-                Treasure Vault and seasonal Leaderboard stablecoin rewards are paid out to your
+                Treasure Vault and seasonal Leaderboard USDT rewards are paid out to your
                 wallet by 1892 Studio when earned.
               </p>
               <p>
@@ -83,7 +83,7 @@ export default function TermsPage() {
                 <strong className="text-null-white">Guest Play:</strong>{' '}
                 Outside of MiniPay you may play without connecting a wallet. In this &ldquo;guest&rdquo;
                 mode, progress is stored locally on your device (browser localStorage). Guest play
-                cannot receive stablecoin rewards. When you later connect a wallet, your guest
+                cannot receive USDT rewards. When you later connect a wallet, your guest
                 progress is migrated onto that wallet account on a best-effort basis. Clearing your
                 browser storage before connecting may permanently erase un-migrated guest progress.
               </p>
@@ -93,7 +93,7 @@ export default function TermsPage() {
                 looted items. It is <strong className="text-null-white">not</strong> a
                 cryptocurrency, security, or money: it has no cash value, cannot be withdrawn,
                 transferred, traded, or exchanged for stablecoins, and exists only to be spent on
-                non-premium Marketplace gear inside the Game. Real stablecoin rewards come only from
+                non-premium Marketplace gear inside the Game. Real USDT rewards come only from
                 the weekly Treasure Vault, the seasonal Leaderboard, and Season Pass reward tracks.
               </p>
             </div>
@@ -179,7 +179,7 @@ export default function TermsPage() {
               </p>
               <p>
                 <strong className="text-null-white">Digital Asset Volatility:</strong>{' '}
-                CELO and USDm values can fluctuate significantly. In-game rewards have no
+                CELO and USDM values can fluctuate significantly. In-game rewards have no
                 guaranteed monetary value. You participate at your own financial risk.
               </p>
               <p>
@@ -210,11 +210,11 @@ export default function TermsPage() {
               </p>
               <p>
                 <strong className="text-null-white">Stablecoin Moneyflow Risk:</strong>{' '}
-                The Game uses digital stablecoins including but not limited to USDm, USDT,
+                The Game uses digital stablecoins including but not limited to USDM, USDT,
                 and USDC for in-game transactions, rewards, and moneyflows. 1892 Studio does not
                 control the issuance, backing, liquidity, or stability of these third-party
                 tokens and is not liable for losses arising from de-pegging, smart contract
-                failure, freeze functions, or collapse of USDm, USDT, or USDC.
+                failure, freeze functions, or collapse of USDM, USDT, or USDC.
               </p>
               <p>
                 <strong className="text-null-white">MiniPay Integration &amp; Non-Custodial Status:</strong>{' '}
@@ -237,7 +237,7 @@ export default function TermsPage() {
               <ul className="flex flex-col gap-2 font-mono text-sm">
                 {[
                   'Use cheat scripts, macros, bots, hacks, mods, or unauthorized third-party software to interact with the Service.',
-                  'Exploit, abuse, or share bugs, glitches, or vulnerabilities to gain unfair gameplay advantages or unauthorized economic rewards (including USDm, USDT, or USDC distributions).',
+                  'Exploit, abuse, or share bugs, glitches, or vulnerabilities to gain unfair gameplay advantages or unauthorized economic rewards (including USDM, USDT, or USDC distributions).',
                   'Reverse-engineer, decompile, disassemble, scrape, or tamper with frontend code, client scripts, APIs, or proprietary game data beyond permissions granted by applicable licences.',
                   'Conduct Sybil attacks, malicious multi-account behavior, or automated manipulation of leaderboards, rewards, or airdrops.',
                   'Bypass the frontend to maliciously interact with deployed smart contracts, including any flash loan, reentrancy, or math-bug exploitation.',

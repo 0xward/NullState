@@ -12,7 +12,7 @@
 
 NULL_STATE is a pixel-art dungeon crawler that runs directly in the browser — no installs, no app store. Take up the Knight's armor, descend into a procedurally generated bunker, fight your way through Orc and Skeleton crews, and ride the lift between floors as you push deeper into the depths.
 
-Playing, looting, and the **NULL_STRIKE** ultimate are all free — no wallet transaction required; NULL_STRIKE is gated by a short cooldown, not a fee. Weapons and armor can be bought on the in-game Marketplace with USDm/USDC/USDT, or swapped for using **NullState Point** — an off-chain, faucet-only currency earned by burning items (not real money, not withdrawable). Payments default to whichever stablecoin your wallet holds the most of.
+Playing, looting, and the **NULL_STRIKE** ultimate are all free — no wallet transaction required; NULL_STRIKE is gated by a short cooldown, not a fee. Weapons and armor can be bought on the in-game Marketplace with USDM/USDC/USDT, or swapped for using **NullState Point** — an off-chain, faucet-only currency earned by burning items (not real money, not withdrawable). Payments default to whichever stablecoin your wallet holds the most of.
 
 ---
 
@@ -24,7 +24,7 @@ Playing, looting, and the **NULL_STRIKE** ultimate are all free — no wallet tr
 - **The Lift** — replaces simple staircases. Approach it to open a floor-select menu: revisit any floor you've already cleared, or push forward to the next one (locked until every hostile on the current floor — including elites and the floor boss — is dead).
 - **The Golden Key** — a rare drop from interactive containers (Rotten Armoire, Lost Cache), capped at 1 per wallet per week and server-enforced. Combine it with a weekly Paper drop to attempt the Treasure Vault Quest in Bunker 5.
 - **Inventory panel** — three-tab wooden-theme UI (LOOT / FOOD / GEAR) with equip, eat, and sell actions.
-- **Marketplace** — buy weapons and armor with USDm, USDC, or USDT via on-chain ERC-20 transfer. Ownership is verified server-side and stored in Firebase.
+- **Marketplace** — buy weapons and armor with USDM, USDC, or USDT via on-chain ERC-20 transfer. Ownership is verified server-side and stored in Firebase.
 - **Permadeath, softened** — dying drops you back at the floor you died on with full HP, rather than sending you back to floor 1. Progress on floors you've already cleared is preserved.
 - **NULL_STRIKE** — a free ultimate attack (short cooldown, no fee) you can trigger against elites, bosses, or when your HP runs critically low.
 - **Floor scaling** — monsters grow stronger every floor (+8% HP & damage per tier by default, configurable in `monster-config.js`). Boss floors (every 5th floor) have hardcoded overrides for dramatic difficulty spikes.
@@ -38,12 +38,12 @@ The game runs on stablecoins + an in-game point — **no speculative token**. Th
 | Cadence | You do | You get |
 |---|---|---|
 | **Every run** | Play, loot, burn gear you don't need | **NullState Point** — in-game, faucet-only, *not* withdrawable; spend it to *Swap* for non-premium Marketplace gear |
-| **Every week** | Find the Golden Key + Code Paper, solve the Treasure Vault code | **Stablecoin** (USDm/USDC/USDT) |
-| **Every season** | Rank on the Leaderboard; hold a Season Pass | **Stablecoin** — top-3 prize pool + Season Pass reward track |
+| **Every week** | Find the Golden Key + Code Paper, solve the Treasure Vault code | **USDT** |
+| **Every season** | Rank on the Leaderboard; hold a Season Pass | **USDT** — top-3 prize pool + Season Pass reward track |
 
 - **Progression** — 5 bunkers × 5 floors = 25 depths. Gear, weapon tiers, and Point carry across runs; deeper acts drop higher-tier crafting shards.
-- **Guest mode** — outside MiniPay you can play with no wallet; progress is kept in `localStorage` and migrated onto your wallet the first time you connect one. Stablecoin claims require a wallet.
-- **Flexible stablecoin** — payments and gas default to whichever of USDm/USDC/USDT the wallet holds the most of (fee-abstraction), with a manual override.
+- **Guest mode** — outside MiniPay you can play with no wallet; progress is kept in `localStorage` and migrated onto your wallet the first time you connect one. USDT reward claims require a wallet.
+- **Flexible stablecoin** — payments and gas default to whichever of USDM/USDC/USDT the wallet holds the most of (fee-abstraction), with a manual override.
 - **Reward pool** — stablecoin reward pools are funded by 1892 Studio, seeded manually at launch, with the intent to route a share (~20%) of Marketplace/gear revenue back to players over time.
 
 ---
@@ -56,7 +56,7 @@ The game runs on stablecoins + an in-game point — **no speculative token**. Th
 | Game engine | Vanilla JS / Canvas2D, mounted into a React component (no game-framework dependency) |
 | Styling | Tailwind CSS + custom wooden-theme CSS |
 | Web3 | [wagmi](https://wagmi.sh) + [viem](https://viem.sh) (injected connector only — RainbowKit removed), targeting Celo Mainnet |
-| Tokens | Mento USDm / USDC / USDT (ERC-20, 6- and 18-decimal aware) |
+| Tokens | Mento USDM / USDC / USDT (ERC-20, 6- and 18-decimal aware) |
 | Database | Firebase — Realtime DB (player profiles, marketplace ownership, materials) + Firestore (usernames, bunker saves, leaderboard) |
 | Contracts | Solidity, deployed with Foundry |
 
@@ -67,7 +67,7 @@ The game runs on stablecoins + an in-game point — **no speculative token**. Th
 | | |
 |---|---|
 | **Network** | Celo Mainnet (Chain ID `42220`) |
-| **Tokens** | USDm (Mento), USDC, USDT — ERC-20 transfers via `buyMarketplaceItem()` |
+| **Tokens** | USDM (Mento), USDC, USDT — ERC-20 transfers via `buyMarketplaceItem()` |
 | **Wallet support** | Injected wallets only — MiniPay (auto-connects on launch) and MetaMask browser extension. WalletConnect/Coinbase Wallet/Rainbow are not integrated (WalletConnect relay was removed; see `docs/network-manifest.md`). |
 | **Verification** | `POST /api/marketplace/verify` validates on-chain transfer, prevents replay, records ownership |
 

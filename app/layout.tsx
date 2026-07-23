@@ -10,12 +10,12 @@ import SplashScreen from '@/components/ui/SplashScreen'
 
 export const metadata: Metadata = {
   title: 'NULL_STATE // Web3 RPG on Celo',
-  description: 'A real-time dungeon crawler on Celo. Descend the Forsaken Depths, unleash free NULL_STRIKEs, and survive. Permadeath is softened — die and respawn on the same floor. Earn stablecoin rewards, playable right inside MiniPay.',
+  description: 'A real-time dungeon crawler on Celo. Descend the Forsaken Depths, unleash free NULL_STRIKEs, and survive. Permadeath is softened — die and respawn on the same floor. Earn real USDT rewards, playable right inside MiniPay.',
   keywords: ['Celo', 'Web3', 'RPG', 'MiniPay', 'blockchain game'],
   authors: [{ name: '0xward' }],
   openGraph: {
     title: 'NULL_STATE // Web3 RPG on Celo',
-    description: 'A real-time dungeon crawler on Celo. Play free, loot free — NULL_STRIKE is free too. Earn stablecoin rewards on MiniPay.',
+    description: 'A real-time dungeon crawler on Celo. Play free, loot free — NULL_STRIKE is free too. Earn real USDT rewards on MiniPay.',
     type: 'website',
   },
   twitter: {

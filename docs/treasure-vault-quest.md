@@ -54,7 +54,7 @@ To unlock the vault, you need:
 - **Wrong attempts lock you until next week**
 
 ### Step 5: Claim Reward
-- **Correct code** → **1 USDm transferred to your wallet**
+- **Correct code** → **1 USDT transferred to your wallet**
 - Can claim once per week
 - Next week: New code, new quest
 
@@ -76,7 +76,7 @@ To unlock the vault, you need:
 
 ### Multiple Claims
 - **1 claim per user per week** (Monday 00:00 UTC resets)
-- Earn up to **5 USDm/month from vault alone**
+- Earn up to **5 USDT/month from vault alone**
 - Extra income on top of burn rewards
 
 ---
@@ -95,12 +95,12 @@ To unlock the vault, you need:
 
 | Outcome | Reward | Details |
 |---------|--------|----------|
-| Correct Code | 1 USDm | Instant, 1x/week |
-| Wrong Code | 0 USDm | Attempt used, try again |
+| Correct Code | 1 USDT | Instant, 1x/week |
+| Wrong Code | 0 USDT | Attempt used, try again |
 | Max Attempts | Locked | Try next week |
-| **Monthly Total** | **~5 USDm** | 4-5 correct codes |
+| **Monthly Total** | **~5 USDT** | 4-5 correct codes |
 
-*Reward amount is read live from the TreasureVaultV2 contract's `vaultReward` (owner-adjustable) — 1 USDm is the value it currently ships with, not a value hardcoded into the game client.*
+*Reward amount is read live from the TreasureVaultV2 contract's `vaultReward` (owner-adjustable) — 1 USDT is the value it currently ships with, not a value hardcoded into the game client.*
 
 ---
 

@@ -20,7 +20,7 @@ files.
 | `pbs.twimg.com` | Twitter/X user avatar images | `next.config.js` (`images.domains`) | No (social feature) |
 | `abs.twimg.com` | Twitter/X media images | `next.config.js` (`images.domains`) | No (social feature) |
 | `twitter.com` | Twitter/X share-intent links and profile links (outbound links only, no fetch) | `lib/utils.ts`, `components/ui/Footer.tsx` | No (social feature) |
-| `token-logos-static.s3.amazonaws.com` | USDm token logo image | `lib/tokens.ts`, `components/game/GameFullUI.tsx`, `.env.example` | Yes |
+| `token-logos-static.s3.amazonaws.com` | USDM token logo image | `lib/tokens.ts`, `components/game/GameFullUI.tsx`, `.env.example` | Yes |
 | `firestore.googleapis.com` | Firebase Firestore — player data, leaderboard, game state persistence | `lib/firebase.ts` | Yes |
 | `identitytoolkit.googleapis.com` | Firebase Authentication REST API | Firebase SDK (client-side) | Yes |
 | `securetoken.googleapis.com` | Firebase Auth token exchange | Firebase SDK (client-side) | Yes |

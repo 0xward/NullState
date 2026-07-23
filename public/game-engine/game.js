@@ -1525,6 +1525,10 @@ function showLoadingTransition(onDark, onDone, loadingText){
   el.style.opacity = '0';
   requestAnimationFrame(()=>{
     el.style.opacity = '1';
+    // Owner: "masuk ke bungker lama bgt, kaya gelap" — the transition spent
+    // ~2.2s (420 fade-out + 1400 dark hold + 420 fade-in), most of it staring
+    // at a black screen. Tightened so the swap is still fully hidden but the
+    // dark stretch is roughly halved.
     const t1 = setTimeout(()=>{
       try{
         onDark();
@@ -1539,11 +1543,11 @@ function showLoadingTransition(onDark, onDone, loadingText){
           el.classList.add('hidden');
           _fadeActive = false;
           if(onDone) onDone();
-        }, 420);
+        }, 280);
         _fadeTimers.push(t3);
-      }, loadingText ? 1400 : 260);
+      }, loadingText ? 650 : 200);
       _fadeTimers.push(t2);
-    }, 420);
+    }, 300);
     _fadeTimers.push(t1);
   });
 }

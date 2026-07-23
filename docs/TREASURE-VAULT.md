@@ -79,13 +79,20 @@ Path: **`vaultCodes/{weekId}`**, value shape:
 Contract: **`TreasureVaultV2.sol`**, function **`setVaultReward(uint256 _newReward)`**
 (`onlyOwner`).
 
-- Units are **wei of the current reward token**. For an 18-decimal token
-  (USDm/USDT/USDC on Celo), `1e18` = 1 token. Default is `1e18` = **1 USDm**.
-  - 5 USDm → `setVaultReward(5000000000000000000)` (`5e18`).
-  - 0.5 USDm → `setVaultReward(500000000000000000)` (`5e17`).
+- Units are **smallest-units of the current reward token, and the token's
+  decimals DIFFER**: USDM & CELO are **18-decimal** (1 token = `1e18`), but
+  **USDT and USDC are 6-decimal** (1 token = `1e6`). Always match the amount
+  to whatever `currentRewardToken` is set to — passing an 18-decimal amount
+  for a 6-decimal token overpays by a factor of a trillion.
+  - The game pays rewards in **USDT** (6-decimal), so with USDT selected:
+    - 1 USDT → `setVaultReward(1000000)` (`1e6`).
+    - 5 USDT → `setVaultReward(5000000)` (`5e6`).
+    - 0.5 USDT → `setVaultReward(500000)` (`5e5`).
+  - If you ever switch the reward token to USDM (18-decimal): 1 USDM → `1e18`.
 - Related owner-only knobs on the same contract:
   - `setRewardToken(addr)` — pick which supported token pays out
-    (`currentRewardToken`; must be one of USDm/USDT/USDC/CELO).
+    (`currentRewardToken`; must be one of USDM/USDT/USDC/CELO). The game
+    default is **USDT**.
   - `depositVaultPool(token, amount)` — **fund the pool** the payouts come
     from. If the pool is empty, a correct code can't be paid.
   - `withdrawVaultPool(token, amount)` — pull unused funds back out.
@@ -111,7 +118,7 @@ unless that wallet is the owner. It reads `owner()` on-chain first and
 refuses to send if your key isn't the owner (fails safe, no wasted gas).
 
 **Why a CLI and not raw Celoscan:** USDT/USDC on Celo are **6-decimal**,
-USDm is 18. Passing `--amount 10` means **$10** and the script scales to the
+USDM is 18. Passing `--amount 10` means **$10** and the script scales to the
 right base units, so you can't accidentally send `1e18` USDT ($1 trillion).
 It also warns if `vaultReward` was left in 18-decimal format while the
 payout token is 6-decimal.
@@ -146,8 +153,8 @@ CELO), `--dry-run` (simulate, no send), `--yes` (skip the confirm prompt),
 --token USDT --amount <n>` pulls unclaimed funds back out.
 
 > Accounting note: the vault tracks one `totalVaultPoolDeposited` counter,
-> not per-token. If you ever deposited USDm then switched to USDT, withdraw
-> the old USDm first so the counter reflects the token you actually pay in.
+> not per-token. If you ever deposited USDM then switched to USDT, withdraw
+> the old USDM first so the counter reflects the token you actually pay in.
 
 ## Season bonus — fixed via `NullStateRewardV3` (redeploy)
 

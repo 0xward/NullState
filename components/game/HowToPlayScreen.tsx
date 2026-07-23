@@ -16,6 +16,16 @@ interface HowToPlayScreenProps {
   onBack: () => void
 }
 
+// The five story bunkers, in order — names mirror CAMPAIGN[].title in
+// public/game-engine/story_campaign.js. Each is one Act (5 floors).
+const BUNKERS: { name: string; biome: string }[] = [
+  { name: 'The Treeline Bunker', biome: 'Forest' },
+  { name: 'The Sunken Field', biome: 'Sunken ruins' },
+  { name: 'The Frostline Bunker', biome: 'Ice' },
+  { name: 'The Hollow Market', biome: 'Dead market' },
+  { name: 'The Last Light', biome: 'Finale' },
+]
+
 // Small pill marking whether a reward is real money or an in-game token.
 function Tag({ kind }: { kind: 'stablecoin' | 'point' }) {
   const isCoin = kind === 'stablecoin'
@@ -27,7 +37,7 @@ function Tag({ kind }: { kind: 'stablecoin' | 'point' }) {
           : 'bg-[rgba(255,190,11,0.12)] text-null-amber border border-[rgba(255,190,11,0.35)]'
       }`}
     >
-      {isCoin ? 'STABLECOIN' : 'POINT'}
+      {isCoin ? 'USDT' : 'POINT'}
     </span>
   )
 }
@@ -87,7 +97,7 @@ export default function HowToPlayScreen({ onBack }: HowToPlayScreenProps) {
 
         {/* Legend */}
         <div className="mb-6 flex flex-wrap items-center gap-x-5 gap-y-2 rounded-md border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)] px-4 py-3 font-mono text-[11px] text-null-muted">
-          <span className="flex items-center gap-2"><Tag kind="stablecoin" /> real money (USDm/USDC/USDT) — withdrawable</span>
+          <span className="flex items-center gap-2"><Tag kind="stablecoin" /> real USDT reward — withdrawable to your wallet</span>
           <span className="flex items-center gap-2"><Tag kind="point" /> NullState Point — in-game only, not cashable</span>
         </div>
 
@@ -131,17 +141,20 @@ export default function HowToPlayScreen({ onBack }: HowToPlayScreenProps) {
               <span className="font-mono text-[11px] uppercase tracking-[2px] text-null-muted">bunkers × floors = total depths</span>
             </div>
 
-            {/* 5 bunkers, 5 floors each */}
-            <div className="flex flex-col gap-2 mb-5">
-              {[1, 2, 3, 4, 5].map(b => (
-                <div key={b} className="flex items-center gap-2">
-                  <span className="font-mono text-[10px] text-null-muted w-16 shrink-0">BUNKER {b}</span>
+            {/* 5 bunkers, 5 floors each — with the story name of each Act */}
+            <div className="flex flex-col gap-2.5 mb-5">
+              {BUNKERS.map((bk, bi) => (
+                <div key={bk.name} className="flex items-center gap-3">
+                  <div className="flex items-baseline gap-2 w-[168px] shrink-0">
+                    <span className="font-mono text-[10px] text-null-green shrink-0">B{bi + 1}</span>
+                    <span className="font-mono text-[11px] text-null-white leading-tight">{bk.name}</span>
+                  </div>
                   <div className="flex gap-1.5">
                     {[1, 2, 3, 4, 5].map(f => (
                       <span
                         key={f}
                         className="inline-block h-4 w-4 rounded-[2px] border border-[rgba(0,255,136,0.35)] bg-[rgba(0,255,136,0.08)]"
-                        title={`Bunker ${b} · Floor ${f}`}
+                        title={`${bk.name} · Floor ${f} · ${bk.biome}`}
                       />
                     ))}
                   </div>
@@ -160,6 +173,61 @@ export default function HowToPlayScreen({ onBack }: HowToPlayScreenProps) {
               <p>• The Vault code resets weekly and the Leaderboard resets each season — fresh <Tag kind="stablecoin" /> to chase on a timer.</p>
               <p>• Finish all 5 Acts to unlock <span className="text-null-white">New Game+</span> — replay the campaign at a higher Cycle: enemies hit +35% harder per Cycle and shards drop +25% richer.</p>
               <p>• …and <span className="text-null-white">THE NULL ABYSS</span> — an endless descent below Bunker 5. Your deepest floor is your season rank (top 3 split the <Tag kind="stablecoin" /> bonus), the deep floors drop the best shards, and death ends the dive.</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Weapon evolution */}
+        <div className="mb-8">
+          <div className="font-mono text-[10px] tracking-[4px] uppercase text-null-amber mb-3">// WEAPON EVOLUTION</div>
+          <div className="rounded-md border border-[rgba(255,190,11,0.2)] bg-[rgba(255,190,11,0.03)] p-4 sm:p-6">
+            <div className="flex flex-col gap-2.5 text-[13px] leading-relaxed text-null-muted">
+              <p>
+                Every weapon starts at <span className="text-null-white">Tier 1</span> and can be evolved with
+                <span className="text-null-white"> Glitch Shards</span> (crafting material dropped by elites, caches and
+                deeper floors). Each step costs matching-tier shards and adds <span className="text-null-white">+20% attack</span>{' '}
+                plus a hotter glow — no stat is ever paid for with real money.
+              </p>
+              <p>
+                Push a weapon to its <span className="text-null-white">MAX tier</span> and it awakens a
+                <span className="text-null-white"> traversal power</span>:
+              </p>
+              <ul className="flex flex-col gap-1.5 pl-1">
+                <li>
+                  • <span className="text-null-acid font-semibold">Grapple</span> — Void Katana &amp; Sunfire Bow. Opens a
+                  <span className="text-null-white"> Chasm Cache</span>.
+                </li>
+                <li>
+                  • <span className="text-null-acid font-semibold">Wall-Melt</span> — Verdant Reaper &amp; Ancient Blade. Opens a
+                  <span className="text-null-white"> Frozen Cache</span>.
+                </li>
+              </ul>
+              <p>
+                Those sealed caches stay shut until you carry the matching maxed weapon — they hold the richest shard hauls,
+                so evolution literally unlocks new loot. <span className="text-null-white">Your Golden Key and Code Paper are
+                never locked behind one</span> — they only ever drop in ordinary breakable containers.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* The Null Abyss */}
+        <div className="mb-8">
+          <div className="font-mono text-[10px] tracking-[4px] uppercase text-null-green mb-3">// THE NULL ABYSS</div>
+          <div className="rounded-md border border-[rgba(120,80,255,0.28)] bg-[rgba(120,80,255,0.05)] p-4 sm:p-6">
+            <div className="flex flex-col gap-2.5 text-[13px] leading-relaxed text-null-muted">
+              <p>
+                Beat all 5 bunkers to open <span className="text-null-white">THE NULL ABYSS</span> from the title screen — an
+                <span className="text-null-white"> endless descent</span> below The Last Light. There is no bottom and no
+                lift cap; the floors just keep going and hitting harder.
+              </p>
+              <ul className="flex flex-col gap-1.5 pl-1">
+                <li>• Your <span className="text-null-white">deepest floor</span> this season is your Abyss rank.</li>
+                <li>• The top 3 ranks split the seasonal <Tag kind="stablecoin" /> bonus pool.</li>
+                <li>• The deep floors drop the <span className="text-null-white">best crafting shards</span> in the game.</li>
+                <li>• <span className="text-null-white">Death ends the dive</span> — no respawn — so bank your depth by
+                  going as deep as you dare, then dying is how the run is scored.</li>
+              </ul>
             </div>
           </div>
         </div>

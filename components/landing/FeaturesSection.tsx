@@ -20,7 +20,7 @@ export default function FeaturesSection() {
     {
       num: '04',
       title: 'Burn. Earn. Climb.',
-      desc: 'Burn loot for NullState Point to gear up, solve the weekly Vault code for real USDm, and climb the monthly leaderboard.',
+      desc: 'Burn loot for NullState Point to gear up, solve the weekly Vault code for real USDT, and climb the monthly leaderboard.',
     },
   ]
 

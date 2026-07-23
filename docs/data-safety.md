@@ -25,7 +25,7 @@ One of NullState's core promises:
 ### On-Chain (Immutable)
 
 Celo blockchain stores:
-- USDm transfers (Vault Quest + Season Bonus rewards claimed — burns produce NullState Point off-chain instead, see rewards-system.md)
+- Stablecoin transfers (Vault Quest + Season Bonus rewards paid in USDT; Marketplace/Pass purchases in USDM/USDC/USDT — burns produce NullState Point off-chain instead, see rewards-system.md)
 - Vault code submissions (proof of completions)
 - Leaderboard snapshots (top 3 finalized)
 - Pass NFTs (your season pass certificates)
@@ -129,7 +129,7 @@ You can audit the code yourself!
 
 ### Transactions
 
-Every USDm transfer is visible:
+Every USDM transfer is visible:
 - Burn rewards: Transparent on-chain
 - Season bonuses: Locked in contract
 - Vault claims: Logged as events
@@ -139,16 +139,16 @@ Every USDm transfer is visible:
 ## ❓ FAQ
 
 **Q: What if the server goes down?**  
-A: Your on-chain data (USDm, passes, vault claims) is safe forever. Off-chain inventory can be restored from backups within hours.
+A: Your on-chain data (USDM, passes, vault claims) is safe forever. Off-chain inventory can be restored from backups within hours.
 
 **Q: Can NullState devs steal my items?**  
 A: No. Only you control your wallet. Devs can't access private keys or move funds without you signing.
 
-**Q: Is my USDm safe?**  
+**Q: Is my USDM safe?**  
 A: Yes. It's in a smart contract you control. Only you can claim/transfer it.
 
 **Q: What if I lose my wallet?**  
-A: Your on-chain assets (USDm, passes) are retrievable with seed phrase. Off-chain inventory may be recoverable by support.
+A: Your on-chain assets (USDM, passes) are retrievable with seed phrase. Off-chain inventory may be recoverable by support.
 
 **Q: How long is data kept?**  
 A: Forever. NullState promises permanent data persistence.
@@ -168,7 +168,7 @@ Celo Mainnet (Chain ID 42220)
 PassSBT: 0x...
 NullStateReward: 0x...
 TreasureVault: 0x...
-USDm Token: 0x765DE816845861e75A25fCA122bb6898B8B1282a
+USDM Token: 0x765DE816845861e75A25fCA122bb6898B8B1282a
 ```
 
 ---

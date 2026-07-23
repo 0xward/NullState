@@ -181,7 +181,7 @@ export default function DocsPage() {
             <p>
               Bring both to the sealed Vault door and enter the 4-digit code
               from your Code Paper. You get 3 attempts per week; a correct
-              code pays out real USDm to your wallet. The code resets every
+              code pays out real USDT to your wallet. The code resets every
               Monday at 00:00 UTC, along with your weekly Golden Key and
               Paper allowance.
             </p>
@@ -203,7 +203,7 @@ export default function DocsPage() {
                 instantly credits NullState Point — an off-chain, in-game
                 currency (not real money, not withdrawable). Spend it on
                 lower-priced Marketplace gear via the Swap button; pricier
-                items still require real USDm, USDC, or USDT.
+                items still require real USDM, USDC, or USDT.
               </p>
             </div>
             <div>
@@ -215,7 +215,7 @@ export default function DocsPage() {
                 one grants the exclusive Warden outfit, daily perks (bonus
                 energy runs or Glitch Shards, claimable once per day), and
                 eligibility for the seasonal top-3 leaderboard bonus. Its
-                price is payable in USDm, USDC, or USDT.
+                price is payable in USDM, USDC, or USDT.
               </p>
             </div>
             <div>
@@ -225,7 +225,7 @@ export default function DocsPage() {
               <p>
                 Each season (monthly), players are ranked by experience
                 earned in their runs. The top 3 Season-Pass holders at
-                season end split a real stablecoin prize pool; rankings
+                season end split a real USDT prize pool; rankings
                 reset for the new season.
               </p>
             </div>
@@ -256,8 +256,8 @@ export default function DocsPage() {
                 Rainbow, and Coinbase Wallet are not integrated.
               </li>
               <li>
-                <span className="text-null-green">Tokens</span> — USDm (Mento
-                Dollar), USDC, and USDT for Marketplace, Pass, and Vault Quest
+                <span className="text-null-green">Tokens</span> — USDM (Mento
+                Dollar), USDC, and USDT for Marketplace &amp; Pass; rewards paid in USDT
               </li>
               <li>
                 <span className="text-null-green">License</span> — MIT, source
@@ -280,7 +280,7 @@ export default function DocsPage() {
                 items: [
                   'Real-time dungeon engine',
                   'MiniPay native wallet',
-                  'Marketplace (USDm / USDC / USDT)',
+                  'Marketplace (USDM / USDC / USDT)',
                   'Golden Key & Treasure Vault Quest',
                   'Season Pass system',
                   'Monthly leaderboard',
@@ -345,7 +345,7 @@ export default function DocsPage() {
             {[
               {
                 q: 'What does it cost to play?',
-                a: 'Playing, looting, and NULL_STRIKE are all free. A Season Pass (paid in USDm/USDC/USDT) adds the exclusive Warden outfit, daily perks, and top-3 season bonus eligibility, and the Marketplace sells gear for stablecoin — but nothing is required to play and earn.',
+                a: 'Playing, looting, and NULL_STRIKE are all free. A Season Pass (paid in USDM/USDC/USDT) adds the exclusive Warden outfit, daily perks, and top-3 season bonus eligibility, and the Marketplace sells gear for USDM, USDC, or USDT — but nothing is required to play and earn.',
               },
               {
                 q: 'What happens when my character dies?',
@@ -353,7 +353,7 @@ export default function DocsPage() {
               },
               {
                 q: 'What is the Golden Key and the Vault Quest?',
-                a: 'The Golden Key and a Code Paper occasionally drop while looting, capped at one of each per wallet per week. Bring both to the Vault door and enter the weekly 4-digit code (3 attempts) for a real USDm reward.',
+                a: 'The Golden Key and a Code Paper occasionally drop while looting, capped at one of each per wallet per week. Bring both to the Vault door and enter the weekly 4-digit code (3 attempts) for a real USDT reward.',
               },
               {
                 q: 'Is the code open source?',
