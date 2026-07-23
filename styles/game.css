@@ -117,14 +117,35 @@
    and the oversized top-right LV/FLOOR/KILLS plates. Rendered by React
    <HudStatLine> (sibling of #app). Small, quiet, and left-aligned so it tucks
    right beneath the XP bar without crowding the playfield. */
-.ns-game-root .ns-hud-statline{position:absolute;top:50px;left:12px;z-index:8;pointer-events:none;
-  display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;
+.ns-game-root .ns-hud-statwrap{position:absolute;top:50px;left:12px;z-index:8;pointer-events:none;
+  display:flex;flex-direction:column;align-items:flex-start;gap:5px;max-width:min(72vw,320px);}
+.ns-game-root .ns-hud-statline{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;
   font-family:var(--font-mono),monospace;font-size:10px;line-height:1.2;
   padding:3px 9px;border-radius:6px;border:1px solid rgba(0,255,136,.18);
-  background:rgba(6,10,13,.78);max-width:min(72vw,320px);}
+  background:rgba(6,10,13,.78);}
 .ns-game-root .ns-hud-stat{display:inline-flex;align-items:center;gap:4px;white-space:nowrap;}
 .ns-game-root .ns-hud-stat .k{color:#7fd6a6;letter-spacing:.5px;}
 .ns-game-root .ns-hud-stat .v{color:#eafff5;font-weight:700;}
+/* Point pill — gold "tag" (matches the How-To-Play token pills), sits just
+   under Level so the currency reads as special, not just another stat. Same
+   font size as the stat line. */
+.ns-game-root .ns-hud-point{display:inline-flex;align-items:center;gap:5px;
+  font-family:var(--font-mono),monospace;font-size:10px;line-height:1.2;
+  padding:3px 9px;border-radius:6px;
+  border:1px solid rgba(255,190,11,.5);background:rgba(255,190,11,.12);}
+.ns-game-root .ns-hud-point .k{color:#f2cd82;letter-spacing:.5px;text-transform:uppercase;font-weight:700;}
+.ns-game-root .ns-hud-point .v{color:#ffe9b0;font-weight:700;}
+
+/* Right-hand control cluster (inventory / settings / elixir / mute) fades to
+   near-transparent WHILE the player is moving so it never blocks the view, and
+   returns to full opacity the instant the character stops. Toggled via
+   .ns-controls-dim on the game root from game.js update(). The buttons keep
+   their own .15s transition, so opacity eases both ways; pointer-events stay on
+   so a faded button is still tappable. */
+.ns-game-root.ns-controls-dim .inv-btn,
+.ns-game-root.ns-controls-dim .ns-settings-trigger,
+.ns-game-root.ns-controls-dim .ns-elixir-trigger,
+.ns-game-root.ns-controls-dim .ns-mute-trigger{opacity:.2;}
 
 .ns-game-root .hud-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end;}
 /* v80: LV/FLOOR/KILLS become little pixel plates instead of floating text */

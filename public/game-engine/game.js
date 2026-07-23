@@ -3192,7 +3192,20 @@ function drawMinimap(){
 }
 
 // ---- update ----
+// Fade the right-hand control buttons (inventory/settings/elixir/mute) while
+// the player is moving so they don't block the view, and bring them back the
+// moment the character stands still (owner request). Movement = any directional
+// input; works in both the bunker and the outdoor walk. Only flips the DOM
+// class on an actual state change (move-start / move-stop), not every frame.
+let _controlsDimState = false;
+function _setControlsDim(on){
+  if(on === _controlsDimState) return;
+  _controlsDimState = on;
+  const root = document.querySelector('.ns-game-root');
+  if(root) root.classList.toggle('ns-controls-dim', on);
+}
 function update(dt){
+  _setControlsDim(!!(input.left || input.right || input.up || input.down));
   if(Outdoor.active()){
     // Always keep ticking Outdoor.update() while active (as long as no
     // cutscene is stealing the frame) — outdoor.js already withholds
@@ -5255,6 +5268,7 @@ function mount(opts){
   opts = opts || {};
   if(mounted) return;
   mounted = true; destroyed = false; last = 0; G = null;
+  _controlsDimState = false; // reset per session so a fresh root always re-toggles
   CHAIN = opts.chain || { ultiTx: async ()=>({ ok:true, demo:true, hash:null }) };
   // Phase 1 energy bridge (DungeonGame.tsx). Defaults are fail-open no-ops
   // so demo/wallet-less mounts play exactly as before.
