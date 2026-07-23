@@ -660,12 +660,41 @@ function _spawnPhase8Caches(floor, d, depth){
   const rooms = d.rooms.filter((r,i)=> i>0 && i<d.rooms.length-1);
   const place = (type)=>{
     const room = rooms.length ? rooms[(Math.random()*rooms.length)|0] : d.rooms[0];
-    const pt = safePointInRoom(d, room, d.stairsPx);
+    // These caches use cabinet/safe art, so keep them ON THE NORTH WALL facing
+    // south like every other cabinet (owner: no "lemari di tengah"). Only fall
+    // back to a mid-room point if the room has no usable north-wall spot.
+    const pt = northWallSpotInRoom(d, room, d.stairsPx) || safePointInRoom(d, room, d.stairsPx);
     if(!pt) return;
     floor.decor.push(new Decor(type, pt.x, pt.y, 'down'));
   };
   if(Math.random() < 0.30) place(Math.random()<0.5 ? 'cache_grapple' : 'cache_melt');
   if(depth === 1 && OWNED_SECTORS['sector_'+(campaignActIndex+1)]) place('premium_cache');
+}
+
+// A floor cell hugging the room's NORTH wall (wall directly above, open below),
+// facing 'down' into the room. Used for cabinet-art caches so they read as
+// wall furniture, never free-standing mid-room. Keeps clear of the stairs,
+// start and doorways. Returns {x,y} or null if the room has no such spot.
+function northWallSpotInRoom(d, room, avoid){
+  if(!d || !room) return null;
+  const isWall=(x,y)=> !(x>=0&&y>=0&&x<d.W&&y<d.H) || d.grid[y][x]===0;
+  const nearDoor=(px,py)=>{
+    if(!room.doors) return false;
+    for(const dr of room.doors){ if(Math.hypot(px-(dr.x+0.5)*TILE, py-(dr.y+0.5)*TILE) < TILE*1.8) return true; }
+    return false;
+  };
+  const cand=[];
+  for(let ty=room.y; ty<room.y+room.h; ty++) for(let tx=room.x; tx<room.x+room.w; tx++){
+    if(d.grid[ty][tx]===0) continue;
+    if(!(isWall(tx,ty-1) && !isWall(tx,ty+1))) continue; // wall above, floor below
+    const px=(tx+0.5)*TILE, py=(ty+0.66)*TILE;
+    if(avoid && Math.hypot(px-avoid.x,py-avoid.y)<TILE*1.6) continue;
+    if(d.startPx && Math.hypot(px-d.startPx.x,py-d.startPx.y)<TILE*2.0) continue;
+    if(nearDoor(px,py)) continue;
+    cand.push({x:px,y:py});
+  }
+  if(!cand.length) return null;
+  return cand[(Math.random()*cand.length)|0];
 }
 
 function safePointInRoom(d, room, avoid){
@@ -812,10 +841,6 @@ function spawnDecorInto(floor, d){
     'oak_barrel','barrel_stack','bucket','bucket_water','boulder','hay_pile','chalice',
     'basin','plaque_sword','plaque_coin','skull_heap','cot'];
   const rare=['wardrobe','chest','safe','footlocker','shelf_stocked','dresser','cabinet_ornate'];
-  // Types with real 4-direction sprite art (a proper cut 's'/back view) — the
-  // only ones allowed to hug the SOUTH wall so the back view reads as "top
-  // edge poking out of the wall" instead of a front sprite clipping through.
-  const SOUTH_OK=['cabinet_s','wardrobe','safe','table_w'];
   const g=d.grid, W=d.W, H=d.H;
   const isWall=(x,y)=> !(x>=0&&y>=0&&x<W&&y<H) || g[y][x]===0;
   for(const r of d.rooms){
@@ -829,18 +854,13 @@ function spawnDecorInto(floor, d){
         if(g[ty][tx]===0) continue; // must stand on a floor tile
         const wU=isWall(tx,ty-1), wD=isWall(tx,ty+1), wL=isWall(tx-1,ty), wR=isWall(tx+1,ty);
         let facing=null, ox=0.5, oy=0.9;
-        if(wU && !wD){ facing='down';  ox=0.5;  oy=0.66; }   // against top wall
-        else if(wL && !wR){ facing='right'; ox=0.33; oy=0.92; } // against left wall
-        else if(wR && !wL){ facing='left';  ox=0.67; oy=0.92; } // against right wall
-        // Bottom-wall (SOUTH) placement is back, but RESTRICTED (owner: "gpp
-        // ada di S tapi munculkan ujung atas aja, sisanya tertutup tembok").
-        // The 'up' back-view render is pre-cut to 55% height so only the top
-        // edge shows past the S wall — but that only reads right for props
-        // with real 4-direction sprite art (cabinet/safe/table). The
-        // placement pass below forces an 'up' candidate to one of those types
-        // (SOUTH_OK); small/procedural props (the old "clipping/floating"
-        // offenders) never get an S-wall slot.
-        else if(wD && !wU){ facing='up'; ox=0.5; oy=0.58; }   // against bottom (S) wall
+        if(wU && !wD){ facing='down';  ox=0.5;  oy=0.66; }   // against top (N) wall
+        else if(wL && !wR){ facing='right'; ox=0.33; oy=0.92; } // against left (W) wall
+        else if(wR && !wL){ facing='left';  ox=0.67; oy=0.92; } // against right (E) wall
+        // NO South (bottom) wall placement (owner: "semua yg di S ngambang dan
+        // tembus tembok"). Props there rendered above the wall and read as
+        // floating/clipping no matter what, so the south wall gets nothing —
+        // north/left/right walls + the mid-room pass dress the room instead.
         if(!facing) continue;
         const px=(tx+ox)*TILE, py=(ty+oy)*TILE;
         // Wider keep-outs (owner report: props too close to the entrance and to
@@ -871,11 +891,11 @@ function spawnDecorInto(floor, d){
       // v80: generalized from the old bench-only special case — any type
       // flagged northOnly in DECOR_TYPES ships front-view-only art, so
       // anywhere but the top wall it falls back to a table.
+      // Owner rule: ALL cabinets/safes (lemari & berangkas) hug the NORTH wall
+      // facing SOUTH only. `northOnly` types anywhere but the top wall fall
+      // back to a low, side-safe table so no boxy furniture ends up on a side
+      // wall facing the wrong way.
       if(DECOR_TYPES[t] && DECOR_TYPES[t].northOnly && c.facing!=='down') t='table_w';
-      // SOUTH (bottom) wall: only the 4-direction sprite types have a proper
-      // cut back-view ('s' dir), so force an 'up' candidate to one of them —
-      // everything else would render as the front view sitting in the wall.
-      if(c.facing==='up') t = SOUTH_OK[(Math.random()*SOUTH_OK.length)|0];
       floor.decor.push(new Decor(t,c.px,c.py,c.facing));
       placed++;
     }

@@ -19,8 +19,8 @@ const DECOR_TYPES = {
   pot:      { hp:1, w:30, h:30, label:'Herb Pot',        loot:[['hp',8,58],['xp',10,26],['none',0,16]] },
   barrel:   { hp:2, w:30, h:40, label:'Old Barrel',      loot:[['xp',18,45],['hp',10,35],['none',0,20]] },
   crate:    { hp:2, w:34, h:34, label:'Supply Crate',    loot:[['xp',22,45],['hp',8,25],['item',1,20],['none',0,10]] },
-  cabinet_s:{ hp:2, w:34, h:46, label:'Forgotten Archive', loot:[['hp',14,26],['xp',24,24],['item',2,30],['relic',1,10]], interactive:true, containerMaterial:'wood' },
-  wardrobe: { hp:3, w:48, h:64, label:'Rotten Armoire',  loot:[['hp',32,24],['xp',55,24],['item',2,32]], interactive:true, containerMaterial:'wood_rotten' },
+  cabinet_s:{ hp:2, w:34, h:46, label:'Forgotten Archive', loot:[['hp',14,26],['xp',24,24],['item',2,30],['relic',1,10]], interactive:true, containerMaterial:'wood', northOnly:true }, // owner: cabinets/safes hug the NORTH wall only
+  wardrobe: { hp:3, w:48, h:64, label:'Rotten Armoire',  loot:[['hp',32,24],['xp',55,24],['item',2,32]], interactive:true, containerMaterial:'wood_rotten', northOnly:true },
   // ---- ancient ornaments: break them for XP, CELO, or rare relics ----
   urn:      { hp:1, w:30, h:44, label:'Burial Urn',      loot:[['xp',20,40],['hp',10,28],['relic',1,12],['gshard',1,6],['none',0,20]] },
   column:   { hp:3, w:34, h:60, label:'Cracked Column',  loot:[['xp',26,50],['hp',12,26],['relic',1,8],['none',0,16]] },
@@ -31,9 +31,9 @@ const DECOR_TYPES = {
   tablet:   { hp:2, w:36, h:48, label:'Engraved Tablet', loot:[['relic',1,30],['item',3,25],['xp',40,25],['gshard',1,14]] },
   statue:   { hp:3, w:36, h:62, label:'Weathered Idol',  loot:[['relic',1,30],['item',3,30],['xp',50,20],['gshard',1,12]] },
   // ---- interactive containers: opened via interact/OPEN button, not combat ----
-  chest:    { hp:2, w:42, h:34, label:'Lost Cache',      loot:[['relic',1,15],['item',3,35],['xp',60,15],['hp',30,10]], interactive:true, containerMaterial:'iron' },
+  chest:    { hp:2, w:42, h:34, label:'Lost Cache',      loot:[['relic',1,15],['item',3,35],['xp',60,15],['hp',30,10]], interactive:true, containerMaterial:'iron', northOnly:true },
   // ---- v75 sprite decor (user-supplied 4-direction art, /sprites/decor2) ----
-  safe:     { hp:2, w:40, h:44, label:'Rusted Strongbox', loot:[['relic',1,18],['item',3,32],['xp',55,18],['hp',26,12]], interactive:true, containerMaterial:'iron' },
+  safe:     { hp:2, w:40, h:44, label:'Rusted Strongbox', loot:[['relic',1,18],['item',3,32],['xp',55,18],['hp',26,12]], interactive:true, containerMaterial:'iron', northOnly:true },
   table_w:  { hp:1, w:36, h:30, label:'Wooden Table',     loot:[['xp',14,45],['hp',8,25],['none',0,30]] },
   bench:    { hp:2, w:52, h:26, label:'Waiting Bench',    loot:[['xp',16,45],['hp',8,25],['none',0,30]], northOnly:true },
   // ---- v80 LPC sprite props (18 new PNGs in /sprites/decor2, cut from the
