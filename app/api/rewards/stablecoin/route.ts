@@ -7,6 +7,10 @@ import { normalizeWalletAddress } from '@/lib/vault-utils'
 import { TREASURE_VAULT_ADDRESS } from '@/lib/contract-abi'
 import { MARKETPLACE_TOKENS } from '@/lib/constants/tokens'
 
+// Reads ?walletAddress, so it's always dynamic — declare it so the build
+// doesn't try to prerender it statically and log DYNAMIC_SERVER_USAGE.
+export const dynamic = 'force-dynamic'
+
 // Minimal read ABI matching the DEPLOYED TreasureVault (public `vaultReward`
 // getter, lowercase — the shared TREASURE_VAULT_ABI still carries the old
 // `VAULT_REWARD` constant name, which the live contract no longer exposes).

@@ -3,6 +3,10 @@ import { getAdminDb } from '@/firebase-config'
 import { walletAddressSchema } from '@/lib/validation'
 import { normalizeWalletAddress, getCurrentWeekIdString } from '@/lib/vault-utils'
 
+// Reads ?walletAddress, so it's always dynamic — declare it so the build
+// doesn't try to prerender it statically and log a DYNAMIC_SERVER_USAGE error.
+export const dynamic = 'force-dynamic'
+
 // =============================================
 // PAPER — WEEKLY STATUS + LAZY CODE GENERATION (Phase 5.5 #9B)
 // GET /api/paper/status?walletAddress=0x...
