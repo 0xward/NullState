@@ -661,9 +661,10 @@ function _spawnPhase8Caches(floor, d, depth){
   const place = (type)=>{
     const room = rooms.length ? rooms[(Math.random()*rooms.length)|0] : d.rooms[0];
     // These caches use cabinet/safe art, so keep them ON THE NORTH WALL facing
-    // south like every other cabinet (owner: no "lemari di tengah"). Only fall
-    // back to a mid-room point if the room has no usable north-wall spot.
-    const pt = northWallSpotInRoom(d, room, d.stairsPx) || safePointInRoom(d, room, d.stairsPx);
+    // south like every other cabinet (owner: no "lemari di tengah"). If the
+    // room has no usable north-wall spot, SKIP it entirely — the old mid-room
+    // fallback could land on a bottom-row/edge cell and float over the wall.
+    const pt = northWallSpotInRoom(d, room, d.stairsPx);
     if(!pt) return;
     floor.decor.push(new Decor(type, pt.x, pt.y, 'down'));
   };
@@ -853,14 +854,16 @@ function spawnDecorInto(floor, d){
       for(let tx=r.x; tx<r.x+r.w; tx++){
         if(g[ty][tx]===0) continue; // must stand on a floor tile
         const wU=isWall(tx,ty-1), wD=isWall(tx,ty+1), wL=isWall(tx-1,ty), wR=isWall(tx+1,ty);
+        // Owner (recurring): props read as "floating" when the tile directly
+        // BELOW their base isn't floor (a room's bottom row, a corner, or a
+        // corridor edge — the sprite then hangs over the wall/void). So EVERY
+        // placed prop must have floor below it (!wD). That also keeps the SOUTH
+        // wall empty for free (a cell hugging the S wall has wall below).
         let facing=null, ox=0.5, oy=0.9;
+        if(wD) { continue; } // no ground beneath the base → would float
         if(wU && !wD){ facing='down';  ox=0.5;  oy=0.66; }   // against top (N) wall
         else if(wL && !wR){ facing='right'; ox=0.33; oy=0.92; } // against left (W) wall
         else if(wR && !wL){ facing='left';  ox=0.67; oy=0.92; } // against right (E) wall
-        // NO South (bottom) wall placement (owner: "semua yg di S ngambang dan
-        // tembus tembok"). Props there rendered above the wall and read as
-        // floating/clipping no matter what, so the south wall gets nothing —
-        // north/left/right walls + the mid-room pass dress the room instead.
         if(!facing) continue;
         const px=(tx+ox)*TILE, py=(ty+oy)*TILE;
         // Wider keep-outs (owner report: props too close to the entrance and to
