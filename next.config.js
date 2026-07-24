@@ -5,9 +5,6 @@
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  images: {
-    domains: ['pbs.twimg.com', 'abs.twimg.com'],
-  },
   // ESLint is now configured (.eslintrc.json) so `npm run lint` works on
   // demand for local/CI use. We deliberately DO NOT run it during `next build`:
   // the build previously had no ESLint config and so never linted, and the
