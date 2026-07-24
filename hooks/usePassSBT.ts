@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback } from 'react'
 import { usePublicClient, useWalletClient } from 'wagmi'
 import { celo } from 'wagmi/chains'
 import { pickBestFeeCurrency, pickBestPaymentToken, type MarketplaceTokenSymbol } from '@/lib/constants/tokens'
-import { getAttributionSuffix } from '@/lib/attribution-tag'
 import { useWallet } from '@/lib/WalletProvider'
 import { getUserFriendlyError, MINIPAY_ADD_CASH_URL } from '@/lib/errorUtils'
 import {
@@ -130,41 +129,6 @@ export function usePassSBT(walletAddress: string | undefined) {
     [publicClient],
   )
 
-  const mintFreePass = useCallback(
-    async (seasonId: bigint): Promise<{ success: boolean; hash: `0x${string}` }> => {
-      if (!walletClient || !publicClient) throw new Error('Wallet not connected')
-
-      setIsLoading(true)
-      setError(null)
-      setInsufficientFunds(false)
-
-      try {
-        const feeCurrency = await pickBestFeeCurrency(publicClient, walletClient.account?.address)
-        const hash = await walletClient.writeContract({
-          address: PASS_SBT_ADDRESS,
-          abi: PASS_SBT_ABI,
-          functionName: 'mintFreePass',
-          args: [seasonId],
-          account: walletClient.account,
-          feeCurrency,
-          dataSuffix: getAttributionSuffix(),
-        })
-
-        await publicClient.waitForTransactionReceipt({ hash })
-        await fetchPassStatus()
-        return { success: true, hash }
-      } catch (err) {
-        const friendly = getUserFriendlyError(err)
-        setError(friendly.message)
-        if (friendly.insufficientFunds) setInsufficientFunds(true)
-        throw err
-      } finally {
-        setIsLoading(false)
-      }
-    },
-    [walletClient, publicClient, fetchPassStatus],
-  )
-
   // v2.1 flexible-payment paid-mint flow, replacing the old
   // approve()+mintPaidPass() USDm-only path:
   //   1. detect which of USDm/USDC/USDT the wallet holds the most of
@@ -265,7 +229,6 @@ export function usePassSBT(walletAddress: string | undefined) {
     fetchPassStatus,
     checkWhitelist,
     getSeasonInfo,
-    mintFreePass,
     mintPaidPassFlexible,
   }
 }
