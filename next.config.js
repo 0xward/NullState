@@ -8,6 +8,16 @@ const nextConfig = {
   images: {
     domains: ['pbs.twimg.com', 'abs.twimg.com'],
   },
+  // ESLint is now configured (.eslintrc.json) so `npm run lint` works on
+  // demand for local/CI use. We deliberately DO NOT run it during `next build`:
+  // the build previously had no ESLint config and so never linted, and the
+  // existing codebase has pre-existing lint findings (mostly stylistic
+  // jsx-no-comment-textnodes). Keeping the build lint-free preserves the exact
+  // current Vercel behavior — a deploy can never start failing on a lint rule.
+  // Run `npm run lint` yourself to see/triage findings.
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   // Safety net: force firebase-admin (and anything it pulls in, e.g.
   // jwks-rsa/jose if Admin Auth is ever re-introduced) to be required()
   // at runtime from node_modules instead of webpack-bundled. This avoids
