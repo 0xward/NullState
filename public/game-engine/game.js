@@ -296,7 +296,7 @@ function applyLevelStats(p, level){
 // `snap` shape: { xp, level, kills, hp, depth, maxDepthReached,
 //                 inventory:{keys,relics,shards}, key:{depth,taken} }
 // (v40 — `celo` removed: dead in-run stat, never wired to any real
-// currency/balance, see NEXT-SESSION-PROMPT-v40.txt for the audit.)
+// currency/balance.)
 function applyRestoredState(G, p, snap){
   applyLevelStats(p, snap.level || 1);
   p.xp = snap.xp || 0;

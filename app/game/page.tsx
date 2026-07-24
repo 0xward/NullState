@@ -11,9 +11,7 @@ export const metadata: Metadata = {
 
 // /game always drops straight into the in-game MainMenu (Continue / New
 // Game / Leaderboard / Rewards) — there is no separate "dashboard" landing
-// step anymore. The old GameDashboard (Player Profile / Vault Quest / Season
-// Leaderboard cards) is still in the codebase but is no longer routed to by
-// default; nothing links to it any more.
+// step; nothing sits between the route and the menu.
 export default function GamePage() {
   return <GameFlowManager />
 }

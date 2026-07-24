@@ -137,7 +137,7 @@ function pixelArc(ctx,cx,cy,r,a0,a1,px,color,alpha){
 // weapon as direct-stacked layers at a given (cx,cy). Used by BOTH the
 // animated in-dungeon Player.draw() (see useLPCHero below) and the
 // static outdoor title-screen preview (drawPreview() in game.js) so
-// the two can never drift out of sync — see NEXT-SESSION-PROMPT-v6.
+// the two can never drift out of sync.
 // Verified this session: armor parts AND weapon overlays are
 // pre-aligned to the body's own grid in every LPC animation folder, so
 // this is pure direct-stack — no anchor/rotation math needed anywhere
@@ -627,7 +627,7 @@ class Player {
     // available/switchable until this is verified in a real browser
     // against live gameplay (a standalone Playwright harness confirmed
     // the compositing math this session, but NOT the full game loop —
-    // see NEXT-SESSION-PROMPT-v6 for exact manual QA steps still owed).
+    // manual QA of that path is still owed).
     this.useLPCHero = (charKey === 'knight');
     this.equippedArmorId = null;   // set by applyEquipment() in game.js
     this.equippedWeaponId = null;  // set by applyEquipment() in game.js

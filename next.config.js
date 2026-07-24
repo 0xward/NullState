@@ -64,28 +64,3 @@ const nextConfig = {
 }
 
 module.exports = nextConfig
-
-// ─── WORKAROUND: Remove accidental route-group copies ─────────────────────────
-// The (public) and (wallet) route group directories were created during a
-// refactor attempt but conflict with the original pages. Since Next.js detects
-// page conflicts by file system scan (before webpack), we delete them here in
-// next.config.js which is evaluated first.
-;(() => {
-  const fs = require('fs')
-  const path = require('path')
-  const toRemove = [
-    'app/(public)/page.tsx',
-    'app/(public)/terms/page.tsx',
-    'app/(public)/privacy/page.tsx',
-    'app/(public)/docs/page.tsx',
-    'app/(public)/layout.tsx',
-    'app/(wallet)/game/page.tsx',
-    'app/(wallet)/profile/page.tsx',
-    'app/(wallet)/layout.tsx',
-  ]
-  for (const rel of toRemove) {
-    const full = path.join(__dirname, rel)
-    try { fs.unlinkSync(full); console.log('[config] Removed conflicting:', rel) }
-    catch (_) {}
-  }
-})()

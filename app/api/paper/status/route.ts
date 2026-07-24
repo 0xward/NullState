@@ -19,7 +19,7 @@ export const dynamic = 'force-dynamic'
 //     path /api/vault/submit reads from). Paper doesn't have its own
 //     separate code; it's the item that lets a player VIEW the one global
 //     weekly vault code. If nobody has looked yet this week, that path is
-//     still empty (see NEXT-SESSION-PROMPT-v23.txt), so this route
+//     still empty, so this route
 //     lazy-generates a random 4-digit code the first time anyone asks —
 //     no cron job, first request of the week wins the generation via an
 //     RTDB transaction (so two overlapping "first" requests can't produce
