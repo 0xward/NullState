@@ -6,6 +6,7 @@ import { celo } from 'wagmi/chains'
 import { REWARD_CONTRACT_ADDRESS, REWARD_ABI } from '@/lib/contract-abi'
 import { getCurrentSeasonId } from '@/lib/web3-client'
 import { pickBestFeeCurrency } from '@/lib/constants/tokens'
+import { getAttributionSuffix } from '@/lib/attribution-tag'
 
 export interface SeasonLeaderboard {
   seasonId: bigint
@@ -105,6 +106,7 @@ export function useReward(walletAddress: string | undefined) {
           args: [id],
           account: walletClient.account,
           feeCurrency,
+          dataSuffix: getAttributionSuffix(),
         })
 
         await publicClient.waitForTransactionReceipt({ hash })

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { usePublicClient, useWalletClient } from 'wagmi'
 import { celo } from 'wagmi/chains'
 import { pickBestFeeCurrency, pickBestPaymentToken, type MarketplaceTokenSymbol } from '@/lib/constants/tokens'
+import { getAttributionSuffix } from '@/lib/attribution-tag'
 import { useWallet } from '@/lib/WalletProvider'
 import { getUserFriendlyError, MINIPAY_ADD_CASH_URL } from '@/lib/errorUtils'
 import {
@@ -146,6 +147,7 @@ export function usePassSBT(walletAddress: string | undefined) {
           args: [seasonId],
           account: walletClient.account,
           feeCurrency,
+          dataSuffix: getAttributionSuffix(),
         })
 
         await publicClient.waitForTransactionReceipt({ hash })

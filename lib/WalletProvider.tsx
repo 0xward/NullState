@@ -16,6 +16,7 @@ import { USDM_ADDRESS, USDM_ABI } from './contract-abi'
 import { getUserFriendlyError, WalletFriendlyError, MINIPAY_ADD_CASH_URL } from './errorUtils'
 import { NavbarWalletContext } from './NavbarWalletContext'
 import { MARKETPLACE_TOKENS, TREASURY_WALLET, parseTokenAmount, MarketplaceTokenSymbol, getFeeCurrency, pickBestFeeCurrency } from './constants/tokens'
+import { withAttribution } from './attribution-tag'
 
 // ─── Contract config ─────────────────────────────────────────────────────────
 
@@ -209,7 +210,7 @@ function WalletExtrasProvider({ children }: { children: ReactNode }) {
           account: address,
           chain:   celo,
           to:      NULLSTATE_ADDRESS,
-          data,
+          data:    withAttribution(data),
           value:   value ?? BigInt(0),
           feeCurrency,
           // Let the wallet estimate gas — safer than hardcoding
@@ -263,7 +264,7 @@ function WalletExtrasProvider({ children }: { children: ReactNode }) {
           account: address,
           chain:   celo,
           to:      USDM_ADDRESS,
-          data,
+          data:    withAttribution(data),
           value:   BigInt(0),
           feeCurrency,
         })
@@ -306,7 +307,7 @@ function WalletExtrasProvider({ children }: { children: ReactNode }) {
           account: address,
           chain:   celo,
           to:      cfg.address as `0x${string}`,
-          data,
+          data:    withAttribution(data),
           value:   BigInt(0),
           // USDC/USDT use a separate fee-adapter contract per docs.minipay.xyz
           // — passing the raw token address here would be wrong for those two.
