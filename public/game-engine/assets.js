@@ -42,7 +42,7 @@ const HERO = {
 // animation folder already has the swing PRE-BAKED per direction, so a
 // weapon overlay is just another direct-stack layer during the attack
 // window — NOT continuous anchor+rotation as originally planned (that
-// assumption is now corrected; see NEXT-SESSION-PROMPT-v6).
+// assumption is now corrected).
 // ------------------------------------------------------------
 const LPC_DIRS = ['up','left','down','right'];
 const LPC_BASE = '/sprites/lpc_source/base';
@@ -262,7 +262,7 @@ const NS_WEAPON = {
 // of the body) and a background/behind sheet (the part occluded by the body).
 // A direction row that is empty in one layer lives in the other; the union is
 // complete for every frame of every direction (verified per-frame via PIL this
-// session for all 9 weapons — see NEXT-SESSION-PROMPT notes). The prior
+// session for all 9 weapons). The prior
 // sessions stacked only ONE layer, which is exactly why rows looked blank.
 //
 // Sheets are copied unmodified from ULPC (renamed to <id>_<phase>_<layer>.png).
