@@ -1161,60 +1161,108 @@
   .ns-hub-map{ width:100%; height:auto; }
 }
 
-/* Locked bunker — two slow, offset fog blobs drifting over the painted door. */
-.ns-hub-fog{
-  position:absolute; left:50%; top:50%; width:66px; height:66px; border-radius:50%;
-  transform:translate(-50%,-50%); pointer-events:none;
-  background:radial-gradient(circle, rgba(198,214,208,.30) 0%, rgba(150,170,164,.18) 45%, transparent 72%);
-  animation:nsHubFog 9s ease-in-out infinite;
-}
-.ns-hub-fog-b{
-  width:54px; height:54px; animation-duration:13s; animation-direction:reverse;
-  background:radial-gradient(circle, rgba(180,200,196,.22) 0%, transparent 68%);
-}
-@keyframes nsHubFog{
-  0%,100%{ transform:translate(-58%,-50%) scale(1); opacity:.85; }
-  50%    { transform:translate(-42%,-53%) scale(1.14); opacity:1; }
+/* A node is a tap target centred on the door painted into the map. Selection
+   reads as a soft lift of that spot, not a box drawn over the art. */
+.ns-hub-node{ border-radius:8px; transition:filter .18s ease; }
+.ns-hub-node.is-sel{
+  filter:drop-shadow(0 0 10px rgba(255,255,255,.35));
+  background:radial-gradient(closest-side, rgba(255,255,255,.10), transparent 72%);
 }
 
-/* Active bunker — a ring lying ON the ground (flattened ellipse, not a
-   floating badge) plus a chevron nodding above the door. */
+/* LOCKED — fog actually rolls over the door. Two soft banks at different
+   speeds and sizes so the motion never looks like one pulsing blob. */
+.ns-hub-fog{
+  position:absolute; left:50%; top:52%; width:74px; height:52px;
+  transform:translate(-50%,-50%); pointer-events:none; border-radius:50%;
+  background:radial-gradient(closest-side, rgba(214,228,224,.62), rgba(170,190,186,.34) 55%, transparent 78%);
+  filter:blur(3px);
+  animation:nsHubFogA 11s ease-in-out infinite;
+}
+.ns-hub-fog-b{
+  width:58px; height:40px; top:60%;
+  background:radial-gradient(closest-side, rgba(196,214,210,.48), transparent 72%);
+  filter:blur(4px);
+  animation:nsHubFogB 15s ease-in-out infinite;
+}
+@keyframes nsHubFogA{
+  0%,100%{ transform:translate(-62%,-50%) scale(1);    opacity:.85; }
+  50%    { transform:translate(-38%,-54%) scale(1.16); opacity:1;   }
+}
+@keyframes nsHubFogB{
+  0%,100%{ transform:translate(-38%,-50%) scale(1.08); opacity:.7; }
+  50%    { transform:translate(-64%,-46%) scale(.92);  opacity:.95; }
+}
+/* Padlock rides above the fog, seated on a dark disc so it reads as fixed to
+   the door rather than floating over it. */
+.ns-hub-lock{
+  position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+  width:34px; height:34px; border-radius:50%; pointer-events:none;
+  display:flex; align-items:center; justify-content:center;
+  background:radial-gradient(closest-side, rgba(4,9,7,.72), transparent 78%);
+}
+.ns-hub-lock img{
+  width:30px; height:30px; image-rendering:pixelated; opacity:.95;
+  filter:grayscale(.3) brightness(.98) drop-shadow(0 2px 3px rgba(0,0,0,.85));
+}
+
+/* CLEARED — a small stamp on the door; the place stays quiet. */
+.ns-hub-done{
+  position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+  width:22px; height:22px; border-radius:50%; pointer-events:none;
+  font-family:"Courier New",ui-monospace,monospace; font-weight:800; font-size:13px; line-height:1;
+  display:flex; align-items:center; justify-content:center;
+  color:#04140c; background:#39ff9a; opacity:.92;
+  box-shadow:0 0 9px rgba(57,255,154,.5), 0 1px 3px rgba(0,0,0,.85);
+}
+
+/* ACTIVE — the ring lies on the GROUND at the foot of the door (a flattened
+   ellipse, offset down out of the doorway), with a chevron nodding above. */
 .ns-hub-ring{
-  position:absolute; left:50%; top:62%; width:44px; height:18px;
+  position:absolute; left:50%; top:78%; width:40px; height:15px;
   transform:translate(-50%,-50%); border-radius:50%; pointer-events:none;
-  border:2px solid rgba(57,255,154,.9);
-  box-shadow:0 0 12px rgba(57,255,154,.55), inset 0 0 8px rgba(57,255,154,.35);
+  border:2px solid rgba(57,255,154,.92);
+  box-shadow:0 0 12px rgba(57,255,154,.5), inset 0 0 8px rgba(57,255,154,.3);
   animation:nsHubRing 2s ease-in-out infinite;
 }
 @keyframes nsHubRing{
   0%,100%{ transform:translate(-50%,-50%) scale(1);    opacity:.95; }
-  50%    { transform:translate(-50%,-50%) scale(1.12); opacity:.6; }
+  50%    { transform:translate(-50%,-50%) scale(1.14); opacity:.55; }
 }
 .ns-hub-chev{
-  position:absolute; left:50%; top:8%; transform:translateX(-50%);
+  position:absolute; left:50%; top:6%; transform:translateX(-50%);
   font-size:11px; line-height:1; color:#39ff9a; pointer-events:none;
   text-shadow:0 0 8px rgba(57,255,154,.9), 0 1px 2px #000;
   animation:nsHubChev 1.6s ease-in-out infinite;
 }
 @keyframes nsHubChev{
-  0%,100%{ transform:translateX(-50%) translateY(0);    opacity:1; }
-  50%    { transform:translateX(-50%) translateY(3px);  opacity:.65; }
+  0%,100%{ transform:translateX(-50%) translateY(0);   opacity:1;   }
+  50%    { transform:translateX(-50%) translateY(3px); opacity:.6;  }
 }
 
-/* Player plate — same navy body + neon rim + chunky bevel as the rail icons. */
+/* Player plate — octagon-cut like the rail icons, with the same navy body and
+   neon rim, so the HUD speaks one visual language. The rim is a wrapper layer
+   because clip-path crops borders. */
 .ns-hub-plate{
-  padding:6px 10px 6px 6px;
-  background:#14213a;
-  border:2px solid #39ff9a;
-  box-shadow:inset 2px 2px 0 rgba(255,255,255,.10), inset -2px -2px 0 rgba(0,0,0,.55),
-             0 0 0 2px #0b1220, 0 3px 6px rgba(0,0,0,.6);
+  display:flex; align-items:center; gap:8px;
+  padding:7px 13px 7px 7px;
+  background:linear-gradient(180deg,#39ff9a,#14b869);
+  clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px);
+  filter:drop-shadow(0 3px 6px rgba(0,0,0,.65));
 }
+.ns-hub-plate::before{
+  content:""; position:absolute; inset:2px;
+  background:linear-gradient(180deg,#1a2b47,#101a2e);
+  clip-path:polygon(9px 0,100% 0,100% calc(100% - 9px),calc(100% - 9px) 100%,0 100%,0 9px);
+}
+.ns-hub-plate > *{ position:relative; z-index:1; }
 .ns-hub-avatar{
   width:28px; height:28px; display:flex; align-items:center; justify-content:center;
   font-size:13px; font-weight:700; color:#39ff9a;
-  background:#0b1220; border:2px solid #2c6b4a;
-  box-shadow:inset 1px 1px 0 rgba(255,255,255,.08);
+  background:#0b1220; box-shadow:inset 0 0 0 2px rgba(57,255,154,.55);
+  clip-path:polygon(7px 0,100% 0,100% calc(100% - 7px),calc(100% - 7px) 100%,0 100%,0 7px);
 }
+.ns-hub-name{ display:block; font-size:11.5px; color:#fff; font-weight:700; letter-spacing:.6px; }
+.ns-hub-lv{ display:block; font-size:9px; color:#39ff9a; letter-spacing:1.4px; margin-top:3px; }
 
 @media (prefers-reduced-motion:reduce){
   .ns-hub-fog, .ns-hub-ring, .ns-hub-chev{ animation:none; }
