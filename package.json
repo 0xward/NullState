@@ -8,7 +8,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "generate:icon": "node scripts/generate-icon.js"
+    "generate:icon": "node scripts/generate-icon.js",
+    "check:market": "node scripts/check-marketplace-sync.js"
   },
   "dependencies": {
     "@celo/attribution-tags": "^0.3.0",

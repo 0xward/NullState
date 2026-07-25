@@ -12,8 +12,17 @@ export const GAME_CONFIG = {
   },
 
   // Pass System Configuration
+  //
+  // NOTE ON PRICE: there is deliberately NO price field here. The pass price is
+  // owned ON-CHAIN by PassSBTv3.passPriceUsdCents and read live by the frontend
+  // (hooks/usePassSBT) and the mint verifier (app/api/passsbt/mint), so the
+  // owner can change it with setPassPriceUsdCents() without a redeploy and all
+  // three can never disagree. A `priceUSDm: 0.3` constant used to sit here; it
+  // was read by nothing, and its stale $0.30 contradicted the $10 the contract
+  // actually held — exactly the confusion the on-chain source of truth exists
+  // to prevent. Removed rather than corrected: a second copy of a live value is
+  // a lie waiting to happen.
   pass: {
-    priceUSDm: 0.3, // in USDm
     freePassesAvailable: 50, // FCFS for first 50 users
     seasonsDuration: 5, // 5 seasons of SBT passes pre-generated
     playLimitFree: 1, // 1 free play per week without pass
@@ -24,7 +33,7 @@ export const GAME_CONFIG = {
       withPass: 1.0, // Same as without for MVP
     },
 
-    // ── TASK #7 — "make the $10 pass worth it" perks ──────────────────────
+    // ── TASK #7 — "make the pass worth its price" perks ───────────────────
     // Every perk is NON-PAY-TO-WIN: the HP-100 cap is untouched and the FREE
     // path always exists alongside (free players still get 5 energy runs/day
     // and earn shards by playing). Holding an ACTIVE-season pass grants:
