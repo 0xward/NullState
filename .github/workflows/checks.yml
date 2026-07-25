@@ -1,0 +1,70 @@
+name: checks
+
+# Guards for the parts of NullState that nothing else was checking.
+#
+# Deliberately NOT a full build: `next build` is already run by Vercel on every
+# push, so repeating it here would double the wait and tell us nothing new. What
+# this job covers is the opposite — things Vercel's build does NOT catch:
+#
+#   1. The two marketplace price lists drifting apart (see the job's comment)
+#   2. Syntax errors in public/game-engine/*.js, which are NOT part of the
+#      Next.js build at all — they are plain <script> files served from public/,
+#      so a stray typo compiles fine, deploys fine, and breaks the game on the
+#      player's device
+#   3. Type errors — next.config.js sets eslint.ignoreDuringBuilds, and a build
+#      that ignores checks is a build that cannot fail on them
+#
+# `npm run lint` is deliberately absent: the repo carries ~20 files of
+# pre-existing lint findings, so adding it would make CI red from day one and
+# train everyone to ignore it. Worth fixing separately, not worth blocking on.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A new push to the same PR makes the previous run pointless — don't pay for it.
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # `npm ci` rather than `npm install` — installs exactly what
+      # package-lock.json pins, so CI can never pass against a dependency tree
+      # nobody else has.
+      - name: Install dependencies
+        run: npm ci
+
+      # Marketplace items are declared TWICE by design: the TypeScript source of
+      # truth (React + the server-side purchase/swap verifiers) and the engine's
+      # mirror, which is loaded by <script> tag and therefore cannot import a TS
+      # module. Until this check existed the two were kept in sync by a comment
+      # asking nicely — and they had already drifted. Drift here is not
+      # cosmetic: the shop card and the engine would quote different prices for
+      # the same sword, and only one of them is what the verifier charges.
+      - name: Marketplace price lists in sync
+        run: npm run check:market
+
+      # The 14 engine files are the game itself and are invisible to the Next.js
+      # build. Nothing else parses them before they reach a player.
+      - name: Game engine parses
+        run: |
+          for f in public/game-engine/*.js; do
+            node --check "$f" || exit 1
+          done
+          echo "✓ all $(ls public/game-engine/*.js | wc -l) engine files parse"
+
+      - name: TypeScript
+        run: npx tsc --noEmit
