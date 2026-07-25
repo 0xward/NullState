@@ -203,7 +203,8 @@ export default function MarketplaceScreen({ onBack, address }: MarketplaceScreen
   // they still resolve via getMarketplaceItem for rendering, just can't be bought.
   const armor = MARKETPLACE_ITEMS.filter(i => i.type === 'armor' && !i.hidden).sort((a, b) => b.price - a.price)
   const weapons = MARKETPLACE_ITEMS.filter(i => i.type === 'weapon' && !i.hidden).sort((a, b) => b.price - a.price)
-  // Phase 9 — cosmetic skins ($5-$10), pure visuals with no stats.
+  // Phase 9 — cosmetic skins, pure visuals with no stats. Prices live in
+  // lib/constants/marketplace.ts; don't restate them here, they drift.
   const outfits = MARKETPLACE_ITEMS.filter(i => i.type === 'outfit' && !i.hidden).sort((a, b) => b.price - a.price)
 
   const startTrial = useCallback(async () => {

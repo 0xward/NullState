@@ -151,20 +151,57 @@ export function maxWeaponTier(item: MarketplaceItem): number {
   return 1 + (item.evolutionTiers?.length || 0)
 }
 
-// NullState Point swap rate: 6000 tokens per $1 (e.g. $0.5 = 3000 tokens,
-// $2 = 12000 tokens). Only items priced $0.5–$2 are swap-eligible.
+// NullState Point swap rate: 6000 Point per $1. Every swap-eligible item now
+// prices at EXACTLY price * this rate — before the 2026-07 repricing the rate
+// silently varied from 2500 to 6000 Point per dollar depending on the item,
+// which made "how much Point is a dollar worth?" unanswerable.
+//
+// TOKEN_SWAP_MAX_PRICE_USD is the ceiling for swap eligibility, and it is
+// ENFORCED (app/api/marketplace/swap) rather than merely documented — a
+// tokenPrice accidentally added to an expensive item can no longer open the
+// free path to it. Swap eligibility is still an explicit allowlist (the items
+// carrying `tokenPrice`), not "everything under the cap": being cheap makes an
+// item ELIGIBLE to be swappable, it does not make it swappable.
 export const TOKEN_SWAP_RATE_PER_USD = 6000
 export const TOKEN_SWAP_MAX_PRICE_USD = 2
 
+// ─────────────────────────────────────────────────────────────────────────────
+// PRICING (repriced 2026-07 for the MiniPay listing — owner decision)
+//
+// NullState's audience is MiniPay's: West/East Africa, Southeast Asia, Latin
+// America. The old ladder topped out at $15 and averaged ~$6, which is a full
+// day's earnings for a large share of that audience — priced so high that the
+// realistic outcome is nobody buys anything and the economy never starts.
+//
+// The rules the ladder now follows:
+//   1. $8 is the CEILING. Exactly one item (sunfire_bow, the strongest weapon)
+//      sits there — it is the aspirational purchase, not the expected one.
+//   2. Everything else clusters at $0.50–$3.50, the band where an impulse buy
+//      is actually plausible on a MiniPay balance.
+//   3. No gap between adjacent rungs is larger than $1.50, so a player always
+//      has a "just a bit better" step within reach. Gaps are where ladders
+//      lose people.
+//   4. Cosmetics undercut weapons of similar flash. They grant ZERO stats, so
+//      pricing them like power would be both a bad deal and off-message for a
+//      game that advertises no pay-to-win.
+//
+// The Season Pass is $3 and deliberately sits mid-ladder: it should read as the
+// best-value purchase in the game, which it cannot do if gear towers over it.
+//
+// Lowering a price is SAFE for money already in flight: the on-chain verifier
+// (app/api/marketplace/verify) matches transfers with `value >= priceWei`, so a
+// payment sent at an older, higher price still settles.
+// ─────────────────────────────────────────────────────────────────────────────
 const BASE_MARKETPLACE_ITEMS: MarketplaceItem[] = [
-  // ── ARMOR ── ($0.5-$2 items also get tokenPrice — swappable for NullState Point)
+  // ── ARMOR ── (tokenPrice = swappable for NullState Point; see the swap
+  // allowlist note above TOKEN_SWAP_RATE_PER_USD)
   { id:'leather_guard', name:'Leather Guard', type:'armor', slot:'body', price:0.5, tokenPrice:3000, fxTier:1,
     effect:{ hpBonus:0.15 }, sprite:'/sprites/marketplace/leather_guard.png',
     desc:'+15% Max HP. Worn hide, light but reliable.' },
   { id:'iron_plate', name:'Iron Plate', type:'armor', slot:'body', price:1.0, tokenPrice:6000, fxTier:1,
     effect:{ hpBonus:0.25 }, sprite:'/sprites/marketplace/iron_plate.png',
     desc:'+25% Max HP. Solid forged plating.' },
-  { id:'rune_armor', name:'Rune Armor', type:'armor', slot:'body', price:3.0, fxTier:2,
+  { id:'rune_armor', name:'Rune Armor', type:'armor', slot:'body', price:2.0, fxTier:2,
     effect:{ hpBonus:0.40 }, sprite:'/sprites/marketplace/rune_armor.png',
     desc:'+40% Max HP. Etched with warding runes that shimmer on hit.' },
   // ── WEAPONS (v76 Task #7) ── cheapest -> dearest. Mirrors
@@ -177,32 +214,37 @@ const BASE_MARKETPLACE_ITEMS: MarketplaceItem[] = [
   { id:'rusty_blade', name:'Rusty Blade', type:'weapon', slot:'mainhand', price:0.5, hidden:true, fxTier:1, fxColor:'#d8dde2',
     effect:{ atkBonus:10, behavior:'slash' }, sprite:'/sprites/marketplace/rusty_blade.png',
     desc:'+10 ATK. A chipped old sword — better than fists.' },
-  // ── BASIC weapons are also swappable for NullState Point (burn reward),
-  //    5000 (cheapest) … 12000 (dearest). PREMIUM weapons below (fxTier-3,
-  //    glowing) have NO tokenPrice — real currency only. (rusty_blade is the
-  //    free default weapon, so it isn't a shop/swap item — see below.)
-  { id:'emberwood_maul', name:'Emberwood Maul', type:'weapon', slot:'mainhand', price:2.0, tokenPrice:5000, fxTier:2, fxColor:'#d98a4a',
+  // ── The three BASIC weapons are also swappable for NullState Point (the burn
+  //    reward), at exactly price * TOKEN_SWAP_RATE_PER_USD. All three now sit
+  //    at or under TOKEN_SWAP_MAX_PRICE_USD, so the swap band is finally a
+  //    truthful statement rather than a comment the data contradicted.
+  //    PREMIUM weapons below (fxTier-3, glowing) have NO tokenPrice — real
+  //    currency only, which is what keeps the free path from reaching the top
+  //    of the ladder. (rusty_blade is the free default weapon, so it is neither
+  //    a shop nor a swap item — see above.)
+  { id:'emberwood_maul', name:'Emberwood Maul', type:'weapon', slot:'mainhand', price:1.0, tokenPrice:6000, fxTier:2, fxColor:'#d98a4a',
     effect:{ atkBonus:18, behavior:'knockback' }, sprite:'/sprites/marketplace/emberwood_maul.png',
     desc:'+18 ATK. Spiked emberwood — every blow sends foes flying.' },
-  { id:'ironbolt_crossbow', name:'Ironbolt Crossbow', type:'weapon', slot:'mainhand', price:3.0, tokenPrice:8000, fxTier:2, fxColor:'#e0b25a',
+  { id:'ironbolt_crossbow', name:'Ironbolt Crossbow', type:'weapon', slot:'mainhand', price:1.5, tokenPrice:9000, fxTier:2, fxColor:'#e0b25a',
     effect:{ atkBonus:24, behavior:'ranged' }, sprite:'/sprites/marketplace/ironbolt_crossbow.png',
     desc:'+24 ATK, ranged. Punches a heavy bolt clean through the dark.' },
-  { id:'argent_waraxe', name:'Argent Waraxe', type:'weapon', slot:'mainhand', price:4.0, tokenPrice:12000, fxTier:2, fxColor:'#cfd8e3',
+  { id:'argent_waraxe', name:'Argent Waraxe', type:'weapon', slot:'mainhand', price:2.0, tokenPrice:12000, fxTier:2, fxColor:'#cfd8e3',
     effect:{ atkBonus:30, behavior:'cleave' }, sprite:'/sprites/marketplace/argent_waraxe.png',
     desc:'+30 ATK. A broad silver bite that cleaves everything in the arc.' },
-  { id:'ancient_blade', name:'Ancient Blade', type:'weapon', slot:'mainhand', price:5.0, fxTier:3, fxColor:'#ffd24a',
+  { id:'ancient_blade', name:'Ancient Blade', type:'weapon', slot:'mainhand', price:3.0, fxTier:3, fxColor:'#ffd24a',
     effect:{ atkBonus:40, behavior:'double_hit' }, sprite:'/sprites/marketplace/ancient_blade.png',
     desc:'+40 ATK. Two blistering slashes — few foes survive.' },
-  { id:'frost_spear', name:'Frost Spear', type:'weapon', slot:'mainhand', price:6.0, fxTier:3, fxColor:'#bdeeff',
+  { id:'frost_spear', name:'Frost Spear', type:'weapon', slot:'mainhand', price:3.5, fxTier:3, fxColor:'#bdeeff',
     effect:{ atkBonus:35, behavior:'slow', slowPct:0.5 }, sprite:'/sprites/marketplace/frost_spear.png',
     desc:'+35 ATK, chills and slows enemies.' },
-  { id:'verdant_reaper', name:'Verdant Reaper', type:'weapon', slot:'mainhand', price:10.0, fxTier:3, fxColor:'#57e389',
+  { id:'verdant_reaper', name:'Verdant Reaper', type:'weapon', slot:'mainhand', price:5.0, fxTier:3, fxColor:'#57e389',
     effect:{ atkBonus:60, behavior:'aoe' }, sprite:'/sprites/marketplace/verdant_reaper.png',
     desc:'+60 ATK. A wide living arc that reaps everything around you.' },
-  { id:'void_katana', name:'Voidedge Katana', type:'weapon', slot:'mainhand', price:12.0, fxTier:3, fxColor:'#b46bff',
+  { id:'void_katana', name:'Voidedge Katana', type:'weapon', slot:'mainhand', price:6.5, fxTier:3, fxColor:'#b46bff',
     effect:{ atkBonus:70, behavior:'triple_slash' }, sprite:'/sprites/marketplace/void_katana.png',
     desc:'+70 ATK. Three void-lit cuts land before the first is seen.' },
-  { id:'sunfire_bow', name:'Sunfire Longbow', type:'weapon', slot:'mainhand', price:15.0, fxTier:3, fxColor:'#ffcf3d',
+  // The ceiling. Nothing in NullState costs more than this.
+  { id:'sunfire_bow', name:'Sunfire Longbow', type:'weapon', slot:'mainhand', price:8.0, fxTier:3, fxColor:'#ffcf3d',
     effect:{ atkBonus:80, behavior:'volley' }, sprite:'/sprites/marketplace/sunfire_bow.png',
     desc:'+80 ATK, ranged. Looses a fan of three sunfire arrows.' },
   // ── SKINS (outfit) — Phase 9 cosmetics ── PURE VISUALS, zero stats. Each is a
@@ -212,16 +254,20 @@ const BASE_MARKETPLACE_ITEMS: MarketplaceItem[] = [
   // them (the FREE default outfit renders exactly as before when none is worn).
   // Icons in public/sprites/marketplace/<id>.png are composited from the SAME
   // LPC layers the skin renders, so the shop preview == what you wear.
-  { id:'ashen_warden', name:'Ashen Warden', type:'outfit', slot:'outfit', price:5.0, fxTier:2, skinTint:'#8f95a0',
+  // Priced UNDER the weapons they visually rival: a skin grants nothing but a
+  // look, so charging power-money for it is both poor value and off-message for
+  // a game whose pitch is "no pay-to-win". Cheap cosmetics are also the
+  // guilt-free second purchase for someone who already bought their weapon.
+  { id:'ashen_warden', name:'Ashen Warden', type:'outfit', slot:'outfit', price:1.5, fxTier:2, skinTint:'#8f95a0',
     effect:{}, sprite:'/sprites/marketplace/ashen_warden.png',
     desc:'Ash-grey full plate — a silent sentinel of the bunkers.' },
-  { id:'emberguard', name:'Emberguard', type:'outfit', slot:'outfit', price:7.0, fxTier:3, skinTint:'#c85a1e',
+  { id:'emberguard', name:'Emberguard', type:'outfit', slot:'outfit', price:2.5, fxTier:3, skinTint:'#c85a1e',
     effect:{}, sprite:'/sprites/marketplace/emberguard.png',
     desc:'Ember-forged warden leathers with a warm coal glow.' },
-  { id:'voidweave', name:'Voidweave', type:'outfit', slot:'outfit', price:9.0, fxTier:3, skinTint:'#6a24b0',
+  { id:'voidweave', name:'Voidweave', type:'outfit', slot:'outfit', price:3.5, fxTier:3, skinTint:'#6a24b0',
     effect:{}, sprite:'/sprites/marketplace/voidweave.png',
     desc:'A hooded violet weave that drinks the dark around you.' },
-  { id:'sungild', name:'Sungild Regalia', type:'outfit', slot:'outfit', price:10.0, fxTier:3, skinTint:'#e0b23a',
+  { id:'sungild', name:'Sungild Regalia', type:'outfit', slot:'outfit', price:5.0, fxTier:3, skinTint:'#e0b23a',
     effect:{}, sprite:'/sprites/marketplace/sungild.png',
     desc:'Gilded champion regalia that catches every torchlight.' },
   // TASK #7 — EXCLUSIVE Season-Pass skin. NOT sold: hidden:true keeps it out of

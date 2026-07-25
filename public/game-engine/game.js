@@ -5336,6 +5336,15 @@ function unmount(){
   if(window.NS_RUN && NS_RUN.active()) NS_RUN.close('Abandoned');
   if(rafId){ cancelAnimationFrame(rafId); rafId=null; }
   if(_previewTimer){ clearTimeout(_previewTimer); _previewTimer=null; }
+  // The world-map hub made this matter: clearing a bunker unmounts the engine
+  // from INSIDE a showLoadingTransition (the dispatch that returns the player
+  // to the map happens in the transition's dark phase), so the fade's t2/t3
+  // timers were still pending and _fadeActive was left true. Module state
+  // outlives unmount, so those flags carried into the next mount. It
+  // self-corrected — the next transition clears stale timers on entry — but
+  // leaving timers armed against DOM React has already thrown away is the kind
+  // of thing that only stays harmless by luck. Tear it down here instead.
+  _clearFadeTimers(); _fadeActive = false;
   _winL.forEach(([t,f])=>window.removeEventListener(t,f)); _winL.length=0;
   G = null; last = 0;
   cv = ctx = stick = nub = atkBtn = touchEl = null;

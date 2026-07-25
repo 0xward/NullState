@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAddress } from 'viem'
 import { getAdminDb } from '@/firebase-config'
-import { getMarketplaceItem } from '@/lib/constants/marketplace'
+import { getMarketplaceItem, TOKEN_SWAP_MAX_PRICE_USD } from '@/lib/constants/marketplace'
 
 // =============================================
 // MARKETPLACE TOKEN SWAP (Phase 5.5 #8)
@@ -40,6 +40,19 @@ export async function POST(req: NextRequest) {
     if (!item.tokenPrice) {
       return NextResponse.json(
         { error: 'This item cannot be swapped for NullState Point — buy with USDm/USDC/USDT instead' },
+        { status: 400 }
+      )
+    }
+    // Price ceiling on the free path. TOKEN_SWAP_MAX_PRICE_USD existed as a
+    // documented rule that nothing enforced, and the data had already drifted
+    // past it (three weapons priced $3–$4 carried a tokenPrice). Point is a
+    // faucet currency — it is minted by burning loot, so anything reachable
+    // with it is reachable for free. Checking the CEILING as well as the
+    // presence of a tokenPrice means a stray tokenPrice on an expensive item is
+    // a rejected swap rather than a silent giveaway of the top of the ladder.
+    if (item.price > TOKEN_SWAP_MAX_PRICE_USD) {
+      return NextResponse.json(
+        { error: 'This item is above the NullState Point swap limit — buy with USDm/USDC/USDT instead' },
         { status: 400 }
       )
     }
