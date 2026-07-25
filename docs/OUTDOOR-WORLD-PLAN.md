@@ -57,18 +57,46 @@ A zone is small and purposeful — think one screen or a few, not a world.
 - `marsh` — drowned ruins, shallow black water
 - `quarry` — broken rock faces, ore veins
 
-## 3. Resources & tools
+## 3. Resources & economy — DECIDED
 
-| Node | Tool | Yields |
+The economy is the part that can quietly go wrong, so it was settled first
+against the real numbers already in the game:
+
+| Fact | Value |
+|---|---|
+| Shard pack | **$1 = 5 shards** (≈ $0.20 each) |
+| Evolution t1→t2 | 8 shards (≈ $1.60) |
+| Evolution t2→t3 | 14 shards (≈ $2.80) |
+| Energy | 5 free runs/day · $1 = 5 more |
+
+**Shards carry a real dollar price.** If gathering dropped shards directly it
+would undercut one of the few revenue lines, and — because
+`/api/materials/credit` has no wallet auth, only per-call clamps (see SEC-1) —
+it would hand bots a reason to farm.
+
+So **diamond is the only bridge into the paid economy**:
+
+| Node | Yields | Feeds |
 |---|---|---|
-| Tree | Axe | Wood (common), Resin (rare) |
-| Rock | Pickaxe | Stone (common), **Diamond** (rare) |
-| Berry bush | — | Heals on pickup, no inventory slot |
-| Crate | — | Existing loot table |
+| Tree | Wood (common) | New consumables / building track |
+| Rock | Stone (common) | Same |
+| Rock | **Diamond (rare)** | **Converts to Glitch Shards** — server-capped per day |
+| Berry bush | Heals on pickup | Nothing — no inventory slot |
+| Crate | Existing loot table | Existing |
 
-Open questions: do tools have **durability** (LDoE does, and it's what keeps
-players gathering)? Do resources feed **existing** crafting (Glitch Shards) or a
-new track? Decide before building — it changes the economy.
+Why this shape:
+- Diamond being **rare** rate-limits the farmable value by drop chance, not by
+  trusting the client.
+- It delivers the "jackpot" feeling without gambling and without paying USDT on
+  a random roll (which would risk the MiniPay listing — see the gacha decision).
+- Impatient players still buy the $1 pack; patient players mine. Time vs money,
+  which is also what "free-to-earn" promises.
+- **Required:** a server-side daily cap on diamonds → shards.
+
+**Tools: no durability** (for now). Energy already rate-limits play; durability
+would tax the player twice and add UI to explain. Its real job in LDoE is to
+create gathering demand, and here that demand already comes from crafting.
+Adding it later is easy; removing a shipped system is not.
 
 ## 4. Schedule — the thing that brings players back
 
@@ -132,13 +160,23 @@ Ordered so each phase is playable on its own and nothing is wasted.
 - **Don't block listing on this.** Ship the listing with what exists; this is
   the content that keeps players afterwards.
 
-## 9. Open decisions
+## 9. Decisions (settled with the owner)
 
-1. Tool durability — yes or no?
-2. New resources feed existing crafting, or their own track?
-3. Do zones cost energy to enter (LDoE's rate-limiter), or are they free?
-4. Are zones combat-free (pure gathering) or do some carry enemies?
-5. Zone size — one screen, or a few screens to walk across?
+| # | Decision | Why |
+|---|---|---|
+| 1 | **No tool durability** | Energy already rate-limits play; durability taxes the player twice and adds UI. Easy to add later, hard to remove |
+| 2 | **Diamond is the only bridge to shards**, server-capped daily | Protects the $1 shard pack and bounds what a bot can farm while SEC-1 is open |
+| 3 | **No energy cost — one entry per open window** | Energy is the budget for bunker runs. Charging it makes players choose between the story and mining, so they do both badly. The schedule is already a limiter |
+| 4 | **v1: one safe zone. Risky zones later** | Prove the loop first. Later, enemy zones with better diamond odds let players choose their own risk — and the enemy system already exists |
+| 5 | **One screen, 60–90 seconds** | Fits MiniPay's short sessions, needs no camera/scroll work, and keeps art cost to one screen of tiles per biome. Growing to two screens later is easy; shrinking is not |
+
+## 10. Still to decide before Phase B
+
+- What exactly wood + stone buy (the consumables/building track in §3) — the
+  sink needs to exist before the first drop table is written.
+- Diamond drop rate and the daily conversion cap.
+- Whether zone entry is per-wallet or per-device (SEC-1 again — per-wallet with
+  no auth is spoofable, so the cap matters more than the identity).
 
 ---
 
