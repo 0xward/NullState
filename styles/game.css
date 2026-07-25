@@ -1148,7 +1148,74 @@
   .ns-game-root .ns-mute-trigger{top:276px;}
 }
 
-/* World-Map Hub (Phase 1) — the active-bunker hatch pin bobs gently. */
-.ns-hatch-bob{ animation: nsHatchBob 1.8s ease-in-out infinite; }
-@keyframes nsHatchBob{ 0%,100%{ transform:translateY(0) scale(1); } 50%{ transform:translateY(-4px) scale(1.04); } }
-@media (prefers-reduced-motion:reduce){ .ns-hatch-bob{ animation:none; } }
+/* ─── World-Map Hub ────────────────────────────────────────────────────────
+   The map keeps its own aspect ratio inside the viewport (a manual "cover"),
+   so node markers positioned in map-native % stay glued to the doors painted
+   into the art on every screen size. Phones are narrower than the map's 2:3,
+   so height drives the fit; the media query flips to width on wider screens. */
+.ns-hub-map{
+  position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+  height:100%; aspect-ratio:1024/1536; z-index:1;
+}
+@media (min-aspect-ratio:2/3){
+  .ns-hub-map{ width:100%; height:auto; }
+}
+
+/* Locked bunker — two slow, offset fog blobs drifting over the painted door. */
+.ns-hub-fog{
+  position:absolute; left:50%; top:50%; width:66px; height:66px; border-radius:50%;
+  transform:translate(-50%,-50%); pointer-events:none;
+  background:radial-gradient(circle, rgba(198,214,208,.30) 0%, rgba(150,170,164,.18) 45%, transparent 72%);
+  animation:nsHubFog 9s ease-in-out infinite;
+}
+.ns-hub-fog-b{
+  width:54px; height:54px; animation-duration:13s; animation-direction:reverse;
+  background:radial-gradient(circle, rgba(180,200,196,.22) 0%, transparent 68%);
+}
+@keyframes nsHubFog{
+  0%,100%{ transform:translate(-58%,-50%) scale(1); opacity:.85; }
+  50%    { transform:translate(-42%,-53%) scale(1.14); opacity:1; }
+}
+
+/* Active bunker — a ring lying ON the ground (flattened ellipse, not a
+   floating badge) plus a chevron nodding above the door. */
+.ns-hub-ring{
+  position:absolute; left:50%; top:62%; width:44px; height:18px;
+  transform:translate(-50%,-50%); border-radius:50%; pointer-events:none;
+  border:2px solid rgba(57,255,154,.9);
+  box-shadow:0 0 12px rgba(57,255,154,.55), inset 0 0 8px rgba(57,255,154,.35);
+  animation:nsHubRing 2s ease-in-out infinite;
+}
+@keyframes nsHubRing{
+  0%,100%{ transform:translate(-50%,-50%) scale(1);    opacity:.95; }
+  50%    { transform:translate(-50%,-50%) scale(1.12); opacity:.6; }
+}
+.ns-hub-chev{
+  position:absolute; left:50%; top:8%; transform:translateX(-50%);
+  font-size:11px; line-height:1; color:#39ff9a; pointer-events:none;
+  text-shadow:0 0 8px rgba(57,255,154,.9), 0 1px 2px #000;
+  animation:nsHubChev 1.6s ease-in-out infinite;
+}
+@keyframes nsHubChev{
+  0%,100%{ transform:translateX(-50%) translateY(0);    opacity:1; }
+  50%    { transform:translateX(-50%) translateY(3px);  opacity:.65; }
+}
+
+/* Player plate — same navy body + neon rim + chunky bevel as the rail icons. */
+.ns-hub-plate{
+  padding:6px 10px 6px 6px;
+  background:#14213a;
+  border:2px solid #39ff9a;
+  box-shadow:inset 2px 2px 0 rgba(255,255,255,.10), inset -2px -2px 0 rgba(0,0,0,.55),
+             0 0 0 2px #0b1220, 0 3px 6px rgba(0,0,0,.6);
+}
+.ns-hub-avatar{
+  width:28px; height:28px; display:flex; align-items:center; justify-content:center;
+  font-size:13px; font-weight:700; color:#39ff9a;
+  background:#0b1220; border:2px solid #2c6b4a;
+  box-shadow:inset 1px 1px 0 rgba(255,255,255,.08);
+}
+
+@media (prefers-reduced-motion:reduce){
+  .ns-hub-fog, .ns-hub-ring, .ns-hub-chev{ animation:none; }
+}
