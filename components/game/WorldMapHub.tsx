@@ -45,6 +45,7 @@ interface WorldMapHubProps {
 
 const MAP = '/worldmap/map-bg.webp'
 const IC = (n: string) => `/worldmap/icons/${n}.png`
+const HOWTO_SEEN_KEY = 'ns-howto-seen'
 
 // The five campaign bunkers, positioned over the doors painted into the map art.
 // `act` is the engine's 0-based campaignActIndex (campaignActIndex===4 is
@@ -131,6 +132,19 @@ export default function WorldMapHub({
     loadGameSession(address).then((s) => apply(s?.campaignActIndex)).catch(() => {})
     return () => { alive = false }
   }, [address])
+
+  // The help prompt glows until the player has opened How to Play once. Stored
+  // per browser (not per wallet) so a guest who later connects isn't re-nagged.
+  const [howToSeen, setHowToSeen] = useState(true) // assume seen until we can read storage — avoids a flash of the prompt
+  useEffect(() => {
+    try { setHowToSeen(window.localStorage.getItem(HOWTO_SEEN_KEY) === '1') } catch { setHowToSeen(true) }
+  }, [])
+
+  const openHowToPlay = () => {
+    setHowToSeen(true)
+    try { window.localStorage.setItem(HOWTO_SEEN_KEY, '1') } catch { /* storage blocked — prompt just returns next visit */ }
+    onHowToPlay()
+  }
 
   const showToast = (msg: string) => {
     setToast(msg)
@@ -234,17 +248,35 @@ export default function WorldMapHub({
         </span>
       </div>
 
-      {/* ── ≡ MENU (top-right) ── */}
-      <button
-        onClick={() => setMenuOpen(true)}
-        className="absolute font-mono uppercase"
-        style={{
-          top: 12, right: 12, zIndex: 6, minHeight: 32, padding: '6px 10px', fontSize: 9, letterSpacing: '1px',
-          color: '#cfe0d8', background: 'rgba(6,12,9,.72)', border: '1px solid rgba(255,255,255,.14)', borderRadius: 3,
-        }}
-      >
-        ≡ MENU
-      </button>
+      {/* ── Help + ≡ MENU (top-right) ──
+          The "?" sits outside the menu because a first-time player shouldn't
+          have to open a menu to find out how the game works. Until it's tapped
+          once it pulses with a "read me first" label; tapping stores a flag so
+          the prompt never returns. */}
+      <div className="absolute flex items-start gap-2" style={{ top: 12, right: 12, zIndex: 6 }}>
+        <div className="relative">
+          <button
+            onClick={openHowToPlay}
+            aria-label="How to play"
+            className={`ns-hub-help font-mono${howToSeen ? '' : ' is-new'}`}
+          >
+            ?
+          </button>
+          {!howToSeen && (
+            <span className="ns-hub-help-tip font-mono" aria-hidden="true">NEW? READ FIRST</span>
+          )}
+        </div>
+        <button
+          onClick={() => setMenuOpen(true)}
+          className="font-mono uppercase"
+          style={{
+            minHeight: 32, padding: '6px 10px', fontSize: 9, letterSpacing: '1px',
+            color: '#cfe0d8', background: 'rgba(6,12,9,.72)', border: '1px solid rgba(255,255,255,.14)', borderRadius: 3,
+          }}
+        >
+          ≡ MENU
+        </button>
+      </div>
 
       {/* ── LEFT rail: come back & earn ── */}
       <div className="absolute flex flex-col gap-2" style={{ top: 92, left: 6, zIndex: 6 }}>
@@ -323,7 +355,7 @@ export default function WorldMapHub({
               {[
                 { label: hasSave ? 'New Game (reset)' : 'New Game', fn: onNewGame, danger: hasSave },
                 { label: 'Leaderboard', fn: onLeaderboard },
-                { label: 'How to Play', fn: onHowToPlay },
+                { label: 'How to Play', fn: openHowToPlay },
               ].map((it) => (
                 <button
                   key={it.label}

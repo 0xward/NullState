@@ -12,6 +12,8 @@
 // If the burn→Point vs burn→stablecoin decision is ever revisited, the Weekly
 // card below is the one to update.
 
+import { useWorldMapHubFlag } from '@/lib/worldMapHubFlag'
+
 interface HowToPlayScreenProps {
   onBack: () => void
 }
@@ -81,6 +83,10 @@ function LoopCard({
 }
 
 export default function HowToPlayScreen({ onBack }: HowToPlayScreenProps) {
+  // The map section only appears for players who actually get the world-map
+  // hub — otherwise the help would describe a screen they never see.
+  const hasWorldMap = useWorldMapHubFlag()
+
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-[rgba(0,0,0,0.95)] p-4 sm:p-6 overflow-y-auto">
       <div
@@ -194,6 +200,44 @@ export default function HowToPlayScreen({ onBack }: HowToPlayScreenProps) {
             </div>
           </div>
         </div>
+
+        {/* The Map — only shown to players who get the world-map hub */}
+        {hasWorldMap && (
+          <div className="mb-8">
+            <div className="font-mono text-[10px] tracking-[4px] uppercase text-null-green mb-3">// THE MAP</div>
+            <div className="rounded-md border border-[rgba(0,255,136,0.2)] bg-[rgba(0,255,136,0.03)] p-4 sm:p-6">
+              <p className="text-[13px] leading-relaxed text-null-muted mb-4">
+                Every bunker sits on one map. You start at the <span className="text-null-white">bottom</span> and work
+                your way <span className="text-null-white">up</span> the trail — <BunkerTag>The Last Light</BunkerTag> waits
+                at the very top.
+              </p>
+              <div className="flex flex-col gap-2 text-[13px] leading-relaxed text-null-muted">
+                <p>
+                  <span className="inline-block h-3 w-5 rounded-full border-2 border-[#39ff9a] align-middle mr-2" />
+                  <span className="text-null-white">Glowing ring</span> — the bunker you&apos;re in right now.
+                </p>
+                <p>
+                  <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-[#39ff9a] text-[10px] font-bold text-[#04140c] align-middle mr-2">✓</span>
+                  <span className="text-null-white">Stamp</span> — already cleared.
+                </p>
+                <p>
+                  <span className="inline-block h-4 w-4 rounded-sm bg-[rgba(214,228,224,0.45)] align-middle mr-2" />
+                  <span className="text-null-white">Fog and a padlock</span> — not open yet. Tap it and the bar at the
+                  bottom tells you what you still need.
+                </p>
+                <p className="pt-1">
+                  Tapping a bunker only <span className="text-null-white">selects</span> it — the bar at the bottom shows
+                  where you&apos;re pointing. Press <span className="text-null-white">ENTER</span> to actually go down.
+                </p>
+                <p>
+                  The buttons down the <span className="text-null-white">left</span> are things that pay you back
+                  (Daily, Rewards, Pass, Invite); the <span className="text-null-white">right</span> is where you spend
+                  (Shop, Craft).
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Progression */}
         <div className="mb-8">
