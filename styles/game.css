@@ -1147,3 +1147,8 @@
 @media (orientation:portrait){
   .ns-game-root .ns-mute-trigger{top:276px;}
 }
+
+/* World-Map Hub (Phase 1) — the active-bunker hatch pin bobs gently. */
+.ns-hatch-bob{ animation: nsHatchBob 1.8s ease-in-out infinite; }
+@keyframes nsHatchBob{ 0%,100%{ transform:translateY(0) scale(1); } 50%{ transform:translateY(-4px) scale(1.04); } }
+@media (prefers-reduced-motion:reduce){ .ns-hatch-bob{ animation:none; } }
