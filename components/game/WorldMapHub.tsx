@@ -49,12 +49,18 @@ const IC = (n: string) => `/worldmap/icons/${n}.png`
 // The five campaign bunkers, positioned over the doors painted into the map art.
 // `act` is the engine's 0-based campaignActIndex (campaignActIndex===4 is
 // "THE LAST LIGHT" — see public/game-engine/game.js).
+//
+// Progression runs BOTTOM → TOP: bunker 1 sits at the foot of the map (the
+// near, safe end) and the run climbs the trail toward THE LAST LIGHT at the
+// top, which the art draws as the largest structure — so the map's own visual
+// weight matches the campaign's difficulty curve. Listed in screen order
+// (top-most first) for readability; `act` carries the real sequence.
 const NODES = [
-  { act: 0, name: 'TREELINE BUNKER', x: 35, y: 11 },
-  { act: 1, name: 'SUNKEN FIELD', x: 64, y: 33 },
+  { act: 4, name: 'THE LAST LIGHT', x: 35, y: 11 },
+  { act: 3, name: 'HOLLOW MARKET', x: 64, y: 33 },
   { act: 2, name: 'FROSTLINE BUNKER', x: 38, y: 49 },
-  { act: 3, name: 'HOLLOW MARKET', x: 60, y: 66 },
-  { act: 4, name: 'THE LAST LIGHT', x: 45, y: 80 },
+  { act: 1, name: 'SUNKEN FIELD', x: 60, y: 66 },
+  { act: 0, name: 'TREELINE BUNKER', x: 45, y: 80 },
 ] as const
 
 type NodeState = 'cleared' | 'active' | 'locked'
@@ -107,8 +113,10 @@ export default function WorldMapHub({
   // Which bunker the player is currently in, from the saved run. The local
   // draft answers instantly (localStorage); the Firestore copy then corrects it
   // if the player continued on another device. Defaults to bunker 1.
+  // Both of these hold an ACT number (0-4), not an array index — NODES is
+  // ordered by screen position (top-first), so the two no longer line up.
   const [currentAct, setCurrentAct] = useState(0)
-  const [selected, setSelected] = useState(0)
+  const [selectedAct, setSelectedAct] = useState(0)
 
   useEffect(() => {
     if (!address) return
@@ -117,7 +125,7 @@ export default function WorldMapHub({
       if (!alive || typeof act !== 'number' || !isFinite(act)) return
       const clamped = Math.min(NODES.length - 1, Math.max(0, Math.floor(act)))
       setCurrentAct(clamped)
-      setSelected(clamped)
+      setSelectedAct(clamped)
     }
     apply(loadGameSessionDraft(address)?.campaignActIndex)
     loadGameSession(address).then((s) => apply(s?.campaignActIndex)).catch(() => {})
@@ -132,7 +140,8 @@ export default function WorldMapHub({
   const stateOf = (act: number): NodeState =>
     act < currentAct ? 'cleared' : act === currentAct ? 'active' : 'locked'
 
-  const sel = NODES[selected]
+  const nodeByAct = (act: number) => NODES.find((n) => n.act === act)
+  const sel = nodeByAct(selectedAct) ?? NODES[NODES.length - 1]
   const selState = stateOf(sel.act)
   const canEnter = selState === 'active'
 
@@ -144,7 +153,7 @@ export default function WorldMapHub({
   const subline = selState === 'active'
     ? (hasSave ? `Bunker ${sel.act + 1} · Continue your descent` : `Bunker ${sel.act + 1} · Begin your descent`)
     : selState === 'cleared' ? `Bunker ${sel.act + 1} · Already cleared`
-      : `Locked · Clear ${NODES[sel.act - 1]?.name ?? 'the previous bunker'} first`
+      : `Locked · Clear ${nodeByAct(sel.act - 1)?.name ?? 'the previous bunker'} first`
 
   const startRun = () => {
     if (!canEnter) return
@@ -163,73 +172,41 @@ export default function WorldMapHub({
           style={{ width: '100%', height: '100%', display: 'block', filter: 'brightness(1.12) contrast(1.06) saturate(1.05)' }}
         />
 
-        {NODES.map((n, i) => {
+        {NODES.map((n) => {
           const st = stateOf(n.act)
-          const isSel = i === selected
+          const isSel = n.act === selectedAct
           return (
             <button
               key={n.act}
-              onClick={() => setSelected(i)}
+              onClick={() => setSelectedAct(n.act)}
               aria-label={`${n.name} — ${st}`}
-              className="absolute"
+              className={`absolute ns-hub-node${isSel ? ' is-sel' : ''}`}
               style={{
                 left: `${n.x}%`, top: `${n.y}%`, transform: 'translate(-50%,-50%)',
-                width: 62, height: 62, zIndex: 4, background: 'none', border: 'none', padding: 0,
+                width: 66, height: 66, zIndex: 4, background: 'none', border: 'none', padding: 0,
               }}
             >
-              {/* LOCKED — drifting fog over the painted door + padlock */}
+              {/* LOCKED — fog rolls over the painted door, padlock sits on it */}
               {st === 'locked' && (
                 <>
                   <span className="ns-hub-fog" aria-hidden="true" />
                   <span className="ns-hub-fog ns-hub-fog-b" aria-hidden="true" />
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={IC('lock')} alt="" aria-hidden="true"
-                    style={{
-                      position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%,-50%)',
-                      width: 26, height: 26, imageRendering: 'pixelated', opacity: .92,
-                      filter: 'grayscale(.35) brightness(.95) drop-shadow(0 2px 3px rgba(0,0,0,.8))',
-                    }}
-                  />
+                  <span className="ns-hub-lock" aria-hidden="true">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={IC('lock')} alt="" width={30} height={30} />
+                  </span>
                 </>
               )}
 
-              {/* CLEARED — a small stamp beside the door */}
-              {st === 'cleared' && (
-                <span
-                  aria-hidden="true"
-                  className="absolute font-mono font-extrabold"
-                  style={{
-                    left: '50%', top: '50%', transform: 'translate(-50%,-50%)',
-                    width: 20, height: 20, borderRadius: '50%', fontSize: 12,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    color: '#04140c', background: '#39ff9a', opacity: .9,
-                    boxShadow: '0 0 8px rgba(57,255,154,.55), 0 1px 3px rgba(0,0,0,.8)',
-                  }}
-                >
-                  ✓
-                </span>
-              )}
+              {/* CLEARED — a ✓ stamp on the door, the place sits quiet */}
+              {st === 'cleared' && <span className="ns-hub-done" aria-hidden="true">✓</span>}
 
-              {/* ACTIVE — ground-anchored ring + a chevron nodding above it */}
+              {/* ACTIVE — ring lying on the ground at the door's foot + chevron */}
               {st === 'active' && (
                 <>
                   <span className="ns-hub-ring" aria-hidden="true" />
                   <span className="ns-hub-chev" aria-hidden="true">▼</span>
                 </>
-              )}
-
-              {/* Selection outline (any state) */}
-              {isSel && (
-                <span
-                  aria-hidden="true"
-                  className="absolute"
-                  style={{
-                    left: '50%', top: '50%', transform: 'translate(-50%,-50%)',
-                    width: 54, height: 54, border: '1px solid rgba(255,255,255,.55)', borderRadius: 4,
-                    boxShadow: '0 0 0 1px rgba(0,0,0,.6)',
-                  }}
-                />
               )}
             </button>
           )
@@ -248,19 +225,13 @@ export default function WorldMapHub({
         aria-hidden="true"
       />
 
-      {/* ── Player plate (top-left) — same pixel language as the rail icons ── */}
+      {/* ── Player plate (top-left) — octagon-cut to match the rail icons ── */}
       <div className="absolute ns-hub-plate" style={{ top: 10, left: 10, zIndex: 6 }}>
-        <div className="flex items-center gap-2">
-          <span className="ns-hub-avatar font-mono">✕</span>
-          <span className="font-mono leading-none">
-            <span style={{ display: 'block', fontSize: 11, color: '#fff', fontWeight: 700, letterSpacing: '.5px' }}>
-              {hasSave ? playerProfile!.username.toUpperCase() : 'WALKER'}
-            </span>
-            <span style={{ display: 'block', fontSize: 8.5, color: '#39ff9a', letterSpacing: '1px', marginTop: 2 }}>
-              {hasSave ? `LV ${playerProfile!.level}` : 'NEW SIGNAL'}
-            </span>
-          </span>
-        </div>
+        <span className="ns-hub-avatar font-mono">✕</span>
+        <span className="font-mono leading-none">
+          <span className="ns-hub-name">{hasSave ? playerProfile!.username.toUpperCase() : 'WALKER'}</span>
+          <span className="ns-hub-lv">{hasSave ? `LV ${playerProfile!.level}` : 'NEW SIGNAL'}</span>
+        </span>
       </div>
 
       {/* ── ≡ MENU (top-right) ── */}
