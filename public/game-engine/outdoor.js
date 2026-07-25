@@ -21,7 +21,12 @@ window.NS_OUTDOOR = (function(){
   const drawLPCComposite = window.NS_ENT.drawLPCComposite;
   const lpcDirFromVec = window.NS_ENT.lpcDirFromVec;
 
-  const GROUND_Y_FRAC = 0.5; // player's feet, as a fraction of canvas height — vertical middle of the screen
+  // Player's feet, as a fraction of canvas height. The outdoor backgrounds are
+  // cropped so their walkable ground sits at exactly this fraction (see
+  // public/backgrounds/*.webp — 941x1210, ground line at 0.80), so the
+  // character stands ON the terrain instead of floating in the scenery. Change
+  // one and the other has to be re-cropped to match.
+  const GROUND_Y_FRAC = 0.80;
   const EDGE_MARGIN = 36; // how close to the literal screen edge the player can walk before being clamped/triggering the exit
 
   let state = null; // null when not in an outdoor scene
@@ -195,7 +200,16 @@ window.NS_OUTDOOR = (function(){
     if(bgImg){
       const scale = Math.max(cw/bgImg.width, ch/bgImg.height);
       const dw = bgImg.width*scale, dh = bgImg.height*scale;
-      ctx.drawImage(bgImg, (cw-dw)/2, (ch-dh)/2, dw, dh);
+      // Anchor the art's OWN ground line (cropped to GROUND_Y_FRAC — see the
+      // constant above) to the canvas ground line, instead of centring the
+      // image. When the image exactly fills the height (portrait phones) this
+      // is identical to centring; when the canvas is wider than the art and
+      // cover crops vertically, it keeps the character standing on ground
+      // rather than letting the horizon drift off-screen. Clamped so the crop
+      // can never expose empty space past either edge.
+      let dy = py - GROUND_Y_FRAC*dh;
+      dy = Math.min(0, Math.max(ch-dh, dy));
+      ctx.drawImage(bgImg, (cw-dw)/2, dy, dw, dh);
     } else {
       ctx.fillStyle = '#0a1410'; ctx.fillRect(0,0,cw,ch);
     }
