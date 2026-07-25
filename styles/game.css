@@ -1264,6 +1264,31 @@
 .ns-hub-name{ display:block; font-size:11.5px; color:#fff; font-weight:700; letter-spacing:.6px; }
 .ns-hub-lv{ display:block; font-size:9px; color:#39ff9a; letter-spacing:1.4px; margin-top:3px; }
 
+/* Help button — same octagon cut as the rail icons. Until a first-time player
+   has opened How to Play it pulses with a label; after that it goes quiet. */
+.ns-hub-help{
+  position:relative; width:34px; height:34px; padding:0;
+  font-size:16px; font-weight:700; line-height:1; color:#39ff9a;
+  background:#14213a; border:none;
+  box-shadow:inset 0 0 0 2px rgba(57,255,154,.85), inset 2px 2px 0 rgba(255,255,255,.08);
+  clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px);
+  filter:drop-shadow(0 3px 5px rgba(0,0,0,.7));
+}
+.ns-hub-help.is-new{ animation:nsHubHelp 1.7s ease-in-out infinite; }
+@keyframes nsHubHelp{
+  0%,100%{ box-shadow:inset 0 0 0 2px rgba(57,255,154,.85), 0 0 0 0 rgba(57,255,154,.55), 0 0 10px rgba(57,255,154,.5); }
+  50%    { box-shadow:inset 0 0 0 2px #baffdd,            0 0 0 7px rgba(57,255,154,0),   0 0 20px rgba(57,255,154,.95); }
+}
+.ns-hub-help-tip{
+  position:absolute; top:38px; right:0; white-space:nowrap; pointer-events:none;
+  font-size:7.5px; letter-spacing:1px; font-weight:700;
+  color:#04140c; background:#39ff9a; padding:3px 6px; border-radius:2px;
+  box-shadow:0 2px 6px rgba(0,0,0,.7);
+  animation:nsHubHelpTip 1.7s ease-in-out infinite;
+}
+@keyframes nsHubHelpTip{ 0%,100%{ opacity:1; } 50%{ opacity:.55; } }
+
 @media (prefers-reduced-motion:reduce){
-  .ns-hub-fog, .ns-hub-ring, .ns-hub-chev{ animation:none; }
+  .ns-hub-fog, .ns-hub-ring, .ns-hub-chev,
+  .ns-hub-help.is-new, .ns-hub-help-tip{ animation:none; }
 }

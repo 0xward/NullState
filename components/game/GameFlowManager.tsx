@@ -9,6 +9,7 @@ import { loadGameSession, clearGameSession } from '@/lib/gameSessionService'
 import { migrateGuestProgress, getStoredGuestId } from '@/lib/guestMigration'
 import MainMenu from './MainMenu'
 import WorldMapHub from './WorldMapHub'
+import { useWorldMapHubFlag } from '@/lib/worldMapHubFlag'
 import NewGameConfirmModal from './NewGameConfirmModal'
 
 // ─── Code-split (PSI v58: ~96 KiB unused JS di initial load) ────────────────
@@ -112,18 +113,10 @@ export default function GameFlowManager() {
   const [checkingNewGame, setCheckingNewGame] = useState(false)
   const [showNewGameConfirm, setShowNewGameConfirm] = useState(false)
 
-  // Feature flag (Phase 1): render the new world-map hub instead of the classic
-  // MainMenu. OFF by default → the live game is unchanged. Turn it on per-device
-  // for testing with `?hub=1` on the URL, or globally by setting the build env
-  // NEXT_PUBLIC_WORLDMAP_HUB=1. Read after mount so SSR isn't hydration-mismatched.
-  const [useWorldMapHub, setUseWorldMapHub] = useState(false)
-  useEffect(() => {
-    try {
-      const onByUrl = new URLSearchParams(window.location.search).get('hub') === '1'
-      const onByEnv = process.env.NEXT_PUBLIC_WORLDMAP_HUB === '1'
-      setUseWorldMapHub(onByUrl || onByEnv)
-    } catch { /* no window (SSR) — stay on the classic menu */ }
-  }, [])
+  // Render the world-map hub instead of the classic MainMenu when the flag is
+  // on (see lib/worldMapHubFlag.ts — OFF by default). HowToPlayScreen reads the
+  // same flag, so the help text always matches the screen the player gets.
+  const useWorldMapHub = useWorldMapHubFlag()
 
   // If wallet disconnects, go back to menu
   useEffect(() => {
