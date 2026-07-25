@@ -27,6 +27,14 @@ window.NS_OUTDOOR = (function(){
   // character stands ON the terrain instead of floating in the scenery. Change
   // one and the other has to be re-cropped to match.
   const GROUND_Y_FRAC = 0.80;
+
+  // The hero's base scale (assets.js LPC_HERO.scale = 1.2, ~56px tall) was
+  // calibrated for the DUNGEON, which draws through a camera zoom in tight
+  // rooms. Out here there is no zoom and the backgrounds put the character
+  // beside three-storey bunker doors and full-height pines, so at 1:1 the
+  // hero reads as a speck. This multiplier is the outdoor-only correction —
+  // raise it if the character still looks lost against the scenery.
+  const HERO_SCALE_MUL = 1.5;
   const EDGE_MARGIN = 36; // how close to the literal screen edge the player can walk before being clamped/triggering the exit
 
   let state = null; // null when not in an outdoor scene
@@ -228,13 +236,15 @@ window.NS_OUTDOOR = (function(){
     // Same fix as Player.draw() in entities.js (see comment there): the LPC
     // hero's feet sit exactly at py, so a large fixed offset leaves a gap
     // between the character and its shadow. Matched to +2 for visual
-    // consistency between outdoor and dungeon scenes.
-    ctx.beginPath(); ctx.ellipse(px, py+2, 18, 6, 0, 0, 7); ctx.fill(); ctx.restore();
+    // consistency between outdoor and dungeon scenes. Shadow scales with the
+    // hero so it never detaches from the feet.
+    const sc = HERO_SCALE_MUL;
+    ctx.beginPath(); ctx.ellipse(px, py+2, 18*sc, 6*sc, 0, 0, 7); ctx.fill(); ctx.restore();
     let drewLPC = false;
     if(s.useLPCHero && drawLPCComposite){
       const A = window.NS_ASSETS;
       const heroCfg = A && A.LPC_HERO;
-      drewLPC = !!heroCfg && drawLPCComposite(ctx, px, py, heroCfg.scale, s._lpcDir, s._lpcFrame, {
+      drewLPC = !!heroCfg && drawLPCComposite(ctx, px, py, heroCfg.scale*sc, s._lpcDir, s._lpcFrame, {
         animKey: s._lpcAnimKey || 'idle',
         // v80: equipped gear visible outdoors (never attacking out here, so
         // the weapon renders via the ULPC walk/idle carry overlay).
@@ -247,7 +257,7 @@ window.NS_OUTDOOR = (function(){
       // Either useLPCHero is off, or the LPC sheets aren't loaded yet —
       // fall back to the old Pixel Crawler sprite so the player is never
       // invisible (same defensive fallback as Player.draw() in entities.js).
-      s.anim.draw(ctx, px, py, s.heroCfg.scale, s.facing<0, s.heroCfg.foot, 1);
+      s.anim.draw(ctx, px, py, s.heroCfg.scale*sc, s.facing<0, s.heroCfg.foot, 1);
     }
 
     // speech bubble above the player's head (arrival beats)
