@@ -67,6 +67,11 @@ let SAVED_SESSION = null;
 // null = show the title as before (demo / direct mounts). The title is still
 // reachable in-session via returnToTitleScreen() after finishing the campaign.
 let START_MODE = null;
+// True when the app shell is showing the world-map hub instead of the classic
+// menu. Set from mount({ worldMapHub }). With the hub on, clearing a bunker
+// surfaces the player back to the map (so they watch the ✓ land and the next
+// door unlock) instead of walking straight into the next act's outdoor scene.
+let WORLDMAP_HUB = false;
 // CARRY_OVER_SNAPSHOT: bridges progress (loot, xp/level/kills/celo/hp, key/
 // paper run-caps) across the outdoor walk between two bunkers in the SAME
 // run. Captured in onActBunkerCleared() right before that bunker's G is
@@ -5056,6 +5061,25 @@ function onOutdoorAdvanceToNextAct(){
       enterOutdoorAct(campaignActIndex, true);
       return;
     }
+    // World-map hub: surface to the map rather than walking straight into the
+    // next bunker, so the run's progress actually lands somewhere the player
+    // can see — the cleared bunker gets its ✓ and the next one loses its fog.
+    // The app shell handles it from here (it swaps back to the menu phase,
+    // which unmounts this engine along with the fade overlay).
+    if(WORLDMAP_HUB){
+      // getSaveSnapshot() falls back to LAST_BUNKER_SNAPSHOT while we're
+      // outdoors, so bump the act on it too — otherwise the shell would
+      // persist (and the map would draw) the bunker we just finished.
+      if(LAST_BUNKER_SNAPSHOT) LAST_BUNKER_SNAPSHOT.campaignActIndex = campaignActIndex;
+      try{
+        window.dispatchEvent(new CustomEvent('nullstate-bunker-cleared', {
+          detail:{ nextActIndex: campaignActIndex, clearedActIndex: campaignActIndex-1 }
+        }));
+      }catch(e){ /* no CustomEvent — fall through to the classic flow below */
+        enterOutdoorAct(campaignActIndex, false);
+      }
+      return;
+    }
     enterOutdoorAct(campaignActIndex, false);
   }, ()=>{}, `LEAVING ${finishedAct.title}…`);
 }
@@ -5281,6 +5305,7 @@ function mount(opts){
   INITIAL_STATS = opts.initialStats || null;
   SAVED_SESSION = opts.savedSession || null;
   START_MODE = opts.startMode || null;
+  WORLDMAP_HUB = !!opts.worldMapHub;
   // Belt-and-suspenders for the "preview still shows" bug: the moment we know
   // this is a Main Menu entry (startMode set), hide the canvas title
   // SYNCHRONOUSLY — before any async boot()/preload work — so it can never

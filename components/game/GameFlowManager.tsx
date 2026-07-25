@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic'
 import { useWallet } from '@/lib/WalletProvider'
 import { useContractPlayer } from '@/lib/useContractPlayer'
 import { PlayerProfile, LeaderboardEntry } from '@/lib/contract'
-import { loadGameSession, clearGameSession } from '@/lib/gameSessionService'
+import { loadGameSession, clearGameSession, saveGameSession, saveGameSessionDraft } from '@/lib/gameSessionService'
 import { migrateGuestProgress, getStoredGuestId } from '@/lib/guestMigration'
 import MainMenu from './MainMenu'
 import WorldMapHub from './WorldMapHub'
@@ -117,6 +117,31 @@ export default function GameFlowManager() {
   // on (see lib/worldMapHubFlag.ts — OFF by default). HowToPlayScreen reads the
   // same flag, so the help text always matches the screen the player gets.
   const useWorldMapHub = useWorldMapHubFlag()
+
+  // Bunker cleared → surface back to the world map, so the run's progress lands
+  // somewhere visible (the ✓ appears, the next bunker loses its fog) instead of
+  // the engine walking the player straight into the next act. Only with the hub
+  // on; the classic menu keeps the uninterrupted flow it always had.
+  //
+  // The draft is written SYNCHRONOUSLY before the phase flips: WorldMapHub reads
+  // that same localStorage draft on mount, so the map can't paint the bunker we
+  // just finished while a network write is still in flight.
+  useEffect(() => {
+    if (!useWorldMapHub) return
+    const onCleared = () => {
+      try {
+        const NSG = (window as { NullStateGame?: { getSaveSnapshot?: () => unknown } }).NullStateGame
+        const snap = NSG?.getSaveSnapshot?.() as Parameters<typeof saveGameSession>[1] | undefined
+        if (snap && address) {
+          saveGameSessionDraft(address, snap)
+          saveGameSession(address, snap).catch(() => { /* draft already covers the map */ })
+        }
+      } catch { /* never block the return to the map on a save problem */ }
+      setPhase('menu')
+    }
+    window.addEventListener('nullstate-bunker-cleared', onCleared)
+    return () => window.removeEventListener('nullstate-bunker-cleared', onCleared)
+  }, [useWorldMapHub, address])
 
   // If wallet disconnects, go back to menu
   useEffect(() => {

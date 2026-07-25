@@ -9,6 +9,7 @@ import { PlayerProfile } from '@/lib/contract'
 import { loadGameSession, saveGameSession, clearGameSession, saveGameSessionDraft, clearGameSessionDraft } from '@/lib/gameSessionService'
 import { recordRunKills, recordRunProgress } from '@/lib/leaderboardService'
 import { GAME_CONFIG } from '@/lib/constants/game-config'
+import { readWorldMapHubFlag } from '@/lib/worldMapHubFlag'
 import SettingsModal from './SettingsModal'
 import { LiveStatsProvider } from './LiveStatsProvider'
 import SaveConfirmModal from './SaveConfirmModal'
@@ -502,6 +503,10 @@ export default function DungeonGame({ playerProfile, setPlayerUsername, isNewRun
           // Fall back to new/continue from isNewRun for any caller that
           // doesn't pass an explicit mode.
           startMode: startMode ?? (isNewRun ? 'new' : 'continue'),
+          // With the world-map hub on, clearing a bunker surfaces back to the
+          // map instead of auto-walking into the next act (see game.js
+          // onOutdoorAdvanceToNextAct). Off = the classic uninterrupted flow.
+          worldMapHub: readWorldMapHubFlag(),
           // New Game = a total reset (owner): the run starts at Level 1 / 0 XP
           // regardless of career level. Continue keeps the player's level.
           // Gear/skins/Points/crafting/pass/referrals are separate systems and
