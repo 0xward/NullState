@@ -1,22 +1,14 @@
 'use client'
 
-import { ReactNode, createContext, useContext, useState, useCallback, useEffect } from 'react'
-import {
-  useAccount,
-  usePublicClient,
-  useWalletClient,
-  useBalance,
-  useSwitchChain,
-  useConnect,
-  useDisconnect,
-} from 'wagmi'
-import { celo } from 'wagmi/chains'
-import { encodeFunctionData } from 'viem'
-import { USDM_ADDRESS, USDM_ABI } from './contract-abi'
-import { getUserFriendlyError, WalletFriendlyError, MINIPAY_ADD_CASH_URL } from './errorUtils'
+// NOTHING FROM wagmi OR viem MAY BE IMPORTED HERE. This module sits on /game's
+// first-load path (useWallet is called by the world map), and a single eager
+// import of wagmi from anywhere on that path pulls all 350KB of it back into
+// the initial chunk, undoing the split in lib/Web3Providers.tsx. Everything
+// that needs them lives in lib/WagmiIsland.tsx.
+import { ReactNode, useMemo } from 'react'
 import { NavbarWalletContext } from './NavbarWalletContext'
-import { MARKETPLACE_TOKENS, TREASURY_WALLET, parseTokenAmount, MarketplaceTokenSymbol, getFeeCurrency, pickBestFeeCurrency } from './constants/tokens'
-import { withAttribution } from './attribution-tag'
+import { useWalletBridge } from './walletBridge'
+import type { MarketplaceTokenSymbol } from './constants/tokens'
 
 // ─── Contract config ─────────────────────────────────────────────────────────
 
@@ -55,8 +47,6 @@ interface WalletExtras {
   payToTreasury: (priceUsd: number, token: MarketplaceTokenSymbol) => Promise<string>
 }
 
-const WalletExtrasContext = createContext<WalletExtras | null>(null)
-
 // ─── Guest identity (no-wallet play) ─────────────────────────────────────────
 // So the game can be REGISTERED and PLAYED without connecting a wallet — needed
 // for the MiniPay listing review (the Celo team may open it in a plain Chrome
@@ -81,294 +71,64 @@ function getGuestAddress(): string | null {
 }
 
 // ─── Convenience hook (keeps GameFullUI API unchanged) ────────────────────────
-// Returns a merged object with both wagmi state and contract helpers.
+// Reads the bridge, never wagmi. That is the whole point: this hook is called
+// from the world map, which now renders before wagmi has loaded (see
+// lib/walletBridge.tsx). Calling wagmi hooks here would make that impossible —
+// hooks cannot be skipped, and without a WagmiProvider above them they throw.
 export function useWallet() {
-  const { address, isConnected, chain } = useAccount()
-  const { connect, connectors } = useConnect()
-  const { disconnect } = useDisconnect()
-  const { switchChain } = useSwitchChain()
-  const extras = useContext(WalletExtrasContext)
-
-  // Context-safe: return safe defaults when called outside WalletProvider
-  // (e.g. Navbar on public routes where Web3Providers is not loaded).
-  if (!extras) {
-    return {
-      address:      null,
-      realAddress:  null,
-      isGuest:      false,
-      chainId:      null,
-      isConnected:  false,
-      isConnecting: false,
-      isMiniPay:    false,
-      celoBalance:  '0.00',
-      error:        null,
-      insufficientFunds: false,
-      addCashUrl:   null,
-      connect:      async () => {},
-      disconnect:   () => {},
-      switchToCelo: async () => {},
-      payUsdmFee:     async () => { throw new Error('No wallet context') },
-      buyMarketplaceItem: async () => { throw new Error('No wallet context') },
-      payToTreasury:  async () => { throw new Error('No wallet context') },
-    }
-  }
-
-  const connectWallet = useCallback(async () => {
-    // Prefer the injected connector (MetaMask / MiniPay) if available,
-    // otherwise fall back to WalletConnect (shows the modal)
-    const injected = connectors.find(c => c.id === 'injected')
-    const wc       = connectors.find(c => c.id === 'walletConnect')
-    const target   = injected ?? wc ?? connectors[0]
-    if (!target) return
-    connect({ connector: target, chainId: CELO_CHAIN_ID })
-  }, [connect, connectors])
-
-  const switchToCelo = useCallback(async () => {
-    try { switchChain({ chainId: CELO_CHAIN_ID }) } catch {}
-  }, [switchChain])
+  const w = useWalletBridge()
 
   // Guest fallback: with no real wallet, hand back a stable guest id as the
   // play/`address` so all Firebase-keyed flows (save, username, materials,
   // energy) work unchanged. `realAddress` stays null and `isGuest` is true so
   // on-chain paths — purchases, leaderboard entry — can be gated off.
-  const realAddress = address ?? null
+  const realAddress = w.address ?? null
   const guestAddress = realAddress ? null : getGuestAddress()
   const isGuest = !realAddress && !!guestAddress
+
   return {
     address:      realAddress ?? guestAddress ?? null,
     realAddress,
     isGuest,
-    chainId:      chain?.id ?? null,
-    isConnected,
-    isConnecting: false, // wagmi tracks this per-connector; keep API compat
-    isMiniPay:    extras.isMiniPay,
-    celoBalance:  extras.celoBalance,
-    error:        extras.error,
-    insufficientFunds: extras.insufficientFunds,
-    addCashUrl:   extras.addCashUrl,
-    connect:      connectWallet,
-    disconnect,
-    switchToCelo,
-    payUsdmFee:     extras.payUsdmFee,
-    buyMarketplaceItem: extras.buyMarketplaceItem,
-    payToTreasury:  extras.payToTreasury,
+    chainId:      w.chainId,
+    isConnected:  w.isConnected,
+    // True while wagmi itself is still loading, which is the honest answer to
+    // "are we in the middle of working out the wallet situation".
+    isConnecting: !w.ready,
+    walletReady:  w.ready,
+    isMiniPay:    w.isMiniPay,
+    celoBalance:  w.celoBalance,
+    error:        w.error,
+    insufficientFunds: w.insufficientFunds,
+    addCashUrl:   w.addCashUrl,
+    publicClient: w.publicClient,
+    walletClient: w.walletClient,
+    connect:      w.connect,
+    disconnect:   w.disconnect,
+    switchToCelo: w.switchToCelo,
+    payUsdmFee:   w.payUsdmFee,
+    buyMarketplaceItem: w.payToTreasury, // kept for MarketplaceScreen.tsx, unchanged behavior
+    payToTreasury: w.payToTreasury,
   }
 }
 
-// ─── Inner provider (needs wagmi hooks, so must be a child of WagmiProvider) ─
+// ─── Public WalletProvider ───────────────────────────────────────────────────
+// Provides NavbarWalletContext from the bridge. It used to be fed by wagmi
+// hooks directly, which meant this component could not exist until wagmi did.
 
-function WalletExtrasProvider({ children }: { children: ReactNode }) {
-  const { address, isConnected } = useAccount()
-  const publicClient  = usePublicClient({ chainId: CELO_CHAIN_ID })
-  const { data: walletClient } = useWalletClient({ chainId: CELO_CHAIN_ID })
-  const { data: balanceData }  = useBalance({ address, chainId: CELO_CHAIN_ID })
-
-  const [error, setError] = useState<string | null>(null)
-  const [insufficientFunds, setInsufficientFunds] = useState(false)
-
-  // Detect MiniPay (injected wallet with isMiniPay flag)
-  const isMiniPay =
-    typeof window !== 'undefined' &&
-    !!(window as unknown as { ethereum?: { isMiniPay?: boolean } }).ethereum?.isMiniPay
-
-  // MiniPay requirement: no manual "connect wallet" button — connection is
-  // silent on load. The written requirement is specifically "no Connect
-  // Wallet button when window.ethereum.isMiniPay === true" — it does not
-  // forbid connecting outside MiniPay too. Auto-connecting any injected
-  // wallet (MiniPay, MetaMask in-app browser, etc.) keeps that broader
-  // compatibility while still fully satisfying the requirement, since
-  // there is no manual connect button anywhere in the UI regardless.
-  // isMiniPay is kept for display/analytics purposes but does NOT gate
-  // connection (confirmed decision, 2026-07-14 — see network-manifest.md).
-  const { connect, connectors } = useConnect()
-  useEffect(() => {
-    if (isConnected) return
-    const injectedConnector = connectors.find(c => c.id === 'injected') ?? connectors[0]
-    if (injectedConnector) connect({ connector: injectedConnector, chainId: CELO_CHAIN_ID })
-  }, [isConnected, connect, connectors])
-
-  const celoBalance = balanceData
-    ? (Number(balanceData.value) / 10 ** balanceData.decimals).toFixed(2)
-    : '0.00'
-
-  // ── Send transaction helper ───────────────────────────────────────────────
-
-  const sendTx = useCallback(
-    async (data: `0x${string}`, value?: bigint): Promise<string> => {
-      if (!walletClient || !address) throw new Error('Wallet not connected')
-      setError(null)
-      setInsufficientFunds(false)
-      try {
-        // MiniPay Custom Fee Abstraction (CIP-64): most MiniPay users hold
-        // stablecoins, not native CELO, so pick whichever of USDm/USDC/USDT
-        // the user actually holds the most of (falls back to USDm if the
-        // balance check can't run). MiniPay may still ignore this and pick
-        // whichever token the user holds most of on its own — that's
-        // documented/expected behavior, not a bug.
-        const feeCurrency = await pickBestFeeCurrency(publicClient, address)
-        const hash = await walletClient.sendTransaction({
-          account: address,
-          chain:   celo,
-          to:      NULLSTATE_ADDRESS,
-          data:    withAttribution(data),
-          value:   value ?? BigInt(0),
-          feeCurrency,
-          // Let the wallet estimate gas — safer than hardcoding
-          // gas is omitted intentionally so the RPC estimates it
-        })
-        return hash
-      } catch (e: unknown) {
-        const friendlyError = getUserFriendlyError(e)
-        setError(friendlyError.message)
-        setInsufficientFunds(friendlyError.insufficientFunds)
-        throw new WalletFriendlyError(friendlyError, e)
-      }
-    },
-    [walletClient, address]
-  )
-
-  // ── Contract write functions ──────────────────────────────────────────────
-  // NOTE (removed 2026-07-12): this file used to also export `registerPlayer`,
-  // `respawnPlayer`, `executeAction`, and `attackRaid` — thin wrappers around
-  // NullState.sol's register()/respawn()/executeAction()/attackRaidBoss().
-  // None of them were ever called by any component: the live registration
-  // flow goes through `useContractPlayer.ts`'s own `registerPlayer` (a
-  // separate, still-used implementation), NULL_STRIKE goes through
-  // `payUsdmFee()` below, and the raid-boss/respawn mechanics they supported
-  // were already gone from the game. Removed as confirmed-dead code, not
-  // touching the live paths (registerPlayer in useContractPlayer.ts,
-  // payUsdmFee, buyMarketplaceItem below).
-
-  // Plain ERC20 USDm transfer() — used for the NULL_STRIKE fee. Sends
-  // directly to `toAddress` (the reward contract), NOT through NullState.sol.
-  const payUsdmFee = useCallback(
-    async (amountWei: bigint, toAddress: `0x${string}`): Promise<string> => {
-      if (!walletClient || !address) throw new Error('Wallet not connected')
-      if (typeof amountWei !== 'bigint' || amountWei <= BigInt(0)) {
-        throw new Error('Invalid USDm fee amount')
-      }
-      setError(null)
-      setInsufficientFunds(false)
-      const data = encodeFunctionData({
-        abi:          USDM_ABI,
-        functionName: 'transfer',
-        args:         [toAddress, amountWei],
-      })
-      try {
-        // The 0.005 USDm fee itself is always paid in USDm (fixed, by
-        // design) — this only picks which token covers GAS. A user sitting
-        // on just enough USDm for the fee but nothing left over shouldn't
-        // fail here if they're holding USDC/USDT for gas instead.
-        const feeCurrency = await pickBestFeeCurrency(publicClient, address)
-        const hash = await walletClient.sendTransaction({
-          account: address,
-          chain:   celo,
-          to:      USDM_ADDRESS,
-          data:    withAttribution(data),
-          value:   BigInt(0),
-          feeCurrency,
-        })
-        return hash
-      } catch (e: unknown) {
-        const friendlyError = getUserFriendlyError(e)
-        setError(friendlyError.message)
-        setInsufficientFunds(friendlyError.insufficientFunds)
-        throw new WalletFriendlyError(friendlyError, e)
-      }
-    },
-    [walletClient, address]
-  )
-
-  // ── Generic treasury payment ─────────────────────────────────────────────
-  // Sends `priceUsd` of the chosen stablecoin (1:1 USD) to the treasury as a
-  // plain ERC20 transfer(). Returns the tx hash; a backend route then
-  // verifies it on-chain before granting whatever it unlocks. Originally
-  // written for Marketplace item purchases (offchain ownership in Firebase)
-  // — reused as-is for PassSBTv2 minting (v2.1, this session), since it's
-  // already fully generic: it doesn't know or care what the payment is for,
-  // only that `priceUsd` gets sent to TREASURY_WALLET in `token`. Exported
-  // under both names below so each call site reads clearly.
-  const payToTreasury = useCallback(
-    async (priceUsd: number, token: MarketplaceTokenSymbol): Promise<string> => {
-      if (!walletClient || !address) throw new Error('Wallet not connected')
-      const cfg = MARKETPLACE_TOKENS[token]
-      if (!cfg) throw new Error('Unsupported token')
-      const amountWei = parseTokenAmount(String(priceUsd), token)
-      if (amountWei <= BigInt(0)) throw new Error('Invalid price')
-      setError(null)
-      setInsufficientFunds(false)
-      const data = encodeFunctionData({
-        abi:          USDM_ABI, // ERC20 transfer(address,uint256) — same for all 3 tokens
-        functionName: 'transfer',
-        args:         [TREASURY_WALLET as `0x${string}`, amountWei],
-      })
-      try {
-        const hash = await walletClient.sendTransaction({
-          account: address,
-          chain:   celo,
-          to:      cfg.address as `0x${string}`,
-          data:    withAttribution(data),
-          value:   BigInt(0),
-          // USDC/USDT use a separate fee-adapter contract per docs.minipay.xyz
-          // — passing the raw token address here would be wrong for those two.
-          feeCurrency: getFeeCurrency(token),
-        })
-        return hash
-      } catch (e: unknown) {
-        const friendlyError = getUserFriendlyError(e)
-        setError(friendlyError.message)
-        setInsufficientFunds(friendlyError.insufficientFunds)
-        throw new WalletFriendlyError(friendlyError, e)
-      }
-    },
-    [walletClient, address]
-  )
-
-  // NOTE (removed 2026-07-12): `attackRaid`, `readPlayer`, and `readRaid`
-  // were also dead code — same as the write functions removed above. None
-  // had any caller anywhere in components/ or app/, so all three (plus the
-  // registerPlayer/respawnPlayer/executeAction removed above) were deleted
-  // together as one cleanup pass. Only `payUsdmFee` and `buyMarketplaceItem`
-  // remain as this provider's live on-chain write paths.
-
-  const extras: WalletExtras = {
-    isMiniPay,
-    celoBalance,
-    error,
-    insufficientFunds,
-    addCashUrl: insufficientFunds ? MINIPAY_ADD_CASH_URL : null,
-    payUsdmFee,
-    buyMarketplaceItem: payToTreasury, // kept for MarketplaceScreen.tsx, unchanged behavior
-    payToTreasury, // same function — used by usePassSBT.ts for pass minting
-  }
-
-  // NavbarWalletContext: pure React context, no wagmi hooks — safe for SSR.
-  // Provides Navbar with live wallet status on wallet routes.
-  const navbarWallet = {
-    isConnected,
-    address: address ?? null,
-    isMiniPay,
-    error,
-    addCashUrl: insufficientFunds ? MINIPAY_ADD_CASH_URL : null,
-  }
+export default function WalletProvider({ children }: { children: ReactNode }) {
+  const w = useWalletBridge()
+  const navbarWallet = useMemo(() => ({
+    isConnected: w.isConnected,
+    address: w.address,
+    isMiniPay: w.isMiniPay,
+    error: w.error,
+    addCashUrl: w.addCashUrl,
+  }), [w.isConnected, w.address, w.isMiniPay, w.error, w.addCashUrl])
 
   return (
     <NavbarWalletContext.Provider value={navbarWallet}>
-      <WalletExtrasContext.Provider value={extras}>
-        {children}
-      </WalletExtrasContext.Provider>
-    </NavbarWalletContext.Provider>
-  )
-}
-
-// ─── Public WalletProvider (drop-in replacement) ─────────────────────────────
-// Wagmi + QueryClient + RainbowKit are set up in app/layout.tsx.
-// This component only provides the extras context.
-
-export default function WalletProvider({ children }: { children: ReactNode }) {
-  return (
-    <WalletExtrasProvider>
       {children}
-    </WalletExtrasProvider>
+    </NavbarWalletContext.Provider>
   )
 }

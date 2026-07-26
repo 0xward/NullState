@@ -59,12 +59,35 @@ jobs:
 
       # The 14 engine files are the game itself and are invisible to the Next.js
       # build. Nothing else parses them before they reach a player.
+      # -maxdepth 1 skips min/, which is build output and gets its own check.
       - name: Game engine parses
         run: |
-          for f in public/game-engine/*.js; do
+          for f in $(find public/game-engine -maxdepth 1 -name '*.js'); do
             node --check "$f" || exit 1
           done
-          echo "✓ all $(ls public/game-engine/*.js | wc -l) engine files parse"
+          echo "✓ all $(find public/game-engine -maxdepth 1 -name '*.js' | wc -l) engine files parse"
+
+      # Production serves the minified engine (scripts/minify-game-engine.js).
+      # A file terser cannot handle is skipped rather than shipped broken, so
+      # the failure mode is silent: the game keeps working and quietly gets
+      # slower. This makes it loud — if the minifier starts skipping files, CI
+      # says so here rather than nobody noticing for six months.
+      - name: Game engine minifies
+        run: |
+          npm run build:engine | tee /tmp/min.log
+          grep -q '! skipped' /tmp/min.log && { echo "::error::minifier skipped a file"; exit 1; }
+          for f in public/game-engine/min/*.js; do
+            node --check "$f" || exit 1
+          done
+          echo "✓ minified engine parses"
+
+      # The rail icons are generated from the PNG masters in assets-src/. If the
+      # two ever disagree, what ships is whatever was committed by hand.
+      - name: World-map icons match their masters
+        run: |
+          npm run build:icons
+          git diff --exit-code --stat public/worldmap/icons \
+            || { echo "::error::public/worldmap/icons is stale — run npm run build:icons"; exit 1; }
 
       - name: TypeScript
         run: npx tsc --noEmit

@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { usePublicClient } from 'wagmi'
 import { GiAnvil, GiCheckedShield, GiSandsOfTime } from 'react-icons/gi'
 import { useWallet, CELO_CHAIN_ID } from '@/lib/WalletProvider'
 import { pickBestPaymentToken } from '@/lib/constants/tokens'
@@ -43,8 +42,13 @@ function fmtDur(ms: number): string {
 }
 
 export default function CraftingScreen({ onBack, onGoToRun, address }: CraftingScreenProps) {
-  const { buyMarketplaceItem, insufficientFunds, addCashUrl } = useWallet()
-  const publicClient = usePublicClient({ chainId: CELO_CHAIN_ID })
+  const wallet = useWallet()
+  const { buyMarketplaceItem, insufficientFunds, addCashUrl } = wallet
+  // From the wallet bridge, not wagmi's usePublicClient(): wagmi now mounts
+  // beside the app rather than around it (lib/walletBridge.tsx), so this
+  // screen is not inside WagmiProvider and calling its hooks here would throw.
+  // Null until wagmi has loaded; the effect below already handles that.
+  const publicClient = wallet.publicClient
   const [token, setToken] = useState<MarketplaceTokenSymbol>('USDm')
   // Flexible stablecoin (Phase 2): default the pay-with token to the largest
   // balance the wallet holds; the manual selector still overrides.

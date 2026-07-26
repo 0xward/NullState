@@ -16,6 +16,7 @@ import SettingsModal from './SettingsModal'
 import { LiveStatsProvider } from './LiveStatsProvider'
 import SaveConfirmModal from './SaveConfirmModal'
 import HudStatLine from './HudStatLine'
+import { loadEngineScript } from '@/lib/engineScript'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DungeonGame — real-time canvas dungeon crawler (NULL_STATE // THE FORSAKEN
@@ -25,56 +26,39 @@ import HudStatLine from './HudStatLine'
 // whole app uses ONE wallet system (RainbowKit / MiniPay / MetaMask on Celo).
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Cache-busting build tag. Bump NEXT_PUBLIC_BUILD_ID (set automatically by
-// Vercel to the deployment/commit id) so the CDN and the browser always
-// treat the engine files as new after a deploy, instead of reusing a stale
-// cached copy of /game-engine/*.js (these are static public/ files and do
-// NOT get the automatic content-hash that Next.js applies to its own bundles).
-const BUILD_TAG =
-  process.env.NEXT_PUBLIC_BUILD_ID ||
-  process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA ||
-  'dev'
-
+// The cache-busting build tag moved to lib/engineScript.ts along with the rest
+// of the URL policy — these are static public/ files, so they get no automatic
+// content hash and need `?v=<deploy>` to stop the CDN serving yesterday's copy.
 const ENGINE_SCRIPTS = [
-  '/game-engine/audio.js',
-  '/game-engine/assets.js',
-  '/game-engine/story.js',
-  '/game-engine/story_campaign.js',
-  '/game-engine/dungeon.js',
-  '/game-engine/items.js',
-  '/game-engine/marketplace-items.js',
-  '/game-engine/props.js',
-  '/game-engine/monster-config.js',
-  '/game-engine/effects.js',
-  '/game-engine/entities.js',
-  '/game-engine/outdoor.js',
-  '/game-engine/run-session.js',
-  '/game-engine/game.js',
-].map(src => `${src}?v=${BUILD_TAG}`)
+  'audio.js',
+  'assets.js',
+  'story.js',
+  'story_campaign.js',
+  'dungeon.js',
+  'items.js',
+  'marketplace-items.js',
+  'props.js',
+  'monster-config.js',
+  'effects.js',
+  'entities.js',
+  'outdoor.js',
+  'run-session.js',
+  'game.js',
+]
 
-// Load the engine scripts exactly once, in order.
+// Load the engine scripts exactly once, in order. lib/engineScript.ts owns
+// which copy is served (minified in production, readable in dev) and the
+// dedupe, so audio.js loaded earlier by MusicController is not fetched twice.
 let enginePromise: Promise<void> | null = null
 function loadEngine(): Promise<void> {
   if (typeof window === 'undefined') return Promise.resolve()
   if ((window as any).NullStateGame) return Promise.resolve()
   if (enginePromise) return enginePromise
 
-  enginePromise = ENGINE_SCRIPTS.reduce<Promise<void>>((chain, src) => {
-    return chain.then(
-      () =>
-        new Promise<void>((resolve, reject) => {
-          const existing = document.querySelector(`script[data-ns-engine="${src}"]`)
-          if (existing) return resolve()
-          const s = document.createElement('script')
-          s.src = src
-          s.async = false
-          s.dataset.nsEngine = src
-          s.onload = () => resolve()
-          s.onerror = () => reject(new Error('Failed to load ' + src))
-          document.body.appendChild(s)
-        })
-    )
-  }, Promise.resolve())
+  enginePromise = ENGINE_SCRIPTS.reduce<Promise<void>>(
+    (chain, name) => chain.then(() => loadEngineScript(name)),
+    Promise.resolve()
+  )
 
   return enginePromise
 }

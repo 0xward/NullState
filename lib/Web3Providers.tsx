@@ -3,66 +3,68 @@
 /**
  * Web3Providers.tsx
  *
- * Konfigurasi wagmi minimal untuk MiniPay/injected-wallet dApps.
- * Dipisah dari layout.tsx agar layout tetap Server Component.
+ * The wallet layer for /game and /profile. What it no longer does is pull wagmi
+ * + viem into the route's first load: that was 350KB raw, the single largest
+ * chunk on /game, and PageSpeed measured most of it as unused at first paint.
+ * It is unused, because the world map needs a wallet for nothing — nobody has
+ * bought, minted or crafted yet, they are looking at a map.
  *
- * MiniPay requirement: no manual connect button — connection is silent on load.
- * Only the injected connector is registered; RainbowKit has been removed.
+ * SHAPE: children are wrapped by the bridge and by WalletProvider, both of
+ * which are dependency-free and render immediately. wagmi mounts as a SIBLING
+ * of the children a moment later and publishes into the bridge. That sibling
+ * position is deliberate — the obvious `ready ? <WagmiProvider>{children}` form
+ * would move every child in the tree the instant wagmi arrived, unmounting the
+ * world map and re-running every effect under it.
+ *
+ * TIMING: requestIdleCallback with a 1500ms ceiling. Idle so it never competes
+ * with the map's own paint; the ceiling so a busy main thread cannot postpone
+ * it indefinitely and leave someone unable to buy anything. Nothing that spends
+ * money is reachable in under a second and a half — Shop, Craft and Pass are
+ * two taps away — and if one ever were, useWallet()'s pay actions throw rather
+ * than silently doing nothing.
+ *
+ * MiniPay requirement (unchanged): no manual connect button — connection is
+ * silent on load. Only the injected connector is registered.
  */
 
-import { ReactNode } from 'react'
-import { WagmiProvider, createConfig, http } from 'wagmi'
-import { celo, celoSepolia } from 'wagmi/chains'
-import { injected } from 'wagmi/connectors'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { ReactNode, useEffect, useState } from 'react'
+import dynamic from 'next/dynamic'
 import WalletProvider from '@/lib/WalletProvider'
+import { WalletBridgeProvider } from '@/lib/walletBridge'
 
-// ─── Wagmi config ─────────────────────────────────────────────────────────────
+// ssr:false because a wallet cannot exist on the server; it is also what keeps
+// the wagmi chunk out of the server-rendered payload entirely.
+const WagmiIsland = dynamic(() => import('@/lib/WagmiIsland'), { ssr: false })
 
-const config = createConfig({
-  chains:    [celo, celoSepolia],
-  connectors: [injected()],
-  transports: {
-    [celo.id]: http('https://forno.celo.org'),
-    [celoSepolia.id]: http(),
-  },
-})
+const IDLE_CEILING_MS = 1500
 
-// Registers this config as wagmi's default `Config` generic app-wide, so
-// `useWalletClient()`/`useSendTransaction()`/`writeContract()` etc. resolve
-// to Celo's chain-formatted request type — which is what actually carries
-// the `feeCurrency` (CIP-64 Custom Fee Abstraction) field in its types.
-// Without this, TS has no way to know the connected chain supports
-// feeCurrency and rejects it as an unknown property.
-// https://wagmi.sh/react/typescript#registering-config
-declare module 'wagmi' {
-  interface Register {
-    config: typeof config
-  }
+function DeferredWagmi() {
+  const [mount, setMount] = useState(false)
+
+  useEffect(() => {
+    const go = () => setMount(true)
+    const w = window as unknown as {
+      requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number
+      cancelIdleCallback?: (handle: number) => void
+    }
+    if (w.requestIdleCallback) {
+      const id = w.requestIdleCallback(go, { timeout: IDLE_CEILING_MS })
+      return () => w.cancelIdleCallback?.(id)
+    }
+    // Safari has no requestIdleCallback. A short timer is close enough — the
+    // point is "after the first paint", not a precise moment.
+    const t = setTimeout(go, 300)
+    return () => clearTimeout(t)
+  }, [])
+
+  return mount ? <WagmiIsland /> : null
 }
-
-// ─── QueryClient (satu instance, stabil antar render) ─────────────────────────
-
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: { staleTime: 10_000 },
-  },
-})
-
-// ─── Provider tree ────────────────────────────────────────────────────────────
 
 export default function Web3Providers({ children }: { children: ReactNode }) {
   return (
-    <WagmiProvider config={config}>
-      <QueryClientProvider client={queryClient}>
-        {/*
-          WalletProvider membungkus sisa app dan expose useWallet() hook
-          yang dipakai oleh Navbar, GameFullUI, dan komponen lainnya.
-        */}
-        <WalletProvider>
-          {children}
-        </WalletProvider>
-      </QueryClientProvider>
-    </WagmiProvider>
+    <WalletBridgeProvider>
+      <WalletProvider>{children}</WalletProvider>
+      <DeferredWagmi />
+    </WalletBridgeProvider>
   )
 }

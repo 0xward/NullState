@@ -22,9 +22,35 @@ import { usePathname } from 'next/navigation'
 // object-fit so it fits a tall phone and a wide desktop; its dark backdrop
 // blends to black. Sized to the display box (max 460px CSS, ~2x for retina)
 // rather than the old 819×820/90KB source that PageSpeed flagged as oversized.
-const HOLD_MS = 2500
-const FADE_MS = 500
+// 1400ms, down from 2500. The splash is a deliberate brand moment and it stays,
+// but it is also a full-screen opaque layer held over the page on every cold
+// session — which is every PageSpeed run and every first open — so its duration
+// is a floor under how fast the product can ever feel. 1.4s is still long
+// enough to read the wordmark and the tagline; 2.5s was long enough to wonder
+// whether the app had hung.
+const HOLD_MS = 1400
+const FADE_MS = 400
 const SEEN_KEY = 'ns-splash-seen'
+
+/**
+ * Skip the splash entirely on a connection that cannot afford it.
+ *
+ * On a slow link the page behind is still fetching while the splash sits on
+ * top, so the hold is not free time being used well — it is dead time stacked
+ * on top of a wait the player is already having. NullState's markets are
+ * exactly where 3G and Data Saver are common, so this is the common case
+ * there, not an edge case.
+ *
+ * navigator.connection is Chromium-only, which is fine: MiniPay is a Chromium
+ * WebView. Anywhere it is missing, the splash shows as normal.
+ */
+function connectionTooSlowForSplash(): boolean {
+  if (typeof navigator === 'undefined') return false
+  const c = (navigator as any).connection
+  if (!c) return false
+  if (c.saveData) return true
+  return ['slow-2g', '2g', '3g'].includes(c.effectiveType)
+}
 
 export default function SplashScreen() {
   const pathname = usePathname()
@@ -38,7 +64,7 @@ export default function SplashScreen() {
       seen = sessionStorage.getItem(SEEN_KEY) === '1'
       sessionStorage.setItem(SEEN_KEY, '1')
     } catch { /* storage blocked — just show it */ }
-    if (seen) { setPhase('gone'); return }
+    if (seen || connectionTooSlowForSplash()) { setPhase('gone'); return }
     const t1 = setTimeout(() => setPhase('fading'), HOLD_MS)
     const t2 = setTimeout(() => setPhase('gone'), HOLD_MS + FADE_MS)
     return () => {

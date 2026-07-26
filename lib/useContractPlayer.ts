@@ -18,6 +18,7 @@ import {
   isUsernameAvailable,
 } from '@/lib/usernameService'
 import { updateLeaderboardEntry, getLeaderboard, getLeaderboardEntry } from '@/lib/leaderboardService'
+import { readCachedProfile, writeCachedProfile } from '@/lib/profileCache'
 
 export function useContractPlayer(walletAddress: string | undefined) {
   const [playerProfile, setPlayerProfile] = useState<PlayerProfile | null>(null)
@@ -32,14 +33,21 @@ export function useContractPlayer(walletAddress: string | undefined) {
     setError(null)
 
     try {
-      // Username from Firebase (auto-assign if new).
-      const { username } = await getOrCreateUsername(walletAddress)
+      // IN PARALLEL. These are two independent Firestore documents — the
+      // username doc and the leaderboard entry — and nothing in the second
+      // depends on the first. Awaiting them one after the other paid two full
+      // round trips instead of one, and the world map's largest element is the
+      // name, so the player watched the wait. allSettled rather than all: a
+      // missing leaderboard entry is normal for a brand-new wallet and must not
+      // take the username down with it.
+      const [nameRes, entryRes] = await Promise.allSettled([
+        getOrCreateUsername(walletAddress),          // auto-assigns if new
+        getLeaderboardEntry(walletAddress),          // xp/level/kills, all off-chain now
+      ])
 
-      // Live xp/level/kills come entirely from Firestore now — combat and
-      // progression are off-chain, synced via recordRunProgress()/
-      // recordRunKills() (see leaderboardService.ts, called from
-      // DungeonGame.tsx on save/death).
-      const liveEntry = await getLeaderboardEntry(walletAddress)
+      if (nameRes.status === 'rejected') throw nameRes.reason
+      const { username } = nameRes.value
+      const liveEntry = entryRes.status === 'fulfilled' ? entryRes.value : null
 
       const profile: PlayerProfile = {
         walletAddress,
@@ -52,6 +60,7 @@ export function useContractPlayer(walletAddress: string | undefined) {
       }
 
       setPlayerProfile(profile)
+      writeCachedProfile(profile)
 
       // Keep the leaderboard entry fresh (username/xp/level). Deliberately does
       // NOT pass kills — that figure is maintained separately by
@@ -59,17 +68,23 @@ export function useContractPlayer(walletAddress: string | undefined) {
       updateLeaderboardEntry(walletAddress, username, profile.xp, profile.level)
     } catch (err) {
       console.error('[v0] Failed to fetch player profile:', err)
-      setPlayerProfile(null)
+      // Only blank the profile if there is no cached one to fall back on.
+      // Offline or a Firestore hiccup should not turn a returning player back
+      // into an anonymous WALKER.
+      setPlayerProfile((prev) => prev ?? readCachedProfile(walletAddress))
     } finally {
       setIsLoading(false)
     }
   }, [walletAddress])
 
-  // Fetch when wallet connects
+  // Paint the last known profile FIRST, then refresh it. This is what removes
+  // the name from the critical path: the plate shows the real player instantly
+  // and the fetch below quietly agrees with it a moment later.
   useEffect(() => {
-    if (walletAddress) {
-      fetchPlayerProfile()
-    }
+    if (!walletAddress) { setPlayerProfile(null); return }
+    const cached = readCachedProfile(walletAddress)
+    if (cached) setPlayerProfile(cached)
+    fetchPlayerProfile()
   }, [walletAddress, fetchPlayerProfile])
 
   // Set player username (Firebase only, no gas)
@@ -88,8 +103,8 @@ export function useContractPlayer(walletAddress: string | undefined) {
 
         const savedUsername = await setUsername(walletAddress, username, false)
 
-        setPlayerProfile((prev) =>
-          prev
+        setPlayerProfile((prev) => {
+          const next: PlayerProfile = prev
             ? { ...prev, username: savedUsername }
             : {
                 walletAddress,
@@ -99,7 +114,11 @@ export function useContractPlayer(walletAddress: string | undefined) {
                 kills: 0,
                 isRegistered: true,
               }
-        )
+          // Keep the cache honest, or the next load paints the OLD name for a
+          // moment before the fetch corrects it — worse than no cache at all.
+          writeCachedProfile(next)
+          return next
+        })
 
         return { success: true, username: savedUsername }
       } catch (err) {
