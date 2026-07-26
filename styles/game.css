@@ -1163,11 +1163,36 @@
 
 /* A node is a tap target centred on the door painted into the map. Selection
    reads as a soft lift of that spot, not a box drawn over the art. */
-.ns-hub-node{ border-radius:8px; transition:filter .18s ease; }
-.ns-hub-node.is-sel{
-  filter:drop-shadow(0 0 10px rgba(255,255,255,.35));
-  background:radial-gradient(closest-side, rgba(255,255,255,.10), transparent 72%);
+.ns-hub-node{ border-radius:8px; transition:filter .18s ease, transform .12s ease; }
+.ns-hub-node:active{ transform:translate(-50%,-50%) scale(.94); }
+
+/* SELECTED. The old treatment was a soft white glow, which disappeared against
+   the map's lit snow — players tapped a door and could not tell anything had
+   happened. Four hard corner brackets instead: they read at a glance, they do
+   not depend on the brightness underneath, and they snap in so the tap has a
+   moment. */
+.ns-hub-pick{
+  position:absolute; inset:-5px; pointer-events:none;
+  /* Four corner brackets built from eight 2px gradient bars. An earlier
+     attempt used two pseudo-elements with clip-path polygons and rendered as
+     stray lines across the map — this is longer but it is simply rectangles,
+     with nothing to get wrong. */
+  background:
+    linear-gradient(#39ff9a,#39ff9a) 0    0    / 13px 2px  no-repeat,
+    linear-gradient(#39ff9a,#39ff9a) 0    0    / 2px  13px no-repeat,
+    linear-gradient(#39ff9a,#39ff9a) 100% 0    / 13px 2px  no-repeat,
+    linear-gradient(#39ff9a,#39ff9a) 100% 0    / 2px  13px no-repeat,
+    linear-gradient(#39ff9a,#39ff9a) 0    100% / 13px 2px  no-repeat,
+    linear-gradient(#39ff9a,#39ff9a) 0    100% / 2px  13px no-repeat,
+    linear-gradient(#39ff9a,#39ff9a) 100% 100% / 13px 2px  no-repeat,
+    linear-gradient(#39ff9a,#39ff9a) 100% 100% / 2px  13px no-repeat;
+  filter:drop-shadow(0 0 5px rgba(57,255,154,.95));
+  animation:nsPickIn .16s ease-out;
 }
+@keyframes nsPickIn{ from{ transform:scale(1.35); opacity:0; } to{ transform:scale(1); opacity:1; } }
+
+/* A selected node also lifts slightly out of the map. */
+.ns-hub-node.is-sel{ filter:drop-shadow(0 0 12px rgba(57,255,154,.55)); }
 
 /* LOCKED — fog actually rolls over the door. Two soft banks at different
    speeds and sizes so the motion never looks like one pulsing blob. */
@@ -1215,10 +1240,15 @@
   box-shadow:0 0 9px rgba(57,255,154,.5), 0 1px 3px rgba(0,0,0,.85);
 }
 
-/* ACTIVE — the ring lies on the GROUND at the foot of the door (a flattened
-   ellipse, offset down out of the doorway), with a chevron nodding above. */
+/* ACTIVE — the ring lies on the GROUND IN FRONT of the door. It now has its
+   own wrapper positioned at the node's MEASURED ground percentage instead of
+   living inside the 66px marker box: inside the box its offset was a fraction
+   of the box, so it drifted off the ground whenever the box changed size. */
+.ns-hub-ground{
+  position:absolute; width:0; height:0; z-index:3; pointer-events:none;
+}
 .ns-hub-ring{
-  position:absolute; left:50%; top:78%; width:40px; height:15px;
+  position:absolute; left:0; top:0; width:44px; height:16px;
   transform:translate(-50%,-50%); border-radius:50%; pointer-events:none;
   border:2px solid rgba(57,255,154,.92);
   box-shadow:0 0 12px rgba(57,255,154,.5), inset 0 0 8px rgba(57,255,154,.3);
@@ -1409,3 +1439,64 @@
 .ns-settings-slider::-webkit-slider-thumb{ background:#39ff9a; border:2px solid #04140c;
   box-shadow:0 0 0 1px rgba(57,255,154,.5); }
 .ns-settings-slider::-moz-range-thumb{ background:#39ff9a; border:2px solid #04140c; }
+
+/* ── MAP LIFE ────────────────────────────────────────────────────────────────
+   The map was a still picture. These three layers give it a pulse without
+   adding a single new image beyond the 16KB path extract.
+
+   1. THE PATH BREATHES. map-path.webp is the trail and the door lamps lifted
+      out of the map art by colour (scripts/build-map-path-overlay.js), so it is
+      the same pixels in the same place — it cannot fall out of register. Laid
+      over the map with `screen` so it only ever ADDS light, and its opacity
+      swings slowly between dim and bright. A second, blurred copy underneath
+      gives the glow its bloom.
+   2. EMBERS drift upward across the whole map.
+   3. The ring at the active door and the fog on locked ones already move.
+   ─────────────────────────────────────────────────────────────────────────── */
+.ns-hub-path{
+  position:absolute; inset:0; width:100%; height:100%;
+  pointer-events:none; z-index:2;
+  mix-blend-mode:screen;
+  filter:drop-shadow(0 0 4px rgba(96,255,168,.75)) drop-shadow(0 0 10px rgba(57,255,154,.4));
+  animation:nsPathPulse 3.4s ease-in-out infinite;
+  will-change:opacity;
+}
+@keyframes nsPathPulse{
+  0%,100%{ opacity:.34; }
+  50%    { opacity:1;   }
+}
+
+/* Embers. Six radial dots on one over-tall element that scrolls upward and
+   repeats — one element, one animation, no per-particle JS. */
+.ns-hub-motes{
+  position:absolute; left:0; right:0; top:0; height:200%;
+  pointer-events:none; z-index:3; opacity:.55;
+  background-image:
+    radial-gradient(1.6px 1.6px at 18% 12%, rgba(140,255,190,.95), transparent 100%),
+    radial-gradient(1.3px 1.3px at 72% 26%, rgba(120,240,180,.8),  transparent 100%),
+    radial-gradient(1.8px 1.8px at 41% 44%, rgba(160,255,205,.85), transparent 100%),
+    radial-gradient(1.2px 1.2px at 84% 58%, rgba(110,230,170,.75), transparent 100%),
+    radial-gradient(1.5px 1.5px at 28% 71%, rgba(150,255,200,.9),  transparent 100%),
+    radial-gradient(1.4px 1.4px at 62% 88%, rgba(130,245,185,.8),  transparent 100%);
+  background-repeat:repeat-y;
+  background-size:100% 50%;
+  animation:nsMotesRise 26s linear infinite;
+}
+@keyframes nsMotesRise{
+  from{ transform:translateY(0); }
+  to  { transform:translateY(-50%); }
+}
+
+/* Rail buttons acknowledge the press. */
+.ns-hub-rail{ transition:transform .1s ease, filter .15s ease; }
+.ns-hub-rail:active{ transform:scale(.9); filter:brightness(1.3) drop-shadow(0 3px 5px rgba(0,0,0,.7)); }
+
+@media (prefers-reduced-motion:reduce){
+  /* The path stays LIT rather than stopping dark — it is wayfinding, not
+     decoration, so it must not become invisible for someone who asked for
+     less motion. */
+  .ns-hub-path{ animation:none; opacity:.85; }
+  .ns-hub-motes{ animation:none; }
+  .ns-hub-pick{ animation:none; }
+  .ns-hub-node:active, .ns-hub-rail:active{ transform:none; }
+}
