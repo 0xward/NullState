@@ -130,7 +130,11 @@ export async function POST(req: NextRequest) {
 
     // 4) record ownership (offchain) + mark tx used
     const updates: Record<string, unknown> = {}
-    updates[`marketplaceTxHashes/${txHash}`] = { wallet: buyer, itemId, token, at: Date.now() }
+    // `usd` is the price PAID, written at purchase time. /api/stats used to add
+    // up revenue by looking each itemId's price up in the CURRENT price list,
+    // which meant every repricing silently rewrote history — halving prices
+    // halved all past revenue. What someone paid is a fact about that moment.
+    updates[`marketplaceTxHashes/${txHash}`] = { wallet: buyer, itemId, token, usd: item.price, at: Date.now() }
     updates[`marketplaceOwned/${buyer}/${itemId}`] = { at: Date.now(), txHash }
     await db.ref().update(updates)
 

@@ -33,7 +33,10 @@ export const DEFAULT_PORTRAIT = `${DIR}/default_skin.png`
 const BAKED = new Set([
   'default_skin',
   'leather_guard', 'iron_plate', 'rune_armor',
-  'ashen_warden', 'emberguard', 'voidweave', 'sungild', 'pass_warden',
+  // ashen_warden is gone; resolveItemId() maps it to ashfall_scav above, so an
+  // old save still lands on a face that exists.
+  'ashfall_scav', 'sungild', 'emberguard', 'nullsteel', 'voidweave', 'hazard_warden',
+  'pass_warden',
 ])
 
 export function portraitFor(equipped: EquippedSlots | null | undefined): string {

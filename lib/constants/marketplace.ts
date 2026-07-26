@@ -258,18 +258,37 @@ const BASE_MARKETPLACE_ITEMS: MarketplaceItem[] = [
   // look, so charging power-money for it is both poor value and off-message for
   // a game whose pitch is "no pay-to-win". Cheap cosmetics are also the
   // guilt-free second purchase for someone who already bought their weapon.
-  { id:'ashen_warden', name:'Ashen Warden', type:'outfit', slot:'outfit', price:1.5, fxTier:2, skinTint:'#8f95a0',
-    effect:{}, sprite:'/sprites/marketplace/ashen_warden.png',
-    desc:'Ash-grey full plate — a silent sentinel of the bunkers.' },
-  { id:'emberguard', name:'Emberguard', type:'outfit', slot:'outfit', price:2.5, fxTier:3, skinTint:'#c85a1e',
-    effect:{}, sprite:'/sprites/marketplace/emberguard.png',
-    desc:'Ember-forged warden leathers with a warm coal glow.' },
-  { id:'voidweave', name:'Voidweave', type:'outfit', slot:'outfit', price:3.5, fxTier:3, skinTint:'#6a24b0',
-    effect:{}, sprite:'/sprites/marketplace/voidweave.png',
-    desc:'A hooded violet weave that drinks the dark around you.' },
-  { id:'sungild', name:'Sungild Regalia', type:'outfit', slot:'outfit', price:5.0, fxTier:3, skinTint:'#e0b23a',
+  // SKIN PRICES follow the owner's own ranking of them, because a cosmetic's
+  // price IS its ranking — the dearest one is the one being called the best.
+  // Voidweave first, Emberguard second, Sungild third; Sungild used to be the
+  // most expensive at $5 while being the least liked of the three.
+  //
+  // ashen_warden was RETIRED here (generic grey fantasy plate, wrong game).
+  // LEGACY_ITEM_IDS maps it to ashfall_scav so a wallet that bought it still
+  // resolves to something wearable.
+  //
+  // ashfall_scav holds the CHEAP END on purpose. Dropping ashen_warden without
+  // a replacement would have left $3 as the lowest-priced skin, and the
+  // sub-$2 cosmetic is the guilt-free impulse buy — the one purchase a player
+  // in these markets makes without thinking about it.
+  { id:'ashfall_scav', name:'Ashfall Scavenger', type:'outfit', slot:'outfit', price:1.5, fxTier:2, skinTint:'#7a6a4a',
+    effect:{}, sprite:'/sprites/marketplace/ashfall_scav.png',
+    desc:'Hooded cloth and worn leather. What you wear when there is no armoury left.' },
+  { id:'sungild', name:'Sungild Regalia', type:'outfit', slot:'outfit', price:3.0, fxTier:3, skinTint:'#e0b23a',
     effect:{}, sprite:'/sprites/marketplace/sungild.png',
     desc:'Gilded champion regalia that catches every torchlight.' },
+  { id:'emberguard', name:'Emberguard', type:'outfit', slot:'outfit', price:4.0, fxTier:3, skinTint:'#c85a1e',
+    effect:{}, sprite:'/sprites/marketplace/emberguard.png',
+    desc:'Ember-forged warden leathers with a warm coal glow.' },
+  { id:'nullsteel', name:'Nullsteel', type:'outfit', slot:'outfit', price:4.0, fxTier:3, skinTint:'#2f6f8f',
+    effect:{}, sprite:'/sprites/marketplace/nullsteel.png',
+    desc:'Cold hooded plate, lit from within by a dead reactor.' },
+  { id:'voidweave', name:'Voidweave', type:'outfit', slot:'outfit', price:5.0, fxTier:3, skinTint:'#6a24b0',
+    effect:{}, sprite:'/sprites/marketplace/voidweave.png',
+    desc:'A hooded violet weave that drinks the dark around you.' },
+  { id:'hazard_warden', name:'Hazard Warden', type:'outfit', slot:'outfit', price:5.0, fxTier:3, skinTint:'#b6ff3d',
+    effect:{}, sprite:'/sprites/marketplace/hazard_warden.png',
+    desc:'Acid-green hazard gear, still humming from whatever it was built to survive.' },
   // TASK #7 — EXCLUSIVE Season-Pass skin. NOT sold: hidden:true keeps it out of
   // the shop, passOnly:true means the engine only grants it (injects into
   // `owned`) to wallets holding an active pass. Pure cosmetic (OutfitItem =
@@ -291,6 +310,10 @@ export const MARKETPLACE_ITEMS: MarketplaceItem[] = BASE_MARKETPLACE_ITEMS.map(i
 // these ids back. Items deleted outright (void_reaper, hunters_bow,
 // ancient_aegis, warden_plate) have no replacement and are intentionally absent.
 export const LEGACY_ITEM_IDS: Record<string, string> = {
+  // Retired 2026-07 (owner: wrong vibe for the game). Mapped to the skin that
+  // took its place at the same price, so a wallet that bought it keeps a skin
+  // rather than an id that resolves to nothing.
+  ashen_warden: 'ashfall_scav',
   voidcaller_scythe: 'sunfire_bow',
   ancient_warblade: 'void_katana',
   war_axe: 'argent_waraxe',

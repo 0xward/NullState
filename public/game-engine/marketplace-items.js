@@ -111,22 +111,33 @@
     // by the item id in assets.js LPC_OUTFIT (a real LPC clothing/armour layer
     // set); skinTint is a cosmetic-only flex colour. The FREE default outfit is
     // always shown next to these — the game is fully playable without any skin.
-    { id:'ashen_warden', name:'Ashen Warden', type:'outfit', slot:SLOTS.OUTFIT,
-      price:1.5, fxTier:2, skinTint:'#8f95a0', effect:{},
-      sprite:'/sprites/marketplace/ashen_warden.png',
-      desc:'Ash-grey full plate — a silent sentinel of the bunkers.' },
-    { id:'emberguard', name:'Emberguard', type:'outfit', slot:SLOTS.OUTFIT,
-      price:2.5, fxTier:3, skinTint:'#c85a1e', effect:{},
-      sprite:'/sprites/marketplace/emberguard.png',
-      desc:'Ember-forged warden leathers with a warm coal glow.' },
-    { id:'voidweave', name:'Voidweave', type:'outfit', slot:SLOTS.OUTFIT,
-      price:3.5, fxTier:3, skinTint:'#6a24b0', effect:{},
-      sprite:'/sprites/marketplace/voidweave.png',
-      desc:'A hooded violet weave that drinks the dark around you.' },
+    // Prices follow the owner's ranking of the skins — a cosmetic's price IS
+    // its ranking. ashen_warden retired (wrong vibe); see the note in
+    // lib/constants/marketplace.ts, which this file MIRRORS.
+    { id:'ashfall_scav', name:'Ashfall Scavenger', type:'outfit', slot:SLOTS.OUTFIT,
+      price:1.5, fxTier:2, skinTint:'#7a6a4a', effect:{},
+      sprite:'/sprites/marketplace/ashfall_scav.png',
+      desc:'Hooded cloth and worn leather. What you wear when there is no armoury left.' },
     { id:'sungild', name:'Sungild Regalia', type:'outfit', slot:SLOTS.OUTFIT,
-      price:5.0, fxTier:3, skinTint:'#e0b23a', effect:{},
+      price:3.0, fxTier:3, skinTint:'#e0b23a', effect:{},
       sprite:'/sprites/marketplace/sungild.png',
       desc:'Gilded champion regalia that catches every torchlight.' },
+    { id:'emberguard', name:'Emberguard', type:'outfit', slot:SLOTS.OUTFIT,
+      price:4.0, fxTier:3, skinTint:'#c85a1e', effect:{},
+      sprite:'/sprites/marketplace/emberguard.png',
+      desc:'Ember-forged warden leathers with a warm coal glow.' },
+    { id:'nullsteel', name:'Nullsteel', type:'outfit', slot:SLOTS.OUTFIT,
+      price:4.0, fxTier:3, skinTint:'#2f6f8f', effect:{},
+      sprite:'/sprites/marketplace/nullsteel.png',
+      desc:'Cold hooded plate, lit from within by a dead reactor.' },
+    { id:'voidweave', name:'Voidweave', type:'outfit', slot:SLOTS.OUTFIT,
+      price:5.0, fxTier:3, skinTint:'#6a24b0', effect:{},
+      sprite:'/sprites/marketplace/voidweave.png',
+      desc:'A hooded violet weave that drinks the dark around you.' },
+    { id:'hazard_warden', name:'Hazard Warden', type:'outfit', slot:SLOTS.OUTFIT,
+      price:5.0, fxTier:3, skinTint:'#b6ff3d', effect:{},
+      sprite:'/sprites/marketplace/hazard_warden.png',
+      desc:'Acid-green hazard gear, still humming from whatever it was built to survive.' },
     // TASK #7 — EXCLUSIVE Season-Pass skin (mirror of lib/constants/marketplace.ts).
     // hidden:true (never in the shop) + passOnly:true (engine injects it into
     // `owned` only for active pass holders — see setPassHolder in game.js).

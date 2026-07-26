@@ -110,7 +110,8 @@ export async function POST(req: NextRequest) {
     }
 
     // 4) mark tx used + record ownership
-    await db.ref(`blueprintTxHashes/${txHash}`).set({ wallet: buyer, token, sectorId: sector.id, at: Date.now() })
+    // `usd`: the price paid — see the note in marketplace/verify.
+    await db.ref(`blueprintTxHashes/${txHash}`).set({ wallet: buyer, token, sectorId: sector.id, usd: sector.priceUSD, at: Date.now() })
     const owned = await grant()
     return NextResponse.json({ success: true, owned })
   } catch (e: unknown) {

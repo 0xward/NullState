@@ -131,7 +131,8 @@ export async function POST(req: NextRequest) {
     }
 
     // 4) mark tx used + credit the shards
-    await db.ref(`materialsTxHashes/${txHash}`).set({ wallet: buyer, token, tier, at: Date.now() })
+    // `usd`: the price paid — see the note in marketplace/verify.
+    await db.ref(`materialsTxHashes/${txHash}`).set({ wallet: buyer, token, tier, usd: pack.priceUSD, at: Date.now() })
     const totals = await credit(db, buyer, tier, pack.shards)
     return NextResponse.json({ success: true, tier, ...totals })
   } catch (e: unknown) {

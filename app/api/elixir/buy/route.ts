@@ -94,7 +94,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No matching payment to treasury found in this tx' }, { status: 400 })
     }
 
-    await db.ref(`elixirTxHashes/${txHash}`).set({ wallet: buyer, token, at: Date.now() })
+    // `usd`: the price paid, so /api/stats can report revenue without
+    // re-deriving it from today's config. See the note in marketplace/verify.
+    await db.ref(`elixirTxHashes/${txHash}`).set({ wallet: buyer, token, usd: GAME_CONFIG.elixir.priceUSD, at: Date.now() })
     const state = await creditOne(db, buyer)
     return NextResponse.json({ success: true, ...state })
   } catch (e: unknown) {
