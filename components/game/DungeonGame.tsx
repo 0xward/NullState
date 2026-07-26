@@ -11,6 +11,7 @@ import { recordRunKills, recordRunProgress } from '@/lib/leaderboardService'
 import { GAME_CONFIG } from '@/lib/constants/game-config'
 import { readWorldMapHubFlag } from '@/lib/worldMapHubFlag'
 import { DEFAULT_SETTINGS, loadGameSettings, saveGameSettings } from '@/lib/gameSettings'
+import { applyAudioSettings, setMusicVolume as setStoredMusicVolume, setSfxEnabled as setStoredSfxEnabled, setSoundMuted as setStoredSoundMuted } from '@/lib/audioControl'
 import SettingsModal from './SettingsModal'
 import { LiveStatsProvider } from './LiveStatsProvider'
 import SaveConfirmModal from './SaveConfirmModal'
@@ -301,30 +302,27 @@ export default function DungeonGame({ playerProfile, setPlayerUsername, isNewRun
     return ok
   }
 
-  // Every toggle now writes through to storage as well as to the engine, so the
-  // choice survives leaving the run. The engine's return value still wins where
-  // it gives one — it is the authority on what actually took effect.
+  // All three audio controls go through lib/audioControl, the single place that
+  // stores a preference AND pushes the whole resulting state into the engine.
+  //
+  // They used to call NSG.toggleSound/toggleSfx directly, which is how the
+  // master switch ended up broken: NSG.toggleSound maps to the engine's
+  // toggleMute, and that only silences the MUSIC bed — effects kept playing
+  // through a switch labelled "Sound". audioControl derives both from one
+  // model (SFX audible = not muted AND effects wanted), so no control can
+  // set half the picture any more.
   const handleToggleSound = () => {
-    const NSG = (window as any).NullStateGame
-    const muted = !!NSG?.toggleSound?.()
-    setSoundMuted(muted)
-    saveGameSettings({ soundMuted: muted })
+    const next = setStoredSoundMuted(!soundMuted)
+    setSoundMuted(next.soundMuted)
+    setSfxEnabled(next.sfxEnabled)
   }
 
   const handleMusicVolumeChange = (value: number) => {
-    const NSG = (window as any).NullStateGame
-    const applied = NSG?.setMusicVolume?.(value)
-    const v = typeof applied === 'number' ? applied : value
-    setMusicVolume(v)
-    saveGameSettings({ musicVolume: v })
+    setMusicVolume(setStoredMusicVolume(value).musicVolume)
   }
 
   const handleToggleSfx = () => {
-    const NSG = (window as any).NullStateGame
-    const enabled = NSG?.toggleSfx?.()
-    const v = enabled !== undefined ? !!enabled : !sfxEnabled
-    setSfxEnabled(v)
-    saveGameSettings({ sfxEnabled: v })
+    setSfxEnabled(setStoredSfxEnabled(!sfxEnabled).sfxEnabled)
   }
 
   const handleToggleScreenShake = () => {
@@ -637,24 +635,18 @@ export default function DungeonGame({ playerProfile, setPlayerUsername, isNewRun
         }
         NSG.setWalletAddress?.(walletRef.current.address ?? null)
 
-        // Push the player's SAVED preferences into the freshly-mounted engine,
-        // then read back what actually took. Previously this only read the
-        // engine's own defaults, which is why muting never survived a run: the
-        // engine starts unmuted every mount and React simply agreed with it.
-        // The engine still has the last word — we apply, then sync to whatever
-        // it reports — so a value it rejects can't desync the UI.
+        // Push the player's SAVED preferences into the freshly-mounted engine.
+        // Before this existed the engine started at its own defaults every
+        // mount and React simply agreed with it, which is why muting the game
+        // never survived leaving a run.
         const prefs = loadGameSettings()
-        if (prefs.soundMuted !== !!NSG.isSoundMuted?.()) NSG.toggleSound?.()
-        if (prefs.musicVolume !== DEFAULT_SETTINGS.musicVolume) NSG.setMusicVolume?.(prefs.musicVolume)
-        if (prefs.sfxEnabled !== (NSG.isSfxEnabled?.() !== false)) NSG.toggleSfx?.()
-
-        setSoundMuted(!!NSG.isSoundMuted?.())
-        const vol = NSG.getMusicVolume?.()
-        if (typeof vol === 'number') setMusicVolume(vol)
-        const sfxOn = NSG.isSfxEnabled?.()
-        if (sfxOn !== undefined) setSfxEnabled(!!sfxOn)
-        // Screen shake has no engine getter, so the stored value IS the truth;
-        // push it only when it differs from the engine's on-by-default.
+        applyAudioSettings(prefs)
+        setSoundMuted(prefs.soundMuted)
+        setMusicVolume(prefs.musicVolume)
+        setSfxEnabled(prefs.sfxEnabled)
+        // Screen shake is engine-only (no Audio2 involvement) and has no
+        // getter, so the stored value IS the truth; push it only when it
+        // differs from the engine's on-by-default.
         if (!prefs.screenShakeEnabled) NSG.toggleScreenShake?.()
         setScreenShakeEnabled(prefs.screenShakeEnabled)
       })
