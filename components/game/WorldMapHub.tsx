@@ -230,10 +230,15 @@ export default function WorldMapHub({
           style={{ width: '100%', height: '100%', display: 'block', filter: 'brightness(1.12) contrast(1.06) saturate(1.05)' }}
         />
 
-        {/* The trail and the door lamps, breathing. Same pixels as the art
-            underneath, so it can never fall out of register. */}
+        {/* The trail and the door lamps. Two copies of the SAME extracted layer:
+            a steady one so the route is always readable, and a bright one that a
+            travelling window reveals, so light appears to run along the trail
+            toward the bunkers. Same pixels as the art underneath, so neither can
+            fall out of register. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={MAP_PATH} alt="" aria-hidden="true" className="ns-hub-path" />
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={MAP_PATH} alt="" aria-hidden="true" className="ns-hub-path ns-hub-path-flow" />
 
         {/* Embers drifting up off the map — cheap, and the difference between
             a screen that is alive and one that is a picture. */}
