@@ -9,6 +9,7 @@ import { useEquippedPortrait } from '@/lib/heroPortrait'
 import { usePassSBT } from '@/hooks/usePassSBT'
 import { isPassCurrent, seasonNumberOf } from '@/lib/season'
 import { MusicButton, useMusic } from '@/components/MusicController'
+import { playUiSound, type UiSound } from '@/lib/uiSound'
 
 // ─── World-Map Hub (Phase 1+2 — behind a feature flag) ───────────────────────
 // A game-style landing that REPLACES MainMenu when enabled (?hub=1 or
@@ -52,6 +53,10 @@ interface WorldMapHubProps {
 }
 
 const MAP = '/worldmap/map-bg.webp'
+// The trail and door lamps, lifted out of the art so they can be animated —
+// see scripts/build-map-path-overlay.js. Perfectly registered because it is
+// literally the map's own pixels.
+const MAP_PATH = '/worldmap/map-path.webp'
 const IC = (n: string) => `/worldmap/icons/${n}.png`
 const HOWTO_SEEN_KEY = 'ns-howto-seen'
 
@@ -64,23 +69,39 @@ const HOWTO_SEEN_KEY = 'ns-howto-seen'
 // top, which the art draws as the largest structure — so the map's own visual
 // weight matches the campaign's difficulty curve. Listed in screen order
 // (top-most first) for readability; `act` carries the real sequence.
+// x/y = the DOOR's centre. gy = the ground immediately in front of it, where
+// the active ring lies.
+//
+// These are MEASURED off map-bg.webp, not eyeballed: the art was overlaid with
+// a 1% grid and each doorway read off directly (the two green lamps flanking
+// every entrance make the centre unambiguous). The first pass was placed by
+// eye and every marker sat slightly off its door — worst on Frostline, which
+// was 3% high, i.e. floating above the doorway.
+//
+// If the map art is ever regenerated these must be re-measured; there is no
+// way to derive them from the image automatically.
 const NODES = [
-  { act: 4, name: 'THE LAST LIGHT', x: 35, y: 11 },
-  { act: 3, name: 'HOLLOW MARKET', x: 64, y: 33 },
-  { act: 2, name: 'FROSTLINE BUNKER', x: 38, y: 49 },
-  { act: 1, name: 'SUNKEN FIELD', x: 60, y: 66 },
-  { act: 0, name: 'TREELINE BUNKER', x: 45, y: 80 },
+  { act: 4, name: 'THE LAST LIGHT',   x: 35.0, y: 12.0, gy: 14.8 },
+  { act: 3, name: 'HOLLOW MARKET',    x: 62.3, y: 34.0, gy: 36.8 },
+  { act: 2, name: 'FROSTLINE BUNKER', x: 36.5, y: 52.0, gy: 55.2 },
+  { act: 1, name: 'SUNKEN FIELD',     x: 60.7, y: 66.5, gy: 69.3 },
+  { act: 0, name: 'TREELINE BUNKER',  x: 45.8, y: 81.3, gy: 84.2 },
 ] as const
 
 type NodeState = 'cleared' | 'active' | 'locked'
 
 function RailBtn({
-  icon, label, onClick, hot = false, badge,
+  icon, label, onClick, hot = false, badge, sound = 'panel',
 }: {
   icon: string; label: string; onClick: () => void; hot?: boolean; badge?: string
+  sound?: UiSound
 }) {
   return (
-    <button onClick={onClick} className="relative block w-[52px] text-center" style={{ filter: 'drop-shadow(0 3px 5px rgba(0,0,0,.7))' }}>
+    <button
+      onClick={() => { playUiSound(sound); onClick() }}
+      className="ns-hub-rail relative block w-[52px] text-center"
+      style={{ filter: 'drop-shadow(0 3px 5px rgba(0,0,0,.7))' }}
+    >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={icon} alt={label} width={46} height={46}
@@ -192,7 +213,8 @@ export default function WorldMapHub({
       : `Locked · Clear ${nodeByAct(sel.act - 1)?.name ?? 'the previous bunker'} first`
 
   const startRun = () => {
-    if (!canEnter) return
+    if (!canEnter) { playUiSound('denied'); return }
+    playUiSound('confirm')
     if (hasSave) onContinueGame(playerProfile!)
     else onNewGame()
   }
@@ -208,43 +230,73 @@ export default function WorldMapHub({
           style={{ width: '100%', height: '100%', display: 'block', filter: 'brightness(1.12) contrast(1.06) saturate(1.05)' }}
         />
 
+        {/* The trail and the door lamps, breathing. Same pixels as the art
+            underneath, so it can never fall out of register. */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={MAP_PATH} alt="" aria-hidden="true" className="ns-hub-path" />
+
+        {/* Embers drifting up off the map — cheap, and the difference between
+            a screen that is alive and one that is a picture. */}
+        <span className="ns-hub-motes" aria-hidden="true" />
+
         {NODES.map((n) => {
           const st = stateOf(n.act)
           const isSel = n.act === selectedAct
           return (
-            <button
-              key={n.act}
-              onClick={() => setSelectedAct(n.act)}
-              aria-label={`${n.name} — ${st}`}
-              className={`absolute ns-hub-node${isSel ? ' is-sel' : ''}`}
-              style={{
-                left: `${n.x}%`, top: `${n.y}%`, transform: 'translate(-50%,-50%)',
-                width: 66, height: 66, zIndex: 4, background: 'none', border: 'none', padding: 0,
-              }}
-            >
-              {/* LOCKED — fog rolls over the painted door, padlock sits on it */}
-              {st === 'locked' && (
-                <>
-                  <span className="ns-hub-fog" aria-hidden="true" />
-                  <span className="ns-hub-fog ns-hub-fog-b" aria-hidden="true" />
-                  <span className="ns-hub-lock" aria-hidden="true">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={IC('lock')} alt="" width={30} height={30} />
-                  </span>
-                </>
-              )}
-
-              {/* CLEARED — a ✓ stamp on the door, the place sits quiet */}
-              {st === 'cleared' && <span className="ns-hub-done" aria-hidden="true">✓</span>}
-
-              {/* ACTIVE — ring lying on the ground at the door's foot + chevron */}
+            <span key={n.act}>
+              {/* The ring lies on the GROUND IN FRONT of the door, so it is
+                  positioned at the node's own measured ground percentage rather
+                  than nudged down inside the marker box. Inside the box its
+                  offset scaled with the box, which is why it drifted off the
+                  ground on different screens. */}
               {st === 'active' && (
-                <>
-                  <span className="ns-hub-ring" aria-hidden="true" />
-                  <span className="ns-hub-chev" aria-hidden="true">▼</span>
-                </>
+                <span
+                  className="ns-hub-ground"
+                  aria-hidden="true"
+                  style={{ left: `${n.x}%`, top: `${n.gy}%` }}
+                >
+                  <span className="ns-hub-ring" />
+                </span>
               )}
-            </button>
+
+              <button
+                onClick={() => {
+                  playUiSound(st === 'locked' ? 'denied' : 'tick')
+                  setSelectedAct(n.act)
+                }}
+                aria-label={`${n.name} — ${st}`}
+                aria-pressed={isSel}
+                className={`absolute ns-hub-node is-${st}${isSel ? ' is-sel' : ''}`}
+                style={{
+                  left: `${n.x}%`, top: `${n.y}%`, transform: 'translate(-50%,-50%)',
+                  width: 66, height: 66, zIndex: 4, background: 'none', border: 'none', padding: 0,
+                }}
+              >
+                {/* Selection has to be unmistakable — the old treatment was a
+                    faint white glow that vanished against the lit snow, so
+                    players could not tell a tap had registered. Four corner
+                    brackets, drawn only for the selected node. */}
+                {isSel && <span className="ns-hub-pick" aria-hidden="true" />}
+
+                {/* LOCKED — fog rolls over the painted door, padlock sits on it */}
+                {st === 'locked' && (
+                  <>
+                    <span className="ns-hub-fog" aria-hidden="true" />
+                    <span className="ns-hub-fog ns-hub-fog-b" aria-hidden="true" />
+                    <span className="ns-hub-lock" aria-hidden="true">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={IC('lock')} alt="" width={30} height={30} />
+                    </span>
+                  </>
+                )}
+
+                {/* CLEARED — a ✓ stamp on the door, the place sits quiet */}
+                {st === 'cleared' && <span className="ns-hub-done" aria-hidden="true">✓</span>}
+
+                {/* ACTIVE — a chevron nodding over the doorway */}
+                {st === 'active' && <span className="ns-hub-chev" aria-hidden="true">▼</span>}
+              </button>
+            </span>
           )
         })}
       </div>
@@ -267,7 +319,7 @@ export default function WorldMapHub({
           person — and it wasn't tappable, so the one thing on screen that looks
           like "you" did nothing. The avatar is the knight's own idle sprite. */}
       <button
-        onClick={() => onCharacter('character')}
+        onClick={() => { playUiSound('panel'); onCharacter('character') }}
         aria-label={passLive ? `Open character sheet — Season ${passNo ?? ''} Pass holder` : 'Open character sheet'}
         className={`absolute ns-hub-plate${passLive ? ' is-pass' : ''}`}
         style={{ top: 10, left: 10, zIndex: 6 }}
@@ -292,10 +344,10 @@ export default function WorldMapHub({
           have to open a menu to find out how the game works. Until it's tapped
           once it pulses with a "read me first" label; tapping stores a flag so
           the prompt never returns. */}
-      <div className="absolute flex items-start gap-2" style={{ top: 12, right: 12, zIndex: 6 }}>
+      <div className="absolute flex items-center gap-2" style={{ top: 12, right: 12, zIndex: 6 }}>
         <div className="relative">
           <button
-            onClick={openHowToPlay}
+            onClick={() => { playUiSound('panel'); openHowToPlay() }}
             aria-label="How to play"
             className={`ns-hub-help font-mono${howToSeen ? '' : ' is-new'}`}
           >
@@ -314,11 +366,13 @@ export default function WorldMapHub({
             MiniPay asks for, and read as an afterthought next to the help
             button it shares a corner with. */}
         <button
-          onClick={() => setMenuOpen(true)}
+          onClick={() => { playUiSound('panel'); setMenuOpen(true) }}
           className="font-mono uppercase"
           style={{
-            minHeight: 40, padding: '8px 14px', fontSize: 11, letterSpacing: '1.5px',
-            color: '#cfe0d8', background: 'rgba(6,12,9,.78)', border: '1px solid rgba(255,255,255,.18)', borderRadius: 3,
+            height: 38, minHeight: 38, padding: '0 14px', fontSize: 11, letterSpacing: '1.5px',
+            display: 'inline-flex', alignItems: 'center',
+            color: '#cfe0d8', background: 'rgba(6,12,9,.78)', border: '1px solid rgba(255,255,255,.18)',
+            clipPath: 'polygon(9px 0,100% 0,100% calc(100% - 9px),calc(100% - 9px) 100%,0 100%,0 9px)',
           }}
         >
           ≡ MENU
@@ -339,10 +393,10 @@ export default function WorldMapHub({
         className="absolute flex flex-col gap-2"
         style={{ top: '46%', transform: 'translateY(-50%)', left: 6, zIndex: 6 }}
       >
-        <RailBtn icon={IC('daily')} label="Daily" hot badge="SOON" onClick={() => showToast('Daily Run — coming soon')} />
-        <RailBtn icon={IC('rewards')} label="Rewards" onClick={onRewards} />
-        <RailBtn icon={IC('pass')} label="Pass" onClick={onMintPass} />
-        <RailBtn icon={IC('invite')} label="Invite" onClick={onReferral} />
+        <RailBtn icon={IC('daily')} label="Daily" hot badge="SOON" sound="reward" onClick={() => showToast('Daily Run — coming soon')} />
+        <RailBtn icon={IC('rewards')} label="Rewards" sound="reward" onClick={onRewards} />
+        <RailBtn icon={IC('pass')} label="Pass" sound="reward" onClick={onMintPass} />
+        <RailBtn icon={IC('invite')} label="Invite" sound="tick" onClick={onReferral} />
       </div>
 
       {/* RIGHT: your gear.
@@ -354,10 +408,10 @@ export default function WorldMapHub({
         className="absolute flex flex-col gap-2"
         style={{ top: '46%', transform: 'translateY(-50%)', right: 6, zIndex: 6 }}
       >
-        <RailBtn icon={IC('bag')} label="Bag" onClick={() => onCharacter('items')} />
-        <RailBtn icon={IC('shop')} label="Shop" onClick={onMarketplace} />
-        <RailBtn icon={IC('craft')} label="Craft" onClick={onCrafting} />
-        <RailBtn icon={IC('gear')} label="Settings" onClick={onSettings} />
+        <RailBtn icon={IC('bag')} label="Bag" sound="gear" onClick={() => onCharacter('items')} />
+        <RailBtn icon={IC('shop')} label="Shop" sound="tick" onClick={onMarketplace} />
+        <RailBtn icon={IC('craft')} label="Craft" sound="gear" onClick={onCrafting} />
+        <RailBtn icon={IC('gear')} label="Settings" sound="panel" onClick={onSettings} />
       </div>
 
       {isLoadingProfile && (
