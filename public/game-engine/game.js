@@ -5066,11 +5066,30 @@ function onOutdoorAdvanceToNextAct(){
     // can see — the cleared bunker gets its ✓ and the next one loses its fog.
     // The app shell handles it from here (it swaps back to the menu phase,
     // which unmounts this engine along with the fade overlay).
+    // A cleared bunker means the NEXT descent is a fresh bunker, so the cached
+    // snapshot has to say floor 1. getSaveSnapshot() falls back to
+    // LAST_BUNKER_SNAPSHOT the moment we leave the dungeon, and that copy still
+    // holds the floor the vault was on — 5.
+    //
+    // BUG THIS FIXES: with the world-map hub on, clearing a bunker persisted
+    // that snapshot as the saved session, so pressing ENTER on the map resumed
+    // at `startDepth = snap.depth` and dropped the player into the new bunker
+    // ON FLOOR 5, skipping four floors of the act they had just unlocked.
+    // The classic flow never hit this because _enterBunkerFromDoor() rebuilds
+    // its restore snapshot with `depth: 1, maxDepthReached: 1` — the hub path
+    // returns before ever reaching that line, so it needs the same override
+    // here, for the same reason.
+    //
+    // Applied for BOTH flows, not just the hub: in the classic flow an autosave
+    // during the outdoor walk had the same problem, and it also left the act
+    // index pointing at the bunker just finished, so Continue would drop the
+    // player back into a bunker they had already cleared.
+    if(LAST_BUNKER_SNAPSHOT){
+      LAST_BUNKER_SNAPSHOT.campaignActIndex = campaignActIndex;
+      LAST_BUNKER_SNAPSHOT.depth = 1;
+      LAST_BUNKER_SNAPSHOT.maxDepthReached = 1;
+    }
     if(WORLDMAP_HUB){
-      // getSaveSnapshot() falls back to LAST_BUNKER_SNAPSHOT while we're
-      // outdoors, so bump the act on it too — otherwise the shell would
-      // persist (and the map would draw) the bunker we just finished.
-      if(LAST_BUNKER_SNAPSHOT) LAST_BUNKER_SNAPSHOT.campaignActIndex = campaignActIndex;
       try{
         window.dispatchEvent(new CustomEvent('nullstate-bunker-cleared', {
           detail:{ nextActIndex: campaignActIndex, clearedActIndex: campaignActIndex-1 }

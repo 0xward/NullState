@@ -140,8 +140,19 @@ export default function GameFlowManager() {
     const onCleared = () => {
       try {
         const NSG = (window as { NullStateGame?: { getSaveSnapshot?: () => unknown } }).NullStateGame
-        const snap = NSG?.getSaveSnapshot?.() as Parameters<typeof saveGameSession>[1] | undefined
-        if (snap && address) {
+        const raw = NSG?.getSaveSnapshot?.() as Parameters<typeof saveGameSession>[1] | undefined
+        if (raw && address) {
+          // Floor 1, always. A cleared bunker means the next descent starts a
+          // NEW bunker, and the engine restores `depth` straight into
+          // startDepth — so persisting the floor the vault was on (5) made
+          // ENTER drop the player into the next bunker already on floor 5,
+          // skipping the four floors they had just unlocked.
+          //
+          // game.js resets its cached snapshot at the same moment and for the
+          // same reason; this is the shell refusing to write a deep floor after
+          // a clear under any circumstances, because it is the last thing
+          // standing between that value and the player's saved game.
+          const snap = { ...raw, depth: 1, maxDepthReached: 1 }
           saveGameSessionDraft(address, snap)
           saveGameSession(address, snap).catch(() => { /* draft already covers the map */ })
         }
