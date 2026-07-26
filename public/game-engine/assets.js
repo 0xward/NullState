@@ -93,11 +93,26 @@ const LPC_ARMOR = {
   // Measured dominant icon colours: leather = warm brown, iron = neutral steel,
   // rune = deep violet with a warding glow. `tint`/`glow` are applied over the
   // LPC layer in drawLPCComposite so the on-body colour reads like the shop art.
+  //
+  // v81 — the COLOUR matched but the ARMOUR did not. Owner report: the two
+  // dearer pieces read as "jubah jaman kuno", an ancient robe, while the shop
+  // sold them a plate cuirass. Rendered side by side against their icons that
+  // was plainly true:
+  //   iron_plate  — icon: a steel plate cuirass. Worn: TORSO_chain_armor_torso,
+  //                 a flat chainmail shirt. The player paid for plate and got
+  //                 mail.
+  //   rune_armor  — icon: a runed cuirass. Worn: a purple chain JACKET under a
+  //                 full closed HELMET. The helmet is what made it read as a
+  //                 medieval knight rather than as gear; nothing in the icon
+  //                 has a helmet in it at all.
+  // Both now wear TORSO_plate_armor_torso + the matching pauldrons, which is
+  // the piece their icons actually depict, and rune_armor's helmet is gone.
+  // Regenerate the portraits after any change here: node scripts/build-hero-portrait.js
   leather_guard: { torso:'TORSO_leather_armor_torso.png', legs:'LEGS_pants_greenish.png', feet:'FEET_shoes_brown.png', tint:'#7a3c18', tintA:0.22 },
-  iron_plate:    { torso:'TORSO_chain_armor_torso.png',   legs:'LEGS_plate_armor_pants.png', feet:'FEET_plate_armor_shoes.png' },
+  iron_plate:    { torso:'TORSO_plate_armor_torso.png', arms:'TORSO_plate_armor_arms_shoulders.png', legs:'LEGS_plate_armor_pants.png', feet:'FEET_plate_armor_shoes.png' },
   // rune: purple chain jacket base + violet tint + a soft warding glow so it
   // shimmers like the icon (icon desc: "shimmer on hit").
-  rune_armor:    { torso:'TORSO_chain_armor_jacket_purple.png', legs:'LEGS_plate_armor_pants.png', feet:'FEET_plate_armor_shoes.png', head:'HEAD_plate_armor_helmet.png', tint:'#5a1fa0', tintA:0.30, glow:'#8a3dff' },
+  rune_armor:    { torso:'TORSO_plate_armor_torso.png', arms:'TORSO_plate_armor_arms_shoulders.png', legs:'LEGS_plate_armor_pants.png', feet:'FEET_plate_armor_shoes.png', tint:'#5a2fb0', tintA:0.34, glow:'#8a3dff' },
   // Punch list #9 (MiniPay compliance) — the bare LPC BODY_male sheet is the
   // stock LPC "skin" layer with no clothing baked in (underwear only), so
   // any player with no marketplace armor equipped — which is every player

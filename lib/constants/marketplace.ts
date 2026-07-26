@@ -260,35 +260,40 @@ const BASE_MARKETPLACE_ITEMS: MarketplaceItem[] = [
   // guilt-free second purchase for someone who already bought their weapon.
   // SKIN PRICES follow the owner's own ranking of them, because a cosmetic's
   // price IS its ranking — the dearest one is the one being called the best.
-  // Voidweave first, Emberguard second, Sungild third; Sungild used to be the
-  // most expensive at $5 while being the least liked of the three.
+  //
+  // THE LADDER IS NOW THREE RUNGS, NOT SIX. Voidweave $5, Emberguard $4,
+  // Sungild $3, and then a FLAT $2 floor shared by Hazard Warden, Nullsteel and
+  // Ashfall Scavenger. The owner's reason for levelling those three: they read
+  // as the same quality as each other, and a price ladder that separates items
+  // nobody perceives as different is just noise — it tells the player a story
+  // about the art that the art does not tell them back.
+  //
+  // A shared floor is also better economics than a strict ordering here. At $2
+  // the choice between the three is purely "which look do I want", which is the
+  // question a cosmetic should be asking; at $5/$4/$1.50 it was "which one can
+  // I justify", which is the question that ends in no purchase at all.
   //
   // ashen_warden was RETIRED here (generic grey fantasy plate, wrong game).
   // LEGACY_ITEM_IDS maps it to ashfall_scav so a wallet that bought it still
   // resolves to something wearable.
-  //
-  // ashfall_scav holds the CHEAP END on purpose. Dropping ashen_warden without
-  // a replacement would have left $3 as the lowest-priced skin, and the
-  // sub-$2 cosmetic is the guilt-free impulse buy — the one purchase a player
-  // in these markets makes without thinking about it.
-  { id:'ashfall_scav', name:'Ashfall Scavenger', type:'outfit', slot:'outfit', price:1.5, fxTier:2, skinTint:'#7a6a4a',
-    effect:{}, sprite:'/sprites/marketplace/ashfall_scav.png',
-    desc:'Hooded cloth and worn leather. What you wear when there is no armoury left.' },
   { id:'sungild', name:'Sungild Regalia', type:'outfit', slot:'outfit', price:3.0, fxTier:3, skinTint:'#e0b23a',
     effect:{}, sprite:'/sprites/marketplace/sungild.png',
     desc:'Gilded champion regalia that catches every torchlight.' },
   { id:'emberguard', name:'Emberguard', type:'outfit', slot:'outfit', price:4.0, fxTier:3, skinTint:'#c85a1e',
     effect:{}, sprite:'/sprites/marketplace/emberguard.png',
     desc:'Ember-forged warden leathers with a warm coal glow.' },
-  { id:'nullsteel', name:'Nullsteel', type:'outfit', slot:'outfit', price:4.0, fxTier:3, skinTint:'#2f6f8f',
-    effect:{}, sprite:'/sprites/marketplace/nullsteel.png',
-    desc:'Cold hooded plate, lit from within by a dead reactor.' },
   { id:'voidweave', name:'Voidweave', type:'outfit', slot:'outfit', price:5.0, fxTier:3, skinTint:'#6a24b0',
     effect:{}, sprite:'/sprites/marketplace/voidweave.png',
     desc:'A hooded violet weave that drinks the dark around you.' },
-  { id:'hazard_warden', name:'Hazard Warden', type:'outfit', slot:'outfit', price:5.0, fxTier:3, skinTint:'#b6ff3d',
+  { id:'hazard_warden', name:'Hazard Warden', type:'outfit', slot:'outfit', price:2.0, fxTier:3, skinTint:'#b6ff3d',
     effect:{}, sprite:'/sprites/marketplace/hazard_warden.png',
     desc:'Acid-green hazard gear, still humming from whatever it was built to survive.' },
+  { id:'nullsteel', name:'Nullsteel', type:'outfit', slot:'outfit', price:2.0, fxTier:3, skinTint:'#2f6f8f',
+    effect:{}, sprite:'/sprites/marketplace/nullsteel.png',
+    desc:'Cold hooded plate, lit from within by a dead reactor.' },
+  { id:'ashfall_scav', name:'Ashfall Scavenger', type:'outfit', slot:'outfit', price:2.0, fxTier:2, skinTint:'#7a6a4a',
+    effect:{}, sprite:'/sprites/marketplace/ashfall_scav.png',
+    desc:'Hooded cloth and worn leather. What you wear when there is no armoury left.' },
   // TASK #7 — EXCLUSIVE Season-Pass skin. NOT sold: hidden:true keeps it out of
   // the shop, passOnly:true means the engine only grants it (injects into
   // `owned`) to wallets holding an active pass. Pure cosmetic (OutfitItem =
