@@ -39,6 +39,9 @@ interface WorldMapHubProps {
   onMarketplace: () => void
   onCrafting: () => void
   onHowToPlay: () => void
+  // Opens the Character Sheet. The plate lands on 'character', the BAG rail
+  // button on 'items' — same screen, two doors.
+  onCharacter: (tab?: 'character' | 'items') => void
   playerProfile: PlayerProfile | null
   isLoadingProfile: boolean
 }
@@ -103,7 +106,7 @@ function RailBtn({
 
 export default function WorldMapHub({
   onContinueGame, onNewGame, onLeaderboard, onRewards, onReferral,
-  onMintPass, onMarketplace, onCrafting, onHowToPlay,
+  onMintPass, onMarketplace, onCrafting, onHowToPlay, onCharacter,
   playerProfile, isLoadingProfile,
 }: WorldMapHubProps) {
   const { realAddress, address } = useWallet()
@@ -239,14 +242,23 @@ export default function WorldMapHub({
         aria-hidden="true"
       />
 
-      {/* ── Player plate (top-left) — octagon-cut to match the rail icons ── */}
-      <div className="absolute ns-hub-plate" style={{ top: 10, left: 10, zIndex: 6 }}>
-        <span className="ns-hub-avatar font-mono">✕</span>
+      {/* ── Player plate (top-left) — octagon-cut to match the rail icons ──
+          Now a real button into the Character Sheet. It used to draw a literal
+          "✕" as the avatar, which reads as an error or a close button, not as a
+          person — and it wasn't tappable, so the one thing on screen that looks
+          like "you" did nothing. The avatar is the knight's own idle sprite. */}
+      <button
+        onClick={() => onCharacter('character')}
+        aria-label="Open character sheet"
+        className="absolute ns-hub-plate"
+        style={{ top: 10, left: 10, zIndex: 6 }}
+      >
+        <span className="ns-hub-avatar" aria-hidden="true" />
         <span className="font-mono leading-none">
           <span className="ns-hub-name">{hasSave ? playerProfile!.username.toUpperCase() : 'WALKER'}</span>
           <span className="ns-hub-lv">{hasSave ? `LV ${playerProfile!.level}` : 'NEW SIGNAL'}</span>
         </span>
-      </div>
+      </button>
 
       {/* ── Help + ≡ MENU (top-right) ──
           The "?" sits outside the menu because a first-time player shouldn't
@@ -286,8 +298,13 @@ export default function WorldMapHub({
         <RailBtn icon={IC('invite')} label="Invite" onClick={onReferral} />
       </div>
 
-      {/* ── RIGHT rail: build & spend ── */}
+      {/* ── RIGHT rail: build & spend ──
+          BAG sits here rather than behind the plate because "where is my stuff"
+          has to be findable without reading anything. A portrait opens who you
+          are, a bag opens what you carry — the split every mobile game already
+          taught this audience. It also evens the rails out at 3 and 3. */}
       <div className="absolute flex flex-col gap-2" style={{ top: 92, right: 6, zIndex: 6 }}>
+        <RailBtn icon={IC('bag')} label="Bag" onClick={() => onCharacter('items')} />
         <RailBtn icon={IC('shop')} label="Shop" onClick={onMarketplace} />
         <RailBtn icon={IC('craft')} label="Craft" onClick={onCrafting} />
       </div>

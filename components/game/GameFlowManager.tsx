@@ -53,6 +53,10 @@ const HowToPlayScreen = dynamic(() => import('./HowToPlayScreen'), {
   ssr: false,
   loading: () => <ScreenLoadingFallback label="LOADING GUIDE" />,
 })
+const CharacterSheet = dynamic(() => import('./CharacterSheet'), {
+  ssr: false,
+  loading: () => <ScreenLoadingFallback label="LOADING CHARACTER" />,
+})
 const DungeonGameWrapper = dynamic(() => import('./DungeonGameWrapper'), {
   ssr: false,
   loading: () => <ScreenLoadingFallback label="LOADING DUNGEON" />,
@@ -71,7 +75,7 @@ function ScreenLoadingFallback({ label }: { label: string }) {
   )
 }
 
-type GamePhase = 'menu' | 'username-setup' | 'character-select' | 'game' | 'leaderboard' | 'rewards' | 'referral' | 'season-pass' | 'marketplace' | 'crafting' | 'how-to-play'
+type GamePhase = 'menu' | 'username-setup' | 'character-select' | 'game' | 'leaderboard' | 'rewards' | 'referral' | 'season-pass' | 'marketplace' | 'crafting' | 'how-to-play' | 'character'
 
 /**
  * GameFlowManager orchestrates the entire NullState game flow:
@@ -94,6 +98,7 @@ export default function GameFlowManager() {
   } = useContractPlayer(address || undefined)
 
   const [phase, setPhase] = useState<GamePhase>('menu')
+  const [characterTab, setCharacterTab] = useState<'character' | 'items'>('character')
   const [leaderboardEntries, setLeaderboardEntries] = useState<LeaderboardEntry[]>([])
   const [isLoadingLeaderboard, setIsLoadingLeaderboard] = useState(false)
   const [selectedUsername, setSelectedUsername] = useState<string>('')
@@ -339,6 +344,14 @@ export default function GameFlowManager() {
     setPhase('how-to-play')
   }
 
+  // Two doors into the same room: the player plate opens CHARACTER, the BAG
+  // button opens ITEMS. The tab is remembered on the way in rather than reset,
+  // so tapping the bag never lands you on a page about your crit chance.
+  const handleCharacterClick = (tab: 'character' | 'items' = 'character') => {
+    setCharacterTab(tab)
+    setPhase('character')
+  }
+
   // PHASE: MENU
   if (phase === 'menu') {
     // Same props for both — the hub is a drop-in swap for the classic menu.
@@ -355,6 +368,7 @@ export default function GameFlowManager() {
           onMarketplace={handleMarketplaceClick}
           onCrafting={handleCraftingClick}
           onHowToPlay={handleHowToPlayClick}
+          onCharacter={handleCharacterClick}
           playerProfile={playerProfile}
           isLoadingProfile={isLoadingProfile}
         />
@@ -491,6 +505,20 @@ export default function GameFlowManager() {
   // PHASE: HOW TO PLAY (Phase 2 — "The Loop" + progression explainer)
   if (phase === 'how-to-play') {
     return <HowToPlayScreen onBack={handleBackToMenu} />
+  }
+
+  // PHASE: CHARACTER / ITEMS — the only place outside a run where a player can
+  // see and equip what they own. Before it existed, buying a weapon told you to
+  // "equip it in your inventory" and there was no inventory to open.
+  if (phase === 'character') {
+    return (
+      <CharacterSheet
+        onBack={handleBackToMenu}
+        onMarketplace={handleMarketplaceClick}
+        playerProfile={playerProfile}
+        initialTab={characterTab}
+      />
+    )
   }
 
   // PHASE: GAME

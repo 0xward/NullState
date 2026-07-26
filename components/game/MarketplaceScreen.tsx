@@ -165,7 +165,11 @@ export default function MarketplaceScreen({ onBack, address }: MarketplaceScreen
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Verification failed')
       persist(Array.isArray(data.owned) ? data.owned : [...owned, item.id])
-      setMsg({ text: `✓ ${item.name} unlocked! Equip it in your inventory.`, kind: 'ok' })
+      // Points at the BAG on the world map, which now actually exists. This
+      // line used to say "equip it in your inventory" when the only inventory
+      // was inside a run — so the reward for paying was being sent to look for
+      // a screen that wasn't there.
+      setMsg({ text: `✓ ${item.name} unlocked! Open BAG on the map to equip it.`, kind: 'ok' })
     } catch (e: unknown) {
       const m = e instanceof Error ? e.message : 'Purchase failed'
       setMsg({ text: m, kind: 'err' })
@@ -189,7 +193,7 @@ export default function MarketplaceScreen({ onBack, address }: MarketplaceScreen
       if (!res.ok) throw new Error(data.error || 'Swap failed')
       persist(Array.isArray(data.owned) ? data.owned : [...owned, item.id])
       if (typeof data.newBalance === 'number') setTokenBalance(data.newBalance)
-      setMsg({ text: `✓ ${item.name} unlocked via NullState Point! Equip it in your inventory.`, kind: 'ok' })
+      setMsg({ text: `✓ ${item.name} unlocked via NullState Point! Open BAG on the map to equip it.`, kind: 'ok' })
     } catch (e: unknown) {
       const m = e instanceof Error ? e.message : 'Swap failed'
       setMsg({ text: m, kind: 'err' })
@@ -495,7 +499,7 @@ export default function MarketplaceScreen({ onBack, address }: MarketplaceScreen
             <div className="mt-4 font-mono text-lg font-bold text-[#f2cd82]">${previewItem.price.toFixed(2)}</div>
             {owned.includes(previewItem.id) ? (
               <div className="mt-3 rounded border border-[#8a5a2b] px-4 py-2 font-mono text-[11px] font-bold uppercase tracking-wider text-[#c39a5f]">
-                Owned — equip it in your inventory
+                Owned — equip it from BAG on the map
               </div>
             ) : (
               <button
