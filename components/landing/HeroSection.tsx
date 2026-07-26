@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect } from 'react'
+import { MusicButton, useMusic } from '@/components/MusicController'
 
 // ─── Landing hero ────────────────────────────────────────────────────────────
 // Rebuilt 2026-07: the previous version read as a token/trading landing page —
@@ -9,61 +10,43 @@ import { useEffect, useRef, useState } from 'react'
 // those is a fintech signal. Someone arriving from a share link had no way to
 // tell this was a pixel dungeon crawler until they pressed a button.
 //
-// What it is now: the game's OWN world map as the backdrop, dimmed and softened
-// so it reads as atmosphere rather than a screenshot (the owner's word was
-// "disamarkan" — obscured), the knight standing on it, the real logo, and two
-// buttons. The game shows itself instead of describing itself.
+// What it is now: an outdoor scene from the game as the backdrop, dimmed and
+// softened so it reads as atmosphere rather than a screenshot, the real logo,
+// and two buttons. The game shows itself instead of describing itself.
 //
-// The 851KB background video is gone from the visual layer. It stays as the
-// music source but is now fetched ONLY when someone actually turns music on —
-// previously every visitor downloaded it whether or not they ever heard it,
-// which on a metered connection in the markets this game targets is most of a
-// megabyte spent on nothing.
+// The 851KB background video is gone entirely — visuals AND audio. Music now
+// comes from the engine's own synthesised bed (see components/MusicController),
+// which is 21KB of code instead of most of a megabyte of stream, and is the
+// same music the game plays, so the landing page and the dungeon no longer
+// sound like two different products.
 
-const MAP = '/worldmap/map-bg.webp'
+// An outdoor scene from the game rather than the world map: the map is the
+// screen a player lands on AFTER pressing PLAY, so using it here spent the
+// reveal before they had started. The treeline is also simply a better
+// backdrop — depth, a horizon, and room for type to sit in the dark.
+const BACKDROP = '/backgrounds/forest.webp'
 const LOGO = '/logo-hero.webp'
 
 export default function HeroSection() {
-  const audioRef = useRef<HTMLVideoElement>(null)
-  // Music stays off until asked for. The tap is also the user gesture browsers
-  // require before audio may start, so there is no autoplay race to lose.
-  const [musicOn, setMusicOn] = useState(false)
-  // Set once music has been requested; until then the <video> has no <source>
-  // and nothing is fetched.
-  const [audioWanted, setAudioWanted] = useState(false)
+  // Shared with the world map and the dungeon: one music preference for the
+  // whole product, stored in lib/gameSettings.
+  const { muted, toggle } = useMusic()
 
   useEffect(() => {
     document.body.style.overflow = 'hidden'
     return () => { document.body.style.overflow = '' }
   }, [])
 
-  useEffect(() => {
-    const v = audioRef.current
-    if (!v) return
-    v.muted = !musicOn
-    if (musicOn) v.play().catch(() => { /* gesture race — the next tap retries */ })
-    else v.pause()
-  }, [musicOn, audioWanted])
-
-  const toggleMusic = () => {
-    setAudioWanted(true)
-    setMusicOn(prev => {
-      const next = !prev
-      try { localStorage.setItem('ns-landing-music', next ? '1' : '0') } catch { /* storage off */ }
-      return next
-    })
-  }
-
   return (
     <section className="relative h-[100dvh] w-full flex flex-col items-center justify-center text-center px-6 overflow-hidden">
-      {/* Backdrop: the world map the game actually opens on, pushed back with
+      {/* Backdrop: a real outdoor scene from the game, pushed back with
           brightness + blur so the type on top of it stays readable and it never
           competes for attention. */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src={MAP} alt="" aria-hidden="true"
+        src={BACKDROP} alt="" aria-hidden="true"
         className="absolute inset-0 h-full w-full object-cover"
-        style={{ filter: 'brightness(.34) saturate(.8) blur(3px)', transform: 'scale(1.06)' }}
+        style={{ filter: 'brightness(.46) saturate(.85) blur(2px)', transform: 'scale(1.06)' }}
       />
 
       {/* Drifting cloud banks. Two layers at different sizes and speeds moving
@@ -89,37 +72,7 @@ export default function HeroSection() {
         }}
       />
 
-      {/* Audio-only. No <source> until the toggle is pressed. */}
-      <video ref={audioRef} loop playsInline preload="none" className="hidden" aria-hidden="true">
-        {audioWanted && <source src="/video/hero-bg.mp4" type="video/mp4" />}
-      </video>
-
-      <button
-        onClick={toggleMusic}
-        aria-label={musicOn ? 'Mute music' : 'Play music'}
-        className="fixed z-[60] flex items-center justify-center border transition-colors duration-200"
-        style={{
-          top: 68, right: 16, width: 40, height: 40,
-          borderColor: 'rgba(57,255,154,0.35)',
-          background: 'rgba(4,8,6,0.72)',
-          color: musicOn ? '#4dffa6' : 'rgba(255,255,255,0.55)',
-          clipPath: 'polygon(9px 0,100% 0,100% calc(100% - 9px),calc(100% - 9px) 100%,0 100%,0 9px)',
-        }}
-      >
-        {musicOn ? (
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-            <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
-            <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
-          </svg>
-        ) : (
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-            <line x1="23" y1="9" x2="17" y2="15" />
-            <line x1="17" y1="9" x2="23" y2="15" />
-          </svg>
-        )}
-      </button>
+      <MusicButton muted={muted} onToggle={toggle} style={{ position: 'fixed', top: 68, right: 16, zIndex: 60 }} />
 
       <div className="relative z-[2] flex w-full flex-col items-center">
 
@@ -150,18 +103,8 @@ export default function HeroSection() {
           Crawl the bunkers. Crack the vault. Earn real USDT.
         </p>
 
-        {/* The knight from the game, at 4x so the pixels stay square. He is the
-            single clearest signal that this is a game and not a dashboard, so
-            he sits between the promise and the button rather than off to one
-            side — the eye passes over him on the way to PLAY. */}
-        <span
-          aria-hidden="true"
-          className="ns-hero-knight mt-2"
-          style={{ animation: 'fadeUp .6s .6s both' }}
-        />
-
         <div
-          className="flex gap-3 items-center justify-center flex-wrap mt-2"
+          className="flex gap-3 items-center justify-center flex-wrap mt-9"
           style={{ animation: 'fadeUp .6s .8s both' }}
         >
           <a

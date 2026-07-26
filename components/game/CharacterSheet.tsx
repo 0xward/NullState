@@ -7,6 +7,9 @@ import {
   getMarketplaceItem, resolveItemId,
   type MarketplaceItem, type EquipmentSlot,
 } from '@/lib/constants/marketplace'
+import { portraitFor } from '@/lib/heroPortrait'
+import { usePassSBT } from '@/hooks/usePassSBT'
+import { isPassCurrent, seasonNumberOf, seasonLabel, currentSeasonId } from '@/lib/season'
 
 // ─── Character Sheet ─────────────────────────────────────────────────────────
 // The screen that answers "who am I and what do I own", opened from the world
@@ -38,15 +41,9 @@ type Equipped = { mainhand: string | null; body: string | null; outfit: string |
 
 const EMPTY: Equipped = { mainhand: null, body: null, outfit: null }
 
-// The REAL player character, baked by scripts/build-hero-portrait.js: the LPC
-// body plus LPC_OUTFIT.default_skin, stacked and tinted exactly the way
-// entities.js drawLPCComposite() does it at runtime.
-//
-// This deliberately does NOT use public/sprites/player/knight_*.png. That
-// armoured knight is a leftover from an earlier design — assets.js keeps it
-// only as "the in-dungeon decode-race fallback sprite set" — so showing it as
-// the player's avatar puts a character on screen that the game never renders.
-const PORTRAIT = '/sprites/player/hero-portrait.png'
+// The portrait follows what is equipped — see lib/heroPortrait. It is derived
+// from THIS screen's own state rather than re-fetched, so tapping an item
+// repaints the face on the same frame the item lights up.
 
 const SLOTS: { slot: EquipmentSlot; label: string; hint: string }[] = [
   { slot: 'mainhand', label: 'WEAPON', hint: 'Sets your damage and how you attack' },
@@ -58,7 +55,7 @@ function slotOf(item: MarketplaceItem): EquipmentSlot {
   return item.slot
 }
 
-function Portrait({ size = 64 }: { size?: number }) {
+function Portrait({ src, size = 64 }: { src: string; size?: number }) {
   // A single 64x64 frame — no sprite-sheet offsets to get wrong. Kept at whole
   // multiples of 64 by every caller so the pixels stay square.
   return (
@@ -66,7 +63,7 @@ function Portrait({ size = 64 }: { size?: number }) {
       aria-hidden="true"
       style={{
         width: size, height: size, display: 'block', flexShrink: 0,
-        backgroundImage: `url(${PORTRAIT})`,
+        backgroundImage: `url(${src})`,
         backgroundSize: `${size}px ${size}px`,
         backgroundRepeat: 'no-repeat',
         imageRendering: 'pixelated',
@@ -78,7 +75,13 @@ function Portrait({ size = 64 }: { size?: number }) {
 export default function CharacterSheet({
   onBack, onMarketplace, playerProfile, initialTab = 'character',
 }: CharacterSheetProps) {
-  const { address, isGuest } = useWallet()
+  const { address, realAddress, isGuest } = useWallet()
+  // Pass status lives here because the plate on the map is what players tap to
+  // check it. A pass is MONTHLY, so "held" and "active right now" are different
+  // questions and the screen answers both.
+  const { hasPass, passSeasonId } = usePassSBT(realAddress || undefined)
+  const passLive = hasPass && isPassCurrent(passSeasonId)
+  const passNo = seasonNumberOf(passSeasonId)
   const [tab, setTab] = useState<Tab>(initialTab)
   const [owned, setOwned] = useState<string[]>([])
   const [equipped, setEquipped] = useState<Equipped>(EMPTY)
@@ -193,7 +196,7 @@ export default function CharacterSheet({
             it belongs to only one of them. */}
         <div className="mb-4 flex items-center gap-3 rounded-lg border p-3" style={{ borderColor: 'rgba(57,255,154,.18)', background: 'rgba(10,24,18,.7)' }}>
           <div className="rounded" style={{ background: 'rgba(0,0,0,.35)', border: '1px solid rgba(57,255,154,.2)', padding: 4 }}>
-            <Portrait size={64} />
+            <Portrait src={portraitFor(equipped)} size={64} />
           </div>
           <div className="min-w-0 flex-1">
             <p className="truncate font-mono text-base font-bold" style={{ color: '#e8fff4' }}>
@@ -210,6 +213,45 @@ export default function CharacterSheet({
             </p>
           </div>
         </div>
+
+        {/* Season Pass status. Shown to holders AND to non-holders, because the
+            useful question on this screen is "what have I got", and an absent
+            row reads as a broken feature rather than as "you don't have one".
+            A pass that has rolled over is called out explicitly — silently
+            treating it as "no pass" is how someone concludes they were charged
+            for nothing. */}
+        {realAddress && (hasPass || passLive) && (
+          <div
+            className="mb-4 flex items-center gap-3 rounded-lg border p-3"
+            style={{
+              borderColor: passLive ? 'rgba(255,224,102,.55)' : 'rgba(255,255,255,.12)',
+              background: passLive ? 'rgba(255,207,77,.09)' : 'rgba(10,24,18,.5)',
+            }}
+          >
+            <span
+              aria-hidden="true"
+              className="flex items-center justify-center font-mono font-bold"
+              style={{
+                width: 34, height: 34, flexShrink: 0, fontSize: 12,
+                color: passLive ? '#04140c' : '#5f8d78',
+                background: passLive ? '#ffcf4d' : 'rgba(255,255,255,.08)',
+                clipPath: 'polygon(7px 0,100% 0,100% calc(100% - 7px),calc(100% - 7px) 100%,0 100%,0 7px)',
+              }}
+            >
+              S{passNo ?? '?'}
+            </span>
+            <span className="min-w-0">
+              <span className="block font-mono text-[12px] font-bold" style={{ color: passLive ? '#ffe9a3' : '#cfe9dc' }}>
+                {passLive ? `Season ${passNo ?? '?'} Pass — Active` : `Season ${passNo ?? '?'} Pass — Expired`}
+              </span>
+              <span className="block font-mono text-[9px] leading-relaxed" style={{ color: '#5f8d78' }}>
+                {passLive
+                  ? `Runs through ${seasonLabel(passSeasonId) ?? 'this season'}. Daily bonus runs, a shard stipend, and the Warden skin.`
+                  : `That pass covered ${seasonLabel(passSeasonId) ?? 'an earlier season'}. ${seasonLabel(currentSeasonId()) ?? 'This season'} needs a new one.`}
+              </span>
+            </span>
+          </div>
+        )}
 
         {/* Tabs */}
         <div className="mb-4 flex gap-2">
