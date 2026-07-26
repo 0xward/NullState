@@ -16,7 +16,8 @@
     "build:map": "node scripts/build-map-path-overlay.js",
     "build:engine": "node scripts/minify-game-engine.js",
     "build:weapons": "node scripts/build-weapon-skins.js",
-    "audit": "node scripts/audit-references.js"
+    "audit": "node scripts/audit-references.js",
+    "check:copy": "node scripts/check-minipay-copy.js"
   },
   "dependencies": {
     "@celo/attribution-tags": "^0.3.0",

@@ -2,13 +2,26 @@
 
 import { BaseError, InsufficientFundsError, UserRejectedRequestError } from 'viem'
 
-// MiniPay Add Cash deeplink — confirmed from the official Celo/MiniPay
-// developer docs (https://docs.celo.org/build-on-celo/build-on-minipay/deeplinks,
-// mirrored at docs.minipay.xyz) on 2026-07-13. NOTE: an earlier version of
-// this constant pointed at https://link.minipay.xyz/add_cash — that domain
-// is actually MiniPay's unrelated "Cash Links" P2P-transfer feature, not the
-// in-app Add Cash screen, and was never confirmed against the docs above.
-export const MINIPAY_ADD_CASH_URL = 'https://minipay.opera.com/add_cash'
+// MiniPay Add Cash deeplink.
+//
+// Re-verified 2026-07-26 against the canonical reference,
+// https://docs.minipay.xyz/technical-references/deeplinks.html, which states:
+// "All deep links use the host link.minipay.xyz". Add Cash is documented as
+// `https://link.minipay.xyz/add_cash[?tokens=XXX,YYY,ZZZ]`.
+//
+// This corrects an earlier value of https://minipay.opera.com/add_cash. The
+// comment that accompanied it claimed link.minipay.xyz was MiniPay's unrelated
+// P2P "Cash Links" feature — that is wrong; the deeplinks page above publishes
+// link.minipay.xyz/add_cash as the Add Cash screen and documents no
+// minipay.opera.com host at all.
+//
+// `tokens` is filtered by the client (unsupported codes are skipped), so
+// naming all three we accept just means the top-up screen opens on the set the
+// game can actually take. Codes are uppercase per the docs; USDM is the Mento
+// dollar. The docs page is titled "Deeplinks (available soon)", so treat this
+// as best-effort: it is a plain <a href>, and a MiniPay build that does not yet
+// handle it simply does nothing rather than breaking the purchase flow.
+export const MINIPAY_ADD_CASH_URL = 'https://link.minipay.xyz/add_cash?tokens=USDT,USDC,USDM'
 
 export interface UserFriendlyWalletError {
   message: string
