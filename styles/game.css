@@ -1248,17 +1248,36 @@
   background:linear-gradient(180deg,#39ff9a,#14b869);
   clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px);
   filter:drop-shadow(0 3px 6px rgba(0,0,0,.65));
+  border:0; text-align:left; cursor:pointer;
+  /* 44px min target: it is a button now, and the plate's own height is driven
+     by two short text lines that fall just under a comfortable tap. */
+  min-height:44px;
 }
+.ns-hub-plate:active{ filter:drop-shadow(0 1px 3px rgba(0,0,0,.65)) brightness(1.12); }
 .ns-hub-plate::before{
   content:""; position:absolute; inset:2px;
   background:linear-gradient(180deg,#1a2b47,#101a2e);
   clip-path:polygon(9px 0,100% 0,100% calc(100% - 9px),calc(100% - 9px) 100%,0 100%,0 9px);
 }
 .ns-hub-plate > *{ position:relative; z-index:1; }
+/* The avatar draws frame 0 of the knight's idle strip (4 frames across a
+   128x32 sheet) rather than the "✕" glyph it used to show — a cross where a
+   face belongs reads as an error state, or as a close button, and players
+   tapped it expecting the screen to shut. Sized 3x so the 32px source lands on
+   whole pixels; the box then crops it to the octagon. */
 .ns-hub-avatar{
-  width:28px; height:28px; display:flex; align-items:center; justify-content:center;
-  font-size:13px; font-weight:700; color:#39ff9a;
-  background:#0b1220; box-shadow:inset 0 0 0 2px rgba(57,255,154,.55);
+  /* Exactly 1:1 with the source: the sheet is 128x32 (four 32px frames), so a
+     32px box at background-size:128px 32px shows frame 0 with no resampling at
+     all. Any other scale either fractionally shrinks the art (uneven pixels) or
+     zooms past the frame and crops the knight's head off. */
+  width:32px; height:32px; display:block; flex-shrink:0;
+  background-color:#0b1220;
+  background-image:url('/sprites/player/knight_idle.png');
+  background-size:128px 32px;
+  background-position:0 0;
+  background-repeat:no-repeat;
+  image-rendering:pixelated;
+  box-shadow:inset 0 0 0 2px rgba(57,255,154,.55);
   clip-path:polygon(7px 0,100% 0,100% calc(100% - 7px),calc(100% - 7px) 100%,0 100%,0 7px);
 }
 .ns-hub-name{ display:block; font-size:11.5px; color:#fff; font-weight:700; letter-spacing:.6px; }

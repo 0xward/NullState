@@ -231,8 +231,17 @@ export default function HowToPlayScreen({ onBack }: HowToPlayScreenProps) {
                 </p>
                 <p>
                   The buttons down the <span className="text-null-white">left</span> are things that pay you back
-                  (Daily, Rewards, Pass, Invite); the <span className="text-null-white">right</span> is where you spend
-                  (Shop, Craft).
+                  (Daily, Rewards, Pass, Invite); the <span className="text-null-white">right</span> is your gear
+                  (Bag, Shop, Craft).
+                </p>
+                <p>
+                  <span className="text-null-white">BAG</span> is where everything you own lives — tap an item once to
+                  equip it, once more to take it off. Buy a weapon in the Shop and this is where you put it on; you
+                  don&apos;t have to start a run first.
+                </p>
+                <p>
+                  Your <span className="text-null-white">name plate</span> in the top-left corner opens your character —
+                  what you have equipped, your level, and how close you are to the next one.
                 </p>
               </div>
             </div>

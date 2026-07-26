@@ -14,6 +14,13 @@ interface MainMenuProps {
   onMarketplace: () => void
   onCrafting: () => void
   onHowToPlay: () => void
+  // Opens the Character Sheet. Declared here as well as on WorldMapHub because
+  // GameFlowManager picks between the two at runtime (`useWorldMapHub ? … : …`)
+  // and passes ONE set of props to whichever it chose — so their signatures
+  // have to match. It is not a courtesy prop, though: the classic menu had the
+  // same missing-inventory problem, where buying gear told you to equip it
+  // somewhere that did not exist outside a run.
+  onCharacter: (tab?: 'character' | 'items') => void
   playerProfile: PlayerProfile | null
   isLoadingProfile: boolean
 }
@@ -67,6 +74,7 @@ export default function MainMenu({
   onMarketplace,
   onCrafting,
   onHowToPlay,
+  onCharacter,
   playerProfile,
   isLoadingProfile,
 }: MainMenuProps) {
@@ -146,6 +154,7 @@ export default function MainMenu({
             onClick={hasSave ? () => onContinueGame(playerProfile!) : undefined}
           />
           <MenuItem label="New Game" primary={!hasSave} onClick={onNewGame} />
+          <MenuItem label="Character & Items" onClick={() => onCharacter('character')} />
           <MenuItem label="Marketplace" onClick={onMarketplace} />
           <MenuItem label="Crafting" onClick={onCrafting} />
           <MenuItem label="Leaderboard" onClick={onLeaderboard} />

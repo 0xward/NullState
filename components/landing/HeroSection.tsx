@@ -1,96 +1,52 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { motion } from 'framer-motion'
 
-/**
- * "Floating/Bobbing" — non-linear, stepped y-axis float.
- */
-const ps1Float = {
-  animate: {
-    y: [0, -4, -4, -2, -6, -6, -3, 0, 0, -5, -5, 0],
-    transition: {
-      duration: 2.4,
-      repeat: Infinity,
-      ease: 'steps(1)',
-      times: [0, 0.08, 0.16, 0.25, 0.33, 0.45, 0.58, 0.66, 0.75, 0.83, 0.91, 1],
-    },
-  },
-}
+// ─── Landing hero ────────────────────────────────────────────────────────────
+// Rebuilt 2026-07: the previous version read as a token/trading landing page —
+// a neon glow orb over a data grid, a wordmark in a geometric sans, and a row of
+// badges saying EARN REAL USDT / CELO MAINNET / MINIPAY NATIVE. Every one of
+// those is a fintech signal. Someone arriving from a share link had no way to
+// tell this was a pixel dungeon crawler until they pressed a button.
+//
+// What it is now: the game's OWN world map as the backdrop, dimmed and softened
+// so it reads as atmosphere rather than a screenshot (the owner's word was
+// "disamarkan" — obscured), the knight standing on it, the real logo, and two
+// buttons. The game shows itself instead of describing itself.
+//
+// The 851KB background video is gone from the visual layer. It stays as the
+// music source but is now fetched ONLY when someone actually turns music on —
+// previously every visitor downloaded it whether or not they ever heard it,
+// which on a metered connection in the markets this game targets is most of a
+// megabyte spent on nothing.
 
-const ps1FloatSlow = {
-  animate: {
-    y: [0, 0, -3, -3, -1, -1, -5, -5, -2, -2, 0, 0],
-    transition: {
-      duration: 3.2,
-      repeat: Infinity,
-      ease: 'steps(1)',
-      times: [0, 0.1, 0.2, 0.3, 0.42, 0.5, 0.6, 0.7, 0.8, 0.88, 0.94, 1],
-    },
-  },
-}
-
-const ps1Jitter = {
-  animate: {
-    x:      [0, -1, 0,  1,  0,  0,  1,  0, -1, 0],
-    y:      [0,  1, 0,  0, -1,  0,  0,  1,  0, 0],
-    rotate: [0,  0, 0.3, 0, 0, -0.3, 0,  0,  0, 0],
-    transition: {
-      duration: 0.9,
-      repeat: Infinity,
-      repeatDelay: 2.6,
-      ease: 'steps(1)',
-      times: [0, 0.11, 0.22, 0.33, 0.44, 0.55, 0.66, 0.77, 0.88, 1],
-    },
-  },
-}
-
-const ps1JitterLight = {
-  animate: {
-    x:      [0,  1,  0, -1,  0,  0],
-    y:      [0,  0, -1,  0,  1,  0],
-    transition: {
-      duration: 0.6,
-      repeat: Infinity,
-      repeatDelay: 4.0,
-      ease: 'steps(1)',
-      times: [0, 0.2, 0.4, 0.6, 0.8, 1],
-    },
-  },
-}
+const MAP = '/worldmap/map-bg.webp'
+const LOGO = '/logo-hero.webp'
 
 export default function HeroSection() {
-  const [videoLoaded, setVideoLoaded] = useState(false)
-  const [shouldLoadVideo, setShouldLoadVideo] = useState(false)
-  const videoRef = useRef<HTMLVideoElement>(null)
-  // Landing-page music toggle (owner request, top-right). The background video
-  // is the audio source; it always autoplays MUTED (browsers block autoplay
-  // with sound), and this toggle unmutes/mutes it — the tap itself is the user
-  // gesture that lets audio start. Default off; remembered per browser.
+  const audioRef = useRef<HTMLVideoElement>(null)
+  // Music stays off until asked for. The tap is also the user gesture browsers
+  // require before audio may start, so there is no autoplay race to lose.
   const [musicOn, setMusicOn] = useState(false)
+  // Set once music has been requested; until then the <video> has no <source>
+  // and nothing is fetched.
+  const [audioWanted, setAudioWanted] = useState(false)
 
   useEffect(() => {
     document.body.style.overflow = 'hidden'
-    const enableVideo = () => setShouldLoadVideo(true)
-    const idleCallback = window.requestIdleCallback?.(enableVideo)
-    const timeoutId = idleCallback === undefined ? window.setTimeout(enableVideo, 0) : undefined
-    try { setMusicOn(localStorage.getItem('ns-landing-music') === '1') } catch { /* storage off */ }
-    return () => {
-      document.body.style.overflow = ''
-      if (idleCallback !== undefined) window.cancelIdleCallback?.(idleCallback)
-      if (timeoutId !== undefined) window.clearTimeout(timeoutId)
-    }
+    return () => { document.body.style.overflow = '' }
   }, [])
 
-  // Keep the actual <video> muted state in sync with the toggle.
   useEffect(() => {
-    const v = videoRef.current
+    const v = audioRef.current
     if (!v) return
     v.muted = !musicOn
-    if (musicOn) v.play().catch(() => { /* autoplay/gesture race — ignored */ })
-  }, [musicOn, shouldLoadVideo])
+    if (musicOn) v.play().catch(() => { /* gesture race — the next tap retries */ })
+    else v.pause()
+  }, [musicOn, audioWanted])
 
   const toggleMusic = () => {
+    setAudioWanted(true)
     setMusicOn(prev => {
       const next = !prev
       try { localStorage.setItem('ns-landing-music', next ? '1' : '0') } catch { /* storage off */ }
@@ -100,21 +56,44 @@ export default function HeroSection() {
 
   return (
     <section className="relative h-[100dvh] w-full flex flex-col items-center justify-center text-center px-6 overflow-hidden">
-      {/* Landing-only music toggle (top-right) */}
+      {/* Backdrop: the world map the game actually opens on, pushed back with
+          brightness + blur so the type on top of it stays readable and it never
+          competes for attention. */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={MAP} alt="" aria-hidden="true"
+        className="absolute inset-0 h-full w-full object-cover"
+        style={{ filter: 'brightness(.34) saturate(.8) blur(3px)', transform: 'scale(1.06)' }}
+      />
+
+      {/* Vignette — same treatment as the in-game map, so arriving at the game
+          feels like the same place rather than a different product. */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        aria-hidden="true"
+        style={{
+          background:
+            'radial-gradient(120% 70% at 50% 42%, transparent 42%, rgba(3,7,5,.86) 100%),' +
+            'linear-gradient(0deg, #050b08 4%, transparent 34%),' +
+            'linear-gradient(180deg, rgba(4,8,6,.8), transparent 22%)',
+        }}
+      />
+
+      {/* Audio-only. No <source> until the toggle is pressed. */}
+      <video ref={audioRef} loop playsInline preload="none" className="hidden" aria-hidden="true">
+        {audioWanted && <source src="/video/hero-bg.mp4" type="video/mp4" />}
+      </video>
+
       <button
         onClick={toggleMusic}
         aria-label={musicOn ? 'Mute music' : 'Play music'}
-        title={musicOn ? 'Music on' : 'Music off'}
-        className="fixed z-[60] flex items-center justify-center rounded-full border transition-colors duration-200"
+        className="fixed z-[60] flex items-center justify-center border transition-colors duration-200"
         style={{
-          top: 68,
-          right: 16,
-          width: 40,
-          height: 40,
-          borderColor: 'rgba(0,255,136,0.35)',
-          background: 'rgba(4,8,6,0.6)',
+          top: 68, right: 16, width: 40, height: 40,
+          borderColor: 'rgba(57,255,154,0.35)',
+          background: 'rgba(4,8,6,0.72)',
           color: musicOn ? '#4dffa6' : 'rgba(255,255,255,0.55)',
-          backdropFilter: 'blur(4px)',
+          clipPath: 'polygon(9px 0,100% 0,100% calc(100% - 9px),calc(100% - 9px) 100%,0 100%,0 9px)',
         }}
       >
         {musicOn ? (
@@ -132,146 +111,80 @@ export default function HeroSection() {
         )}
       </button>
 
-      {/* Background video loop */}
-      <video
-        ref={videoRef}
-        autoPlay={shouldLoadVideo}
-        muted
-        loop
-        playsInline
-        preload="none"
-        onCanPlay={() => setVideoLoaded(true)}
-        className="absolute inset-0 w-full h-full object-cover"
-        style={{
-          opacity: videoLoaded ? 0.5 : 0,
-          filter: 'saturate(1.15) contrast(1.05)',
-          transition: 'opacity 1.2s ease',
-        }}
-      >
-        {shouldLoadVideo && <source src="/video/hero-bg.mp4" type="video/mp4" />}
-      </video>
+      <div className="relative z-[2] flex w-full flex-col items-center">
 
-      {/* Dark overlay so text stays readable over the footage */}
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_40%,rgba(0,0,0,0.45)_0%,rgba(0,0,0,0.8)_75%)]" />
-      <div className="absolute inset-0 bg-null-bg opacity-20" />
-
-      {/* Glow orb */}
-      <div
-        className="absolute pointer-events-none"
-        style={{
-          width: 900,
-          height: 900,
-          borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(0,255,136,0.07) 0%, rgba(0,170,255,0.03) 40%, transparent 70%)',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          animation: 'orbPulse 4s ease-in-out infinite',
-        }}
-      />
-
-      {/* Content */}
-      <div className="relative z-[2] flex flex-col items-center">
-        {/* Label */}
-        <motion.div
-          className="font-mono text-[10px] sm:text-[11px] tracking-[4px] sm:tracking-[6px] text-null-green uppercase mb-4 sm:mb-6"
-          style={{ animation: 'fadeUp 0.6s 0.2s both' }}
-          variants={ps1JitterLight}
-          animate="animate"
+        <p
+          className="font-mono uppercase mb-5"
+          style={{ fontSize: 10, letterSpacing: '5px', color: '#4e8f74', animation: 'fadeUp .6s .1s both' }}
         >
-          // PLAY-TO-EARN RPG ON CELO
-        </motion.div>
+          {'// PIXEL DUNGEON CRAWLER'}
+        </p>
 
-        {/* Title */}
-        <motion.h1
-          className="font-display font-black leading-[0.88] tracking-[-2px] mb-3"
-          style={{
-            fontSize: 'clamp(52px, 14vw, 140px)',
-            animation: 'fadeUp 0.6s 0.4s both',
-          }}
-          variants={ps1FloatSlow}
-          animate="animate"
-        >
-          <motion.span
-            className="block text-null-white"
-            variants={ps1Jitter}
-            animate="animate"
-          >
-            NULL
-          </motion.span>
-          <motion.span
-            className="block text-null-green glow-green-strong relative"
-            style={{ textShadow: 'var(--null-glow-strong)' }}
-            variants={ps1Jitter}
-            animate="animate"
-            transition={{ delay: 0.45 }}
-          >
-            STATE
-          </motion.span>
-        </motion.h1>
+        {/* 840px source for a 420px max display: exactly 2x, so a DPR-2 phone
+            and a 1x desktop both get a clean downscale. The first pass shipped
+            a 640px file, which meant the browser resampled an already-resampled
+            image and the logo's pixel-art edges went soft. */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={LOGO}
+          alt="NullState"
+          width={840} height={318}
+          className="w-[min(78vw,420px)] h-auto"
+          style={{ animation: 'fadeUp .6s .25s both', filter: 'drop-shadow(0 4px 22px rgba(0,0,0,.85))' }}
+        />
 
-        {/* Subtitle */}
-        <div
-          className="font-mono text-[11px] sm:text-sm text-null-muted tracking-[2px] sm:tracking-[3px] mb-8 sm:mb-10 uppercase max-w-[300px] sm:max-w-none"
-          style={{ animation: 'fadeUp 0.6s 0.6s both' }}
+        <p
+          className="font-mono uppercase mt-2 max-w-[320px] sm:max-w-none"
+          style={{ fontSize: 11, letterSpacing: '2.5px', color: '#8ea89d', animation: 'fadeUp .6s .45s both' }}
         >
           Crawl the bunkers. Crack the vault. Earn real USDT.
-        </div>
+        </p>
 
-        {/* CTAs */}
+        {/* The knight from the game, at 4x so the pixels stay square. He is the
+            single clearest signal that this is a game and not a dashboard, so
+            he sits between the promise and the button rather than off to one
+            side — the eye passes over him on the way to PLAY. */}
+        <span
+          aria-hidden="true"
+          className="ns-hero-knight mt-2"
+          style={{ animation: 'fadeUp .6s .6s both' }}
+        />
+
         <div
-          className="flex gap-3 sm:gap-4 items-center justify-center flex-wrap"
-          style={{ animation: 'fadeUp 0.6s 0.8s both' }}
+          className="flex gap-3 items-center justify-center flex-wrap mt-2"
+          style={{ animation: 'fadeUp .6s .8s both' }}
         >
           <a
             href="/game"
-            className="font-mono text-[12px] sm:text-[13px] tracking-[2px] uppercase text-null-bg bg-null-green px-7 sm:px-9 py-3.5 sm:py-4 clip-button inline-flex items-center gap-2 transition-all duration-200 no-underline"
-            style={{ clipPath: 'polygon(12px 0, 100% 0, calc(100% - 12px) 100%, 0 100%)' }}
-            onMouseEnter={e => {
-              const el = e.currentTarget as HTMLElement
-              el.style.background = 'var(--null-acid)'
-              el.style.boxShadow = '0 0 30px rgba(0,255,136,0.6), 0 0 60px rgba(0,255,136,0.2)'
-              el.style.transform = 'translateY(-2px)'
-            }}
-            onMouseLeave={e => {
-              const el = e.currentTarget as HTMLElement
-              el.style.background = 'var(--null-green)'
-              el.style.boxShadow = 'none'
-              el.style.transform = 'translateY(0)'
+            className="font-mono font-bold uppercase no-underline inline-flex items-center justify-center"
+            style={{
+              minHeight: 52, minWidth: 168, fontSize: 16, letterSpacing: '3px',
+              color: '#04140c', background: '#39ff9a',
+              border: '3px solid #0a3d24',
+              boxShadow: 'inset 2px 2px 0 rgba(255,255,255,.4), 0 0 22px rgba(57,255,154,.45)',
             }}
           >
-            <span>⬡</span> PLAY &amp; EARN
+            PLAY
           </a>
           <a
             href="/docs"
-            className="font-mono text-[12px] sm:text-[13px] tracking-[2px] uppercase text-null-green border border-[rgba(0,255,136,0.4)] px-7 sm:px-9 py-[13px] sm:py-[15px] inline-flex items-center gap-2 transition-all duration-200 no-underline hover:border-null-green hover:bg-[rgba(0,255,136,0.05)]"
-            style={{ clipPath: 'polygon(12px 0, 100% 0, calc(100% - 12px) 100%, 0 100%)' }}
+            className="font-mono uppercase no-underline inline-flex items-center justify-center"
+            style={{
+              minHeight: 52, minWidth: 168, fontSize: 12, letterSpacing: '2.5px',
+              color: '#8ea89d', background: 'rgba(6,12,9,.72)',
+              border: '2px solid rgba(255,255,255,.16)',
+            }}
           >
-            <span>◈</span> LEARN MORE
+            LEARN MORE
           </a>
         </div>
 
-        {/* Tech tags */}
-        <motion.div
-          className="flex gap-2 sm:gap-3 justify-center mt-8 sm:mt-12 flex-wrap max-w-[320px] sm:max-w-none"
-          style={{ animation: 'fadeUp 0.6s 1.0s both' }}
-          variants={ps1Float}
-          animate="animate"
+        <p
+          className="font-mono uppercase mt-7"
+          style={{ fontSize: 9, letterSpacing: '2px', color: '#4e6b5e', animation: 'fadeUp .6s 1s both' }}
         >
-          {[
-            { label: 'EARN REAL USDT',   active: true },
-            { label: 'MINIPAY NATIVE',   active: true },
-            { label: 'REAL-TIME ACTION', active: true },
-            { label: 'CELO MAINNET',     active: true },
-          ].map(badge => (
-            <span
-              key={badge.label}
-              className="font-mono text-[9px] sm:text-[10px] tracking-[1.5px] sm:tracking-[2px] uppercase px-2.5 sm:px-3 py-1 sm:py-1.5 border text-null-green border-[rgba(0,255,136,0.3)] bg-[rgba(0,255,136,0.04)]"
-            >
-              {badge.label}
-            </span>
-          ))}
-        </motion.div>
+          Free to play · 5 bunkers · Built for MiniPay
+        </p>
       </div>
     </section>
   )
