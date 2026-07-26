@@ -1458,12 +1458,39 @@
   pointer-events:none; z-index:2;
   mix-blend-mode:screen;
   filter:drop-shadow(0 0 4px rgba(96,255,168,.75)) drop-shadow(0 0 10px rgba(57,255,154,.4));
-  animation:nsPathPulse 3.4s ease-in-out infinite;
+  /* The BASE copy sits at a steady mid brightness, then breathes. The first
+     version animated between .34 and 1 and the owner could not see it move at
+     all on a phone: a thin line changing opacity is a weak signal outdoors, and
+     any device with "remove animations" turned on froze it entirely. */
+  opacity:.55;
+  animation:nsPathPulse 3.2s ease-in-out infinite;
   will-change:opacity;
 }
 @keyframes nsPathPulse{
-  0%,100%{ opacity:.34; }
-  50%    { opacity:1;   }
+  0%,100%{ opacity:.42; }
+  50%    { opacity:.92; }
+}
+
+/* The travelling light. A second copy of the same layer, revealed only through
+   a narrow window that scrolls down the map — so instead of the whole trail
+   dimming together, a bright pulse RUNS along it toward the bunkers. Movement
+   across the screen reads at a glance where a brightness change does not. */
+.ns-hub-path-flow{
+  opacity:1;
+  animation:nsPathFlow 5.2s linear infinite;
+  filter:drop-shadow(0 0 6px rgba(150,255,200,.95)) drop-shadow(0 0 16px rgba(57,255,154,.6)) brightness(1.6);
+  -webkit-mask-image:linear-gradient(to bottom, transparent 0%, rgba(0,0,0,.35) 4%, #000 9%, rgba(0,0,0,.35) 14%, transparent 18%);
+          mask-image:linear-gradient(to bottom, transparent 0%, rgba(0,0,0,.35) 4%, #000 9%, rgba(0,0,0,.35) 14%, transparent 18%);
+  -webkit-mask-size:100% 100%;  mask-size:100% 100%;
+  -webkit-mask-repeat:no-repeat; mask-repeat:no-repeat;
+  will-change:transform;
+}
+/* Translating the ELEMENT is cheaper than animating mask-position and is
+   supported everywhere; the mask travels with it, and the map's own overflow
+   clips the copy while it is outside. */
+@keyframes nsPathFlow{
+  from{ transform:translateY(-100%); }
+  to  { transform:translateY(100%);  }
 }
 
 /* Embers. Six radial dots on one over-tall element that scrolls upward and
@@ -1496,6 +1523,9 @@
      decoration, so it must not become invisible for someone who asked for
      less motion. */
   .ns-hub-path{ animation:none; opacity:.85; }
+  /* The travelling copy is pure motion, so it goes entirely — the base layer
+     above still shows the route. */
+  .ns-hub-path-flow{ display:none; }
   .ns-hub-motes{ animation:none; }
   .ns-hub-pick{ animation:none; }
   .ns-hub-node:active, .ns-hub-rail:active{ transform:none; }
