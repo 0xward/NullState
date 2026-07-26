@@ -38,11 +38,15 @@ type Equipped = { mainhand: string | null; body: string | null; outfit: string |
 
 const EMPTY: Equipped = { mainhand: null, body: null, outfit: null }
 
-// The portrait is frame 0 of the knight's idle strip (128x32, four 32px frames)
-// — the game's own character art, already shipped. The LPC body sheet the
-// engine composites at runtime is an unclothed base layer, so it needs the full
-// gear stack to look like anything; this reads as a knight on its own.
-const PORTRAIT = '/sprites/player/knight_idle.png'
+// The REAL player character, baked by scripts/build-hero-portrait.js: the LPC
+// body plus LPC_OUTFIT.default_skin, stacked and tinted exactly the way
+// entities.js drawLPCComposite() does it at runtime.
+//
+// This deliberately does NOT use public/sprites/player/knight_*.png. That
+// armoured knight is a leftover from an earlier design — assets.js keeps it
+// only as "the in-dungeon decode-race fallback sprite set" — so showing it as
+// the player's avatar puts a character on screen that the game never renders.
+const PORTRAIT = '/sprites/player/hero-portrait.png'
 
 const SLOTS: { slot: EquipmentSlot; label: string; hint: string }[] = [
   { slot: 'mainhand', label: 'WEAPON', hint: 'Sets your damage and how you attack' },
@@ -54,17 +58,16 @@ function slotOf(item: MarketplaceItem): EquipmentSlot {
   return item.slot
 }
 
-function Portrait({ size = 72 }: { size?: number }) {
-  // Rendered as a background so the sheet can be cropped to one frame without
-  // shipping a second copy of the art.
+function Portrait({ size = 64 }: { size?: number }) {
+  // A single 64x64 frame — no sprite-sheet offsets to get wrong. Kept at whole
+  // multiples of 64 by every caller so the pixels stay square.
   return (
     <span
       aria-hidden="true"
       style={{
         width: size, height: size, display: 'block', flexShrink: 0,
         backgroundImage: `url(${PORTRAIT})`,
-        backgroundSize: `${size * 4}px ${size}px`, // 4 frames wide
-        backgroundPosition: '0 0',
+        backgroundSize: `${size}px ${size}px`,
         backgroundRepeat: 'no-repeat',
         imageRendering: 'pixelated',
       }}
