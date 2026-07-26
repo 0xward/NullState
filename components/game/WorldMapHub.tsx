@@ -230,15 +230,27 @@ export default function WorldMapHub({
           style={{ width: '100%', height: '100%', display: 'block', filter: 'brightness(1.12) contrast(1.06) saturate(1.05)' }}
         />
 
-        {/* The trail and the door lamps. Two copies of the SAME extracted layer:
-            a steady one so the route is always readable, and a bright one that a
-            travelling window reveals, so light appears to run along the trail
-            toward the bunkers. Same pixels as the art underneath, so neither can
-            fall out of register. */}
+        {/* Mist. The trail can only ever animate the ~0.3% of the map that is
+            painted trail; everything else was frozen. This drifts across the
+            whole surface, which is what stops the map reading as a photograph
+            between pulses. */}
+        <span className="ns-hub-mist" aria-hidden="true" />
+
+        {/* The trail and the door lamps, extracted from the art itself, so this
+            layer is the same pixels in the same place and cannot fall out of
+            register. It breathes on its own. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={MAP_PATH} alt="" aria-hidden="true" className="ns-hub-path" />
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={MAP_PATH} alt="" aria-hidden="true" className="ns-hub-path ns-hub-path-flow" />
+
+        {/* The travelling light. The band inside is a plain gradient that slides
+            down the map; the WRAPPER is masked by the trail, so the band is only
+            ever painted on the trail's own pixels and the light appears to run
+            along it. The mask never moves, which is the whole point — an earlier
+            version moved a masked copy of the trail instead, which just slid a
+            duplicate of the wrong stretch of trail down the screen. */}
+        <span className="ns-hub-flow" aria-hidden="true">
+          <span className="ns-hub-flow-band" />
+        </span>
 
         {/* Embers drifting up off the map — cheap, and the difference between
             a screen that is alive and one that is a picture. */}

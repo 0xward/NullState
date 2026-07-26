@@ -1482,54 +1482,126 @@
   position:absolute; inset:0; width:100%; height:100%;
   pointer-events:none; z-index:2;
   mix-blend-mode:screen;
-  filter:drop-shadow(0 0 4px rgba(96,255,168,.75)) drop-shadow(0 0 10px rgba(57,255,154,.4));
-  /* The BASE copy sits at a steady mid brightness, then breathes. The first
-     version animated between .34 and 1 and the owner could not see it move at
-     all on a phone: a thin line changing opacity is a weak signal outdoors, and
-     any device with "remove animations" turned on froze it entirely. */
-  opacity:.55;
-  animation:nsPathPulse 3.2s ease-in-out infinite;
+  filter:drop-shadow(0 0 4px rgba(96,255,168,.6));
+  /* The base copy breathes, and it does so DOWN LOW on purpose. The previous
+     range (.42 -> .92) looked large but was not: screened over an already
+     bright trail it drove the green channel to 208..218 out of 255 — the top of
+     the scale, where extra light has nowhere to go. Measured on the running
+     page, that is a 4% swing, which is why the owner reported the path was not
+     dimming at all. Starting dim leaves the trail somewhere to travel to. */
+  opacity:.24;
+  animation:nsPathPulse 3.6s ease-in-out infinite;
   will-change:opacity;
 }
 @keyframes nsPathPulse{
-  0%,100%{ opacity:.42; }
-  50%    { opacity:.92; }
+  0%,100%{ opacity:.08; }
+  50%    { opacity:.62; }
 }
 
-/* The travelling light. A second copy of the same layer, revealed only through
-   a narrow window that scrolls down the map — so instead of the whole trail
-   dimming together, a bright pulse RUNS along it toward the bunkers. Movement
-   across the screen reads at a glance where a brightness change does not. */
-.ns-hub-path-flow{
-  opacity:1;
-  animation:nsPathFlow 5.2s linear infinite;
-  filter:drop-shadow(0 0 6px rgba(150,255,200,.95)) drop-shadow(0 0 16px rgba(57,255,154,.6)) brightness(1.6);
-  -webkit-mask-image:linear-gradient(to bottom, transparent 0%, rgba(0,0,0,.35) 4%, #000 9%, rgba(0,0,0,.35) 14%, transparent 18%);
-          mask-image:linear-gradient(to bottom, transparent 0%, rgba(0,0,0,.35) 4%, #000 9%, rgba(0,0,0,.35) 14%, transparent 18%);
-  -webkit-mask-size:100% 100%;  mask-size:100% 100%;
-  -webkit-mask-repeat:no-repeat; mask-repeat:no-repeat;
+/* ── The travelling light ────────────────────────────────────────────────────
+   A plain gradient band slides down the map inside a wrapper that is MASKED BY
+   THE TRAIL, so the band is only ever painted on the trail's own pixels: light
+   running along the route rather than a bar sweeping the screen.
+
+   The mask is the thing that stays still. The previous version had it backwards
+   — it translated a masked COPY of the trail image, so the window and the image
+   moved together and the same stretch of trail (the sliver at 4-14% of the
+   image, near The Last Light) was simply slid down the map as a duplicate. It
+   changed pixels, which is why a frame diff called it working, but it was never
+   light travelling along anything.
+   ─────────────────────────────────────────────────────────────────────────── */
+.ns-hub-flow{
+  position:absolute; inset:0; z-index:2;
+  pointer-events:none; overflow:hidden;
+  mix-blend-mode:screen;
+  -webkit-mask-image:url('/worldmap/map-path.webp');
+          mask-image:url('/worldmap/map-path.webp');
+  -webkit-mask-size:100% 100%;   mask-size:100% 100%;
+  -webkit-mask-repeat:no-repeat;  mask-repeat:no-repeat;
+}
+.ns-hub-flow-band{
+  position:absolute; left:0; right:0; top:0; height:22%;
+  /* Two stacked gradients: a tight opaque core that drives the trail to white
+     as it passes, and a wide soft one so the light arrives and leaves rather
+     than switching on. Screening a ~200-green trail caps out at 255, so the
+     core has to be near-opaque to be worth anything — a translucent band spends
+     its whole budget on the first few percent. */
+  background:
+    linear-gradient(to bottom,
+      rgba(230,255,244,0)   38%,
+      rgba(240,255,248,1)   50%,
+      rgba(230,255,244,0)   62%),
+    linear-gradient(to bottom,
+      rgba(140,255,198,0)    0%,
+      rgba(168,255,210,.42) 32%,
+      rgba(196,255,226,.62) 50%,
+      rgba(168,255,210,.42) 68%,
+      rgba(140,255,198,0)  100%);
+  /* -100% puts the band fully above the map, 460% of its own 22% height puts it
+     fully below, so the light enters and leaves rather than popping. */
+  animation:nsPathFlow 5s linear infinite;
   will-change:transform;
 }
-/* Translating the ELEMENT is cheaper than animating mask-position and is
-   supported everywhere; the mask travels with it, and the map's own overflow
-   clips the copy while it is outside. */
 @keyframes nsPathFlow{
   from{ transform:translateY(-100%); }
-  to  { transform:translateY(100%);  }
+  to  { transform:translateY(460%);  }
+}
+
+/* Mist rolling over the valley. Three wide soft blooms on one element, drifting
+   sideways and back on a long cycle — slow enough that it never distracts, wide
+   enough that SOMETHING is always moving even when the trail is at its dimmest.
+   Inset past the edges so the blooms never expose a hard border as they slide.
+   `screen` keeps it purely additive: it lightens haze into the scene and can
+   never grey the art down. */
+.ns-hub-mist{
+  position:absolute; inset:0; z-index:1;
+  pointer-events:none; mix-blend-mode:screen;
+}
+/* TWO banks, drifting AGAINST each other. One bank on its own is nearly
+   invisible: a wide soft gradient sliding a few percent changes each pixel by
+   less than the eye picks up (measured: 0.7% of the map moving by 3/255 over
+   seven seconds). Two banks crossing make the overlap thicken and thin as they
+   pass, so density changes where neither layer alone would show it. */
+.ns-hub-mist::before,
+.ns-hub-mist::after{
+  content:""; position:absolute; inset:-16% -26%;
+  will-change:transform;
+}
+.ns-hub-mist::before{
+  background:
+    radial-gradient(54% 24% at 24% 26%, rgba(178,216,230,.20), transparent 70%),
+    radial-gradient(62% 27% at 46% 76%, rgba(188,222,234,.17), transparent 70%);
+  animation:nsMistA 24s ease-in-out infinite alternate;
+}
+.ns-hub-mist::after{
+  background:
+    radial-gradient(50% 21% at 70% 50%, rgba(164,208,224,.18), transparent 70%),
+    radial-gradient(44% 19% at 30% 58%, rgba(172,212,226,.15), transparent 70%);
+  animation:nsMistB 31s ease-in-out infinite alternate;
+}
+@keyframes nsMistA{
+  from{ transform:translate3d(-7%,1.5%,0) scale(1);    }
+  to  { transform:translate3d(7%,-2%,0)   scale(1.10); }
+}
+@keyframes nsMistB{
+  from{ transform:translate3d(6%,-1.5%,0) scale(1.08); }
+  to  { transform:translate3d(-6%,2%,0)   scale(1);    }
 }
 
 /* Embers. Six radial dots on one over-tall element that scrolls upward and
-   repeats — one element, one animation, no per-particle JS. */
+   repeats — one element, one animation, no per-particle JS. They were 1.2-1.8px
+   and effectively invisible on a phone once the map is scaled up; at 2.4-3.4px
+   with a soft falloff they read as motes without becoming snow. */
 .ns-hub-motes{
   position:absolute; left:0; right:0; top:0; height:200%;
-  pointer-events:none; z-index:3; opacity:.55;
+  pointer-events:none; z-index:3; opacity:.8;
   background-image:
-    radial-gradient(1.6px 1.6px at 18% 12%, rgba(140,255,190,.95), transparent 100%),
-    radial-gradient(1.3px 1.3px at 72% 26%, rgba(120,240,180,.8),  transparent 100%),
-    radial-gradient(1.8px 1.8px at 41% 44%, rgba(160,255,205,.85), transparent 100%),
-    radial-gradient(1.2px 1.2px at 84% 58%, rgba(110,230,170,.75), transparent 100%),
-    radial-gradient(1.5px 1.5px at 28% 71%, rgba(150,255,200,.9),  transparent 100%),
-    radial-gradient(1.4px 1.4px at 62% 88%, rgba(130,245,185,.8),  transparent 100%);
+    radial-gradient(3.0px 3.0px at 18% 12%, rgba(170,255,208,.95), transparent 100%),
+    radial-gradient(2.4px 2.4px at 72% 26%, rgba(150,245,196,.85), transparent 100%),
+    radial-gradient(3.4px 3.4px at 41% 44%, rgba(185,255,220,.9),  transparent 100%),
+    radial-gradient(2.4px 2.4px at 84% 58%, rgba(140,238,188,.8),  transparent 100%),
+    radial-gradient(2.8px 2.8px at 28% 71%, rgba(175,255,212,.92), transparent 100%),
+    radial-gradient(2.6px 2.6px at 62% 88%, rgba(160,250,200,.85), transparent 100%);
   background-repeat:repeat-y;
   background-size:100% 50%;
   animation:nsMotesRise 26s linear infinite;
@@ -1544,14 +1616,24 @@
 .ns-hub-rail:active{ transform:scale(.9); filter:brightness(1.3) drop-shadow(0 3px 5px rgba(0,0,0,.7)); }
 
 @media (prefers-reduced-motion:reduce){
-  /* The path stays LIT rather than stopping dark — it is wayfinding, not
-     decoration, so it must not become invisible for someone who asked for
-     less motion. */
-  .ns-hub-path{ animation:none; opacity:.85; }
-  /* The travelling copy is pure motion, so it goes entirely — the base layer
-     above still shows the route. */
-  .ns-hub-path-flow{ display:none; }
+  /* What goes and what stays. Budget Android in NullState's markets ships with
+     "remove animations" on by default under battery saver, so this branch is
+     not a rare accessibility edge — it is what a large slice of players get. A
+     blanket `animation:none` leaves them a photograph.
+     The vestibular problem is fast or large TRANSLATION, so that is what is
+     dropped: the travelling light and the rising embers. Brightness that fades
+     over three and a half seconds and haze that takes half a minute to cross
+     the valley are not that, and they are the difference between a map that is
+     quiet and a map that is dead. */
+  .ns-hub-flow{ display:none; }
   .ns-hub-motes{ animation:none; }
+  /* The path breathes more gently and never goes fully dark — it is wayfinding,
+     not decoration, so it must stay readable at every point in the cycle. */
+  .ns-hub-path{ animation-duration:6s; opacity:.42; }
+  @keyframes nsPathPulse{
+    0%,100%{ opacity:.30; }
+    50%    { opacity:.58; }
+  }
   .ns-hub-pick{ animation:none; }
   .ns-hub-node:active, .ns-hub-rail:active{ transform:none; }
 }
