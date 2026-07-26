@@ -1,7 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { loadGameSettings, saveGameSettings } from '@/lib/gameSettings'
+import { loadGameSettings } from '@/lib/gameSettings'
+import { applyAudioSettings, startAudio, toggleSoundMuted } from '@/lib/audioControl'
 
 // ─── Music, everywhere ───────────────────────────────────────────────────────
 // The landing page used to get its music from the audio track of an 851KB
@@ -75,27 +76,21 @@ export function useMusic() {
 
   useEffect(() => {
     let cancelled = false
-    const prefs = loadGameSettings()
-    setMuted(prefs.soundMuted)
+    setMuted(loadGameSettings().soundMuted)
 
     ensureLoaded().then(() => {
       if (cancelled) return
-      const A = getAudio()
-      if (!A) return
       setReady(true)
 
-      const begin = () => {
-        try {
-          A.start()
-          A.setMusicVolume(prefs.musicVolume)
-          // toggleMute() flips, so only call it when the current state is wrong.
-          if (A.muted !== prefs.soundMuted) A.toggleMute()
-        } catch { /* AudioContext refused — the gesture listener below retries */ }
-      }
+      // applyAudioSettings owns the whole picture — music mute, volume, and
+      // whether effects are audible — so this screen never sets one of those
+      // and forgets another.
+      const begin = () => { startAudio(); applyAudioSettings() }
 
       begin()
-      // Retry on the first real interaction; harmless if begin() already
-      // succeeded, because start() is idempotent in audio.js.
+      // Retry on the first real interaction, since the AudioContext may still
+      // be locked. Harmless if begin() already worked: start() is idempotent
+      // and applyAudioSettings only toggles what is actually wrong.
       const onGesture = () => begin()
       window.addEventListener('pointerdown', onGesture, { once: true })
       window.addEventListener('keydown', onGesture, { once: true })
@@ -109,23 +104,20 @@ export function useMusic() {
   }, [])
 
   const toggle = useCallback(() => {
-    const A = getAudio()
-    let next = !muted
-    if (A) {
-      try {
-        A.start()               // in case this tap IS the unlocking gesture
-        next = A.toggleMute()
-      } catch { /* fall back to the optimistic flip */ }
-    }
-    setMuted(next)
-    saveGameSettings({ soundMuted: next })
-  }, [muted])
+    // This tap may be the gesture that unlocks audio in the first place.
+    startAudio()
+    setMuted(toggleSoundMuted().soundMuted)
+  }, [])
 
   return { muted, ready, toggle }
 }
 
 /** The speaker button. Shared by the landing page and the world map so the two
- *  can never drift into different icons or different behaviour. */
+ *  can never drift into different icons or different behaviour.
+ *
+ *  It is a MASTER switch, not a music switch: it silences effects too. The
+ *  label says so, because a speaker icon that leaves every click still beeping
+ *  is exactly the bug this replaced. */
 export function MusicButton({ muted, onToggle, style }: {
   muted: boolean
   onToggle: () => void
@@ -134,7 +126,8 @@ export function MusicButton({ muted, onToggle, style }: {
   return (
     <button
       onClick={onToggle}
-      aria-label={muted ? 'Turn music on' : 'Turn music off'}
+      aria-label={muted ? 'Turn sound on' : 'Turn sound off'}
+      title={muted ? 'Sound off' : 'Sound on'}
       aria-pressed={!muted}
       className="flex items-center justify-center"
       style={{

@@ -255,8 +255,12 @@ export default function SettingsModal({
             aria-label="Music volume"
           />
 
+          {/* MASTER switch: music AND effects. It used to be wired straight to
+              the engine's toggleMute, which only silences the music bed — so
+              "Sound off" left every hit and menu tap still audible. It now goes
+              through lib/audioControl, the one place that derives both. */}
           <div className="ns-settings-row" style={{ marginTop: 18 }}>
-            <div className="ns-settings-label">Sound</div>
+            <div className="ns-settings-label">Sound (all)</div>
             <button
               className={`ns-settings-toggle-switch ${!soundMuted ? 'is-on' : ''}`}
               onClick={onToggleSound}
@@ -268,7 +272,9 @@ export default function SettingsModal({
             </button>
           </div>
 
-          <div className="ns-settings-row" style={{ marginTop: 16 }}>
+          {/* Dimmed while the master switch is off — effects cannot be heard
+              then whatever this says. The preference is still remembered. */}
+          <div className="ns-settings-row" style={{ marginTop: 16, opacity: soundMuted ? 0.45 : 1 }}>
             <div className="ns-settings-label">SFX</div>
             <button
               className={`ns-settings-toggle-switch ${sfxEnabled ? 'is-on' : ''}`}

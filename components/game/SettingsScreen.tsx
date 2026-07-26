@@ -6,6 +6,7 @@ import { maskAddress } from '@/lib/addressMask'
 import { PlayerProfile } from '@/lib/contract'
 import { usernameSchema } from '@/lib/validation'
 import { loadGameSettings, saveGameSettings, type GameSettings } from '@/lib/gameSettings'
+import { setMusicVolume, setSfxEnabled, setSoundMuted, startAudio } from '@/lib/audioControl'
 
 // ─── Settings, from the map ──────────────────────────────────────────────────
 // The in-run SettingsModal can't be reused here. Half of it is run state — Save
@@ -73,7 +74,13 @@ export default function SettingsScreen({ onBack, playerProfile, setPlayerUsernam
   // during render would disagree with the server-rendered markup.
   useEffect(() => { setS(loadGameSettings()) }, [])
 
-  const patch = (next: Partial<GameSettings>) => setS(saveGameSettings(next))
+  // Each control goes through lib/audioControl, which stores the preference AND
+  // pushes it into the running engine. The first version of this screen only
+  // wrote to storage, so moving the volume slider on the map changed nothing
+  // you could hear until the next run started.
+  const onMute = (muted: boolean) => { startAudio(); setS(setSoundMuted(muted)) }
+  const onSfx = (enabled: boolean) => { startAudio(); setS(setSfxEnabled(enabled)) }
+  const onVolume = (v: number) => { startAudio(); setS(setMusicVolume(v)) }
 
   const submitName = async () => {
     const wanted = name.trim()
@@ -120,8 +127,8 @@ export default function SettingsScreen({ onBack, playerProfile, setPlayerUsernam
             <>
               <Toggle
                 label="Sound" on={!s.soundMuted}
-                onClick={() => patch({ soundMuted: !s.soundMuted })}
-                hint="Mutes everything, music and effects"
+                onClick={() => onMute(!s.soundMuted)}
+                hint="The master switch — music and effects"
               />
               <div className="py-2.5" style={{ opacity: s.soundMuted ? 0.4 : 1 }}>
                 <div className="flex items-center justify-between">
@@ -132,20 +139,26 @@ export default function SettingsScreen({ onBack, playerProfile, setPlayerUsernam
                   type="range" min={0} max={1} step={0.05}
                   value={s.musicVolume}
                   disabled={s.soundMuted}
-                  onChange={e => patch({ musicVolume: Number(e.target.value) })}
+                  onChange={e => onVolume(Number(e.target.value))}
                   aria-label="Music volume"
                   className="mt-2 w-full"
                   style={{ accentColor: '#39ff9a', touchAction: 'pan-x' }}
                 />
               </div>
-              <Toggle
-                label="Sound effects" on={s.sfxEnabled}
-                onClick={() => patch({ sfxEnabled: !s.sfxEnabled })}
-                hint="Hits, pickups, doors"
-              />
+              {/* Dimmed while the master switch is off, because effects cannot
+                  be heard then whatever this says. The preference is still
+                  remembered, so unmuting restores what the player chose rather
+                  than silently switching effects back on. */}
+              <div style={{ opacity: s.soundMuted ? 0.4 : 1 }}>
+                <Toggle
+                  label="Sound effects" on={s.sfxEnabled}
+                  onClick={() => onSfx(!s.sfxEnabled)}
+                  hint="Hits, pickups, menu taps"
+                />
+              </div>
               <Toggle
                 label="Screen shake" on={s.screenShakeEnabled}
-                onClick={() => patch({ screenShakeEnabled: !s.screenShakeEnabled })}
+                onClick={() => setS(saveGameSettings({ screenShakeEnabled: !s.screenShakeEnabled }))}
                 hint="Turn off if the camera movement bothers you"
               />
               <p className="mt-2 font-mono text-[9px] leading-relaxed" style={{ color: '#4e6b5e' }}>
