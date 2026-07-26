@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { loadGameSettings } from '@/lib/gameSettings'
 import { applyAudioSettings, startAudio, toggleSoundMuted } from '@/lib/audioControl'
+import { loadEngineScript } from '@/lib/engineScript'
 
 // ─── Music, everywhere ───────────────────────────────────────────────────────
 // The landing page used to get its music from the audio track of an 851KB
@@ -24,8 +25,6 @@ import { applyAudioSettings, startAudio, toggleSoundMuted } from '@/lib/audioCon
 // pattern game.js already uses in-run. Nothing is ever forced on someone who
 // turned music off.
 
-const SRC = '/game-engine/audio.js'
-
 interface Audio2Api {
   start: () => void
   toggleMute: () => boolean
@@ -38,31 +37,13 @@ function getAudio(): Audio2Api | null {
   return (window as unknown as { Audio2?: Audio2Api }).Audio2 ?? null
 }
 
-// Module-scoped so a second mount (landing -> map within one page session)
-// reuses the already-loaded script instead of injecting a second <script>.
-let loading: Promise<void> | null = null
-
+// lib/engineScript.ts owns the URL and the dedupe. This used to build its own
+// `/game-engine/audio.js` and look for an existing tag by exact src, while
+// DungeonGame injected `/game-engine/audio.js?v=<build>` — the two never
+// matched, so entering a run fetched and ran the audio engine a second time.
 function ensureLoaded(): Promise<void> {
   if (getAudio()) return Promise.resolve()
-  if (loading) return loading
-  loading = new Promise<void>((resolve, reject) => {
-    // DungeonGame loads the whole engine, audio.js included, so on the game
-    // route the tag may already be there. Reuse it rather than adding another.
-    const existing = document.querySelector<HTMLScriptElement>(`script[src="${SRC}"]`)
-    if (existing) {
-      if (getAudio()) return resolve()
-      existing.addEventListener('load', () => resolve(), { once: true })
-      existing.addEventListener('error', () => reject(new Error('audio.js failed')), { once: true })
-      return
-    }
-    const el = document.createElement('script')
-    el.src = SRC
-    el.async = true
-    el.onload = () => resolve()
-    el.onerror = () => reject(new Error('audio.js failed'))
-    document.head.appendChild(el)
-  })
-  return loading
+  return loadEngineScript('audio.js')
 }
 
 /**

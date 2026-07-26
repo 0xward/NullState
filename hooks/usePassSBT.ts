@@ -1,8 +1,6 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { usePublicClient, useWalletClient } from 'wagmi'
-import { celo } from 'wagmi/chains'
 import { pickBestFeeCurrency, pickBestPaymentToken, type MarketplaceTokenSymbol } from '@/lib/constants/tokens'
 import { useWallet } from '@/lib/WalletProvider'
 import { getUserFriendlyError, MINIPAY_ADD_CASH_URL } from '@/lib/errorUtils'
@@ -20,13 +18,17 @@ export interface SeasonInfo {
 }
 
 export function usePassSBT(walletAddress: string | undefined) {
-  const publicClient = usePublicClient({ chainId: celo.id })
-  const { data: walletClient } = useWalletClient()
+  // Chain clients come from the wallet bridge, not from wagmi's hooks. This
+  // hook is called by the world map's player plate, which now renders before
+  // wagmi has loaded; a wagmi hook here would throw rather than return null.
+  // Both are null until then, and every path below already guards on that —
+  // the pass badge simply lights up a moment after the map does.
+  //
   // payToTreasury: plain ERC20 transfer() of a USD amount, in whichever
   // stablecoin, to TREASURY_WALLET (see lib/WalletProvider.tsx). Reused
   // here for the v2.1 flexible-payment pass mint flow — see
   // mintPaidPassFlexible below.
-  const { payToTreasury } = useWallet()
+  const { payToTreasury, publicClient, walletClient } = useWallet()
 
   const [hasPass, setHasPass] = useState<boolean>(false)
   const [passSeasonId, setPassSeasonId] = useState<bigint>(BigInt(0))

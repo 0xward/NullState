@@ -5,13 +5,16 @@
   "license": "MIT",
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "node scripts/minify-game-engine.js && next build",
     "start": "next start",
     "lint": "next lint",
     "generate:icon": "node scripts/generate-icon.js",
     "check:market": "node scripts/check-marketplace-sync.js",
     "test:audio": "node scripts/test-audio-sync.js",
-    "test:floors": "node scripts/test-bunker-floor-reset.js"
+    "test:floors": "node scripts/test-bunker-floor-reset.js",
+    "build:icons": "node scripts/build-worldmap-icons.js",
+    "build:map": "node scripts/build-map-path-overlay.js",
+    "build:engine": "node scripts/minify-game-engine.js"
   },
   "dependencies": {
     "@celo/attribution-tags": "^0.3.0",

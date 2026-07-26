@@ -557,14 +557,19 @@ body::before {
 /* Every interactive element gets a soft hover/press response. The press
    (scale-down) is the "every click feels alive" beat; keep it subtle so
    MiniPay tap targets don't visually jump. */
+/* Only compositable properties are transitioned. This list used to also carry
+   box-shadow, background-color, border-color and color; PageSpeed's
+   "non-composited animation" audit named the sound button's `color` fade
+   specifically, and it is right — every one of those forces a repaint of the
+   element on every frame of a 200ms transition, on phones that are already the
+   slowest thing in the pipeline. transform and opacity run on the compositor,
+   and `filter: brightness()` (the actual hover response below) is GPU work
+   rather than a layout-affecting repaint. Colour changes still happen; they
+   just land at once, which on a toggle like mute reads as crisper anyway. */
 button, a, [role='button'], .menu-btn {
   transition:
     transform 0.16s cubic-bezier(0.22, 1, 0.36, 1),
     opacity 0.16s ease,
-    box-shadow 0.2s ease,
-    background-color 0.2s ease,
-    border-color 0.2s ease,
-    color 0.2s ease,
     filter 0.2s ease;
 }
 button:not(:disabled):hover, a:hover, [role='button']:hover { filter: brightness(1.08); }

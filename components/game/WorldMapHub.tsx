@@ -57,7 +57,11 @@ const MAP = '/worldmap/map-bg.webp'
 // see scripts/build-map-path-overlay.js. Perfectly registered because it is
 // literally the map's own pixels.
 const MAP_PATH = '/worldmap/map-path.webp'
-const IC = (n: string) => `/worldmap/icons/${n}.png`
+// WebP, not PNG. As PNGs these nine icons were 372KB — the single biggest
+// download on /game, for artwork that occupies 46 CSS px. They are 45KB now.
+// The PNG masters live in assets-src/worldmap/icons/ and are re-encoded by
+// scripts/build-worldmap-icons.js.
+const IC = (n: string) => `/worldmap/icons/${n}.webp`
 const HOWTO_SEEN_KEY = 'ns-howto-seen'
 
 // The five campaign bunkers, positioned over the doors painted into the map art.
