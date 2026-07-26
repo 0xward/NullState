@@ -115,7 +115,7 @@
     // its ranking. ashen_warden retired (wrong vibe); see the note in
     // lib/constants/marketplace.ts, which this file MIRRORS.
     { id:'ashfall_scav', name:'Ashfall Scavenger', type:'outfit', slot:SLOTS.OUTFIT,
-      price:1.5, fxTier:2, skinTint:'#7a6a4a', effect:{},
+      price:2.0, fxTier:2, skinTint:'#7a6a4a', effect:{},
       sprite:'/sprites/marketplace/ashfall_scav.png',
       desc:'Hooded cloth and worn leather. What you wear when there is no armoury left.' },
     { id:'sungild', name:'Sungild Regalia', type:'outfit', slot:SLOTS.OUTFIT,
@@ -127,7 +127,7 @@
       sprite:'/sprites/marketplace/emberguard.png',
       desc:'Ember-forged warden leathers with a warm coal glow.' },
     { id:'nullsteel', name:'Nullsteel', type:'outfit', slot:SLOTS.OUTFIT,
-      price:4.0, fxTier:3, skinTint:'#2f6f8f', effect:{},
+      price:2.0, fxTier:3, skinTint:'#2f6f8f', effect:{},
       sprite:'/sprites/marketplace/nullsteel.png',
       desc:'Cold hooded plate, lit from within by a dead reactor.' },
     { id:'voidweave', name:'Voidweave', type:'outfit', slot:SLOTS.OUTFIT,
@@ -135,7 +135,7 @@
       sprite:'/sprites/marketplace/voidweave.png',
       desc:'A hooded violet weave that drinks the dark around you.' },
     { id:'hazard_warden', name:'Hazard Warden', type:'outfit', slot:SLOTS.OUTFIT,
-      price:5.0, fxTier:3, skinTint:'#b6ff3d', effect:{},
+      price:2.0, fxTier:3, skinTint:'#b6ff3d', effect:{},
       sprite:'/sprites/marketplace/hazard_warden.png',
       desc:'Acid-green hazard gear, still humming from whatever it was built to survive.' },
     // TASK #7 — EXCLUSIVE Season-Pass skin (mirror of lib/constants/marketplace.ts).
