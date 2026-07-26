@@ -587,36 +587,6 @@ button:not(:disabled):active, a:active, [role='button']:active {
 .ns-rise-2  { animation: nsRise 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.12s both; }
 .ns-rise-3  { animation: nsRise 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.18s both; }
 
-/* Landing hero character — the REAL one. This used to animate the knight_idle
-   strip, but that knight is a leftover from an earlier design that the game no
-   longer renders, so the landing page was advertising a character nobody
-   plays. It now shows the baked LPC composite (body + default_skin) that
-   entities.js actually draws.
-   The engine's own idle is a SINGLE frame — there is no idle animation to
-   replay — so instead of inventing one, the sprite breathes with a slow bob.
-   Source is 64x64, drawn at 2x for clean square pixels. */
-.ns-hero-knight {
-  display: block;
-  width: 128px;
-  height: 128px;
-  background-image: url('/sprites/player/hero-portrait.png');
-  background-size: 128px 128px;
-  background-repeat: no-repeat;
-  image-rendering: pixelated;
-  animation: nsHeroBob 2.6s ease-in-out infinite;
-  filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.7));
-}
-/* 3x (192px from the 64px source) on anything taller than a small phone — the
-   character is the page's proof that this is a game, and at 2x he was a detail
-   rather than the subject. Integer scale only, so the pixels stay square. */
-@media (min-height: 700px) {
-  .ns-hero-knight { width: 192px; height: 192px; background-size: 192px 192px; }
-}
-@keyframes nsHeroBob {
-  0%, 100% { transform: translateY(0); }
-  50%      { transform: translateY(-4px); }
-}
-
 /* Landing cloud banks. Soft radial blobs on an over-wide element that slides
    sideways, so the drift never shows a seam. Two instances at different sizes
    and opposite directions — one layer alone reads as a texture sliding past;
@@ -654,9 +624,8 @@ button:not(:disabled):active, a:active, [role='button']:active {
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   .ns-fade-in, .ns-rise, .ns-rise-1, .ns-rise-2, .ns-rise-3 { animation: none; }
-  /* The hero and the clouds stay put rather than disappearing — reduced motion
-     means stop moving, not stop existing. */
-  .ns-hero-knight { animation: none; transform: none; }
+  /* The clouds stay put rather than disappearing — reduced motion means stop
+     moving, not stop existing. */
   .ns-hero-cloud, .ns-hero-cloud-b { animation: none; }
   button, a, [role='button'], .menu-btn { transition: none; }
   button:not(:disabled):active, a:active, [role='button']:active { transform: none; }

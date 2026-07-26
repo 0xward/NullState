@@ -4,27 +4,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { usePassSBT, SeasonInfo } from '@/hooks/usePassSBT'
 import { getUserFriendlyError } from '@/lib/errorUtils'
 import SeasonPassCard from './SeasonPassCard'
+import { SEASON_IDS, currentSeasonId } from '@/lib/season'
 
-// 6 seasons, one per month, July-December 2026. Season id format is
-// YYYYMM per PassSBT.sol (e.g. 202607 = July 2026).
-const SEASON_IDS: bigint[] = [
-  BigInt(202607),
-  BigInt(202608),
-  BigInt(202609),
-  BigInt(202610),
-  BigInt(202611),
-  BigInt(202612),
-]
-
-function currentSeasonId(): bigint {
-  const now = new Date()
-  const ymNow = BigInt(now.getUTCFullYear() * 100 + (now.getUTCMonth() + 1))
-  // Clamp to the pass program's actual range so testing outside Jul-Dec
-  // 2026 doesn't leave zero cards marked active.
-  if (ymNow < SEASON_IDS[0]) return SEASON_IDS[0]
-  if (ymNow > SEASON_IDS[SEASON_IDS.length - 1]) return SEASON_IDS[SEASON_IDS.length - 1]
-  return ymNow
-}
+// SEASON_IDS / currentSeasonId moved to lib/season.ts — the world map shows
+// pass status too now, and two copies of "which season is it" would drift.
 
 interface SeasonPassScreenProps {
   onBack: () => void

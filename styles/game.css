@@ -1260,21 +1260,38 @@
   clip-path:polygon(9px 0,100% 0,100% calc(100% - 9px),calc(100% - 9px) 100%,0 100%,0 9px);
 }
 .ns-hub-plate > *{ position:relative; z-index:1; }
-/* The avatar draws frame 0 of the knight's idle strip (4 frames across a
-   128x32 sheet) rather than the "✕" glyph it used to show — a cross where a
-   face belongs reads as an error state, or as a close button, and players
-   tapped it expecting the screen to shut. Sized 3x so the 32px source lands on
-   whole pixels; the box then crops it to the octagon. */
-/* The REAL player character (scripts/build-hero-portrait.js bakes the same LPC
-   body + default_skin stack entities.js renders). Previously this drew the
-   knight_idle sprite — a leftover from an earlier design that the game itself
-   no longer puts on screen — so the avatar showed someone the player never
-   plays as. The source is 64x64; drawn into a 34px box it crops slightly to the
-   head and chest, which is what you want from an avatar anyway. */
+
+/* ── SEASON PASS HOLDER ──────────────────────────────────────────────────────
+   A live pass is worth showing off, so the plate gets a light that travels
+   around its edge — visible at a glance from across the map, and the one thing
+   on screen a non-holder cannot have.
+   Only for a pass that is CURRENT: passes are monthly, and a badge that keeps
+   glowing for last month's pass is advertising perks that already expired. */
+.ns-hub-plate.is-pass{
+  background:linear-gradient(180deg,#ffe066,#e0a92a);
+  filter:drop-shadow(0 3px 6px rgba(0,0,0,.65)) drop-shadow(0 0 9px rgba(255,207,77,.55));
+}
+.ns-hub-plate.is-pass::after{
+  content:""; position:absolute; inset:-3px; z-index:0; pointer-events:none;
+  background:conic-gradient(from 0deg, transparent 0deg, rgba(255,224,102,.95) 42deg, transparent 96deg);
+  clip-path:polygon(12px 0,100% 0,100% calc(100% - 12px),calc(100% - 12px) 100%,0 100%,0 12px);
+  animation:nsPassSweep 2.6s linear infinite;
+}
+@keyframes nsPassSweep{ to{ transform:rotate(360deg); } }
+.ns-hub-plate.is-pass .ns-hub-lv{ color:#ffe9a3; }
+.ns-hub-plate.is-pass .ns-hub-avatar{ box-shadow:inset 0 0 0 2px rgba(255,224,102,.8); }
+
+/* The REAL player character, and now whichever look is EQUIPPED —
+   scripts/build-hero-portrait.js bakes one portrait per armour/outfit set and
+   the component sets background-image inline. Previously this drew the
+   knight_idle sprite: a leftover from an earlier design that the game itself no
+   longer puts on screen, so the avatar showed someone the player never plays
+   as. The source is 64x64; drawn into a 34px box it crops slightly to the head
+   and chest, which is what you want from an avatar anyway. */
 .ns-hub-avatar{
   width:34px; height:34px; display:block; flex-shrink:0;
   background-color:#0b1220;
-  background-image:url('/sprites/player/hero-portrait.png');
+  background-image:url('/sprites/player/portraits/default_skin.png');
   background-size:52px 52px;
   background-position:-9px -6px;
   background-repeat:no-repeat;
@@ -1312,6 +1329,9 @@
 @media (prefers-reduced-motion:reduce){
   .ns-hub-fog, .ns-hub-ring, .ns-hub-chev,
   .ns-hub-help.is-new, .ns-hub-help-tip{ animation:none; }
+  /* The pass light stops travelling but stays lit — the badge is status, not
+     decoration, so it must not vanish for someone who asked for less motion. */
+  .ns-hub-plate.is-pass::after{ animation:none; background:rgba(255,224,102,.5); }
 }
 
 /* ── SETTINGS MODAL — dark retheme ────────────────────────────────────────────

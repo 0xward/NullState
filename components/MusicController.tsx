@@ -1,0 +1,164 @@
+'use client'
+
+import { useCallback, useEffect, useState } from 'react'
+import { loadGameSettings, saveGameSettings } from '@/lib/gameSettings'
+
+// ─── Music, everywhere ───────────────────────────────────────────────────────
+// The landing page used to get its music from the audio track of an 851KB
+// background video. That is a lot of someone's data plan for a few seconds of
+// ambience in the markets this game targets — and it was a DIFFERENT piece of
+// music from the one the game plays, so the landing page and the game sounded
+// like two products.
+//
+// The engine already synthesises its ambient bed with Web Audio:
+// public/game-engine/audio.js is a standalone 21KB module with no dependencies
+// that exposes window.Audio2. Loading that instead means the landing page, the
+// world map and the dungeon all play the SAME music, it costs 21KB instead of
+// 851KB, and there is no audio file to stream at all.
+//
+// AUTOPLAY: browsers refuse to start audio before the user has interacted with
+// the page, and a MiniPay webview is no different. So this tries immediately
+// (which works on a repeat visit where the context is already unlocked) and
+// otherwise arms a one-shot listener for the first tap anywhere — the same
+// pattern game.js already uses in-run. Nothing is ever forced on someone who
+// turned music off.
+
+const SRC = '/game-engine/audio.js'
+
+interface Audio2Api {
+  start: () => void
+  toggleMute: () => boolean
+  setMusicVolume: (v: number) => number
+  readonly muted: boolean
+}
+
+function getAudio(): Audio2Api | null {
+  if (typeof window === 'undefined') return null
+  return (window as unknown as { Audio2?: Audio2Api }).Audio2 ?? null
+}
+
+// Module-scoped so a second mount (landing -> map within one page session)
+// reuses the already-loaded script instead of injecting a second <script>.
+let loading: Promise<void> | null = null
+
+function ensureLoaded(): Promise<void> {
+  if (getAudio()) return Promise.resolve()
+  if (loading) return loading
+  loading = new Promise<void>((resolve, reject) => {
+    // DungeonGame loads the whole engine, audio.js included, so on the game
+    // route the tag may already be there. Reuse it rather than adding another.
+    const existing = document.querySelector<HTMLScriptElement>(`script[src="${SRC}"]`)
+    if (existing) {
+      if (getAudio()) return resolve()
+      existing.addEventListener('load', () => resolve(), { once: true })
+      existing.addEventListener('error', () => reject(new Error('audio.js failed')), { once: true })
+      return
+    }
+    const el = document.createElement('script')
+    el.src = SRC
+    el.async = true
+    el.onload = () => resolve()
+    el.onerror = () => reject(new Error('audio.js failed'))
+    document.head.appendChild(el)
+  })
+  return loading
+}
+
+/**
+ * Starts the ambient bed and keeps it in step with the stored preference.
+ * Renders nothing. Safe to mount on more than one screen — the underlying
+ * audio module is a singleton.
+ */
+export function useMusic() {
+  const [muted, setMuted] = useState(true) // assume off until storage is read
+  const [ready, setReady] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    const prefs = loadGameSettings()
+    setMuted(prefs.soundMuted)
+
+    ensureLoaded().then(() => {
+      if (cancelled) return
+      const A = getAudio()
+      if (!A) return
+      setReady(true)
+
+      const begin = () => {
+        try {
+          A.start()
+          A.setMusicVolume(prefs.musicVolume)
+          // toggleMute() flips, so only call it when the current state is wrong.
+          if (A.muted !== prefs.soundMuted) A.toggleMute()
+        } catch { /* AudioContext refused — the gesture listener below retries */ }
+      }
+
+      begin()
+      // Retry on the first real interaction; harmless if begin() already
+      // succeeded, because start() is idempotent in audio.js.
+      const onGesture = () => begin()
+      window.addEventListener('pointerdown', onGesture, { once: true })
+      window.addEventListener('keydown', onGesture, { once: true })
+      return () => {
+        window.removeEventListener('pointerdown', onGesture)
+        window.removeEventListener('keydown', onGesture)
+      }
+    }).catch(() => { /* no audio module — the toggle just won't appear to do anything */ })
+
+    return () => { cancelled = true }
+  }, [])
+
+  const toggle = useCallback(() => {
+    const A = getAudio()
+    let next = !muted
+    if (A) {
+      try {
+        A.start()               // in case this tap IS the unlocking gesture
+        next = A.toggleMute()
+      } catch { /* fall back to the optimistic flip */ }
+    }
+    setMuted(next)
+    saveGameSettings({ soundMuted: next })
+  }, [muted])
+
+  return { muted, ready, toggle }
+}
+
+/** The speaker button. Shared by the landing page and the world map so the two
+ *  can never drift into different icons or different behaviour. */
+export function MusicButton({ muted, onToggle, style }: {
+  muted: boolean
+  onToggle: () => void
+  style?: React.CSSProperties
+}) {
+  return (
+    <button
+      onClick={onToggle}
+      aria-label={muted ? 'Turn music on' : 'Turn music off'}
+      aria-pressed={!muted}
+      className="flex items-center justify-center"
+      style={{
+        width: 40, height: 40, minHeight: 40,
+        border: '1px solid rgba(57,255,154,0.35)',
+        background: 'rgba(4,8,6,0.78)',
+        color: muted ? 'rgba(255,255,255,0.5)' : '#4dffa6',
+        clipPath: 'polygon(9px 0,100% 0,100% calc(100% - 9px),calc(100% - 9px) 100%,0 100%,0 9px)',
+        ...style,
+      }}
+    >
+      {muted ? (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+          <line x1="23" y1="9" x2="17" y2="15" />
+          <line x1="17" y1="9" x2="23" y2="15" />
+        </svg>
+      ) : (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+          <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+          <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+        </svg>
+      )}
+    </button>
+  )
+}

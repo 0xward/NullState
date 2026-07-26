@@ -5,6 +5,10 @@ import { useWallet } from '@/lib/WalletProvider'
 import { maskAddress } from '@/lib/addressMask'
 import { PlayerProfile } from '@/lib/contract'
 import { loadGameSession, loadGameSessionDraft } from '@/lib/gameSessionService'
+import { useEquippedPortrait } from '@/lib/heroPortrait'
+import { usePassSBT } from '@/hooks/usePassSBT'
+import { isPassCurrent, seasonNumberOf } from '@/lib/season'
+import { MusicButton, useMusic } from '@/components/MusicController'
 
 // ─── World-Map Hub (Phase 1+2 — behind a feature flag) ───────────────────────
 // A game-style landing that REPLACES MainMenu when enabled (?hub=1 or
@@ -112,6 +116,20 @@ export default function WorldMapHub({
 }: WorldMapHubProps) {
   const { realAddress, address } = useWallet()
   const hasSave = !!playerProfile?.isRegistered
+
+  // The avatar follows what the player has equipped, so the face on the map is
+  // the character they'll actually walk into the bunker with.
+  const { portrait } = useEquippedPortrait(address)
+
+  // Season Pass. A pass is MONTHLY: holding one for a past season is not the
+  // same as holding the current one, so the plate only lights up for a pass
+  // that is live right now — otherwise the badge would keep promising perks
+  // that expired.
+  const { muted: musicMuted, toggle: toggleMusic } = useMusic()
+
+  const { hasPass, passSeasonId } = usePassSBT(realAddress || undefined)
+  const passLive = hasPass && isPassCurrent(passSeasonId)
+  const passNo = seasonNumberOf(passSeasonId)
   const [menuOpen, setMenuOpen] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
 
@@ -250,14 +268,22 @@ export default function WorldMapHub({
           like "you" did nothing. The avatar is the knight's own idle sprite. */}
       <button
         onClick={() => onCharacter('character')}
-        aria-label="Open character sheet"
-        className="absolute ns-hub-plate"
+        aria-label={passLive ? `Open character sheet — Season ${passNo ?? ''} Pass holder` : 'Open character sheet'}
+        className={`absolute ns-hub-plate${passLive ? ' is-pass' : ''}`}
         style={{ top: 10, left: 10, zIndex: 6 }}
       >
-        <span className="ns-hub-avatar" aria-hidden="true" />
+        <span
+          className="ns-hub-avatar"
+          aria-hidden="true"
+          style={{ backgroundImage: `url(${portrait})` }}
+        />
         <span className="font-mono leading-none">
           <span className="ns-hub-name">{hasSave ? playerProfile!.username.toUpperCase() : 'WALKER'}</span>
-          <span className="ns-hub-lv">{hasSave ? `LV ${playerProfile!.level}` : 'NEW SIGNAL'}</span>
+          <span className="ns-hub-lv">
+            {passLive
+              ? `LV ${playerProfile?.level ?? 1} · S${passNo ?? '?'} PASS`
+              : hasSave ? `LV ${playerProfile!.level}` : 'NEW SIGNAL'}
+          </span>
         </span>
       </button>
 
@@ -279,6 +305,11 @@ export default function WorldMapHub({
             <span className="ns-hub-help-tip font-mono" aria-hidden="true">NEW? READ FIRST</span>
           )}
         </div>
+        {/* Music. Same control and same stored preference as the landing page
+            and the in-run Settings, so turning it off once turns it off
+            everywhere instead of per screen. */}
+        <MusicButton muted={musicMuted} onToggle={toggleMusic} style={{ width: 38, height: 38, minHeight: 38 }} />
+
         {/* Sized up from 32px/9px: it sat below the 44px minimum tap target
             MiniPay asks for, and read as an afterthought next to the help
             button it shares a corner with. */}
