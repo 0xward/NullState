@@ -1292,24 +1292,47 @@
 .ns-hub-plate > *{ position:relative; z-index:1; }
 
 /* ── SEASON PASS HOLDER ──────────────────────────────────────────────────────
-   A live pass is worth showing off, so the plate gets a light that travels
-   around its edge — visible at a glance from across the map, and the one thing
-   on screen a non-holder cannot have.
+   A live pass turns the plate's rim into a dim brass frame with a single bright
+   light running around it — the edge, and only the edge. The first attempt let
+   the sweep fall across the whole face of the plate, which read as a gaudy
+   flare sitting on top of the name rather than as a frame; the light has to
+   trace the outline to look like status instead of decoration.
    Only for a pass that is CURRENT: passes are monthly, and a badge that keeps
-   glowing for last month's pass is advertising perks that already expired. */
+   glowing for last month's pass is advertising perks that already expired.
+
+   How the edge-only part works: .ns-hub-plate's own background paints the rim
+   (the interior is covered by ::before), so a layer sitting BETWEEN the two is
+   visible on the rim alone. ::after is that layer, and giving ::before z-index
+   1 puts it back on top where it belongs. The plate's clip-path crops ::after
+   to the octagon, which is why the rotating square below can be any size. */
 .ns-hub-plate.is-pass{
-  background:linear-gradient(180deg,#ffe066,#e0a92a);
-  filter:drop-shadow(0 3px 6px rgba(0,0,0,.65)) drop-shadow(0 0 9px rgba(255,207,77,.55));
+  /* Brass, not gold leaf: the frame should still be there when the light is on
+     the far side, but it must not compete with the player's own name. */
+  background:linear-gradient(180deg,#d6ae57,#8a6820);
+}
+.ns-hub-plate.is-pass::before{
+  /* 3px instead of 2px — a 2px rim is too thin for the travelling light to
+     register on a phone screen. */
+  inset:3px; z-index:1;
+  clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px);
 }
 .ns-hub-plate.is-pass::after{
-  content:""; position:absolute; inset:-3px; z-index:0; pointer-events:none;
-  background:conic-gradient(from 0deg, transparent 0deg, rgba(255,224,102,.95) 42deg, transparent 96deg);
-  clip-path:polygon(12px 0,100% 0,100% calc(100% - 12px),calc(100% - 12px) 100%,0 100%,0 12px);
-  animation:nsPassSweep 2.6s linear infinite;
+  content:""; position:absolute; z-index:0; pointer-events:none;
+  /* A square centred on the plate, wide enough that no rotation of it can
+     uncover a corner. Only the sliver overlapping the rim is ever seen. */
+  left:50%; top:50%; width:240%; aspect-ratio:1;
+  transform:translate(-50%,-50%) rotate(0deg);
+  background:conic-gradient(from 0deg,
+    transparent          0deg,
+    rgba(255,241,190,.30) 12deg,
+    #fff6d2              24deg,
+    rgba(255,241,190,.30) 36deg,
+    transparent          50deg);
+  animation:nsPassEdge 3.4s linear infinite;
 }
-@keyframes nsPassSweep{ to{ transform:rotate(360deg); } }
-.ns-hub-plate.is-pass .ns-hub-lv{ color:#ffe9a3; }
-.ns-hub-plate.is-pass .ns-hub-avatar{ box-shadow:inset 0 0 0 2px rgba(255,224,102,.8); }
+@keyframes nsPassEdge{ to{ transform:translate(-50%,-50%) rotate(360deg); } }
+.ns-hub-plate.is-pass .ns-hub-lv{ color:#f4d68d; }
+.ns-hub-plate.is-pass .ns-hub-avatar{ box-shadow:inset 0 0 0 2px rgba(228,186,96,.7); }
 
 /* The REAL player character, and now whichever look is EQUIPPED —
    scripts/build-hero-portrait.js bakes one portrait per armour/outfit set and
@@ -1359,9 +1382,11 @@
 @media (prefers-reduced-motion:reduce){
   .ns-hub-fog, .ns-hub-ring, .ns-hub-chev,
   .ns-hub-help.is-new, .ns-hub-help-tip{ animation:none; }
-  /* The pass light stops travelling but stays lit — the badge is status, not
-     decoration, so it must not vanish for someone who asked for less motion. */
-  .ns-hub-plate.is-pass::after{ animation:none; background:rgba(255,224,102,.5); }
+  /* The light stops travelling and the whole rim stays lit instead — the badge
+     is status, not decoration, so it must not vanish for someone who asked for
+     less motion. */
+  .ns-hub-plate.is-pass::after{ animation:none; background:none; }
+  .ns-hub-plate.is-pass{ background:linear-gradient(180deg,#ffe9a8,#c9992c); }
 }
 
 /* ── SETTINGS MODAL — dark retheme ────────────────────────────────────────────
