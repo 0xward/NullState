@@ -587,10 +587,33 @@ button:not(:disabled):active, a:active, [role='button']:active {
 .ns-rise-2  { animation: nsRise 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.12s both; }
 .ns-rise-3  { animation: nsRise 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.18s both; }
 
+/* Landing hero knight — the game's own idle sprite, played as a sprite strip.
+   The sheet is 128x32 (four 32px frames); at 4x that is 512x128, so stepping
+   background-position across it in steps(4) walks the frames with no resampling
+   and no JS. 4x keeps every source pixel a clean 4x4 block. */
+.ns-hero-knight {
+  display: block;
+  width: 128px;
+  height: 128px;
+  background-image: url('/sprites/player/knight_idle.png');
+  background-size: 512px 128px;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+  animation: nsKnightIdle 0.9s steps(4) infinite;
+  filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.7));
+}
+@keyframes nsKnightIdle {
+  from { background-position:    0px 0; }
+  to   { background-position: -512px 0; }
+}
+
 /* Anyone who asked the OS for less motion gets exactly that. */
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   .ns-fade-in, .ns-rise, .ns-rise-1, .ns-rise-2, .ns-rise-3 { animation: none; }
+  /* The knight holds on frame 0 rather than disappearing — reduced motion
+     means stop moving, not stop existing. */
+  .ns-hero-knight { animation: none; background-position: 0 0; }
   button, a, [role='button'], .menu-btn { transition: none; }
   button:not(:disabled):active, a:active, [role='button']:active { transform: none; }
 }

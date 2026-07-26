@@ -18,7 +18,7 @@ const logoJitter = {
   },
 }
 
-const blockFloat = {
+const centerFloat = {
   animate: {
     y: [0, 0, -2, -2, 0, 0, -1, -1, 0, 0],
     transition: {
@@ -29,21 +29,14 @@ const blockFloat = {
 }
 
 export default function Navbar() {
-  const [blockNum, setBlockNum] = useState(28441902)
   const [scrolled, setScrolled] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const wallet = useNavbarWallet()
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setBlockNum(n => n + Math.floor(Math.random() * 3) + 1)
-    }, 5000)
     const handleScroll = () => setScrolled(window.scrollY > 20)
     window.addEventListener('scroll', handleScroll)
-    return () => {
-      clearInterval(interval)
-      window.removeEventListener('scroll', handleScroll)
-    }
+    return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
   const navLinks = [
@@ -67,14 +60,24 @@ export default function Navbar() {
         </Link>
       </motion.div>
 
-      {/* Center status — block number floats */}
+      {/* Center status.
+          This used to read "CELO_MAINNET :: BLOCK #28,441,902", ticking up
+          beside a live-looking pulse dot. It was FAKE — the number was
+          hardcoded and incremented by Math.random() every five seconds; it
+          never touched an RPC. Two separate problems with that: a fabricated
+          on-chain readout presented as live data is not something a project
+          asking for a Celo listing should ship, and a scrolling block height is
+          the single strongest "this is a trading dashboard" cue on a page whose
+          job is to say "this is a pixel dungeon crawler".
+          Replaced with something true and on-message. The chain is still named
+          — it just isn't pretending to measure it. */}
       <motion.div
         className="hidden md:flex items-center gap-2 font-mono text-[11px] text-null-muted"
-        variants={blockFloat}
+        variants={centerFloat}
         animate="animate"
       >
-        <div className="w-1.5 h-1.5 rounded-full bg-null-green animate-pulse" />
-        <span>CELO_MAINNET :: BLOCK #{blockNum.toLocaleString()}</span>
+        <div className="w-1.5 h-1.5 rounded-full bg-null-green" />
+        <span>FREE TO PLAY :: NO WALLET NEEDED TO START</span>
       </motion.div>
 
       {/* Desktop nav + wallet */}
