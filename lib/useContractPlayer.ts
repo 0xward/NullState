@@ -20,6 +20,55 @@ import {
 import { updateLeaderboardEntry, getLeaderboard, getLeaderboardEntry } from '@/lib/leaderboardService'
 import { readCachedProfile, writeCachedProfile } from '@/lib/profileCache'
 
+/**
+ * The fast path: one same-origin GET. Returns null (not a throw) on any
+ * failure, so the caller falls through to the SDK rather than showing an error
+ * for something the player cannot act on.
+ */
+async function fetchIdentity(walletAddress: string): Promise<PlayerProfile | null> {
+  try {
+    const r = await fetch(`/api/player/identity?wallet=${walletAddress}`)
+    if (!r.ok) return null
+    const d = await r.json()
+    if (!d?.username) return null
+    return {
+      walletAddress,
+      username: d.username,
+      xp: d.xp ?? 0,
+      level: d.level ?? 1,
+      kills: d.kills ?? 0,
+      // Off-chain: holding a Firebase username IS being registered.
+      isRegistered: true,
+    }
+  } catch {
+    return null
+  }
+}
+
+/**
+ * The old path, kept for when the server has no Firebase credentials. Both
+ * documents are read in parallel — nothing in the leaderboard entry depends on
+ * the username — and allSettled rather than all, because a missing leaderboard
+ * entry is normal for a brand-new wallet and must not take the name down with
+ * it.
+ */
+async function fetchViaSdk(walletAddress: string): Promise<PlayerProfile> {
+  const [nameRes, entryRes] = await Promise.allSettled([
+    getOrCreateUsername(walletAddress),          // auto-assigns if new
+    getLeaderboardEntry(walletAddress),          // xp/level/kills, all off-chain now
+  ])
+  if (nameRes.status === 'rejected') throw nameRes.reason
+  const liveEntry = entryRes.status === 'fulfilled' ? entryRes.value : null
+  return {
+    walletAddress,
+    username: nameRes.value.username,
+    xp: liveEntry?.xp ?? 0,
+    level: liveEntry?.level ?? 1,
+    kills: liveEntry?.totalKills ?? 0,
+    isRegistered: true,
+  }
+}
+
 export function useContractPlayer(walletAddress: string | undefined) {
   const [playerProfile, setPlayerProfile] = useState<PlayerProfile | null>(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -33,34 +82,23 @@ export function useContractPlayer(walletAddress: string | undefined) {
     setError(null)
 
     try {
-      // IN PARALLEL. These are two independent Firestore documents — the
-      // username doc and the leaderboard entry — and nothing in the second
-      // depends on the first. Awaiting them one after the other paid two full
-      // round trips instead of one, and the world map's largest element is the
-      // name, so the player watched the wait. allSettled rather than all: a
-      // missing leaderboard entry is normal for a brand-new wallet and must not
-      // take the username down with it.
-      const [nameRes, entryRes] = await Promise.allSettled([
-        getOrCreateUsername(walletAddress),          // auto-assigns if new
-        getLeaderboardEntry(walletAddress),          // xp/level/kills, all off-chain now
-      ])
-
-      if (nameRes.status === 'rejected') throw nameRes.reason
-      const { username } = nameRes.value
-      const liveEntry = entryRes.status === 'fulfilled' ? entryRes.value : null
-
-      const profile: PlayerProfile = {
-        walletAddress,
-        username,
-        xp: liveEntry?.xp ?? 0,
-        level: liveEntry?.level ?? 1,
-        kills: liveEntry?.totalKills ?? 0,
-        // Off-chain: holding a Firebase username IS being registered.
-        isRegistered: true,
-      }
+      // ONE SAME-ORIGIN REQUEST, not the Firestore SDK. This is what finally
+      // took the player's name off the critical path. The client SDK had to
+      // download, boot, and complete a WebChannel handshake with
+      // firestore.googleapis.com before it could answer "what is my name" —
+      // 7,450ms of LCP render delay by PageSpeed's measure, on a page where
+      // everything else was already drawn. /api/player/identity reads the same
+      // two documents with the Admin SDK, over a connection the browser
+      // already has open for the page itself.
+      //
+      // The SDK path below is kept as a fallback for the case where the server
+      // has no Firebase credentials: then this is merely slow again, rather
+      // than broken.
+      const profile = await fetchIdentity(walletAddress) ?? await fetchViaSdk(walletAddress)
 
       setPlayerProfile(profile)
       writeCachedProfile(profile)
+      const username = profile.username
 
       // Keep the leaderboard entry fresh (username/xp/level). Deliberately does
       // NOT pass kills — that figure is maintained separately by

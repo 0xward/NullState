@@ -1,0 +1,199 @@
+/* settings.css — the Settings modal, plus its dark retheme.
+   ─────────────────────────────────────────────────────────────────────────────
+   Split out of styles/game.css. That file was ONE stylesheet for the whole
+   /game route, imported by the route's layout, so every byte of it blocked the
+   world map's first render — 14.8KB transferred, 12.7KB of it unused on the
+   map, 680ms of render-blocking time by PageSpeed's measure. The map does not
+   need the dungeon HUD's styles to draw a map.
+
+   Imported by components/game/SettingsModal.tsx. Both entry points into it —
+   the in-run gear button and the world map's SETTINGS rail button — reach it
+   through a dynamically imported screen, so this is fetched the first time
+   somebody opens Settings and never before.
+
+   The retheme block MUST stay after the base block: it overrides it by
+   specificity-tied cascade order, so swapping them puts the old bone-white
+   panel back.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* ════════════════════════════════════════════════════════════════════════
+   SETTINGS MODAL — deliberately its own aesthetic: an aged bone-white
+   "parchment/canvas" panel rather than the dungeon's neon-on-black look,
+   so it reads as an out-of-game system menu.
+   ════════════════════════════════════════════════════════════════════════ */
+.ns-settings-overlay{position:fixed;inset:0;z-index:95;display:flex;align-items:center;justify-content:center;
+  background:rgba(6,8,7,.7);backdrop-filter:blur(2px);padding:20px;}
+.ns-settings-panel{position:relative;max-width:440px;width:100%;max-height:88vh;overflow-y:auto;
+  overscroll-behavior:contain;scroll-behavior:smooth;-webkit-overflow-scrolling:touch;
+  touch-action:pan-y;
+  border-radius:6px;padding:0 26px 24px;animation:ns-fadeUp .25s ease;
+  color:#3a3226;font-family:var(--font-mono),monospace;
+  /* bone-white canvas, slightly dirty: a warm off-white base with soft
+     mottled smudges layered from repeating radial gradients (no external
+     texture file needed) plus a faint fibrous grain from thin diagonal lines. */
+  background-color:#e9e2d0;
+  background-image:
+    radial-gradient(circle at 12% 18%, rgba(120,105,75,.10) 0%, transparent 40%),
+    radial-gradient(circle at 85% 12%, rgba(90,80,55,.08) 0%, transparent 35%),
+    radial-gradient(circle at 75% 80%, rgba(110,95,65,.10) 0%, transparent 42%),
+    radial-gradient(circle at 20% 88%, rgba(80,70,50,.08) 0%, transparent 38%),
+    repeating-linear-gradient(115deg, rgba(0,0,0,.015) 0px, rgba(0,0,0,.015) 1px, transparent 1px, transparent 3px);
+  box-shadow:0 24px 60px rgba(0,0,0,.55), inset 0 0 40px rgba(80,65,40,.12);
+  border:1px solid rgba(80,65,40,.35);}
+.ns-settings-panel::-webkit-scrollbar{width:8px;}
+.ns-settings-panel::-webkit-scrollbar-track{background:rgba(80,65,40,.08);border-radius:4px;}
+.ns-settings-panel::-webkit-scrollbar-thumb{background:rgba(80,65,40,.35);border-radius:4px;}
+.ns-settings-panel::-webkit-scrollbar-thumb:hover{background:rgba(80,65,40,.5);}
+.ns-settings-header{position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;
+  margin:0 -26px 18px;padding:16px 26px;background:#e9e2d0;
+  border-bottom:1px solid rgba(80,65,40,.25);box-shadow:0 6px 10px -6px rgba(0,0,0,.18);}
+.ns-settings-logo-corner{height:26px;width:auto;filter:drop-shadow(0 1px 2px rgba(0,0,0,.25));}
+.ns-settings-close{background:none;border:none;cursor:pointer;
+  font-size:12px;letter-spacing:1.5px;color:#6b5d45;line-height:1;padding:4px 10px;min-width:44px;min-height:44px;
+  display:inline-flex;align-items:center;justify-content:center;
+  font-family:var(--font-mono),monospace;font-weight:700;}
+.ns-settings-close:hover{color:#2b2620;}
+.ns-settings-section{margin-bottom:20px;padding-bottom:18px;border-bottom:1px dashed rgba(80,65,40,.3);}
+.ns-settings-section:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0;}
+.ns-settings-label{font-size:11px;letter-spacing:2.5px;text-transform:uppercase;color:#5c4d33;font-weight:700;margin-bottom:8px;}
+.ns-settings-hint{font-size:11px;line-height:1.55;color:#7a6c52;margin:6px 0 0;}
+.ns-settings-progress-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.ns-settings-stat{display:flex;flex-direction:column;background:rgba(255,255,255,.35);
+  border:1px solid rgba(80,65,40,.2);border-radius:6px;padding:8px 10px;}
+.ns-settings-stat .v{font-size:19px;color:#2b2620;font-weight:700;}
+.ns-settings-stat .k{font-size:9.5px;letter-spacing:1px;text-transform:uppercase;color:#7a6c52;margin-top:2px;}
+.ns-settings-btn-primary{width:100%;margin-top:10px;padding:11px 16px;border-radius:6px;cursor:pointer;
+  background:#2b2620;color:#e9e2d0;border:1px solid #2b2620;font-family:var(--font-mono),monospace;
+  font-size:12px;letter-spacing:2px;text-transform:uppercase;transition:.15s;}
+.ns-settings-btn-primary:hover{background:#453d30;}
+.ns-settings-btn-primary:disabled{opacity:.45;cursor:not-allowed;}
+.ns-settings-btn-secondary{padding:9px 14px;border-radius:6px;cursor:pointer;white-space:nowrap;
+  background:rgba(43,38,32,.08);color:#2b2620;border:1px solid rgba(80,65,40,.35);
+  font-family:var(--font-mono),monospace;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;}
+.ns-settings-btn-secondary:hover{background:rgba(43,38,32,.16);}
+.ns-settings-btn-secondary:disabled{opacity:.4;cursor:not-allowed;}
+.ns-settings-wallet{font-size:11px;color:#5c4d33;word-break:break-all;background:rgba(255,255,255,.3);
+  border:1px solid rgba(80,65,40,.2);border-radius:6px;padding:8px 10px;}
+.ns-settings-username-row{display:flex;gap:8px;align-items:stretch;}
+.ns-settings-input{flex:1;min-width:0;padding:9px 10px;border-radius:6px;border:1px solid rgba(80,65,40,.35);
+  background:rgba(255,255,255,.5);color:#2b2620;font-family:var(--font-mono),monospace;font-size:12px;}
+.ns-settings-input:focus{outline:none;border-color:#5c4d33;}
+.ns-settings-success{font-size:11px;color:#2f6b3f;margin-top:6px;}
+.ns-settings-error{font-size:11px;color:#a13a2f;margin-top:6px;}
+.ns-settings-row{display:flex;align-items:center;justify-content:space-between;}
+.ns-settings-toggle{padding:8px 20px;border-radius:20px;cursor:pointer;background:rgba(43,38,32,.08);
+  color:#2b2620;border:1px solid rgba(80,65,40,.35);font-family:var(--font-mono),monospace;
+  font-size:11px;letter-spacing:2px;text-transform:uppercase;}
+.ns-settings-toggle:hover{background:rgba(43,38,32,.16);}
+
+/* Slider-style ON/OFF switch: OFF = knob left (gray), ON = knob right (green) */
+.ns-settings-toggle-switch{position:relative;width:46px;height:26px;padding:0;border-radius:20px;
+  cursor:pointer;background:rgba(80,65,40,.22);border:1px solid rgba(80,65,40,.35);
+  transition:background-color .18s ease;flex-shrink:0;}
+.ns-settings-toggle-switch.is-on{background:#2f6b3f;border-color:#2f6b3f;}
+.ns-settings-toggle-knob{position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;
+  background:#e9e2d0;box-shadow:0 1px 3px rgba(0,0,0,.35);transition:transform .18s ease;}
+.ns-settings-toggle-switch.is-on .ns-settings-toggle-knob{transform:translateX(20px);}
+.ns-settings-links{display:flex;flex-direction:column;align-items:center;gap:14px;}
+.ns-settings-link{font-size:12px;color:#4a5f8a;text-decoration:underline;text-underline-offset:2px;
+  display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:2px 6px;}
+.ns-settings-link:hover{color:#2b2620;}
+.ns-settings-feedback-link{align-self:center;}
+.ns-settings-legal-row{display:flex;align-items:center;justify-content:center;gap:4px;flex-wrap:wrap;}
+.ns-settings-legal-row .ns-settings-link{font-size:11px;text-transform:uppercase;letter-spacing:1px;}
+.ns-settings-legal-sep{color:#8a7a5c;font-size:11px;}
+
+.ns-settings-volume-value{font-size:11px;color:#5c4d33;font-weight:700;letter-spacing:1px;}
+.ns-settings-slider{-webkit-appearance:none;appearance:none;width:100%;height:4px;border-radius:3px;
+  background:rgba(80,65,40,.2);outline:none;margin-top:8px;cursor:pointer;
+  touch-action:pan-x;}
+.ns-settings-slider:disabled{opacity:.4;cursor:not-allowed;}
+.ns-settings-slider::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:16px;height:16px;
+  border-radius:50%;background:#2b2620;border:2px solid #e9e2d0;box-shadow:0 0 0 1px rgba(80,65,40,.4);
+  cursor:pointer;transition:transform .12s;}
+.ns-settings-slider::-webkit-slider-thumb:hover{transform:scale(1.15);}
+.ns-settings-slider::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:#2b2620;
+  border:2px solid #e9e2d0;box-shadow:0 0 0 1px rgba(80,65,40,.4);cursor:pointer;}
+.ns-settings-slider::-moz-range-track{height:4px;border-radius:3px;background:rgba(80,65,40,.2);}
+
+.ns-settings-footer-logos{display:flex;align-items:center;justify-content:center;gap:22px;}
+.ns-settings-footer-logo-link{display:flex;align-items:center;justify-content:center;width:26px;height:26px;
+  opacity:.75;transition:opacity .15s,transform .15s;padding:9px;box-sizing:content-box;}
+.ns-settings-footer-logo-link:hover{opacity:1;transform:translateY(-2px);}
+.ns-settings-footer-logo-link img{width:100%;height:100%;object-fit:contain;border-radius:50%;}
+
+/* ── SETTINGS MODAL — dark retheme ────────────────────────────────────────────
+   The in-run Settings panel was a light "bone-white canvas paper" surface, warm
+   browns on cream, from an earlier art direction. Next to the world map, the
+   dungeon and every other screen — all near-black with acid green — opening it
+   felt like leaving the game and landing in a different product.
+
+   Retinted rather than rewritten: the layout, sticky header, scrollbars, switch
+   geometry and tap targets are all fine and stay exactly as they are. Only the
+   colour-carrying declarations are overridden, so this block can be deleted to
+   get the old look back and nothing else moves.
+
+   Palette is the hub's: #050b08 ground, #39ff9a accent, #8ea89d secondary text.
+   ─────────────────────────────────────────────────────────────────────────── */
+.ns-settings-overlay{ background:rgba(3,7,5,.86); }
+.ns-settings-panel{
+  color:#cfe9dc;
+  background-color:#0a1812;
+  /* The paper mottling is replaced with a faint green wash + the same scanline
+     grain the rest of the game uses, so the panel belongs to the map. */
+  background-image:
+    radial-gradient(circle at 14% 16%, rgba(57,255,154,.055) 0%, transparent 42%),
+    radial-gradient(circle at 82% 84%, rgba(57,255,154,.04) 0%, transparent 40%),
+    repeating-linear-gradient(0deg, rgba(255,255,255,.018) 0px, rgba(255,255,255,.018) 1px, transparent 1px, transparent 3px);
+  border:1px solid rgba(57,255,154,.22);
+  box-shadow:0 24px 60px rgba(0,0,0,.72), inset 0 0 40px rgba(0,0,0,.35);
+}
+.ns-settings-panel::-webkit-scrollbar-track{ background:rgba(255,255,255,.05); }
+.ns-settings-panel::-webkit-scrollbar-thumb{ background:rgba(57,255,154,.28); }
+.ns-settings-panel::-webkit-scrollbar-thumb:hover{ background:rgba(57,255,154,.45); }
+.ns-settings-header{
+  background:#0a1812;
+  border-bottom:1px solid rgba(57,255,154,.18);
+  box-shadow:0 6px 10px -6px rgba(0,0,0,.5);
+}
+.ns-settings-close{ color:#8ea89d; }
+.ns-settings-close:hover{ color:#39ff9a; }
+.ns-settings-section{ border-bottom:1px dashed rgba(255,255,255,.12); }
+.ns-settings-label{ color:#5f8d78; }
+.ns-settings-hint{ color:#4e6b5e; }
+.ns-settings-stat{ background:rgba(0,0,0,.3); border-color:rgba(255,255,255,.1); }
+.ns-settings-stat .v{ color:#e8fff4; }
+.ns-settings-stat .k{ color:#5f8d78; }
+.ns-settings-btn-primary{
+  background:#39ff9a; color:#04140c; border:2px solid #0a3d24; font-weight:700;
+}
+.ns-settings-btn-primary:hover{ background:#5affae; }
+.ns-settings-btn-secondary{
+  background:transparent; color:#8ea89d; border:1px solid #2f6b50;
+}
+.ns-settings-btn-secondary:hover{ background:rgba(57,255,154,.1); color:#cfe9dc; }
+.ns-settings-wallet{
+  color:#8ea89d; background:rgba(0,0,0,.35); border:1px solid rgba(255,255,255,.1);
+}
+.ns-settings-input{
+  background:rgba(0,0,0,.4); border:1px solid #2f6b50; color:#e8fff4;
+}
+.ns-settings-input:focus{ border-color:#39ff9a; }
+.ns-settings-success{ color:#39ff9a; }
+.ns-settings-error{ color:#ff8a6a; }
+.ns-settings-toggle{
+  background:rgba(255,255,255,.06); color:#cfe9dc; border:1px solid #2f6b50;
+}
+.ns-settings-toggle:hover{ background:rgba(57,255,154,.12); }
+.ns-settings-toggle-switch{ background:rgba(255,255,255,.12); border-color:rgba(255,255,255,.18); }
+.ns-settings-toggle-switch.is-on{ background:#14b869; border-color:#39ff9a; }
+.ns-settings-toggle-knob{ background:#8ea89d; box-shadow:0 1px 3px rgba(0,0,0,.5); }
+.ns-settings-toggle-switch.is-on .ns-settings-toggle-knob{ background:#04140c; }
+.ns-settings-link{ color:#8ea89d; }
+.ns-settings-link:hover{ color:#39ff9a; }
+.ns-settings-legal-sep{ color:rgba(255,255,255,.25); }
+.ns-settings-volume-value{ color:#39ff9a; }
+.ns-settings-slider{ background:rgba(255,255,255,.12); }
+.ns-settings-slider::-webkit-slider-thumb{ background:#39ff9a; border:2px solid #04140c;
+  box-shadow:0 0 0 1px rgba(57,255,154,.5); }
+.ns-settings-slider::-moz-range-thumb{ background:#39ff9a; border:2px solid #04140c; }

@@ -1,31 +1,25 @@
 import Web3Providers from '@/lib/Web3Providers'
 import '../../styles/game.css'
 
-// ─── Preconnect ──────────────────────────────────────────────────────────────
-// The world map cannot finish painting until the player's name arrives, and the
-// name comes from Firestore. Before this, the browser only discovered
-// firestore.googleapis.com when the first query fired, then paid DNS + TCP +
-// TLS before a single byte moved — PageSpeed measured 300ms of that, and 310ms
-// again for the Celo RPC. Warming both while the JS is still parsing takes that
-// off the critical path.
+// ─── No preconnects here, on purpose ─────────────────────────────────────────
+// There were two — firestore.googleapis.com and forno.celo.org — added to save
+// the DNS + TCP + TLS that PageSpeed measured at 300ms and 310ms. PageSpeed's
+// verdict on both afterwards was "Preconnect not used. Check that you are using
+// the crossorigin attribute properly": the anonymous connections they opened
+// were not the ones either client went on to use, so they cost a socket each
+// and saved nothing.
 //
-// These live in the /game layout, not the root one: the landing page talks to
-// neither origin, and a preconnect it never uses is a socket opened for
-// nothing. Two hints only — the guidance is to stay under four.
-const ORIGINS = [
-  'https://firestore.googleapis.com',   // username + leaderboard: gates LCP
-  'https://forno.celo.org',             // Celo RPC: pass SBT, balances, mints
-]
-
+// Rather than guess at the right crossorigin mode, the reason to preconnect is
+// gone in both cases:
+//   · Firestore is no longer on the critical path at all. The player's name now
+//     comes from /api/player/identity, same-origin, on the connection the page
+//     itself is already using (see lib/useContractPlayer.ts).
+//   · The Celo RPC is only reached after wagmi mounts on idle, which is well
+//     after the map has painted — nothing waiting on it is being waited for.
 export default function GameLayout({ children }: { children: React.ReactNode }) {
   return (
-    <>
-      {ORIGINS.map(href => (
-        <link key={href} rel="preconnect" href={href} crossOrigin="anonymous" />
-      ))}
-      <Web3Providers>
-        {children}
-      </Web3Providers>
-    </>
+    <Web3Providers>
+      {children}
+    </Web3Providers>
   )
 }
