@@ -148,7 +148,7 @@ export function WagmiWalletIsland() {
         throw new WalletFriendlyError(friendlyError, e)
       }
     },
-    [walletClient, address]
+    [walletClient, publicClient, address]
   )
 
   // ── Contract write functions ──────────────────────────────────────────────
@@ -200,7 +200,7 @@ export function WagmiWalletIsland() {
         throw new WalletFriendlyError(friendlyError, e)
       }
     },
-    [walletClient, address]
+    [walletClient, publicClient, address]
   )
 
   // ── Generic treasury payment ─────────────────────────────────────────────

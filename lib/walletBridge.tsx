@@ -1,7 +1,15 @@
 'use client'
 
 import { createContext, useCallback, useContext, useMemo, useState, ReactNode } from 'react'
-import type { PublicClient, WalletClient } from 'viem'
+import type { Account, PublicClient, Transport, WalletClient } from 'viem'
+
+// The Celo chain TYPE, not the value. `typeof import(...)` is erased at
+// compile time, so viem/chains never enters this module's runtime graph and
+// the wagmi split stays intact — but the client below keeps Celo's formatters,
+// which is what makes `feeCurrency` (CIP-64 fee abstraction) a known field on
+// writeContract/sendTransaction. Typed as a plain WalletClient it is not, and
+// every call site that pays gas in a stablecoin stops compiling.
+type CeloChain = typeof import('viem/chains').celo
 import type { MarketplaceTokenSymbol } from './constants/tokens'
 
 // ─── Why a bridge sits between the app and wagmi ─────────────────────────────
@@ -46,7 +54,7 @@ export interface WalletBridgeValue {
   publicClient: PublicClient | null
   /** Signing client, for the one on-chain write the app does outside
    *  payToTreasury: the Season Pass mint. Null until wagmi mounts. */
-  walletClient: WalletClient | null
+  walletClient: WalletClient<Transport, CeloChain, Account> | null
   connect: () => Promise<void>
   disconnect: () => void
   switchToCelo: () => Promise<void>

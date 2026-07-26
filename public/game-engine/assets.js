@@ -310,8 +310,22 @@ const NS_WEAPON = {
 // direction order, cell size = height/4 (64 regular, 128/192 oversize with the
 // 64px body cell centered inside), columns = frames of the matching body anim
 // (atk -> NS_WEAPON.anim's frame count, walk -> 9-frame walkcycle, idle -> col 0).
+// ONLY the weapons that actually HAVE sheets. This used to be built for every
+// key in NS_WEAPON, which included the four enemy-only weapons — and those have
+// no ULPC art, so every load fired 16 requests that were always going to 404,
+// and gearReady in game.js could never turn true for one of them (it waits for
+// walkFg or walkBg to decode, and neither ever would). Harmless-looking, but it
+// is sixteen round trips on a connection this game is meant to be cheap on.
+//
+// Keep this list in step with assets-src/weapon_ulpc/: a weapon listed here
+// without sheets goes back to 404s, and one with sheets but not listed silently
+// falls back to the pinned-icon render instead of the animated one.
+const ULPC_WEAPONS = [
+  'rusty_blade', 'emberwood_maul', 'ironbolt_crossbow', 'argent_waraxe',
+  'ancient_blade', 'frost_spear', 'verdant_reaper', 'void_katana', 'sunfire_bow',
+];
 const LPC_WPN_OVL = {};
-Object.keys(NS_WEAPON).forEach(id=>{
+ULPC_WEAPONS.forEach(id=>{
   const B = `/sprites/lpc_source/weapon_ulpc/${id}`;
   LPC_WPN_OVL[id] = { atkFg:`${B}_atk_fg.png`, atkBg:`${B}_atk_bg.png`,
                       walkFg:`${B}_walk_fg.png`, walkBg:`${B}_walk_bg.png` };
@@ -514,7 +528,11 @@ const BG_BY_KEY = {
 
 // ---- decoration / world-object sprites ----
 const DECOR_SPRITES = {
-  door:  { src:'/sprites/decor/door_a_frames', frames:2 },           // 0=closed 1=open, 16x16 each
+  // (removed) `door` pointed at /sprites/decor/door_a_frames, which does not
+  // exist and has not for some time — the front-facing Mystic Woods door was
+  // replaced by the top-down sets below. No DUNGEON_THEME referenced it (they
+  // all name doorIron/doorWood/doorIron2/doorWood2), so its only effect was two
+  // guaranteed 404s in every preload.
   chest: { src:'/sprites/decor/chest_a_frames', frames:4 },          // 0=closed..3=open, 16x16 each
   // New top-down door/chest sprites — verified true top-down perspective
   // (unlike the Mystic Woods door used above, which is front-facing and
@@ -562,7 +580,15 @@ async function preloadLPCHero(){
   ['walk','idle','hurt','slash','thrust','shoot'].forEach(k=>LPC_HERO[k]&&srcs.add(LPC_HERO[k].src));
   [LPC_ARMOR, LPC_OUTFIT].forEach(set=>Object.values(set).forEach(a=>{
     Object.keys(animFolders).forEach(k=>{
-      Object.values(a).forEach(fn=>srcs.add(`${LPC_BASE}/${animFolders[k]}/${fn}`));
+      // Only the LAYER FILENAMES. A set also carries tint/tintA/glow, and
+      // Object.values() hands those over just as happily — which is how
+      // the preload came to request `.../walkcycle/0.22` (a tint alpha)
+      // and `.../walkcycle/#7a3c18` (a colour, which the browser reads
+      // as the folder plus a fragment). About 45 doomed requests every
+      // time the game loaded.
+      Object.values(a).forEach(fn=>{
+        if(typeof fn === 'string' && fn.endsWith('.png')) srcs.add(`${LPC_BASE}/${animFolders[k]}/${fn}`);
+      });
     });
   }));
   Object.values(NS_WEAPON).forEach(w=>srcs.add(w.src));
@@ -582,7 +608,15 @@ async function preloadAll(){
     ['walk','idle','hurt','slash','thrust','shoot'].forEach(k=>LPC_HERO[k]&&srcs.add(LPC_HERO[k].src));
     [LPC_ARMOR, LPC_OUTFIT].forEach(set=>Object.values(set).forEach(a=>{
       Object.keys(animFolders).forEach(k=>{
-        Object.values(a).forEach(fn=>srcs.add(`${LPC_BASE}/${animFolders[k]}/${fn}`));
+        // Only the LAYER FILENAMES. A set also carries tint/tintA/glow, and
+        // Object.values() hands those over just as happily — which is how
+        // the preload came to request `.../walkcycle/0.22` (a tint alpha)
+        // and `.../walkcycle/#7a3c18` (a colour, which the browser reads
+        // as the folder plus a fragment). About 45 doomed requests every
+        // time the game loaded.
+        Object.values(a).forEach(fn=>{
+          if(typeof fn === 'string' && fn.endsWith('.png')) srcs.add(`${LPC_BASE}/${animFolders[k]}/${fn}`);
+        });
       });
     }));
     Object.values(NS_WEAPON).forEach(w=>srcs.add(w.src));

@@ -1,11 +1,10 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { usePublicClient } from 'wagmi'
-import { celo } from 'wagmi/chains'
 import { TREASURE_VAULT_ADDRESS, TREASURE_VAULT_ABI } from '@/lib/contract-abi'
 import { getISOWeekId } from '@/lib/web3-client'
 import { validateVaultCode } from '@/lib/vault-utils'
+import { useWallet } from '@/lib/WalletProvider'
 
 export interface VaultPoolStats {
   deposited: bigint
@@ -18,7 +17,13 @@ export function isVaultCodeSubmittable(code: string): boolean {
 }
 
 export function useVault(walletAddress: string | undefined) {
-  const publicClient = usePublicClient({ chainId: celo.id })
+  // From the wallet bridge, not wagmi's hooks. wagmi mounts BESIDE the app
+  // rather than around it (lib/walletBridge.tsx), so this hook is not inside
+  // WagmiProvider and calling usePublicClient()/useWalletClient() here throws
+  // WagmiProviderNotFoundError — which is exactly what it did: opening Rewards
+  // in MiniPay died with "a client-side exception has occurred". Both are null
+  // until wagmi has loaded, and every path below already guards on that.
+  const { publicClient } = useWallet()
 
   const [remainingAttempts, setRemainingAttempts] = useState<number>(3)
   const [hasClaimed, setHasClaimed] = useState<boolean>(false)

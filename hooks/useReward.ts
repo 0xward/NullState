@@ -1,12 +1,11 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { usePublicClient, useWalletClient } from 'wagmi'
-import { celo } from 'wagmi/chains'
 import { REWARD_CONTRACT_ADDRESS, REWARD_ABI } from '@/lib/contract-abi'
 import { getCurrentSeasonId } from '@/lib/web3-client'
 import { pickBestFeeCurrency } from '@/lib/constants/tokens'
 import { getAttributionSuffix } from '@/lib/attribution-tag'
+import { useWallet } from '@/lib/WalletProvider'
 
 export interface SeasonLeaderboard {
   seasonId: bigint
@@ -27,8 +26,13 @@ export interface SeasonLeaderboard {
 // Vault (paid instantly on a correct code — see hooks/useVault.ts). Season
 // bonus (below) remains the on-chain claim this hook still serves.
 export function useReward(walletAddress: string | undefined) {
-  const publicClient = usePublicClient({ chainId: celo.id })
-  const { data: walletClient } = useWalletClient()
+  // From the wallet bridge, not wagmi's hooks. wagmi mounts BESIDE the app
+  // rather than around it (lib/walletBridge.tsx), so this hook is not inside
+  // WagmiProvider and calling usePublicClient()/useWalletClient() here throws
+  // WagmiProviderNotFoundError — which is exactly what it did: opening Rewards
+  // in MiniPay died with "a client-side exception has occurred". Both are null
+  // until wagmi has loaded, and every path below already guards on that.
+  const { publicClient, walletClient } = useWallet()
 
   const [seasonLeaderboard, setSeasonLeaderboard] = useState<SeasonLeaderboard | null>(null)
   const [hasClaimedSeasonBonus, setHasClaimedSeasonBonus] = useState<boolean>(false)
@@ -91,20 +95,24 @@ export function useReward(walletAddress: string | undefined) {
 
   const claimSeasonBonus = useCallback(
     async (seasonId?: bigint): Promise<{ success: boolean; hash: `0x${string}` }> => {
-      if (!walletClient || !publicClient) throw new Error('Wallet not connected')
+      // `account` is narrower on viem's generic WalletClient than on the one
+      // wagmi's useWalletClient() returned, so it is checked here rather than
+      // asserted — a client with no account cannot sign anyway.
+      if (!walletClient?.account || !publicClient) throw new Error('Wallet not connected')
+      const account = walletClient.account
 
       setIsLoading(true)
       setError(null)
 
       try {
         const id = seasonId ?? currentSeason
-        const feeCurrency = await pickBestFeeCurrency(publicClient, walletClient.account?.address)
+        const feeCurrency = await pickBestFeeCurrency(publicClient, account.address)
         const hash = await walletClient.writeContract({
           address: REWARD_CONTRACT_ADDRESS,
           abi: REWARD_ABI,
           functionName: 'claimSeasonBonus',
           args: [id],
-          account: walletClient.account,
+          account,
           feeCurrency,
           dataSuffix: getAttributionSuffix(),
         })

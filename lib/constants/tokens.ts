@@ -16,7 +16,7 @@ export const USDM_TOKEN = {
   
   // Logo & Branding - Official Mento/Celo logo
   logo: 'https://token-logos-static.s3.amazonaws.com/USDm.png',
-  logoFallback: '/assets/tokens/usdm-logo.png', // Local fallback if API fails
+  logoFallback: '/assets/tokens/usdm.png', // Local fallback if the S3 logo fails
   
   // Network
   chainId: 42220, // Celo Mainnet

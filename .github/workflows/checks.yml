@@ -96,5 +96,11 @@ jobs:
           git diff --exit-code --stat public/sprites/lpc_source/weapon_ulpc \
             || { echo "::error::weapon sheets are stale — a shop icon changed without npm run build:weapons"; exit 1; }
 
+      # Broken asset references are invisible to both the build and the
+      # type-checker: a renamed icon or a moved sprite folder is a 404 on one
+      # screen and nothing anywhere else.
+      - name: Every reference resolves
+        run: npm run audit
+
       - name: TypeScript
         run: npx tsc --noEmit
