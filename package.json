@@ -14,7 +14,8 @@
     "test:floors": "node scripts/test-bunker-floor-reset.js",
     "build:icons": "node scripts/build-worldmap-icons.js",
     "build:map": "node scripts/build-map-path-overlay.js",
-    "build:engine": "node scripts/minify-game-engine.js"
+    "build:engine": "node scripts/minify-game-engine.js",
+    "build:weapons": "node scripts/build-weapon-skins.js"
   },
   "dependencies": {
     "@celo/attribution-tags": "^0.3.0",
