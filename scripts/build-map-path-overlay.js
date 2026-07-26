@@ -24,19 +24,36 @@
  *   g - r > 30     genuinely green rather than pale
  *
  * THE MISSING SPUR: four of the five bunkers have a trail running to their
- * door. Hollow Market does not — the main trail passes well to its left and
- * nothing connects, so on the map that bunker looked unreachable. A spur is
- * DRAWN here in the same style, sampled off the Sunken Field spur the artist
- * did draw: a broken line of small bright dots with a soft halo, leaving the
- * main trail and curving up to the doorway from in front.
+ * door. Hollow Market does not — the main trail passes to its left and nothing
+ * connects, so on the map that bunker looked unreachable. A spur is DRAWN here.
  *
- * It is drawn INTO THE MAP ITSELF, not just into the overlay. The first attempt
- * put it only in the overlay and it was nearly invisible — the painted trail
- * shows up because the overlay REINFORCES art that is already there, while the
- * spur had bare snow underneath and a half-opacity `screen` blend over bare
- * snow is almost nothing. Drawing it into the base first means the extraction
- * below picks it up automatically, so the spur ends up in both layers and
- * behaves exactly like the trail the artist painted.
+ * It is drawn INTO THE MAP ITSELF, not just into the overlay. An earlier
+ * attempt put it only in the overlay and it was nearly invisible — the painted
+ * trail shows up because the overlay REINFORCES art that is already there,
+ * while the spur had bare snow underneath and a half-opacity `screen` blend
+ * over bare snow is almost nothing. Drawing it into the base first means the
+ * extraction below picks it up automatically, so the spur ends up in both
+ * layers and behaves exactly like the trail the artist painted.
+ *
+ * MATCHING THE ARTIST, MEASURED NOT GUESSED. The first spur was drawn as fat
+ * neon-green blobs in rgb(96,214,120) and read as graffiti sprayed over the art
+ * — the owner's words were "kamu menggambar jalan dengan tidak benar", and they
+ * were right. So the reference used here is the spur the artist DID draw, from
+ * the main trail up to the Sunken Field door, sampled pixel by pixel
+ * (assets-src, x≈620-630, y≈1044-1080):
+ *
+ *   it is DASHED       runs of 3-6 lit rows, then 1-3 dark — not a stroke
+ *   it is THIN         ~2px of core at 1024px wide
+ *   it is FAINT        core rgb(111,164,130) over rgb(55,104,99) ground
+ *   it is WARM         green over red by ~53, over blue by ~34
+ *   it REACHES the door — it stops at the threshold, not short of it
+ *
+ * The route: `from` is a point ON the painted trail (its rightmost bulge, traced
+ * row by row off the source) so the spur reads as a fork rather than a line
+ * starting in mid-air, and `to` is the doorway threshold, matching how the
+ * Sunken Field spur terminates. The old curve started at (51.5%, 38.4%), which
+ * is not on the trail at all, bulged south through open snow, and stopped in
+ * the middle of the ground — a line that began nowhere and arrived nowhere.
  *
  * The pristine art lives at assets-src/worldmap/map-bg-source.webp and is never
  * written to, so re-running always re-derives from clean pixels rather than
@@ -62,15 +79,17 @@ const OUT = path.join(ROOT, 'public/worldmap/map-path.webp')
   const base = Buffer.from(data)          // the map, which the spur is painted into
 
   // ── Draw the spur to Hollow Market ────────────────────────────────────────
-  // Percentages of the map, matching the NODES table in WorldMapHub. The curve
-  // leaves the main trail at (51.5, 38.4) and arrives at the doorway threshold,
-  // bending south first so it reads as a track around the rubble rather than a
-  // straight line drawn on top of the art.
+  // Percentages of the map. `from` is a point ON the painted trail (its
+  // rightmost bulge, traced row by row off the source) so the spur reads as a
+  // fork rather than a line that starts in mid-air; `to` is the node's own `gy`
+  // from the NODES table in WorldMapHub, the patch of ground the entry ring
+  // sits on. The two control points bend it around the rubble to the door's
+  // left rather than running straight through it.
   const spur = {
-    from: [51.5, 38.4],
-    c1:   [55.2, 40.7],
-    c2:   [59.8, 39.2],
-    to:   [62.2, 35.9],
+    from: [58.0, 40.4],
+    c1:   [60.6, 40.4],
+    c2:   [62.3, 38.5],
+    to:   [62.4, 35.4],
   }
   const pt = (p) => [W * p[0] / 100, H * p[1] / 100]
   const bez = (t, a, b, c, d) => {
@@ -80,8 +99,13 @@ const OUT = path.join(ROOT, 'public/worldmap/map-path.webp')
   const [ax, ay] = pt(spur.from), [bx, by] = pt(spur.c1)
   const [cx, cy] = pt(spur.c2),   [dx, dy] = pt(spur.to)
 
-  // The trail's own colour, measured off the painted one.
-  const INK = [96, 214, 120]
+  // The trail's own ink. Not the colour you read off a lit pixel — that is the
+  // ink already blended with the snow underneath. This is what has to be laid
+  // ON the snow to arrive at the painted trail's numbers: warm yellow-green,
+  // low blue. Over Hollow Market's rgb(110,158,155) ground at the alphas below
+  // it lands on rgb(153,191,161)..rgb(181,213,165), which is the range the
+  // artist's own line occupies.
+  const INK = [205, 232, 168]
 
   // Soft round stamp alpha-blended into the map, brightest at the centre — the
   // painted trail's dots have a lit core and a halo, not a hard edge.
@@ -101,25 +125,37 @@ const OUT = path.join(ROOT, 'public/worldmap/map-path.webp')
     }
   }
 
-  // Dashes rather than a stroke. A continuous curve reads as a line drawn ON
-  // the map; the painted trail is a broken run of dots of uneven size, so this
-  // matches that — long gaps, varying radius, and a little wobble off the exact
-  // curve. Deterministic wobble (fixed sines, never Math.random) so re-running
-  // the script produces the same file byte for byte.
-  const STEPS = 520
-  const ON = 4, PERIOD = 13          // ~30% duty: clearly separated dots
-  let drawn = 0
+  // Dashes measured in PIXELS along the curve, not in parameter steps — a cubic
+  // bezier is not travelled at constant speed, so stepping `t` evenly would
+  // bunch the dashes up at one end. Distance is accumulated as the curve is
+  // walked and the dash pattern keyed off that, which is why the run reads
+  // evenly from the fork to the door.
+  const DASH = 4.4, GAP = 3.4                        // the artist's rhythm
+  const CORE = 1.05                                  // ~2px of core, as measured
+  const STEPS = 1400                                 // ~0.07px per step
+  let dist = 0, px0 = null, py0 = null, dashes = 0, wasOn = false
   for (let i = 0; i <= STEPS; i++) {
-    if (i % PERIOD >= ON) continue
     const t = i / STEPS
-    const x = bez(t, ax, bx, cx, dx) + Math.sin(t * 37.0) * 1.5 + Math.sin(t * 11.3) * 1.1
-    const y = bez(t, ay, by, cy, dy) + Math.cos(t * 29.0) * 1.2
-    const rad = (3.2 - 1.0 * t) * (0.78 + 0.30 * Math.abs(Math.sin(t * 19.0)))
-    stamp(x, y, rad, 0.92)
-    stamp(x, y, rad * 2.4, 0.22)                     // halo
-    drawn++
+    // Deterministic wobble (fixed sines, never Math.random) so re-running the
+    // script produces the same file byte for byte.
+    const x = bez(t, ax, bx, cx, dx) + Math.sin(t * 17.0) * 0.8
+    const y = bez(t, ay, by, cy, dy) + Math.cos(t * 13.0) * 0.6
+    if (px0 !== null) dist += Math.hypot(x - px0, y - py0)
+    px0 = x; py0 = y
+
+    const on = (dist % (DASH + GAP)) < DASH
+    if (!on) { wasOn = false; continue }
+    if (!wasOn) { dashes++; wasOn = true }
+
+    // Fade in over the first fifth so the fork blends into the trail instead of
+    // butting against it; hold full strength at the door, because the artist's
+    // spur arrives lit rather than petering out.
+    const ease = Math.min(1, t / 0.2)
+    const a = (0.50 + 0.26 * Math.abs(Math.sin(t * 9.0))) * ease
+    stamp(x, y, CORE, a)
+    stamp(x, y, CORE * 1.9, a * 0.13)                // the soft edge, not a halo
   }
-  console.log(`  drew ${drawn} dashes for the Hollow Market spur`)
+  console.log(`  drew the Hollow Market spur — ${dashes} dashes over ${dist.toFixed(0)}px`)
 
   // q86 lands the re-encode slightly UNDER the original file (190KB vs 212KB)
   // rather than inflating it, and pixel art at this quality shows no visible
