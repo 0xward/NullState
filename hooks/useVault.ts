@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { celo } from 'wagmi/chains'
 import { TREASURE_VAULT_ADDRESS, TREASURE_VAULT_ABI } from '@/lib/contract-abi'
 import { getISOWeekId } from '@/lib/web3-client'
 import { validateVaultCode } from '@/lib/vault-utils'

@@ -192,6 +192,42 @@ const bad = (name, detail = '') => results.push({ pass: false, name, detail })
   if (realFailed.length) bad('no failed requests', realFailed.slice(0, 5).join(' | '))
   else ok('no failed requests')
 
+  // ── Nothing 404s, once the WHOLE engine has preloaded ─────────────────────
+  // The static audit (npm run audit) cannot see this: these URLs are built at
+  // runtime from template literals, and the worst of them were built out of
+  // values that are not filenames at all — a tint alpha, a hex colour. Sixty-
+  // three doomed requests per load, invisible to every check that reads source
+  // rather than watching the network.
+  const preloadFailures = []
+  const pre = await browser.newPage()
+  pre.on('response', r => {
+    try {
+      const u = new URL(r.url())
+      if (r.status() >= 400 && BASE.includes(u.host) && !u.pathname.startsWith('/api/')) {
+        preloadFailures.push(`${r.status()} ${u.pathname}`)
+      }
+    } catch { /* not a URL worth judging */ }
+  })
+  await pre.goto(`${BASE}/game`, { waitUntil: 'domcontentloaded' })
+  await pre.waitForSelector('.ns-hub-map img', { timeout: 30000 })
+  await pre.evaluate(async (names) => {
+    for (const n of names) {
+      await new Promise((res, rej) => {
+        const s = document.createElement('script')
+        s.src = `/game-engine/min/${n}`; s.async = false; s.onload = res; s.onerror = rej
+        document.body.appendChild(s)
+      })
+    }
+    await window.NS_ASSETS.preloadAll()
+  }, ENGINE)
+  await pre.waitForTimeout(2500)
+  await pre.close()
+  if (preloadFailures.length) {
+    bad('no 404s after a full engine preload', `${preloadFailures.length}: ${[...new Set(preloadFailures)].slice(0, 6).join(', ')}`)
+  } else {
+    ok('no 404s after a full engine preload')
+  }
+
   await browser.close()
 
   console.log('')

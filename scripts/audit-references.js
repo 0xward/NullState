@@ -1,0 +1,144 @@
+#!/usr/bin/env node
+/**
+ * audit-references.js — find things the code points at that are not there.
+ *
+ * The failures this catches all look the same from the outside: a silent
+ * missing image, a sprite that never draws, a script tag that 404s. None of
+ * them is a type error, none of them fails a build, and every one of them is
+ * only visible on the screen where it happens — which is exactly how a
+ * marketplace icon renamed from .png to .webp, or an LPC layer that moved to
+ * assets-src/, gets to production without anybody noticing.
+ *
+ * What it checks:
+ *   1. Every /-rooted asset path written as a string literal in the app source
+ *      resolves to a file in public/.
+ *   2. Every LPC layer named in assets.js exists in the walkcycle folder.
+ *   3. Every marketplace item's `sprite` exists — in both the TypeScript source
+ *      and the engine mirror, since they are separate lists.
+ *   4. Every engine script DungeonGame loads exists, minified and unminified.
+ *   5. Every weapon in NS_WEAPON has the ULPC sheets the renderer expects.
+ *
+ * Exit code 1 on any miss, so it can gate CI.
+ *
+ * Run: npm run audit
+ */
+const fs = require('fs')
+const path = require('path')
+
+const ROOT = path.resolve(__dirname, '..')
+const PUBLIC = path.join(ROOT, 'public')
+const problems = []
+const note = (what, detail) => problems.push(`${what}: ${detail}`)
+
+const exists = (p) => fs.existsSync(path.join(PUBLIC, p.replace(/^\//, '').split('?')[0]))
+
+function walk(dir, out = []) {
+  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (e.name === 'node_modules' || e.name === '.next' || e.name === '.git') continue
+    const p = path.join(dir, e.name)
+    if (e.isDirectory()) walk(p, out)
+    else out.push(p)
+  }
+  return out
+}
+
+// ── 1. asset string literals ─────────────────────────────────────────────────
+// Only extensions that name a real file. Deliberately NOT every "/..." string:
+// route paths, API paths and CSS selectors all look the same to a regex, and a
+// checker that cries wolf gets switched off.
+const ASSET_RE = /['"`](\/[A-Za-z0-9._\-/]+\.(png|webp|jpg|jpeg|svg|gif|mp3|ogg|wav|mp4|json|js))(\?[^'"`]*)?['"`]/g
+const SRC_DIRS = ['app', 'components', 'lib', 'hooks', 'styles'].map(d => path.join(ROOT, d))
+const CSS_RE = /url\((['"]?)(\/[A-Za-z0-9._\-/]+\.(png|webp|jpg|jpeg|svg|gif))\1\)/g
+
+let checkedAssets = 0
+for (const dir of SRC_DIRS) {
+  if (!fs.existsSync(dir)) continue
+  for (const file of walk(dir)) {
+    if (!/\.(ts|tsx|js|jsx|css)$/.test(file)) continue
+    const src = fs.readFileSync(file, 'utf8')
+    for (const re of [ASSET_RE, CSS_RE]) {
+      re.lastIndex = 0
+      let m
+      while ((m = re.exec(src))) {
+        const p = re === CSS_RE ? m[2] : m[1]
+        // Next's own build output and API routes are not files in public/.
+        if (p.startsWith('/_next') || p.startsWith('/api/')) continue
+        checkedAssets++
+        if (!exists(p)) note('missing asset', `${path.relative(ROOT, file)} -> ${p}`)
+      }
+    }
+  }
+}
+
+// ── 2. LPC layers named in assets.js ─────────────────────────────────────────
+const assetsJs = fs.readFileSync(path.join(PUBLIC, 'game-engine/assets.js'), 'utf8')
+const WALK = path.join(PUBLIC, 'sprites/lpc_source/base/walkcycle')
+let checkedLayers = 0
+for (const m of assetsJs.matchAll(/(torso|legs|feet|head|arms|behind)\s*:\s*'([A-Za-z0-9_]+\.png)'/g)) {
+  checkedLayers++
+  if (!fs.existsSync(path.join(WALK, m[2]))) note('missing LPC layer', `assets.js ${m[1]}: ${m[2]}`)
+}
+
+// ── 3. marketplace sprites, both lists ───────────────────────────────────────
+for (const [label, file] of [
+  ['marketplace.ts', path.join(ROOT, 'lib/constants/marketplace.ts')],
+  ['marketplace-items.js', path.join(PUBLIC, 'game-engine/marketplace-items.js')],
+]) {
+  const src = fs.readFileSync(file, 'utf8')
+  for (const m of src.matchAll(/sprite\s*:\s*'([^']+)'/g)) {
+    checkedAssets++
+    if (!exists(m[1])) note('missing item sprite', `${label} -> ${m[1]}`)
+  }
+}
+
+// ── 4. engine scripts, source and minified ───────────────────────────────────
+const dg = fs.readFileSync(path.join(ROOT, 'components/game/DungeonGame.tsx'), 'utf8')
+const listMatch = dg.match(/const ENGINE_SCRIPTS = \[([\s\S]*?)\]/)
+if (!listMatch) note('engine', 'could not find ENGINE_SCRIPTS in DungeonGame.tsx')
+else {
+  const names = [...listMatch[1].matchAll(/'([^']+\.js)'/g)].map(m => m[1])
+  if (!names.length) note('engine', 'ENGINE_SCRIPTS parsed as empty')
+  for (const n of names) {
+    if (!exists(`/game-engine/${n}`)) note('missing engine script', n)
+    // min/ is gitignored build output — only checked when it has been built.
+    if (fs.existsSync(path.join(PUBLIC, 'game-engine/min')) && !exists(`/game-engine/min/${n}`)) {
+      note('missing minified engine script', `min/${n} (run npm run build:engine)`)
+    }
+  }
+}
+
+// ── 5. ULPC sheets per weapon ────────────────────────────────────────────────
+const ULPC = path.join(PUBLIC, 'sprites/lpc_source/weapon_ulpc')
+const wpnBlock = assetsJs.slice(assetsJs.indexOf('const NS_WEAPON = {'))
+// Enemy weapons deliberately have no ULPC animation — they render through the
+// pinned-sprite path — so only the weapons assets.js declares as having sheets
+// are checked for them. Both halves matter: a weapon in the list without sheets
+// means 404s on every load, and one with sheets but not in the list silently
+// loses its animation.
+const ulpcList = [...(assetsJs.match(/const ULPC_WEAPONS = \[([\s\S]*?)\]/) || [, ''])[1]
+  .matchAll(/'([a-z_]+)'/g)].map(m => m[1])
+if (!ulpcList.length) note('engine', 'ULPC_WEAPONS list not found in assets.js')
+for (const id of ulpcList) {
+  for (const kind of ['atk_fg', 'atk_bg', 'walk_fg', 'walk_bg']) {
+    if (!fs.existsSync(path.join(ULPC, `${id}_${kind}.png`))) note('missing ULPC sheet', `${id}_${kind}.png`)
+  }
+}
+for (const f of fs.readdirSync(ULPC).filter(f => f.endsWith('.png'))) {
+  const id = f.replace(/_(atk|walk)_(fg|bg)\.png$/, '')
+  if (!ulpcList.includes(id)) note('ULPC sheet not declared', `${f} exists but ${id} is not in ULPC_WEAPONS`)
+}
+let checkedWeapons = 0
+for (const m of wpnBlock.matchAll(/^\s{2}([a-z_]+):\s*\{ src:`\$\{NS_WPN\}\/([a-z_]+\.png)`/gm)) {
+  checkedWeapons++
+  if (!exists(`/sprites/weapons/${m[2]}`)) note('missing weapon sprite', m[2])
+}
+
+// ── report ───────────────────────────────────────────────────────────────────
+console.log(`checked ${checkedAssets} asset paths, ${checkedLayers} LPC layers, ${checkedWeapons} weapons`)
+if (!problems.length) {
+  console.log('✓ every reference resolves')
+  process.exit(0)
+}
+console.error(`\n${problems.length} broken reference(s):`)
+for (const p of problems) console.error('  ✗ ' + p)
+process.exit(1)

@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { celo } from 'wagmi/chains'
 import { REWARD_CONTRACT_ADDRESS, REWARD_ABI } from '@/lib/contract-abi'
 import { getCurrentSeasonId } from '@/lib/web3-client'
 import { pickBestFeeCurrency } from '@/lib/constants/tokens'
