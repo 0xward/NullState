@@ -75,24 +75,32 @@ const bad = (name, detail = '') => results.push({ pass: false, name, detail })
   if (mapStillThere) ok('map survived the wagmi mount')
   else bad('map survived the wagmi mount', 'map disappeared')
 
-  // ── Every screen that touches the chain ───────────────────────────────────
-  // These are the ones that used to sit inside WagmiProvider.
-  const screens = [
-    ['Shop', 'MARKETPLACE'],
-    ['Craft', 'CRAFT'],
-    ['Pass', 'PASS'],
-    ['Bag', 'CHARACTER'],
-  ]
-  for (const [label] of screens) {
+  // ── EVERY screen reachable from the map ───────────────────────────────────
+  // Not just the ones that obviously touch the chain. An earlier version of
+  // this list held Shop/Craft/Pass/Bag only, on the reasoning that those are
+  // the screens that talk to wagmi — and it passed while Rewards was crashing
+  // in MiniPay with "a client-side exception has occurred", because
+  // hooks/useReward.ts called a wagmi hook that no grep of components/ ever
+  // saw. The list is now every button on the rail: which screens touch the
+  // chain is exactly the thing under test, so it cannot also be the thing that
+  // decides what gets tested.
+  const screens = ['Daily', 'Rewards', 'Pass', 'Invite', 'Bag', 'Shop', 'Craft', 'Settings']
+  for (const label of screens) {
     const before = errors.length
     const btn = page.locator(`.ns-hub-rail:has-text("${label}")`).first()
     if (!(await btn.count())) { bad(`open ${label}`, 'button not found'); continue }
     await btn.click()
     await page.waitForTimeout(2500)
     const newErrors = errors.slice(before)
-    const wagmiErr = newErrors.find(e => /WagmiProvider|useConfig|useAccount|usePublicClient/i.test(e))
-    if (wagmiErr) bad(`open ${label}`, wagmiErr)
-    else ok(`open ${label}`, 'no wagmi provider error')
+    // Any uncaught exception, not only a wagmi one. Next renders its error
+    // boundary for all of them, and what the player sees is the same black
+    // screen either way.
+    const crash = newErrors.find(e =>
+      /WagmiProvider|useConfig|useAccount|usePublicClient|pageerror|client-side exception|Minified React error/i.test(e))
+    const boundary = await page.locator('text=/client-side exception/i').count()
+    if (crash) bad(`open ${label}`, crash)
+    else if (boundary) bad(`open ${label}`, 'Next error boundary rendered')
+    else ok(`open ${label}`)
     // back to the map
     await page.keyboard.press('Escape').catch(() => {})
     const back = page.locator('button:has-text("BACK"), button:has-text("◂")').first()
