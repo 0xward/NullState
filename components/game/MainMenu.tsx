@@ -21,6 +21,8 @@ interface MainMenuProps {
   // same missing-inventory problem, where buying gear told you to equip it
   // somewhere that did not exist outside a run.
   onCharacter: (tab?: 'character' | 'items') => void
+  /** Same reason as onCharacter: both menus receive one shared prop set. */
+  onSettings: () => void
   playerProfile: PlayerProfile | null
   isLoadingProfile: boolean
 }
@@ -75,6 +77,7 @@ export default function MainMenu({
   onCrafting,
   onHowToPlay,
   onCharacter,
+  onSettings,
   playerProfile,
   isLoadingProfile,
 }: MainMenuProps) {
@@ -162,6 +165,7 @@ export default function MainMenu({
           <MenuItem label="Referral" onClick={onReferral} />
           <MenuItem label="Mint Pass" onClick={onMintPass} />
           <MenuItem label="How to Play" onClick={onHowToPlay} />
+          <MenuItem label="Settings" onClick={onSettings} />
         </nav>
 
         {hasSave && (

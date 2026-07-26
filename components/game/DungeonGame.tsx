@@ -10,6 +10,7 @@ import { loadGameSession, saveGameSession, clearGameSession, saveGameSessionDraf
 import { recordRunKills, recordRunProgress } from '@/lib/leaderboardService'
 import { GAME_CONFIG } from '@/lib/constants/game-config'
 import { readWorldMapHubFlag } from '@/lib/worldMapHubFlag'
+import { DEFAULT_SETTINGS, loadGameSettings, saveGameSettings } from '@/lib/gameSettings'
 import SettingsModal from './SettingsModal'
 import { LiveStatsProvider } from './LiveStatsProvider'
 import SaveConfirmModal from './SaveConfirmModal'
@@ -106,10 +107,14 @@ export default function DungeonGame({ playerProfile, setPlayerUsername, isNewRun
   // a MutationObserver watching those three DOM nodes. One gate, not
   // one-off checks scattered per modal.
   const [vanillaOverlayOpen, setVanillaOverlayOpen] = useState(false)
-  const [soundMuted, setSoundMuted] = useState(false)
-  const [musicVolume, setMusicVolume] = useState(0.75)
-  const [sfxEnabled, setSfxEnabled] = useState(true)
-  const [screenShakeEnabled, setScreenShakeEnabled] = useState(true)
+  // Seeded from the stored preferences instead of hardcoded defaults. These
+  // used to reset on every mount, so muting the game lasted exactly one run —
+  // leave the bunker and it was loud again. loadGameSettings() is SSR-safe and
+  // falls back to these same defaults when storage is unavailable.
+  const [soundMuted, setSoundMuted] = useState(DEFAULT_SETTINGS.soundMuted)
+  const [musicVolume, setMusicVolume] = useState(DEFAULT_SETTINGS.musicVolume)
+  const [sfxEnabled, setSfxEnabled] = useState(DEFAULT_SETTINGS.sfxEnabled)
+  const [screenShakeEnabled, setScreenShakeEnabled] = useState(DEFAULT_SETTINGS.screenShakeEnabled)
   const [sessionStats, setSessionStats] = useState<{ depth: number; kills: number } | null>(null)
   // Phase 1 (Genius blueprint §2.6): out-of-energy modal state. Set by the
   // engine's energy bridge when a fresh bunker entry is denied; cleared on
@@ -296,28 +301,38 @@ export default function DungeonGame({ playerProfile, setPlayerUsername, isNewRun
     return ok
   }
 
+  // Every toggle now writes through to storage as well as to the engine, so the
+  // choice survives leaving the run. The engine's return value still wins where
+  // it gives one — it is the authority on what actually took effect.
   const handleToggleSound = () => {
     const NSG = (window as any).NullStateGame
-    const muted = NSG?.toggleSound?.()
-    setSoundMuted(!!muted)
+    const muted = !!NSG?.toggleSound?.()
+    setSoundMuted(muted)
+    saveGameSettings({ soundMuted: muted })
   }
 
   const handleMusicVolumeChange = (value: number) => {
     const NSG = (window as any).NullStateGame
     const applied = NSG?.setMusicVolume?.(value)
-    setMusicVolume(typeof applied === 'number' ? applied : value)
+    const v = typeof applied === 'number' ? applied : value
+    setMusicVolume(v)
+    saveGameSettings({ musicVolume: v })
   }
 
   const handleToggleSfx = () => {
     const NSG = (window as any).NullStateGame
     const enabled = NSG?.toggleSfx?.()
-    setSfxEnabled(enabled !== undefined ? !!enabled : !sfxEnabled)
+    const v = enabled !== undefined ? !!enabled : !sfxEnabled
+    setSfxEnabled(v)
+    saveGameSettings({ sfxEnabled: v })
   }
 
   const handleToggleScreenShake = () => {
     const NSG = (window as any).NullStateGame
     const enabled = NSG?.toggleScreenShake?.()
-    setScreenShakeEnabled(enabled !== undefined ? !!enabled : !screenShakeEnabled)
+    const v = enabled !== undefined ? !!enabled : !screenShakeEnabled
+    setScreenShakeEnabled(v)
+    saveGameSettings({ screenShakeEnabled: v })
   }
 
   const handleOpenSettings = () => {
@@ -621,15 +636,27 @@ export default function DungeonGame({ playerProfile, setPlayerUsername, isNewRun
           }
         }
         NSG.setWalletAddress?.(walletRef.current.address ?? null)
+
+        // Push the player's SAVED preferences into the freshly-mounted engine,
+        // then read back what actually took. Previously this only read the
+        // engine's own defaults, which is why muting never survived a run: the
+        // engine starts unmuted every mount and React simply agreed with it.
+        // The engine still has the last word — we apply, then sync to whatever
+        // it reports — so a value it rejects can't desync the UI.
+        const prefs = loadGameSettings()
+        if (prefs.soundMuted !== !!NSG.isSoundMuted?.()) NSG.toggleSound?.()
+        if (prefs.musicVolume !== DEFAULT_SETTINGS.musicVolume) NSG.setMusicVolume?.(prefs.musicVolume)
+        if (prefs.sfxEnabled !== (NSG.isSfxEnabled?.() !== false)) NSG.toggleSfx?.()
+
         setSoundMuted(!!NSG.isSoundMuted?.())
-        // Engine's audio module already defaults musicVolume to 0.75 and sfx
-        // to enabled, so just read them back to keep React state in sync
-        // (rather than re-pushing 0.75 and clobbering anything the engine
-        // itself decided at init).
         const vol = NSG.getMusicVolume?.()
         if (typeof vol === 'number') setMusicVolume(vol)
         const sfxOn = NSG.isSfxEnabled?.()
         if (sfxOn !== undefined) setSfxEnabled(!!sfxOn)
+        // Screen shake has no engine getter, so the stored value IS the truth;
+        // push it only when it differs from the engine's on-by-default.
+        if (!prefs.screenShakeEnabled) NSG.toggleScreenShake?.()
+        setScreenShakeEnabled(prefs.screenShakeEnabled)
       })
       .catch(err => console.error('NullState engine failed to load:', err))
 

@@ -1265,16 +1265,18 @@
    face belongs reads as an error state, or as a close button, and players
    tapped it expecting the screen to shut. Sized 3x so the 32px source lands on
    whole pixels; the box then crops it to the octagon. */
+/* The REAL player character (scripts/build-hero-portrait.js bakes the same LPC
+   body + default_skin stack entities.js renders). Previously this drew the
+   knight_idle sprite — a leftover from an earlier design that the game itself
+   no longer puts on screen — so the avatar showed someone the player never
+   plays as. The source is 64x64; drawn into a 34px box it crops slightly to the
+   head and chest, which is what you want from an avatar anyway. */
 .ns-hub-avatar{
-  /* Exactly 1:1 with the source: the sheet is 128x32 (four 32px frames), so a
-     32px box at background-size:128px 32px shows frame 0 with no resampling at
-     all. Any other scale either fractionally shrinks the art (uneven pixels) or
-     zooms past the frame and crops the knight's head off. */
-  width:32px; height:32px; display:block; flex-shrink:0;
+  width:34px; height:34px; display:block; flex-shrink:0;
   background-color:#0b1220;
-  background-image:url('/sprites/player/knight_idle.png');
-  background-size:128px 32px;
-  background-position:0 0;
+  background-image:url('/sprites/player/hero-portrait.png');
+  background-size:52px 52px;
+  background-position:-9px -6px;
   background-repeat:no-repeat;
   image-rendering:pixelated;
   box-shadow:inset 0 0 0 2px rgba(57,255,154,.55);
@@ -1311,3 +1313,79 @@
   .ns-hub-fog, .ns-hub-ring, .ns-hub-chev,
   .ns-hub-help.is-new, .ns-hub-help-tip{ animation:none; }
 }
+
+/* ── SETTINGS MODAL — dark retheme ────────────────────────────────────────────
+   The in-run Settings panel was a light "bone-white canvas paper" surface, warm
+   browns on cream, from an earlier art direction. Next to the world map, the
+   dungeon and every other screen — all near-black with acid green — opening it
+   felt like leaving the game and landing in a different product.
+
+   Retinted rather than rewritten: the layout, sticky header, scrollbars, switch
+   geometry and tap targets are all fine and stay exactly as they are. Only the
+   colour-carrying declarations are overridden, so this block can be deleted to
+   get the old look back and nothing else moves.
+
+   Palette is the hub's: #050b08 ground, #39ff9a accent, #8ea89d secondary text.
+   ─────────────────────────────────────────────────────────────────────────── */
+.ns-settings-overlay{ background:rgba(3,7,5,.86); }
+.ns-settings-panel{
+  color:#cfe9dc;
+  background-color:#0a1812;
+  /* The paper mottling is replaced with a faint green wash + the same scanline
+     grain the rest of the game uses, so the panel belongs to the map. */
+  background-image:
+    radial-gradient(circle at 14% 16%, rgba(57,255,154,.055) 0%, transparent 42%),
+    radial-gradient(circle at 82% 84%, rgba(57,255,154,.04) 0%, transparent 40%),
+    repeating-linear-gradient(0deg, rgba(255,255,255,.018) 0px, rgba(255,255,255,.018) 1px, transparent 1px, transparent 3px);
+  border:1px solid rgba(57,255,154,.22);
+  box-shadow:0 24px 60px rgba(0,0,0,.72), inset 0 0 40px rgba(0,0,0,.35);
+}
+.ns-settings-panel::-webkit-scrollbar-track{ background:rgba(255,255,255,.05); }
+.ns-settings-panel::-webkit-scrollbar-thumb{ background:rgba(57,255,154,.28); }
+.ns-settings-panel::-webkit-scrollbar-thumb:hover{ background:rgba(57,255,154,.45); }
+.ns-settings-header{
+  background:#0a1812;
+  border-bottom:1px solid rgba(57,255,154,.18);
+  box-shadow:0 6px 10px -6px rgba(0,0,0,.5);
+}
+.ns-settings-close{ color:#8ea89d; }
+.ns-settings-close:hover{ color:#39ff9a; }
+.ns-settings-section{ border-bottom:1px dashed rgba(255,255,255,.12); }
+.ns-settings-label{ color:#5f8d78; }
+.ns-settings-hint{ color:#4e6b5e; }
+.ns-settings-stat{ background:rgba(0,0,0,.3); border-color:rgba(255,255,255,.1); }
+.ns-settings-stat .v{ color:#e8fff4; }
+.ns-settings-stat .k{ color:#5f8d78; }
+.ns-settings-btn-primary{
+  background:#39ff9a; color:#04140c; border:2px solid #0a3d24; font-weight:700;
+}
+.ns-settings-btn-primary:hover{ background:#5affae; }
+.ns-settings-btn-secondary{
+  background:transparent; color:#8ea89d; border:1px solid #2f6b50;
+}
+.ns-settings-btn-secondary:hover{ background:rgba(57,255,154,.1); color:#cfe9dc; }
+.ns-settings-wallet{
+  color:#8ea89d; background:rgba(0,0,0,.35); border:1px solid rgba(255,255,255,.1);
+}
+.ns-settings-input{
+  background:rgba(0,0,0,.4); border:1px solid #2f6b50; color:#e8fff4;
+}
+.ns-settings-input:focus{ border-color:#39ff9a; }
+.ns-settings-success{ color:#39ff9a; }
+.ns-settings-error{ color:#ff8a6a; }
+.ns-settings-toggle{
+  background:rgba(255,255,255,.06); color:#cfe9dc; border:1px solid #2f6b50;
+}
+.ns-settings-toggle:hover{ background:rgba(57,255,154,.12); }
+.ns-settings-toggle-switch{ background:rgba(255,255,255,.12); border-color:rgba(255,255,255,.18); }
+.ns-settings-toggle-switch.is-on{ background:#14b869; border-color:#39ff9a; }
+.ns-settings-toggle-knob{ background:#8ea89d; box-shadow:0 1px 3px rgba(0,0,0,.5); }
+.ns-settings-toggle-switch.is-on .ns-settings-toggle-knob{ background:#04140c; }
+.ns-settings-link{ color:#8ea89d; }
+.ns-settings-link:hover{ color:#39ff9a; }
+.ns-settings-legal-sep{ color:rgba(255,255,255,.25); }
+.ns-settings-volume-value{ color:#39ff9a; }
+.ns-settings-slider{ background:rgba(255,255,255,.12); }
+.ns-settings-slider::-webkit-slider-thumb{ background:#39ff9a; border:2px solid #04140c;
+  box-shadow:0 0 0 1px rgba(57,255,154,.5); }
+.ns-settings-slider::-moz-range-thumb{ background:#39ff9a; border:2px solid #04140c; }

@@ -587,33 +587,77 @@ button:not(:disabled):active, a:active, [role='button']:active {
 .ns-rise-2  { animation: nsRise 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.12s both; }
 .ns-rise-3  { animation: nsRise 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.18s both; }
 
-/* Landing hero knight — the game's own idle sprite, played as a sprite strip.
-   The sheet is 128x32 (four 32px frames); at 4x that is 512x128, so stepping
-   background-position across it in steps(4) walks the frames with no resampling
-   and no JS. 4x keeps every source pixel a clean 4x4 block. */
+/* Landing hero character — the REAL one. This used to animate the knight_idle
+   strip, but that knight is a leftover from an earlier design that the game no
+   longer renders, so the landing page was advertising a character nobody
+   plays. It now shows the baked LPC composite (body + default_skin) that
+   entities.js actually draws.
+   The engine's own idle is a SINGLE frame — there is no idle animation to
+   replay — so instead of inventing one, the sprite breathes with a slow bob.
+   Source is 64x64, drawn at 2x for clean square pixels. */
 .ns-hero-knight {
   display: block;
   width: 128px;
   height: 128px;
-  background-image: url('/sprites/player/knight_idle.png');
-  background-size: 512px 128px;
+  background-image: url('/sprites/player/hero-portrait.png');
+  background-size: 128px 128px;
   background-repeat: no-repeat;
   image-rendering: pixelated;
-  animation: nsKnightIdle 0.9s steps(4) infinite;
+  animation: nsHeroBob 2.6s ease-in-out infinite;
   filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.7));
 }
-@keyframes nsKnightIdle {
-  from { background-position:    0px 0; }
-  to   { background-position: -512px 0; }
+/* 3x (192px from the 64px source) on anything taller than a small phone — the
+   character is the page's proof that this is a game, and at 2x he was a detail
+   rather than the subject. Integer scale only, so the pixels stay square. */
+@media (min-height: 700px) {
+  .ns-hero-knight { width: 192px; height: 192px; background-size: 192px 192px; }
+}
+@keyframes nsHeroBob {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-4px); }
+}
+
+/* Landing cloud banks. Soft radial blobs on an over-wide element that slides
+   sideways, so the drift never shows a seam. Two instances at different sizes
+   and opposite directions — one layer alone reads as a texture sliding past;
+   two moving against each other read as weather. */
+.ns-hero-cloud {
+  position: absolute;
+  top: -12%;
+  left: -60%;
+  width: 220%;
+  height: 90%;
+  pointer-events: none;
+  background:
+    radial-gradient(38% 46% at 18% 42%, rgba(150, 190, 175, 0.15) 0%, transparent 62%),
+    radial-gradient(30% 40% at 45% 62%, rgba(130, 175, 160, 0.12) 0%, transparent 60%),
+    radial-gradient(42% 38% at 74% 36%, rgba(160, 200, 185, 0.13) 0%, transparent 64%);
+  filter: blur(26px);
+  animation: nsCloudDrift 74s linear infinite;
+}
+.ns-hero-cloud-b {
+  top: 18%;
+  height: 78%;
+  opacity: 0.75;
+  background:
+    radial-gradient(34% 42% at 28% 50%, rgba(120, 160, 150, 0.14) 0%, transparent 60%),
+    radial-gradient(46% 34% at 66% 40%, rgba(145, 185, 170, 0.11) 0%, transparent 62%);
+  filter: blur(38px);
+  animation: nsCloudDrift 108s linear infinite reverse;
+}
+@keyframes nsCloudDrift {
+  from { transform: translateX(0); }
+  to   { transform: translateX(28%); }
 }
 
 /* Anyone who asked the OS for less motion gets exactly that. */
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   .ns-fade-in, .ns-rise, .ns-rise-1, .ns-rise-2, .ns-rise-3 { animation: none; }
-  /* The knight holds on frame 0 rather than disappearing — reduced motion
+  /* The hero and the clouds stay put rather than disappearing — reduced motion
      means stop moving, not stop existing. */
-  .ns-hero-knight { animation: none; background-position: 0 0; }
+  .ns-hero-knight { animation: none; transform: none; }
+  .ns-hero-cloud, .ns-hero-cloud-b { animation: none; }
   button, a, [role='button'], .menu-btn { transition: none; }
   button:not(:disabled):active, a:active, [role='button']:active { transform: none; }
 }

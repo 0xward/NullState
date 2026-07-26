@@ -66,8 +66,18 @@ export default function HeroSection() {
         style={{ filter: 'brightness(.34) saturate(.8) blur(3px)', transform: 'scale(1.06)' }}
       />
 
+      {/* Drifting cloud banks. Two layers at different sizes and speeds moving
+          in opposite directions, which is what stops a loop from reading as one
+          repeating texture sliding past. Pure CSS gradients — no image, no JS,
+          nothing extra to download — and they stop entirely under
+          prefers-reduced-motion. */}
+      <span className="ns-hero-cloud" aria-hidden="true" />
+      <span className="ns-hero-cloud ns-hero-cloud-b" aria-hidden="true" />
+
       {/* Vignette — same treatment as the in-game map, so arriving at the game
-          feels like the same place rather than a different product. */}
+          feels like the same place rather than a different product. Sits ABOVE
+          the clouds so they stay a suggestion at the edges rather than
+          something competing with the logo. */}
       <div
         className="absolute inset-0 pointer-events-none"
         aria-hidden="true"
@@ -183,7 +193,7 @@ export default function HeroSection() {
           className="font-mono uppercase mt-7"
           style={{ fontSize: 9, letterSpacing: '2px', color: '#4e6b5e', animation: 'fadeUp .6s 1s both' }}
         >
-          Free to play · 5 bunkers · Built for MiniPay
+          Free to play · Built for MiniPay
         </p>
       </div>
     </section>

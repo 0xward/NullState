@@ -42,6 +42,7 @@ interface WorldMapHubProps {
   // Opens the Character Sheet. The plate lands on 'character', the BAG rail
   // button on 'items' — same screen, two doors.
   onCharacter: (tab?: 'character' | 'items') => void
+  onSettings: () => void
   playerProfile: PlayerProfile | null
   isLoadingProfile: boolean
 }
@@ -106,7 +107,7 @@ function RailBtn({
 
 export default function WorldMapHub({
   onContinueGame, onNewGame, onLeaderboard, onRewards, onReferral,
-  onMintPass, onMarketplace, onCrafting, onHowToPlay, onCharacter,
+  onMintPass, onMarketplace, onCrafting, onHowToPlay, onCharacter, onSettings,
   playerProfile, isLoadingProfile,
 }: WorldMapHubProps) {
   const { realAddress, address } = useWallet()
@@ -278,35 +279,54 @@ export default function WorldMapHub({
             <span className="ns-hub-help-tip font-mono" aria-hidden="true">NEW? READ FIRST</span>
           )}
         </div>
+        {/* Sized up from 32px/9px: it sat below the 44px minimum tap target
+            MiniPay asks for, and read as an afterthought next to the help
+            button it shares a corner with. */}
         <button
           onClick={() => setMenuOpen(true)}
           className="font-mono uppercase"
           style={{
-            minHeight: 32, padding: '6px 10px', fontSize: 9, letterSpacing: '1px',
-            color: '#cfe0d8', background: 'rgba(6,12,9,.72)', border: '1px solid rgba(255,255,255,.14)', borderRadius: 3,
+            minHeight: 40, padding: '8px 14px', fontSize: 11, letterSpacing: '1.5px',
+            color: '#cfe0d8', background: 'rgba(6,12,9,.78)', border: '1px solid rgba(255,255,255,.18)', borderRadius: 3,
           }}
         >
           ≡ MENU
         </button>
       </div>
 
-      {/* ── LEFT rail: come back & earn ── */}
-      <div className="absolute flex flex-col gap-2" style={{ top: 92, left: 6, zIndex: 6 }}>
+      {/* ── Side rails ──
+          VERTICALLY CENTRED, not pinned under the header. They used to start at
+          a fixed top:92, which on a tall phone parked every button up by the
+          status bar — the far end of a one-handed reach, on a screen the player
+          taps constantly. Centring with translateY puts them beside the thumb
+          instead, and keeps both rails balanced whatever the screen height.
+          Nudged slightly above true centre (46%) so the bottom bar's ENTER
+          button keeps its own clear space. */}
+
+      {/* LEFT: things that pay you back */}
+      <div
+        className="absolute flex flex-col gap-2"
+        style={{ top: '46%', transform: 'translateY(-50%)', left: 6, zIndex: 6 }}
+      >
         <RailBtn icon={IC('daily')} label="Daily" hot badge="SOON" onClick={() => showToast('Daily Run — coming soon')} />
         <RailBtn icon={IC('rewards')} label="Rewards" onClick={onRewards} />
         <RailBtn icon={IC('pass')} label="Pass" onClick={onMintPass} />
         <RailBtn icon={IC('invite')} label="Invite" onClick={onReferral} />
       </div>
 
-      {/* ── RIGHT rail: build & spend ──
+      {/* RIGHT: your gear.
           BAG sits here rather than behind the plate because "where is my stuff"
           has to be findable without reading anything. A portrait opens who you
           are, a bag opens what you carry — the split every mobile game already
-          taught this audience. It also evens the rails out at 3 and 3. */}
-      <div className="absolute flex flex-col gap-2" style={{ top: 92, right: 6, zIndex: 6 }}>
+          taught this audience. SETTINGS closes the set at four a side. */}
+      <div
+        className="absolute flex flex-col gap-2"
+        style={{ top: '46%', transform: 'translateY(-50%)', right: 6, zIndex: 6 }}
+      >
         <RailBtn icon={IC('bag')} label="Bag" onClick={() => onCharacter('items')} />
         <RailBtn icon={IC('shop')} label="Shop" onClick={onMarketplace} />
         <RailBtn icon={IC('craft')} label="Craft" onClick={onCrafting} />
+        <RailBtn icon={IC('gear')} label="Settings" onClick={onSettings} />
       </div>
 
       {isLoadingProfile && (

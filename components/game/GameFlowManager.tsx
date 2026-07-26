@@ -57,6 +57,10 @@ const CharacterSheet = dynamic(() => import('./CharacterSheet'), {
   ssr: false,
   loading: () => <ScreenLoadingFallback label="LOADING CHARACTER" />,
 })
+const SettingsScreen = dynamic(() => import('./SettingsScreen'), {
+  ssr: false,
+  loading: () => <ScreenLoadingFallback label="LOADING SETTINGS" />,
+})
 const DungeonGameWrapper = dynamic(() => import('./DungeonGameWrapper'), {
   ssr: false,
   loading: () => <ScreenLoadingFallback label="LOADING DUNGEON" />,
@@ -75,7 +79,7 @@ function ScreenLoadingFallback({ label }: { label: string }) {
   )
 }
 
-type GamePhase = 'menu' | 'username-setup' | 'character-select' | 'game' | 'leaderboard' | 'rewards' | 'referral' | 'season-pass' | 'marketplace' | 'crafting' | 'how-to-play' | 'character'
+type GamePhase = 'menu' | 'username-setup' | 'character-select' | 'game' | 'leaderboard' | 'rewards' | 'referral' | 'season-pass' | 'marketplace' | 'crafting' | 'how-to-play' | 'character' | 'settings'
 
 /**
  * GameFlowManager orchestrates the entire NullState game flow:
@@ -352,6 +356,10 @@ export default function GameFlowManager() {
     setPhase('character')
   }
 
+  const handleSettingsClick = () => {
+    setPhase('settings')
+  }
+
   // PHASE: MENU
   if (phase === 'menu') {
     // Same props for both — the hub is a drop-in swap for the classic menu.
@@ -369,6 +377,7 @@ export default function GameFlowManager() {
           onCrafting={handleCraftingClick}
           onHowToPlay={handleHowToPlayClick}
           onCharacter={handleCharacterClick}
+          onSettings={handleSettingsClick}
           playerProfile={playerProfile}
           isLoadingProfile={isLoadingProfile}
         />
@@ -517,6 +526,20 @@ export default function GameFlowManager() {
         onMarketplace={handleMarketplaceClick}
         playerProfile={playerProfile}
         initialTab={characterTab}
+      />
+    )
+  }
+
+  // PHASE: SETTINGS — the preferences that make sense OUTSIDE a run. The
+  // in-run SettingsModal keeps the run-scoped half (Save Game, Exit, session
+  // stats); this one owns the preferences, which are now persisted so both read
+  // the same values.
+  if (phase === 'settings') {
+    return (
+      <SettingsScreen
+        onBack={handleBackToMenu}
+        playerProfile={playerProfile}
+        setPlayerUsername={setPlayerUsername}
       />
     )
   }
