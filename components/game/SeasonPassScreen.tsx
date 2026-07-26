@@ -165,9 +165,12 @@ export default function SeasonPassScreen({ onBack, address }: SeasonPassScreenPr
           the current month can be minted.
         </p>
 
+        {/* Not "connect your wallet": inside MiniPay the address arrives with
+            no interaction, so a connect prompt is only ever shown to someone it
+            cannot help. Naming MiniPay is the actionable step. */}
         {!address && (
           <div className="mb-6 rounded border border-[rgba(255,190,11,0.35)] bg-[rgba(255,190,11,0.08)] p-3 text-sm text-null-amber font-mono">
-            Connect your wallet to mint a pass.
+            Open NullState in MiniPay to mint a pass.
           </div>
         )}
 
@@ -181,7 +184,7 @@ export default function SeasonPassScreen({ onBack, address }: SeasonPassScreenPr
                 rel="noopener noreferrer"
                 className="mt-2 inline-block text-null-amber underline underline-offset-2"
               >
-                Add cash in MiniPay →
+                Deposit in MiniPay →
               </a>
             )}
           </div>
@@ -257,7 +260,7 @@ export default function SeasonPassScreen({ onBack, address }: SeasonPassScreenPr
           )}
 
           {!address ? (
-            <div className="font-mono text-[11px] text-null-muted">Connect to claim daily perks.</div>
+            <div className="font-mono text-[11px] text-null-muted">Open NullState in MiniPay to claim daily perks.</div>
           ) : !perks?.hasPass ? (
             <div className="font-mono text-[11px] text-null-muted">Mint the active-season pass to unlock daily claims.</div>
           ) : (

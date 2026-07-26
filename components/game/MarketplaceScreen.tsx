@@ -440,7 +440,7 @@ export default function MarketplaceScreen({ onBack, address }: MarketplaceScreen
                 rel="noopener noreferrer"
                 className="mt-2 inline-block text-[#f2cd82] underline underline-offset-2"
               >
-                Add cash in MiniPay →
+                Deposit in MiniPay →
               </a>
             )}
           </div>

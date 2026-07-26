@@ -105,7 +105,7 @@ export default function Navbar() {
                 <span>{wallet.error}</span>
                 {wallet.addCashUrl && (
                   <a href={wallet.addCashUrl} className="text-null-green no-underline underline-offset-2 hover:underline">
-                    Add Cash
+                    Deposit
                   </a>
                 )}
               </div>
@@ -116,7 +116,7 @@ export default function Navbar() {
             <span>{wallet.error}</span>
             {wallet.addCashUrl && (
               <a href={wallet.addCashUrl} className="text-null-green no-underline underline-offset-2 hover:underline">
-                Add Cash
+                Deposit
               </a>
             )}
           </div>
@@ -154,7 +154,7 @@ export default function Navbar() {
                   <span>{wallet.error}</span>
                   {wallet.addCashUrl && (
                     <a href={wallet.addCashUrl} className="text-null-green no-underline underline-offset-2 hover:underline">
-                      Add Cash
+                      Deposit
                     </a>
                   )}
                 </div>
@@ -165,7 +165,7 @@ export default function Navbar() {
               <span>{wallet.error}</span>
               {wallet.addCashUrl && (
                 <a href={wallet.addCashUrl} className="text-null-green no-underline underline-offset-2 hover:underline">
-                  Add Cash
+                  Deposit
                 </a>
               )}
             </div>

@@ -102,5 +102,12 @@ jobs:
       - name: Every reference resolves
         run: npm run audit
 
+      # MiniPay's listing review rejects Mini Apps over wording, and wording is
+      # invisible to every other check here — a build, a type-check and an asset
+      # audit all pass happily on a "Connect wallet" prompt or an "Add Cash"
+      # button label. Both had already shipped.
+      - name: MiniPay copy rules
+        run: npm run check:copy
+
       - name: TypeScript
         run: npx tsc --noEmit
