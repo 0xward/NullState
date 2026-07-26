@@ -81,13 +81,20 @@ jobs:
           done
           echo "✓ minified engine parses"
 
-      # The rail icons are generated from the PNG masters in assets-src/. If the
-      # two ever disagree, what ships is whatever was committed by hand.
+      # Generated art must match the masters it is derived from. If the two ever
+      # disagree, what ships is whatever somebody committed by hand — which is
+      # how a "regenerate after changing X" comment quietly stops being true.
       - name: World-map icons match their masters
         run: |
           npm run build:icons
           git diff --exit-code --stat public/worldmap/icons \
             || { echo "::error::public/worldmap/icons is stale — run npm run build:icons"; exit 1; }
+
+      - name: In-hand weapon art matches the shop icons
+        run: |
+          npm run build:weapons
+          git diff --exit-code --stat public/sprites/lpc_source/weapon_ulpc \
+            || { echo "::error::weapon sheets are stale — a shop icon changed without npm run build:weapons"; exit 1; }
 
       - name: TypeScript
         run: npx tsc --noEmit
