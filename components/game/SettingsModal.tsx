@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { PlayerProfile } from '@/lib/contract'
 import { usernameSchema } from '@/lib/validation'
 import { usePassSBT } from '@/hooks/usePassSBT'
+import '@/styles/settings.css'
 
 interface SessionStats {
   depth: number

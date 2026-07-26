@@ -157,11 +157,23 @@ const OUT = path.join(ROOT, 'public/worldmap/map-path.webp')
   }
   console.log(`  drew the Hollow Market spur — ${dashes} dashes over ${dist.toFixed(0)}px`)
 
-  // q86 lands the re-encode slightly UNDER the original file (190KB vs 212KB)
-  // rather than inflating it, and pixel art at this quality shows no visible
-  // ringing — the palette is flat and the edges are already hard.
+  // q78, down from q86. With the rail icons fixed, this file became the single
+  // largest download on /game (219KB) and its own LCP element, so the encode is
+  // worth another look: q78 is 173KB, a fifth off, and decoded side by side at
+  // 2.5x against q86 the difference is not findable — the palette is flat, the
+  // edges are already hard, and the map is drawn at roughly half scale on a
+  // phone anyway. q72 (145KB) also held up, but 78 leaves margin on artwork
+  // that cannot be re-derived if it turns out to matter on a better screen.
+  //
+  // The trail extraction below is unaffected either way: it reads `base`, the
+  // raw pixels, before any of this encoding happens.
+  //
+  // NOT resized. PageSpeed calls the file oversized because it is 1024x1536
+  // for a 960x1440 box on the phone it emulates, but that is one viewport —
+  // on a wider one the same file is displayed larger — and a non-integer
+  // downscale is exactly what mangles pixel art.
   await sharp(base, { raw: { width: W, height: H, channels: ch } })
-    .webp({ quality: 86 })
+    .webp({ quality: 78, effort: 6 })
     .toFile(MAP_OUT)
 
   // ── Extract the lit pixels from the RESULT, so the spur is in both layers ──

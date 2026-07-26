@@ -17,6 +17,7 @@ import { LiveStatsProvider } from './LiveStatsProvider'
 import SaveConfirmModal from './SaveConfirmModal'
 import HudStatLine from './HudStatLine'
 import { loadEngineScript } from '@/lib/engineScript'
+import '@/styles/dungeon.css'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DungeonGame — real-time canvas dungeon crawler (NULL_STATE // THE FORSAKEN

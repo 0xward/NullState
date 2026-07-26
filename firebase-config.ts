@@ -23,6 +23,7 @@
 
 import { initializeApp, getApps, cert, type App } from 'firebase-admin/app'
 import { getDatabase } from 'firebase-admin/database'
+import type { Firestore } from 'firebase-admin/firestore'
 
 function initAdmin(): App | null {
   const existing = getApps()
@@ -75,6 +76,37 @@ export function getAdminDb(): ReturnType<typeof getDatabase> | null {
     return getDatabase(adminApp)
   } catch (err) {
     console.error('[firebase-config] getDatabase() failed — check FIREBASE_DATABASE_URL:', err)
+    return null
+  }
+}
+
+/**
+ * Firebase Admin Firestore instance (or null if unconfigured).
+ *
+ * Added for /api/player/identity. The player's name is the world map's largest
+ * painted element, and reading it with the CLIENT Firestore SDK meant the map
+ * could not finish painting until that SDK had booted and completed a
+ * WebChannel handshake with firestore.googleapis.com — PageSpeed measured
+ * 7,450ms of render delay on exactly that element. Reading the same two
+ * documents here, server-side, turns it into one same-origin fetch on a
+ * connection the browser already has open.
+ *
+ */
+export function getAdminFirestore(): Firestore | null {
+  if (!adminApp) return null
+  try {
+    // Required lazily, not imported at the top. Every API route in the project
+    // imports this module for getAdminDb(); a top-level import here puts
+    // @google-cloud/firestore's load on the critical path of all of them, and
+    // the note below is this file's own record of what that costs when a
+    // subpath turns out to be unloadable in the serverless runtime — it took
+    // out routes that never touched the package. Inside the function, a
+    // failure can only reach the one caller that asked for Firestore.
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { getFirestore } = require('firebase-admin/firestore') as typeof import('firebase-admin/firestore')
+    return getFirestore(adminApp)
+  } catch (err) {
+    console.error('[firebase-config] getFirestore() failed:', err)
     return null
   }
 }

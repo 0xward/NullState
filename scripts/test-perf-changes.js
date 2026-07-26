@@ -46,6 +46,11 @@ const bad = (name, detail = '') => results.push({ pass: false, name, detail })
   await page.waitForSelector('.ns-hub-map img', { timeout: 60000 })
   ok('world map renders')
 
+  // The boot splash covers the page for 1.4s + 0.4s fade on a cold session and
+  // swallows pointer events while it does. Wait it out before clicking
+  // anything, or every click below races it.
+  await page.waitForSelector('#ns-splash-root', { state: 'detached', timeout: 15000 }).catch(() => {})
+
   // Rail icons: every one must be a decoded image, not a broken one.
   await page.waitForSelector('.ns-hub-rail img', { timeout: 20000 })
   const icons = await page.evaluate(() =>
@@ -112,6 +117,11 @@ const bad = (name, detail = '') => results.push({ pass: false, name, detail })
   // the engine's own order and asking for its exported surface tests exactly
   // what minification could have broken — a mangled cross-file name, or an
   // export that no longer exists — with nothing else in the way.
+  // A local build has no Firebase or Celo credentials, so backend calls fail
+  // here by design. What must stay clean is anything caused by the refactors:
+  // wagmi provider errors, missing modules, 404s on renamed assets.
+  const ENV_NOISE = /favicon|firestore|firebase|forno\.celo\.org|google\.com|client is offline|ERR_CONNECTION_RESET|ERR_ABORTED|status of 50[0-9]|status of 40[34]|Could not reach Cloud Firestore/i
+
   const bare = await browser.newPage()
   const engineErrors = []
   bare.on('pageerror', e => engineErrors.push(String(e).slice(0, 200)))
@@ -158,16 +168,14 @@ const bad = (name, detail = '') => results.push({ pass: false, name, detail })
   }
   if (surface.globals.length) bad('cross-file engine globals survive minification', `missing: ${surface.globals.join(', ')}`)
   else ok('cross-file engine globals survive minification')
-  if (engineErrors.length) bad('minified engine loads clean', engineErrors.slice(0, 3).join(' | '))
+  // Same environment filter as below: a local build has no Firebase or Celo
+  // credentials, so those calls fail here by design.
+  const engineReal = engineErrors.filter(e => !ENV_NOISE.test(e))
+  if (engineReal.length) bad('minified engine loads clean', engineReal.slice(0, 3).join(' | '))
   else ok('minified engine loads clean')
   await bare.close()
 
   // ── Anything the page complained about ────────────────────────────────────
-  // A local build has no Firebase or Celo credentials, so the backend calls
-  // fail here by design. Those are filtered out — what must stay clean is
-  // anything caused by the refactors: wagmi provider errors, missing modules,
-  // 404s on renamed assets.
-  const ENV_NOISE = /favicon|firestore|firebase|forno\.celo\.org|google\.com|client is offline|ERR_CONNECTION_RESET|ERR_ABORTED|status of 50[0-9]|status of 40[34]|Could not reach Cloud Firestore/i
   const realErrors = errors.filter(e => !ENV_NOISE.test(e))
   if (realErrors.length) bad('no console errors', realErrors.slice(0, 5).join(' | '))
   else ok('no console errors')
