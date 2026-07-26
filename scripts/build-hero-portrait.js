@@ -41,6 +41,11 @@ const ROOT = path.resolve(__dirname, '..')
 const ASSETS = path.join(ROOT, 'public/game-engine/assets.js')
 const LPC = path.join(ROOT, 'public/sprites/lpc_source/base/walkcycle')
 const OUTDIR = path.join(ROOT, 'public/sprites/player/portraits')
+// Skin shop icons are the SAME composite as the portrait, so they are emitted
+// from here too rather than being drawn separately. marketplace.ts has claimed
+// for a while that "the shop preview == what you wear"; now one file produces
+// both, so it cannot stop being true.
+const SHOPDIR = path.join(ROOT, 'public/sprites/marketplace')
 
 const FW = 64, FH = 64
 const ROW_DOWN = 2          // LPC_DIRS = ['up','left','down','right']
@@ -125,7 +130,16 @@ const frameOf = (file) =>
 
     const out = path.join(OUTDIR, `${id}.png`)
     await sharp(body).composite([{ input: armour, blend: 'over' }]).png({ compressionLevel: 9 }).toFile(out)
-    built.push({ id, kb: (fs.statSync(out).size / 1024).toFixed(1), missing })
+
+    // Shop icon, for OUTFITS only. Weapons and armour have their own bespoke
+    // item art (a sword, a breastplate) — skins are the only ones shown as a
+    // little character. default_skin is not for sale, so it gets no icon.
+    let shopped = false
+    if (id !== 'default_skin' && Object.prototype.hasOwnProperty.call(LPC_OUTFIT, id)) {
+      fs.copyFileSync(out, path.join(SHOPDIR, `${id}.png`))
+      shopped = true
+    }
+    built.push({ id, kb: (fs.statSync(out).size / 1024).toFixed(1), missing, shopped })
   }
 
   // The default look also lands at the old flat path, so anything still
@@ -133,5 +147,7 @@ const frameOf = (file) =>
   fs.copyFileSync(path.join(OUTDIR, 'default_skin.png'), path.join(ROOT, 'public/sprites/player/hero-portrait.png'))
 
   console.log(`✓ ${built.length} portraits -> ${path.relative(ROOT, OUTDIR)}/`)
-  for (const b of built) console.log(`   ${b.id.padEnd(16)} ${b.kb}KB${b.missing ? '  (some layers missing)' : ''}`)
+  for (const b of built) {
+    console.log(`   ${b.id.padEnd(16)} ${b.kb}KB${b.shopped ? '  + shop icon' : ''}${b.missing ? '  (some layers missing)' : ''}`)
+  }
 })().catch(e => { console.error(e); process.exit(1) })

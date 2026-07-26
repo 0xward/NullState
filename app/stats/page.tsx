@@ -14,6 +14,8 @@ interface StatsPayload {
     purchases: number
     purchasesByToken: { USDM: number; USDC: number; USDT: number }
     purchaseVolumeUsd: number
+    volumeEstimated: number
+    revenueByKind: Record<string, { count: number; usd: number }>
     passMints: number
     rewardsPaidCount: number
     rewardsPaidUsd: number
@@ -120,9 +122,14 @@ export default function StatsPage() {
             </Section>
 
             <Section title="On-chain activity">
-              <Stat label="Total transactions" value={fmt(t?.transactionsTotal)} hint="purchases + passes + rewards" />
+              <Stat label="Total transactions" value={fmt(t?.transactionsTotal)} hint="all paid flows + reward payouts" />
               <Stat label="Purchases" value={fmt(t?.purchases)} accent="#f2cd82" />
-              <Stat label="Purchase volume" value={fmtUsd(t?.purchaseVolumeUsd)} accent="#f2cd82" />
+              <Stat
+                label="Purchase volume"
+                value={fmtUsd(t?.purchaseVolumeUsd)}
+                accent="#f2cd82"
+                hint={t?.volumeEstimated ? `${t.volumeEstimated} sale(s) valued at today's price` : 'items + passes + elixir + shards + blueprints'}
+              />
               <Stat label="Season Passes" value={fmt(t?.passMints)} accent="#c9a0ff" />
               <Stat label="USDT rewards paid" value={fmtUsd(t?.rewardsPaidUsd)} accent="#7ef0a6" hint={`${fmt(t?.rewardsPaidCount)} payouts`} />
               <Stat
@@ -132,6 +139,36 @@ export default function StatsPage() {
                 accent="#f0dcb8"
               />
             </Section>
+
+            {/* Where the money actually came from. Without this the single
+                "purchase volume" figure gives no way to tell whether a revenue
+                line is small or simply not being counted — which is exactly how
+                passes, elixir, shard packs and blueprints went unnoticed while
+                contributing $0 to the total. */}
+            <section className="mb-8">
+              <div className="mb-3 font-mono text-[10px] tracking-[4px] uppercase text-null-green">{'// REVENUE BY TYPE'}</div>
+              <div className="rounded-md border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)] p-4">
+                {([
+                  ['items', 'Marketplace gear'],
+                  ['passes', 'Season Passes'],
+                  ['shards', 'Shard packs'],
+                  ['elixir', 'Elixir'],
+                  ['blueprints', 'Sector blueprints'],
+                ] as const).map(([key, label]) => {
+                  const r = t?.revenueByKind?.[key]
+                  return (
+                    <div key={key} className="flex items-baseline justify-between border-b border-[rgba(255,255,255,0.06)] py-2 last:border-b-0">
+                      <span className="font-mono text-[11px] text-null-muted">{label}</span>
+                      <span className="font-mono text-[11px]">
+                        <span className="text-null-white">{fmt(r?.count)}</span>
+                        <span className="text-null-muted"> · </span>
+                        <span className="text-[#f2cd82]">{fmtUsd(r?.usd)}</span>
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            </section>
 
             {/* 14-day purchases bar chart */}
             <section className="mb-8">

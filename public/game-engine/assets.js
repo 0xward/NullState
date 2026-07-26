@@ -149,8 +149,25 @@ const LPC_OUTFIT = {
   // tint) and from every paid skin (which are full plate/robe WITH a helmet/hood
   // and a glow). drawLPCComposite() feeds it through the same armor-stack loop.
   default_skin: { torso:'TORSO_leather_armor_torso.png', arms:'TORSO_leather_armor_shoulders.png', legs:'LEGS_plate_armor_pants.png', feet:'FEET_plate_armor_shoes.png', tint:'#6f8f9c', tintA:0.20 },
-  // $5 — ash-grey full plate sentinel.
-  ashen_warden: { torso:'TORSO_plate_armor_torso.png', arms:'TORSO_plate_armor_arms_shoulders.png', legs:'LEGS_plate_armor_pants.png', feet:'FEET_plate_armor_shoes.png', head:'HEAD_plate_armor_helmet.png', tint:'#8f95a0', tintA:0.34 },
+  // ── Owner call (2026-07): ashen_warden RETIRED. It was generic grey fantasy
+  // plate and read as a different game — NullState is a dark post-collapse
+  // bunker crawl, not high fantasy. Replaced by ashfall_scav at the same cheap
+  // price point (see LEGACY_ITEM_IDS in lib/constants/marketplace.ts, which
+  // keeps anyone who already bought it whole).
+  //
+  // The three below are built from the LPC layers that were sitting unused —
+  // HEAD_chain_armor_hood especially, which gives a hooded silhouette that no
+  // other skin has and instantly reads as "not a knight".
+  //
+  // $1.50 — the cheap entry skin. A wasteland scavenger: cloth, worn leather
+  // and a hood, no plate anywhere.
+  ashfall_scav: { torso:'TORSO_robe_shirt_brown.png', arms:'TORSO_leather_armor_shoulders.png', legs:'LEGS_pants_greenish.png', feet:'FEET_shoes_brown.png', head:'HEAD_chain_armor_hood.png', tint:'#7a6a4a', tintA:0.30 },
+  // $5 — acid-green hazard gear. The game's own signature colour worn as a
+  // suit, so it reads as NullState at a glance.
+  hazard_warden: { torso:'TORSO_leather_armor_torso.png', arms:'TORSO_leather_armor_bracers.png', legs:'LEGS_plate_armor_pants.png', feet:'FEET_plate_armor_shoes.png', head:'HEAD_chain_armor_hood.png', tint:'#b6ff3d', tintA:0.40, glow:'#d4ff5a' },
+  // $4 — cold steel-blue, hooded. The heavy silhouette ashen_warden had, but
+  // in the game's palette and with a hood instead of a fantasy great-helm.
+  nullsteel: { torso:'TORSO_plate_armor_torso.png', arms:'TORSO_plate_armor_arms_shoulders.png', legs:'LEGS_plate_armor_pants.png', feet:'FEET_plate_armor_shoes.png', head:'HEAD_chain_armor_hood.png', tint:'#2f6f8f', tintA:0.42, glow:'#4fd0ff' },
   // $7 — ember-forged leathers with a warm coal glow.
   emberguard:   { torso:'TORSO_leather_armor_torso.png', arms:'TORSO_leather_armor_shoulders.png', legs:'LEGS_plate_armor_pants.png', feet:'FEET_shoes_brown.png', head:'HEAD_leather_armor_hat.png', tint:'#c85a1e', tintA:0.34, glow:'#ff7a2a' },
   // $9 — hooded violet weave (robe silhouette).

@@ -179,6 +179,10 @@ export async function POST(req: NextRequest) {
       wallet: buyer,
       seasonId: seasonId.toString(),
       token,
+      // The price paid, captured now. The pass price is owner-adjustable
+      // on-chain, so without this a change to setPassPriceUsdCents() would
+      // retroactively restate every past mint's value.
+      usd: Number(passPriceUsd),
       at: Date.now(),
       status: 'pending',
     })
