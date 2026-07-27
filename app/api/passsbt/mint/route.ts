@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { decodeEventLog, parseAbi, getAddress, createWalletClient, http } from 'viem'
+import { decodeEventLog, parseAbi, getAddress, createWalletClient } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { celo } from 'viem/chains'
+import { celoTransport } from '@/lib/celoRpc'
 import { publicClient } from '@/lib/web3-client'
 import { getAdminDb } from '@/firebase-config'
 import { maybeGiftReferralPass } from '@/lib/server/referrals'
@@ -195,7 +196,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Backend signer not configured' }, { status: 503 })
     }
     const account = privateKeyToAccount(backendPrivateKey)
-    const transport = http(process.env.CELO_RPC_URL ?? process.env.NEXT_PUBLIC_CELO_RPC ?? 'https://forno.celo.org')
+    const transport = celoTransport()
     const walletClient = createWalletClient({ chain: celo, transport, account })
 
     let mintHash: `0x${string}`

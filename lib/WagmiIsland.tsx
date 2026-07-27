@@ -19,6 +19,7 @@ import {
   useAccount, usePublicClient, useWalletClient, useBalance, useSwitchChain, useConnect, useDisconnect,
 } from 'wagmi'
 import { celo, celoSepolia } from 'wagmi/chains'
+import { celoTransport } from '@/lib/celoRpc'
 import { injected } from 'wagmi/connectors'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -38,7 +39,10 @@ const config = createConfig({
   chains:    [celo, celoSepolia],
   connectors: [injected()],
   transports: {
-    [celo.id]: http('https://forno.celo.org'),
+    // Was hardcoded to Forno while lib/web3-client.ts read NEXT_PUBLIC_CELO_RPC,
+    // so moving off Forno moved the server and left every player's browser
+    // behind — the half that actually generates the per-player load.
+    [celo.id]: celoTransport(),
     [celoSepolia.id]: http(),
   },
 })
