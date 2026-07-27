@@ -9,9 +9,11 @@ import WebVitals from '@/components/common/WebVitals'
 // Web3Providers so the wagmi/viem bundle is NOT loaded on public routes
 // (/, /terms, /privacy, /docs) — PageSpeed optimization (MiniPay requirement).
 
-// Matches the canonical URL already used by app/robots.ts and app/sitemap.ts.
-// Needed so relative OpenGraph/Twitter image paths resolve to absolute URLs.
-const SITE_URL = 'https://nullstate-ten.vercel.app'
+// One source, lib/siteUrl.ts — this was one of five hand-written copies, and
+// the Celo review asking for a real domain is exactly the moment that costs
+// something. Needed here so relative OpenGraph/Twitter image paths resolve to
+// absolute URLs.
+import { SITE_URL } from '@/lib/siteUrl'
 
 // Next 14: themeColor + viewport live in their own `viewport` export (not in
 // `metadata`). Zoom is intentionally left enabled — this layout is global, so

@@ -236,8 +236,31 @@ async function confirm(question, autoYes) {
 //
 // Never blocks and never throws. A stats outage must not stop the owner
 // refilling a pool that players are waiting on.
+// Where /api/stats lives. This script is the one caller that cannot `import`
+// lib/siteUrl.ts — it is plain CommonJS, run under bare node in Termux — so it
+// reads the constant out of the file instead of keeping a sixth hand-written
+// copy of the URL that would go stale the day the domain changes. The install
+// instructions at the top of this file allow running it from a directory that
+// holds nothing but `npm i viem`, so a missing file is expected, not an error:
+// in that case STATS_URL is required, and the economics block is skipped
+// rather than pointed at a guess.
+function siteUrlFromRepo() {
+  try {
+    const src = fs.readFileSync(path.join(__dirname, '..', 'lib', 'siteUrl.ts'), 'utf8')
+    const m = src.match(/const FALLBACK = '([^']+)'/)
+    return m ? m[1] : null
+  } catch {
+    return null
+  }
+}
+
 async function showEconomics(baseUrl) {
-  const url = (baseUrl || process.env.STATS_URL || 'https://nullstate-ten.vercel.app') + '/api/stats'
+  const base = baseUrl || process.env.STATS_URL || process.env.NEXT_PUBLIC_SITE_URL || siteUrlFromRepo()
+  if (!base) {
+    warn('  (no STATS_URL set and lib/siteUrl.ts not found — skipping economics)')
+    return
+  }
+  const url = base.replace(/\/+$/, '') + '/api/stats'
   let s
   try {
     const res = await fetch(url, { signal: AbortSignal.timeout(8000) })

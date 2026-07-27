@@ -1,6 +1,6 @@
 import type { MetadataRoute } from 'next'
 
-const siteUrl = 'https://nullstate-ten.vercel.app'
+import { SITE_URL as siteUrl } from '@/lib/siteUrl'
 
 export default function robots(): MetadataRoute.Robots {
   return {

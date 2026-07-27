@@ -157,6 +157,42 @@ for (const f of rpcHosts) {
   note('RPC endpoint set outside lib/celoRpc.ts', f)
 }
 
+// ── 7. one place decides the public URL ──────────────────────────────────────
+// Same failure as the RPC, with a worse blast radius. The production URL was
+// written out by hand in the metadata base, robots.txt, the sitemap, the
+// server-side attribution hostname and the treasury CLI. Moving to a real
+// domain — which is exactly what the Celo review asked for — means every one of
+// those has to change together.
+//
+// The attribution hostname is the one that cannot be repaired after the fact:
+// the Celo app code is a hash of the hostname, so a client on the new domain
+// and a server still holding the old one file as two unrelated apps, and
+// attribution is not backfillable. Half the project's on-chain history would be
+// stranded under a dead URL, permanently.
+const urlHosts = []
+for (const dir of ['app', 'lib', 'hooks', 'components', 'scripts']) {
+  const abs = path.join(ROOT, dir)
+  if (!fs.existsSync(abs)) continue
+  for (const file of walk(abs)) {
+    if (!/\.(ts|tsx|js|mjs)$/.test(file)) continue
+    const rel = path.relative(ROOT, file)
+    if (rel === path.join('lib', 'siteUrl.ts')) continue // the one place allowed to name it
+    const src = fs.readFileSync(file, 'utf8')
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/(^|[^:])\/\/[^\n]*/g, '$1')
+    // The literal domain is banned everywhere. Reading NEXT_PUBLIC_SITE_URL is
+    // only banned in TypeScript, which can import the constant — the treasury
+    // CLI is plain CommonJS run under bare node and has no import to reach for.
+    const bad = /\.(ts|tsx)$/.test(file)
+      ? /nullstate[a-z0-9-]*\.vercel\.app|NEXT_PUBLIC_SITE_URL/
+      : /nullstate[a-z0-9-]*\.vercel\.app/
+    if (bad.test(src)) urlHosts.push(rel)
+  }
+}
+for (const f of urlHosts) {
+  note('production URL set outside lib/siteUrl.ts', f)
+}
+
 // ── report ───────────────────────────────────────────────────────────────────
 console.log(`checked ${checkedAssets} asset paths, ${checkedLayers} LPC layers, ${checkedWeapons} weapons`)
 if (!problems.length) {

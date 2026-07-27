@@ -1,6 +1,6 @@
 import type { MetadataRoute } from 'next'
 
-const siteUrl = 'https://nullstate-ten.vercel.app'
+import { SITE_URL as siteUrl } from '@/lib/siteUrl'
 
 const routes = ['/', '/docs', '/game', '/terms', '/privacy']
 

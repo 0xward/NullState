@@ -77,7 +77,10 @@ Our secure database stores:
 
 1. Never share your seed phrase
 2. Never share your private key
-3. Only connect to https://nullstate-ten.vercel.app
+3. Only connect to the official URL — https://nullstate-ten.vercel.app today,
+   moving to an owned domain (see `docs/custom-domain.md`). The old address
+   keeps redirecting, so a link that used to work will keep working; treat any
+   *other* host claiming to be NULL_STATE as a phishing attempt.
 4. Use hardware wallet if you have large balances
 5. Verify contract addresses before transactions
 
