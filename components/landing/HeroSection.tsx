@@ -119,8 +119,18 @@ export default function HeroSection() {
           >
             PLAY
           </a>
+          {/* aria-label, not a relabel. "LEARN MORE" on its own is the exact
+              phrase Lighthouse's link-text audit treats as non-descriptive —
+              it was the single failing SEO audit on this page (92/100), and a
+              crawler reading the link out of context learns nothing about
+              where it goes. The visible text stays, because the button pairs
+              with PLAY and the shorter word is what makes that pair read.
+              The label opens with the visible text on purpose: WCAG 2.5.3
+              wants the accessible name to contain the visible one, so voice
+              control still activates it by what is written on screen. */}
           <a
             href="/docs"
+            aria-label="Learn more about how NULL_STATE works"
             className="font-mono uppercase no-underline inline-flex items-center justify-center"
             style={{
               minHeight: 52, minWidth: 168, fontSize: 12, letterSpacing: '2.5px',
