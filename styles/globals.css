@@ -631,6 +631,83 @@ button:not(:disabled):active, a:active, [role='button']:active {
   to   { transform: translateX(28%); }
 }
 
+/* ─── Hero logo: signal breakup ────────────────────────────────────────────
+   Chromatic aberration on a burst timer. Two tinted copies of the same file
+   sit exactly on top of the original at opacity 0 and stay that way for about
+   six and a half of every seven seconds; the burst is four stepped frames
+   where they jump apart, each clipped to a different horizontal band so the
+   logo appears to tear rather than simply blur.
+
+   Intermittent on purpose. A logo that glitches CONTINUOUSLY stops reading as
+   a broken signal and starts reading as a broken stylesheet — and it is
+   exhausting to sit under while someone decides whether to press PLAY. The
+   navbar wordmark already works this way (0.6s of jitter, 4s of stillness);
+   this is the same rhythm at hero scale, so the two agree.
+
+   steps(1) everywhere, deliberately. Interpolating between these frames gives
+   a smooth slide, which looks like the logo is floating. Digital tearing
+   snaps — it has no in-between states.
+
+   The copies are the same src as the original, so they are one cache hit and
+   zero extra bytes over the wire. screen blending over a dark backdrop makes
+   the offsets glow instead of muddying. */
+.ns-logo-glitch { position: relative; display: block; }
+.ns-logo-glitch > img { display: block; width: 100%; height: auto; }
+
+.ns-logo-g {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  mix-blend-mode: screen;
+  will-change: transform, opacity;
+}
+/* Magenta ghost, leading. grayscale first flattens the logo's own green and
+   white so the hue-rotate lands somewhere predictable instead of being pulled
+   around by the source colours — without it, -38deg came out gold.
+   Magenta paired with cyan below is the actual chromatic-aberration pair (a
+   red and blue channel offset together read as magenta), and it stays cool,
+   which the amber version did not: gold is nowhere in this game's palette and
+   read as warm film damage rather than a digital signal fault. */
+.ns-logo-g-a {
+  filter: grayscale(1) sepia(1) saturate(9) hue-rotate(-95deg) brightness(1.05);
+  animation: nsLogoGlitchA 7.2s steps(1) infinite;
+}
+/* Cyan ghost, trailing the other way — the offset pair is what the eye reads
+   as chromatic aberration rather than as a drop shadow. */
+.ns-logo-g-b {
+  filter: sepia(1) saturate(7) hue-rotate(142deg) brightness(1.15);
+  animation: nsLogoGlitchB 7.2s steps(1) infinite;
+}
+/* The original shifts a pixel or two on the same beats. Without this the
+   ghosts look like they are sliding out from behind something stationary. */
+.ns-logo-base { animation: nsLogoShift 7.2s steps(1) infinite; }
+
+@keyframes nsLogoGlitchA {
+  0%, 91%  { opacity: 0;   transform: translate3d(0, 0, 0);      clip-path: inset(0 0 0 0); }
+  92%      { opacity: .95; transform: translate3d(-4px, 1px, 0); clip-path: inset(12% 0 61% 0); }
+  93.6%    { opacity: .85; transform: translate3d(5px, -1px, 0); clip-path: inset(47% 0 24% 0); }
+  95.2%    { opacity: .9;  transform: translate3d(-6px, 0, 0);   clip-path: inset(69% 0 6% 0); }
+  96.8%    { opacity: .7;  transform: translate3d(3px, 2px, 0);  clip-path: inset(2% 0 80% 0); }
+  98%, 100%{ opacity: 0;   transform: translate3d(0, 0, 0);      clip-path: inset(0 0 0 0); }
+}
+@keyframes nsLogoGlitchB {
+  0%, 91%  { opacity: 0;   transform: translate3d(0, 0, 0);      clip-path: inset(0 0 0 0); }
+  92%      { opacity: .95; transform: translate3d(5px, -1px, 0); clip-path: inset(30% 0 44% 0); }
+  93.6%    { opacity: .85; transform: translate3d(-5px, 1px, 0); clip-path: inset(60% 0 14% 0); }
+  95.2%    { opacity: .9;  transform: translate3d(6px, 0, 0);    clip-path: inset(6% 0 74% 0); }
+  96.8%    { opacity: .7;  transform: translate3d(-3px, -2px, 0);clip-path: inset(52% 0 30% 0); }
+  98%, 100%{ opacity: 0;   transform: translate3d(0, 0, 0);      clip-path: inset(0 0 0 0); }
+}
+@keyframes nsLogoShift {
+  0%, 91%   { transform: translate3d(0, 0, 0); }
+  92%       { transform: translate3d(1px, 0, 0); }
+  93.6%     { transform: translate3d(-2px, 0, 0); }
+  95.2%     { transform: translate3d(2px, 0, 0); }
+  96.8%     { transform: translate3d(-1px, 0, 0); }
+  98%, 100% { transform: translate3d(0, 0, 0); }
+}
+
 /* Anyone who asked the OS for less motion gets exactly that. */
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
@@ -640,6 +717,11 @@ button:not(:disabled):active, a:active, [role='button']:active {
      scene keeps every layer, it just holds still. */
   .ns-hero-cloud, .ns-hero-cloud-b, .ns-hero-motes { animation: none; }
   .ns-hero-bg { animation: none; transform: scale(1.06); }
+  /* The logo glitch is the one layer that DOES disappear rather than freeze.
+     Frozen mid-burst it is not a still logo, it is a broken one — the ghosts
+     would sit permanently offset with no way to read them as an effect. */
+  .ns-logo-base { animation: none; }
+  .ns-logo-g { animation: none; opacity: 0; }
   button, a, [role='button'], .menu-btn { transition: none; }
   button:not(:disabled):active, a:active, [role='button']:active { transform: none; }
 }

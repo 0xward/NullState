@@ -99,14 +99,24 @@ export default function HeroSection() {
             280 is also 840/3 exactly, so the desktop cap stays an integer
             downscale of the source — the reason this file is 840px wide and
             not 640 is that a resampled resample softens the pixel edges. */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={LOGO}
-          alt="NullState"
-          width={840} height={318}
-          className="w-[min(58vw,280px)] h-auto"
-          style={{ animation: 'fadeUp .6s .25s both', filter: 'drop-shadow(0 4px 22px rgba(0,0,0,.85))' }}
-        />
+        {/* Three copies of one file. The two ghosts are aria-hidden and carry
+            no alt, so a screen reader still hears exactly one logo — see
+            .ns-logo-glitch in globals.css for what they do and why the burst
+            is intermittent. Same src means one cache hit, no extra download. */}
+        <div className="ns-logo-glitch w-[min(58vw,280px)]" style={{ animation: 'fadeUp .6s .25s both' }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={LOGO}
+            alt="NullState"
+            width={840} height={318}
+            className="ns-logo-base"
+            style={{ filter: 'drop-shadow(0 4px 22px rgba(0,0,0,.85))' }}
+          />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={LOGO} alt="" aria-hidden="true" width={840} height={318} className="ns-logo-g ns-logo-g-a" />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={LOGO} alt="" aria-hidden="true" width={840} height={318} className="ns-logo-g ns-logo-g-b" />
+        </div>
 
         <p
           className="font-mono uppercase mt-2 max-w-[320px] sm:max-w-none"
