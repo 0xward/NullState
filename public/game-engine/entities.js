@@ -1066,12 +1066,42 @@ class Enemy {
     this.aggro = isBoss?9999:(elite?420:300);
     this.hitFlash=0; this.dead=false; this.deathT=0; this.kb={x:0,y:0};
     this.spawnT=0.45;
+    // ─── Anti-clump: three small per-enemy variations ───────────────────────
+    // A room's crew shares an archetype, so it shared a speed, an aggro radius
+    // and a target point — every enemy in it started on the same frame, moved
+    // at the same rate toward the same pixel, and arrived as a single stack.
+    // Nothing was wrong with any one of them; they were identical, and
+    // identical things converge.
+    //
+    // Bosses are excluded from all three. A single enemy cannot clump, and a
+    // boss with a randomised speed is a boss whose dodge timing changes run to
+    // run — that is a fight becoming unreadable, not a fight becoming varied.
+    if(!isBoss){
+      this.spd  *= 0.88 + Math.random()*0.24;   // ±12% — the group spreads along its own path
+      this.aggro*= 0.85 + Math.random()*0.30;   // they notice you at different moments
+      // Beat before the chase starts. Turns "the room lunges" into "one of
+      // them sees you, then the others do". Cleared instantly by hurt(), so
+      // hitting a monster never leaves it standing there taking it.
+      this._react = 0.10 + Math.random()*0.45;
+      // A personal bearing to approach on, up to ~29 degrees off the straight
+      // line, which fans a group out instead of queueing it single file. It
+      // decays to zero as they close, so the last stretch and the strike are
+      // still aimed dead at the player — the spread is in the approach, not in
+      // the attack.
+      this._approachOff = (Math.random()*2-1)*0.5;
+    } else {
+      this._react = 0; this._approachOff = 0;
+    }
     this.home=null; // room bounds (set by game.js) — bunker guards never leave their room
     this.ultiOffered=false; // ulti popup shown once per enemy
     this.name = arch.isBossScale ? arch.name : (elite ? (arch.name+' (Elite)') : arch.name);
   }
   hurt(dmg){
     this.hp-=dmg; this.hitFlash=0.18;
+    // Being hit ends the reaction beat immediately. A monster that stands
+    // still while you swing at it does not read as "hasn't noticed you yet",
+    // it reads as broken.
+    this._react = 0;
     if(this.hp<=0 && !this.dead){
       this.dead=true;
       if(this.useLPC && this.lpc && this.lpc.monBase){
@@ -1108,7 +1138,43 @@ class Enemy {
     this.x=Math.max(this.home.x0,Math.min(this.home.x1,this.x));
     this.y=Math.max(this.home.y0,Math.min(this.home.y1,this.y));
   }
-  update(dt, player, dun){
+  // Push out of anyone we are standing inside. Enemies deliberately do not
+  // collide (game.js keeps their pathing simple), which is fine — but "does
+  // not collide" turned into "occupies the same pixel forever" once a group
+  // converged. This is a soft shove, not a collision: overlapping is allowed,
+  // it just stops being stable, so a stack unpacks itself over a few frames
+  // and reads as a crowd instead of one sprite with several health bars.
+  //
+  // Runs whatever the enemy is doing, including idle, so a pile left over
+  // from a previous fight sorts itself out too. Walls and the home room still
+  // win — this can never shove anything through geometry or out of its post.
+  _separate(dt, others, dun){
+    if(!others || others.length < 2) return;
+    let sx=0, sy=0, n=0;
+    for(const o of others){
+      if(o===this || o.dead) continue;
+      const dx=this.x-o.x, dy=this.y-o.y;
+      const rr=(this.r+o.r)*1.05;
+      const d2=dx*dx+dy*dy;
+      if(d2>=rr*rr) continue;
+      if(d2<0.0001){
+        // Exactly co-located: no direction to push along, so invent one.
+        // Without this, two spawns on the same pixel would sit there forever.
+        const a=Math.random()*Math.PI*2; sx+=Math.cos(a); sy+=Math.sin(a); n++;
+        continue;
+      }
+      const d=Math.sqrt(d2), w=(rr-d)/rr;   // deeper overlap pushes harder
+      sx+=(dx/d)*w; sy+=(dy/d)*w; n++;
+    }
+    if(!n) return;
+    const m=Math.hypot(sx,sy)||1;
+    const push=this.spd*0.85*dt;
+    const nx=this.x+(sx/m)*push, ny=this.y+(sy/m)*push;
+    if(!dun.isWall(nx,this.y)) this.x=nx;
+    if(!dun.isWall(this.x,ny)) this.y=ny;
+    this.clampHome();
+  }
+  update(dt, player, dun, others){
     if(this.spawnT>0) this.spawnT-=dt;
     if(this.dead){
       this.deathT-=dt;
@@ -1165,12 +1231,23 @@ class Enemy {
       if(!this.cfg.attack && this.atkTime<dt+0.001){ this.attackFlashT=0.5; this._wantSwingFx=true; }
       if(this.atkTime>=0.55){ this.attacking=false; this.atkCd=0.6; }
     } else if(dist<this.aggro && this.playerInHome(player)){
+      // The reaction beat only burns down once this one has actually noticed
+      // the player, so a monster across the floor is not quietly using its
+      // head start before you ever walked in.
+      if(this._react>0) this._react-=dt;
       if(dist<=reach && this.atkCd<=0){
         this.attacking=true; this.atkTime=0; this.hitDone=false; this.windupT=0.22;
-      } else if(dist>reach){
+      } else if(dist>reach && this._react<=0){
         // chase — clamped to the home room so guards never spill out the door
         const _slow=this._slowT>0?(this._slowMul||1):1;
-        let vx=dx/dist*this.spd*_slow, vy=dy/dist*this.spd*_slow;
+        // Approach on this enemy's own bearing rather than straight down the
+        // line, so three of them arrive from three angles instead of forming a
+        // queue behind whichever one is closest. The offset scales with how
+        // far out we still are and reaches zero at ~140px, which puts every
+        // strike back on the straight line — the fan-out is travel, not aim.
+        const _off = this._approachOff * Math.min(1, Math.max(0, (dist-reach)/140));
+        const _a = Math.atan2(dy,dx) + _off;
+        let vx=Math.cos(_a)*this.spd*_slow, vy=Math.sin(_a)*this.spd*_slow;
         this._mvx=vx; this._mvy=vy;
         const nx=this.x+vx*dt, ny=this.y+vy*dt;
         if(!dun.isWall(nx,this.y)) this.x=nx;
@@ -1193,6 +1270,9 @@ class Enemy {
         chasing=true;
       }
     }
+    // Unstack. After movement so it corrects wherever this frame put us, and
+    // before knockback so a shove still reads as a clean shove.
+    this._separate(dt, others, dun);
     if(this.attackFlashT>0) this.attackFlashT-=dt;
     if(this.windupT>0) this.windupT-=dt;
     // knockback (also clamped to the home room)
