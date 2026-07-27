@@ -265,16 +265,19 @@ export default function SeasonPassScreen({ onBack, address }: SeasonPassScreenPr
             <div className="font-mono text-[11px] text-null-muted">Mint the active-season pass to unlock daily claims.</div>
           ) : (
             <div className="flex flex-col sm:flex-row gap-2">
+              {/* .ns-cta with the is-done state (styles/game.css). Claimed and
+                  disabled used to render identically — grey, outlined, dead.
+                  "You already collected this" and "you can't do this" are
+                  different messages, and showing the first as the second reads
+                  as a broken button rather than a finished one. */}
               <button
                 onClick={() => claimPerk('energy')}
                 disabled={perkBusy !== null || perks.energy.claimedToday}
                 className={
-                  'flex-1 font-mono text-[10px] tracking-[1px] uppercase py-2.5 transition-all duration-200 ' +
-                  (perkBusy !== null || perks.energy.claimedToday
-                    ? 'text-null-muted border border-[rgba(42,74,53,0.6)] cursor-not-allowed'
-                    : 'text-null-green border border-[rgba(0,255,136,0.5)] hover:border-null-green hover:bg-[rgba(0,255,136,0.08)]')
+                  'ns-cta flex-1' +
+                  (perkBusy === 'energy' ? ' is-busy' : '') +
+                  (perks.energy.claimedToday ? ' is-done' : '')
                 }
-                style={{ clipPath: 'polygon(4px 0, 100% 0, calc(100% - 4px) 100%, 0 100%)' }}
               >
                 {perkBusy === 'energy'
                   ? 'CLAIMING…'
@@ -286,12 +289,10 @@ export default function SeasonPassScreen({ onBack, address }: SeasonPassScreenPr
                 onClick={() => claimPerk('shards')}
                 disabled={perkBusy !== null || perks.shards.claimedToday}
                 className={
-                  'flex-1 font-mono text-[10px] tracking-[1px] uppercase py-2.5 transition-all duration-200 ' +
-                  (perkBusy !== null || perks.shards.claimedToday
-                    ? 'text-null-muted border border-[rgba(42,74,53,0.6)] cursor-not-allowed'
-                    : 'text-null-green border border-[rgba(0,255,136,0.5)] hover:border-null-green hover:bg-[rgba(0,255,136,0.08)]')
+                  'ns-cta flex-1' +
+                  (perkBusy === 'shards' ? ' is-busy' : '') +
+                  (perks.shards.claimedToday ? ' is-done' : '')
                 }
-                style={{ clipPath: 'polygon(4px 0, 100% 0, calc(100% - 4px) 100%, 0 100%)' }}
               >
                 {perkBusy === 'shards'
                   ? 'CLAIMING…'

@@ -489,3 +489,76 @@
 .ns-confirm-btn.ghost{background:transparent;border-color:rgba(255,255,255,.15);color:#7d9c8f;}
 .ns-confirm-btn.ghost:hover{border-color:rgba(255,255,255,.3);color:#cfeede;background:transparent;}
 .ns-confirm-btn:disabled{opacity:.5;cursor:not-allowed;}
+
+/* ─── .ns-cta — the button you are actually meant to press ──────────────────
+   Owner: "tulisan Mint $3 di pass season ukurannya terlalu kecil dan tipis,
+   juga Claim daily nya kaya kurang menonjol, buat lebih game lagi".
+
+   Both were the same shape: 10px type, 1px letter-spacing, a half-transparent
+   1px outline and no fill. That styling is correct for a secondary action and
+   wrong for the two most important buttons on the screen — one of them takes
+   real money. An outline reads as "you may do this if you like"; a game's
+   primary action should read as a thing that wants pressing.
+
+   So it is a filled slab now: solid green, dark type, an inset highlight along
+   the top-left and a shadow under it, which is the same treatment the landing
+   page's PLAY button uses. The two screens agree, and the eye lands on the
+   right control without being told to.
+
+   44px minimum height, not negotiable — this is a phone game played
+   one-handed, and it is the same floor the landing buttons hold.
+
+   Three states, deliberately distinguished. A CLAIMED button is not a
+   DISABLED button: one means you already got it, the other means you cannot.
+   Making them look identical (which they did) tells the player the game is
+   broken rather than that they are done for the day. */
+.ns-cta{
+  width:100%; min-height:44px;
+  display:flex; align-items:center; justify-content:center; gap:8px;
+  font-family:var(--font-mono),monospace; font-weight:700;
+  font-size:13px; letter-spacing:1.6px; text-transform:uppercase;
+  padding:11px 14px; border:2px solid #0a3d24; cursor:pointer;
+  color:#04140c; background:var(--green);
+  box-shadow:inset 2px 2px 0 rgba(255,255,255,.38), 0 0 18px rgba(0,255,136,.32);
+  clip-path:polygon(7px 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%, 0 7px);
+  transition:filter .12s ease, transform .08s ease;
+}
+.ns-cta:hover{ filter:brightness(1.1); }
+/* The press has to be felt on a touchscreen, where there is no hover to tell
+   you the tap registered. */
+.ns-cta:active{ transform:translateY(1px); filter:brightness(1.18); }
+
+/* Price rides along at the end, bigger than the label. On a shop button the
+   number is the decision — burying it inside the same 10px run as the verb
+   was the actual complaint. */
+.ns-cta-price{ font-size:15px; font-weight:800; letter-spacing:1px; }
+
+/* Working. Keeps the fill so the button does not appear to vanish mid-tap. */
+.ns-cta.is-busy{ background:#0f8f5c; color:#cbffe6; box-shadow:inset 2px 2px 0 rgba(255,255,255,.15); cursor:progress; }
+
+/* Done for now — earned, not blocked. Amber, because green would read as
+   "still available" at a glance. */
+.ns-cta.is-done{
+  background:rgba(255,179,71,.14); border-color:rgba(255,179,71,.55);
+  color:var(--amber); box-shadow:none; cursor:default;
+}
+
+/* Genuinely unavailable. */
+.ns-cta:disabled:not(.is-busy):not(.is-done){
+  background:rgba(42,74,53,.35); border-color:rgba(42,74,53,.8);
+  color:#5d7a6c; box-shadow:none; cursor:not-allowed;
+}
+
+/* Secondary actions keep the old outline look, on purpose — the point of
+   filling the primary is that it stands apart from these. */
+.ns-cta.secondary{
+  background:rgba(0,255,136,.05); color:var(--green);
+  border-color:rgba(0,255,136,.5); box-shadow:none;
+  font-size:11px; font-weight:600; letter-spacing:1.2px;
+}
+.ns-cta.secondary:hover{ background:rgba(0,255,136,.12); border-color:var(--green); }
+
+@media (prefers-reduced-motion:reduce){
+  .ns-cta{ transition:none; }
+  .ns-cta:active{ transform:none; }
+}

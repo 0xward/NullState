@@ -48,8 +48,11 @@ export default function SeasonPassCard({
   priceUsd,
   onMint,
 }: SeasonPassCardProps) {
+  // The price is now its own element rather than a fragment of one 10px
+  // string, so it can be set larger than the verb beside it. On a shop button
+  // the number is the decision the player is making.
   const MINT_LABEL: Record<SeasonPassCardProps['mintPhase'], string> = {
-    idle: `MINT PASS — ${formatUsd(priceUsd)}`,
+    idle: 'MINT PASS',
     paying: 'SENDING PAYMENT…',
     verifying: 'VERIFYING PAYMENT…',
     minting: 'MINTING…',
@@ -178,18 +181,25 @@ export default function SeasonPassCard({
           <span className="text-null-amber">{statusLine}</span>
         </div>
 
+        {/* .ns-cta (styles/game.css): filled slab, 13px bold, 44px floor.
+            This is the only button on the card that spends money and it was
+            styled as a secondary outline at 10px — see the class comment. */}
         <button
           onClick={onMint}
           disabled={buttonDisabled}
           className={
-            'w-full font-mono text-[10px] tracking-[1px] uppercase py-2.5 transition-all duration-200 ' +
-            (buttonDisabled
-              ? 'text-null-muted border border-[rgba(42,74,53,0.6)] cursor-not-allowed'
-              : 'text-null-green border border-[rgba(0,255,136,0.5)] hover:border-null-green hover:bg-[rgba(0,255,136,0.08)]')
+            'ns-cta' +
+            (mintPhase !== 'idle' ? ' is-busy' : '') +
+            (mintPhase === 'idle' && hasPass ? ' is-done' : '')
           }
-          style={{ clipPath: 'polygon(4px 0, 100% 0, calc(100% - 4px) 100%, 0 100%)' }}
         >
-          {buttonLabel}
+          <span>{buttonLabel}</span>
+          {/* Price shows only when the button is actually offering the sale —
+              not next to SOLD OUT or PASS ACTIVE, where it would be quoting a
+              price for something you cannot buy. */}
+          {mintPhase === 'idle' && !hasPass && !soldOut && isConnected && (
+            <span className="ns-cta-price">{formatUsd(priceUsd)}</span>
+          )}
         </button>
         {!hasPass && mintPhase === 'idle' && (
           <div className="mt-2 text-null-muted text-[9px] tracking-[1px] uppercase text-center">
