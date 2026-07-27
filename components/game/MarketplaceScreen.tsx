@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useWallet, CELO_CHAIN_ID } from '@/lib/WalletProvider'
 import { GiCrossedSwords, GiCheckedShield, GiMagnifyingGlass } from 'react-icons/gi'
-import { pickBestPaymentToken } from '@/lib/constants/tokens'
+import { pickBestPaymentToken, readStablecoinBalances } from '@/lib/constants/tokens'
 import { MARKETPLACE_ITEMS, ACCEPTED_TOKENS, getMarketplaceItem, resolveItemId, tokenLabel, TOKEN_LOGOS, type MarketplaceItem, type MarketplaceTokenSymbol } from '@/lib/constants/marketplace'
 
 interface MarketplaceScreenProps {
@@ -24,6 +24,12 @@ export default function MarketplaceScreen({ onBack, address }: MarketplaceScreen
   // Null until wagmi has loaded; the effect below already handles that.
   const publicClient = wallet.publicClient
   const [token, setToken] = useState<MarketplaceTokenSymbol>('USDm')
+  // The same three balances pickBestPaymentToken reads, kept rather than
+  // discarded — so the selector can show what the player holds instead of
+  // making them discover it by failing a purchase.
+  const [stableBalances, setStableBalances] = useState<Record<MarketplaceTokenSymbol, number | null>>(
+    { USDm: null, USDC: null, USDT: null },
+  )
   // Flexible stablecoin (Phase 2): default the "Pay with" token to whichever of
   // USDm/USDC/USDT the wallet holds the most of, so a player isn't forced to
   // top up a specific coin. The manual selector below still lets them switch;
@@ -34,6 +40,9 @@ export default function MarketplaceScreen({ onBack, address }: MarketplaceScreen
     let cancelled = false
     pickBestPaymentToken(publicClient, address as `0x${string}`).then(best => {
       if (!cancelled && !manualTokenRef.current) setToken(best)
+    })
+    readStablecoinBalances(publicClient, address as `0x${string}`).then(b => {
+      if (!cancelled) setStableBalances(b)
     })
     return () => { cancelled = true }
   }, [address, publicClient, isGuest])
@@ -417,7 +426,19 @@ export default function MarketplaceScreen({ onBack, address }: MarketplaceScreen
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={TOKEN_LOGOS[t]} alt="" className="h-4 w-4 shrink-0 rounded-full" draggable={false} />
                 )}
-                {tokenLabel(t)}
+                <span className="flex flex-col items-start leading-tight">
+                  <span>{tokenLabel(t)}</span>
+                  {/* Only when the balance was actually read. `null` means the
+                      call failed, and printing 0.00 for that would be a lie
+                      that pushes the player toward the wrong token. */}
+                  {stableBalances[t] !== null && (
+                    <span className={`text-[9px] font-normal normal-case tracking-normal ${
+                      token === t ? 'text-[#5a3a10]' : 'text-[#8a6a3f]'
+                    }`}>
+                      {stableBalances[t]!.toFixed(2)}
+                    </span>
+                  )}
+                </span>
               </button>
             ))}
           </div>
