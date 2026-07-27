@@ -223,9 +223,32 @@ function tryMakeDungeon(depth){
     }
     if(!tiles.length) continue;
     const n = 1 + Math.min((Math.random()*(1+depth/3))|0, 3);
+    // Spawn points used to be picked independently, so nothing stopped two of
+    // them landing on the same tile — and with up to four per room that was
+    // common. A room would open with its whole crew standing inside each
+    // other, and since they then chase the identical point at the identical
+    // speed they never came apart. One swing hitting three stacked bodies is
+    // what made kills feel unearned.
+    //
+    // Now each point has to clear the ones already placed. Twelve tries, and
+    // if the room is too cramped to satisfy the gap we keep the most spread
+    // candidate we saw rather than failing to spawn — a tight room SHOULD feel
+    // tight, it just shouldn't stack bodies at one pixel.
+    const MIN_GAP = TILE * 2.2;
+    const placed = [];
     for(let k=0;k<n;k++){
-      const [tx,ty]=tiles[(Math.random()*tiles.length)|0];
-      spawns.push({ x:(tx+0.35+Math.random()*0.3)*TILE, y:(ty+0.35+Math.random()*0.3)*TILE, room:r.id });
+      let best=null, bestD=-1;
+      for(let t=0;t<12;t++){
+        const [tx,ty]=tiles[(Math.random()*tiles.length)|0];
+        const px=(tx+0.35+Math.random()*0.3)*TILE, py=(ty+0.35+Math.random()*0.3)*TILE;
+        let d=Infinity;
+        for(const s of placed){ const q=Math.hypot(px-s.x, py-s.y); if(q<d) d=q; }
+        if(d>=MIN_GAP){ best={x:px,y:py}; break; }
+        if(d>bestD){ bestD=d; best={x:px,y:py}; }
+      }
+      if(!best) continue;
+      placed.push(best);
+      spawns.push({ x:best.x, y:best.y, room:r.id });
     }
   }
 

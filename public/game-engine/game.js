@@ -3319,10 +3319,13 @@ function update(dt){
   // button a frame later than it visually died. Non-blocking — never pauses.
   updateActionButton(nearest, nd);
   for(const e of G.enemies){
-    e.update(dt, p, G.dun);
+    // 4th arg: the rest of the floor's enemies, so each one can push out of
+    // whoever it is standing inside (Enemy._separate). This comment used to
+    // say "also separation" one line down while nothing separated anything.
+    e.update(dt, p, G.dun, G.enemies);
     if(e.takeSwingFx()) spark(e.x+e.facing*e.r, e.y-e.r*0.4, e.elite?'#ffd166':'#ff8a7a', 10, 90);
   }
-  // resolve enemy-dealt damage collected in hitTest already; also separation
+  // resolve enemy-dealt damage collected in hitTest already
   G.enemies = G.enemies.filter(e=>!(e.dead && e.deathT<=0));
   // decorations
   for(const o of G.decor) o.update(dt);
