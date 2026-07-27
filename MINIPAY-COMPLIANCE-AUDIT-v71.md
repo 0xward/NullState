@@ -152,8 +152,7 @@ npx lighthouse https://your-vercel-app.vercel.app --view
 
 | Item | Status | URL | Details |
 |------|--------|-----|---------|
-| MiniPay add cash link | ✅ | `minipay.opera.com/add_cash` | Fixed v68 (was .com → .com) |
-| Deeplink to game | ✅ | `minipay.opera.com/add_cash?addr=...` | Ready (requires MiniPay to relay) |
+| Deposit deeplink | ✅ | `link.minipay.xyz/add_cash?tokens=USDT,USDC,USDM` | **Corrected 2026-07.** This table previously marked `minipay.opera.com/add_cash` as ✅ with the note "Fixed v68 (was .com → .com)" — a checked box pointing at a host MiniPay does not publish. `docs.minipay.xyz/technical-references/deeplinks.html` states *"All deep links use the host link.minipay.xyz"* and lists no `minipay.opera.com` at all. Live value is in `lib/errorUtils.ts`; see `MINIPAY-COMPLIANCE-CHECKLIST.md` §1. |
 | Session key UI | ✅ | Marketplace > "Pay with MiniPay" button | Wired; MiniPay handles UX |
 | Portrait lock | ✅ | App state | Portrait-only (landscape not tested) |
 

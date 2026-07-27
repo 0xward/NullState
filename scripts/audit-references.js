@@ -193,6 +193,44 @@ for (const f of urlHosts) {
   note('production URL set outside lib/siteUrl.ts', f)
 }
 
+// ── 8. the NFT metadata URL burned into the contract is actually served ──────
+// PassSBTv3.BASE_URI is a `string public constant` — deployed, no setter — and
+// tokenURI() hands it to every wallet and explorer that renders a Season Pass.
+// Nothing served that path for months: public/assets/sbt-pass/ did not exist,
+// so every pass ever minted resolved to a 404 and showed up as an unnamed
+// token with no image. It went unnoticed because the game draws the pass from
+// its own UI and never reads tokenURI, so the only broken view was the one the
+// developer never looks at.
+//
+// An on-chain constant cannot be corrected later, which makes "is something
+// actually behind it" worth failing a build over.
+const solPath = path.join(ROOT, 'contracts', 'PassSBTv3.sol')
+if (fs.existsSync(solPath)) {
+  const sol = fs.readFileSync(solPath, 'utf8')
+  const m = sol.match(/string\s+public\s+constant\s+BASE_URI\s*=\s*"([^"]+)"/)
+  if (!m) {
+    note('PassSBTv3.sol', 'BASE_URI not found — the metadata guard cannot check anything')
+  } else {
+    let urlPath
+    try { urlPath = new URL(m[1]).pathname } catch { urlPath = null }
+    if (!urlPath) {
+      note('PassSBTv3.sol BASE_URI is not a parseable URL', m[1])
+    } else {
+      const clean = urlPath.replace(/^\/+|\/+$/g, '')          // assets/sbt-pass/metadata
+      const asStatic = path.join(ROOT, 'public', clean)
+      // A route handler lives one segment deeper, under a dynamic segment.
+      const routeDir = path.join(ROOT, 'app', clean)
+      const servedByRoute =
+        fs.existsSync(routeDir) &&
+        fs.readdirSync(routeDir).some((d) =>
+          /^\[.+\]$/.test(d) && fs.existsSync(path.join(routeDir, d, 'route.ts')))
+      if (!fs.existsSync(asStatic) && !servedByRoute) {
+        note('nothing serves PassSBTv3.BASE_URI', `${urlPath} — every minted pass resolves to a 404`)
+      }
+    }
+  }
+}
+
 // ── report ───────────────────────────────────────────────────────────────────
 console.log(`checked ${checkedAssets} asset paths, ${checkedLayers} LPC layers, ${checkedWeapons} weapons`)
 if (!problems.length) {
