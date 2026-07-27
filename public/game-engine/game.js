@@ -1770,16 +1770,30 @@ function applyHitToEnemy(e, dmg, fromX, fromY, beh){
   // "efek mengenai musuh"). Now once-per-swing so aoe doesn't stack it.
   const _pg = G.player && G.player._weaponGlow;
   if(_pg && _swingFx){
+    // The impact burst existed but was one fixed size, so a tier-3 weapon hit
+    // exactly as hard as a tier-2 one on screen. It scales now: the moment of
+    // contact is where a paid upgrade should be felt, more than the idle glow.
+    const _evo = Math.max(1, (G.player && G.player._wpnTier) || 1);
+    const _n    = _evo >= 3 ? 30 : 18;
+    const _spd  = _evo >= 3 ? 340 : 260;
+    const _shwr = _evo >= 3 ? 14 : 8;
     const _fx2 = window.NS_FX;
     if(_fx2){
-      _fx2.particleBurst(G.particles, e.x, e.y-e.r*0.5, _pg, 14, 240);
-      _fx2.particleShower && _fx2.particleShower(G.particles, e.x, e.y-e.r*0.5, _fxWhite(_pg,0.5), 6, 180);
+      _fx2.particleBurst(G.particles, e.x, e.y-e.r*0.5, _pg, _n, _spd);
+      _fx2.particleShower && _fx2.particleShower(G.particles, e.x, e.y-e.r*0.5, _fxWhite(_pg,0.5), _shwr, 180);
     } else {
-      spark(e.x,e.y-e.r*0.5,_pg,14,220);
+      spark(e.x,e.y-e.r*0.5,_pg,_n,_spd-20);
     }
     // expanding ring flash, drawn by the FX ring list if present. Cap the list
     // so a burst of hits can never pile up an additive brightness spike.
-    if(G.rings){ G.rings.push({ x:e.x, y:e.y-e.r*0.5, t:0, dur:0.32, col:_pg, r0:e.r*0.6, r1:e.r*2.2 }); if(G.rings.length>10) G.rings.splice(0, G.rings.length-10); }
+    // Tier 3 throws a second, wider, slower ring behind the first — a shockwave
+    // rather than a bigger spark, which is what makes the top tier feel like a
+    // different weapon instead of the same one turned up.
+    if(G.rings){
+      G.rings.push({ x:e.x, y:e.y-e.r*0.5, t:0, dur:0.32, col:_pg, r0:e.r*0.6, r1:e.r*(_evo>=3?2.8:2.2) });
+      if(_evo>=3) G.rings.push({ x:e.x, y:e.y-e.r*0.5, t:0, dur:0.5, col:_fxWhite(_pg,0.45), r0:e.r*0.9, r1:e.r*4.2 });
+      if(G.rings.length>10) G.rings.splice(0, G.rings.length-10);
+    }
   }
   const _shakeAmt = e.isBoss ? (_shakeCfg.bossHit||18) : (_shakeCfg.playerAttack||6);
   if(_swingFx || e.isBoss){ G.shake=Math.min(G.shake+_shakeAmt,14); A.hit(); } // once per swing (bosses always shake/sound)

@@ -10,6 +10,59 @@ import {
 } from '@/lib/constants/marketplace'
 import { GAME_CONFIG } from '@/lib/constants/game-config'
 
+// ─── Tier-accurate weapon icon ───────────────────────────────────────────────
+// Owner: "belum buat preview level 2 dan 3". The card used to show the plain
+// base sprite behind a box-shadow that grew slightly per tier, so a tier-3
+// weapon looked like a tier-2 one with a wider shadow — nothing about the
+// weapon itself changed, which is the thing the player just paid to change.
+//
+// This paints the SAME sprite the engine paints, with the SAME tier data the
+// engine reads: spriteOverrideTint on the pixels, glowOverride around them.
+// Deliberately derived rather than drawn as new art, because a hand-made
+// preview and a procedural in-game look drift apart the first time either is
+// touched — and a shop that promises something the dungeon does not deliver is
+// worse than a plain icon.
+//
+// The tint is a mask fill, not a filter: filters shift the whole image
+// including its dark outline, while masking to the sprite's own alpha tints
+// exactly the lit pixels and leaves the silhouette intact.
+function TierIcon({ item, tier, size = 36 }: { item: MarketplaceItem; tier: number; size?: number }) {
+  const step = tier > 1 ? item.evolutionTiers?.[tier - 2] : undefined
+  const tint = step?.spriteOverrideTint
+  const glow = step?.glowOverride || item.fxColor
+  const spread = tier > 1 ? 3 + 3 * (tier - 1) : 0
+  return (
+    <span className="relative inline-block" style={{ width: size, height: size }} aria-hidden={false}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={item.sprite}
+        alt={item.name}
+        className="absolute inset-0 h-full w-full [image-rendering:pixelated]"
+        style={tier > 1 && glow ? { filter: `drop-shadow(0 0 ${spread}px ${glow})` } : undefined}
+        onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden' }}
+      />
+      {tint && (
+        <span
+          className="pointer-events-none absolute inset-0"
+          style={{
+            background: tint,
+            opacity: tier >= 3 ? 0.55 : 0.35,
+            mixBlendMode: 'screen',
+            WebkitMaskImage: `url(${item.sprite})`,
+            maskImage: `url(${item.sprite})`,
+            WebkitMaskSize: 'contain',
+            maskSize: 'contain',
+            WebkitMaskRepeat: 'no-repeat',
+            maskRepeat: 'no-repeat',
+            WebkitMaskPosition: 'center',
+            maskPosition: 'center',
+          }}
+        />
+      )}
+    </span>
+  )
+}
+
 interface CraftingScreenProps {
   onBack: () => void
   // Free path: send the player back to the menu to start a run and farm the
@@ -315,13 +368,27 @@ export default function CraftingScreen({ onBack, onGoToRun, address }: CraftingS
       <div key={item.id}
         className={`rounded-lg border bg-gradient-to-b from-[#2b1a0d] to-[#1a0f06] p-3 ${activeHere ? 'border-[#e8bd6f]' : 'border-[#7a4f24]/60'}`}>
         <div className="flex items-center gap-3">
-          <div
-            className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded bg-black/40 border border-[#7a4f24]/50"
-            /* Phase 6: an evolved weapon's icon glows in its FX color, stronger per tier. */
-            style={curTier > 1 ? { boxShadow: `0 0 ${5 + 5 * (curTier - 1)}px ${item.fxColor || '#e8bd6f'}`, borderColor: item.fxColor || undefined } : undefined}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={item.sprite} alt={item.name} className="h-9 w-9 [image-rendering:pixelated]"
-              onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden' }} />
+          {/* Current tier, then what the next one actually looks like. Showing
+              only the current icon meant the upgrade was described in numbers
+              and never shown — the player paid shards for a change they could
+              not see until after it happened. */}
+          <div className="flex flex-shrink-0 items-center gap-1.5">
+            <div
+              className="flex h-12 w-12 items-center justify-center rounded bg-black/40 border border-[#7a4f24]/50"
+              style={curTier > 1 ? { boxShadow: `0 0 ${5 + 5 * (curTier - 1)}px ${item.evolutionTiers?.[curTier - 2]?.glowOverride || item.fxColor || '#e8bd6f'}`, borderColor: item.fxColor || undefined } : undefined}>
+              <TierIcon item={item} tier={curTier} />
+            </div>
+            {!atMax && (
+              <>
+                <span className="font-mono text-[11px] leading-none text-[#8a5a2b]" aria-hidden="true">›</span>
+                <div
+                  className="flex h-12 w-12 items-center justify-center rounded border border-dashed border-[#7a4f24]/70 bg-black/20 opacity-80"
+                  title={`Tier ${curTier + 1} preview`}
+                  style={{ boxShadow: `0 0 ${5 + 5 * curTier}px ${step?.glowOverride || item.fxColor || '#e8bd6f'}` }}>
+                  <TierIcon item={item} tier={curTier + 1} />
+                </div>
+              </>
+            )}
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">

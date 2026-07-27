@@ -289,15 +289,33 @@ const Audio = (() => {
   // Base tier (evo 1) is byte-identical to before — no extra layer.
   function _evoShine(t, evo){
     if (!ctx || evo < 2) return;
-    const gain  = evo >= 3 ? 0.16 : 0.10;
-    const freqs = evo >= 3 ? [1568, 2093, 2637] : [1319, 1760];
+    // Owner: tiers 2 and 3 should sound clearly different, from each other and
+    // from base. Two triangle notes against three, 0.10 against 0.16, was a
+    // difference you could only hear on headphones in a quiet room — and this
+    // game is played one-handed on a phone speaker on a bus.
+    //
+    // Tier 3 now gets a fourth note, a longer tail, and a low sine underneath
+    // the chime. The sine is what does most of the work: brightness alone
+    // reads as "sharper", weight is what reads as "stronger".
+    const hot   = evo >= 3;
+    const gain  = hot ? 0.22 : 0.12;
+    const freqs = hot ? [1568, 2093, 2637, 3136] : [1319, 1760];
+    const tail  = hot ? 0.22 : 0.14;
     freqs.forEach((fr, i) => {
       const o = ctx.createOscillator(), g = ctx.createGain();
       o.type = 'triangle'; o.frequency.value = fr;
       const st = t + 0.01 + i * 0.02;
-      env(g, st, 0.004, 0.14, gain);
-      o.connect(g); g.connect(sfxGain); o.start(st); o.stop(st + 0.2);
+      env(g, st, 0.004, tail, gain);
+      o.connect(g); g.connect(sfxGain); o.start(st); o.stop(st + tail + 0.06);
     });
+    if (hot) {
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = 'sine';
+      o.frequency.setValueAtTime(220, t);
+      o.frequency.exponentialRampToValueAtTime(96, t + 0.20);
+      env(g, t, 0.004, 0.20, 0.16);
+      o.connect(g); g.connect(sfxGain); o.start(t); o.stop(t + 0.28);
+    }
   }
   function attackFor(kind, evo){
     if (!ctx) return;
