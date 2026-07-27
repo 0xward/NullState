@@ -121,8 +121,10 @@ confirming the check goes red.
 
 ### Still open
 
-- **SEC-1** — reward endpoints are still unauthenticated (task #26). Revisit with
-  ODIS phone verification before the reward pools grow.
+- **SEC-1** — reward endpoints are still unauthenticated (task #26). Deferred by
+  the owner on 2026-07-27 while the pools are small. Written up in full, with
+  the exposure ranked, the trigger to act, and the approaches that will *not*
+  work under MiniPay's no-signing constraint: **`docs/SEC-1-reward-endpoints.md`**.
 - **Screenshots** for the submission (≥3, ≤500 KB each) not yet captured.
 - The device checklist above.
 
