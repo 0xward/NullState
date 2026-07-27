@@ -1,5 +1,13 @@
 # Moving to a custom domain
 
+> **Status: done.** `playnullstate.xyz` went live on 2026-07-27, with the
+> attribution code pinned to `celo_135bf4523d70` before the switch and verified
+> present in the live JavaScript afterwards (the new host's own code,
+> `celo_72ce33ffc948`, appears nowhere). The Vercel subdomain still `307`s to
+> the new domain on every path. This document stays as the record of what was
+> done and the order it had to happen in — and as the runbook if the domain
+> ever moves again, where step 2 below is the one that still matters most.
+
 The Celo team's review said one concrete thing about infrastructure:
 
 > The domain needs to be your own with HTTPS not vercel.

@@ -10,10 +10,10 @@ prep so Fa can copy-paste and adjust.
 | **Tagline** | A real-time dungeon crawler on Celo — descend the depths, sign on-chain NULL_STRIKEs, survive. |
 | **Publisher** | 1892 Studio |
 | **Support URL** | mailto:0xward.dev@gmail.com |
-| **Terms of Service** | https://nullstate-ten.vercel.app/terms |
-| **Privacy Policy** | https://nullstate-ten.vercel.app/privacy |
+| **Terms of Service** | https://playnullstate.xyz/terms |
+| **Privacy Policy** | https://playnullstate.xyz/privacy |
 | **Category** | Games |
-| **App URL (linkUrl)** | https://nullstate-ten.vercel.app *(**must change before listing** — the Celo review asked for an owned domain with HTTPS, not a Vercel subdomain. Runbook: `docs/custom-domain.md`)* |
+| **App URL (linkUrl)** | https://playnullstate.xyz |
 | **Icon** | `public/icon-512.png` (512×512, already exists) |
 
 ## Notes / things to double-check before submitting
@@ -27,13 +27,21 @@ prep so Fa can copy-paste and adjust.
   Telegram/WhatsApp/web support portal *ideally*, but email is explicitly
   allowed. If the Discord mentioned in `docs/faq.md` is live and public,
   that could be a stronger Support URL than a personal Gmail — your call.
-- **App URL** — resolved, and it is a blocker rather than a nice-to-have. The
-  Celo team reviewed the game (2026-07, Telegram) and said: *"The domain needs
-  to be your own with HTTPS not vercel."* So the three URLs above all move to
-  the owned domain before this form is submitted. The code side is already
-  ready — one variable, `NEXT_PUBLIC_SITE_URL` — but there is one step that
-  must happen FIRST and cannot be undone afterwards: pinning the Celo
-  attribution code. `docs/custom-domain.md` has the order.
+- **App URL** — done, and it was a blocker rather than a nice-to-have. The Celo
+  team reviewed the game (2026-07, Telegram) and said: *"The domain needs to be
+  your own with HTTPS not vercel."* `playnullstate.xyz` was connected on
+  2026-07-27 and verified live: valid certificate, every route 200, and
+  `robots.txt` / `sitemap.xml` / `og:url` / `og:image` all on the new host with
+  no reference to the old one left in the HTML.
+  - The Vercel subdomain still resolves and `307`s to the new domain on every
+    path, so links already shared in Telegram and in posts keep working. Do not
+    delete it.
+  - The Celo attribution code was pinned to `celo_135bf4523d70` (the old
+    hostname's code) *before* the switch, and confirmed present in the live
+    JavaScript — the domain-derived code for the new host,
+    `celo_72ce33ffc948`, appears nowhere. That keeps the project's on-chain
+    history continuous; it could not have been repaired afterwards.
+    `docs/custom-domain.md` has the full order.
 
 ---
 
@@ -67,7 +75,7 @@ NullStateRewardV2, TreasureVaultV2).
   No longer a blocker for the open-source requirement.
 - **Contracts (Celoscan)**: fill in the 4 verified contract links here —
   addresses are in `docs/sample-transactions.md` (updated v57)
-- **Live app**: https://nullstate-ten.vercel.app
+- **Live app**: https://playnullstate.xyz
 
 ---
 
