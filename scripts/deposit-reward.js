@@ -226,6 +226,49 @@ async function confirm(question, autoYes) {
   return /^y(es)?$/i.test(ans.trim())
 }
 
+// Read the live economics from the public stats endpoint and print them.
+//
+// WHY THIS IS HERE and not only on /stats: this is the moment the decision gets
+// made. Topping the pool up is the one action that turns "rewards are a
+// marketing cost" into an actual transfer, and it was being taken with no view
+// of what the previous rounds had cost. The numbers existed on a page nobody
+// opens while holding a private key.
+//
+// Never blocks and never throws. A stats outage must not stop the owner
+// refilling a pool that players are waiting on.
+async function showEconomics(baseUrl) {
+  const url = (baseUrl || process.env.STATS_URL || 'https://nullstate-ten.vercel.app') + '/api/stats'
+  let s
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(8000) })
+    if (!res.ok) throw new Error('HTTP ' + res.status)
+    s = (await res.json()).onchain
+  } catch (e) {
+    warn(`  (couldn't read live economics from ${url}: ${e.message})`)
+    return
+  }
+  if (!s) return
+
+  const usd = (n) => (typeof n === 'number' ? `$${n.toFixed(2)}` : '—')
+  info('')
+  info('  ── where the money stands ─────────────────────────')
+  info(`  taken in       ${usd(s.purchaseVolumeUsd)}  from ${s.uniqueBuyers ?? '?'} paying wallet(s), ${s.purchases ?? '?'} purchase(s)`)
+  info(`  paid out       ${usd(s.rewardsPaidUsd)}  across ${s.rewardsPaidCount ?? '?'} reward(s)`)
+  if (typeof s.netUsd === 'number') {
+    const line = `  net            ${s.netUsd < 0 ? '-' : '+'}$${Math.abs(s.netUsd).toFixed(2)}`
+    if (s.netUsd < 0) warn(line + (s.rewardRatio ? `   (${s.rewardRatio.toFixed(2)}x paid out per $1 in)` : ''))
+    else info(line)
+  }
+  // One paying wallet doing all the buying is almost always the developer
+  // testing, and it is worth saying out loud before that figure gets read as
+  // demand.
+  if (s.uniqueBuyers === 1 && (s.purchases ?? 0) > 1) {
+    warn('  every purchase so far came from ONE wallet — likely your own testing, not revenue')
+  }
+  info('  ───────────────────────────────────────────────────')
+  info('')
+}
+
 async function main() {
   loadEnv()
   const args = parseArgs(process.argv.slice(2))
@@ -363,6 +406,7 @@ async function main() {
       const bal = await balOf(token, account.address)
       if (bal < amount) die(`insufficient ${token.symbol}: have ${formatUnits(bal, token.decimals)}, need ${amtDollars}`)
       info(`  depositing $${amtDollars} ${token.symbol} = ${amount} base units into the vault pool`)
+      await showEconomics(args['stats-url'])
       if (!(await confirm(`Deposit $${amtDollars} ${token.symbol} to the Treasure Vault pool?`, autoYes))) return info('cancelled')
       await ensureAllowance(token, VAULT_ADDRESS, amount)
       await send(`depositVaultPool($${amtDollars} ${token.symbol})`, { address: VAULT_ADDRESS, abi: VAULT_ABI, functionName: 'depositVaultPool', args: [token.address, amount] })
@@ -471,6 +515,7 @@ async function main() {
       const bal = await balOf(token, account.address)
       if (bal < amount) die(`insufficient ${token.symbol}: have ${formatUnits(bal, token.decimals)}, need ${amtDollars}`)
       info(`  depositing $${amtDollars} ${token.symbol} to season ${seasonId}`)
+      await showEconomics(args['stats-url'])
       if (!(await confirm(`Deposit $${amtDollars} ${token.symbol} to season ${seasonId} bonus pool?`, autoYes))) return info('cancelled')
       await ensureAllowance(token, REWARD_ADDRESS, amount)
       await send(`depositSeasonBonus(s${seasonId}, $${amtDollars} ${token.symbol})`, { address: REWARD_ADDRESS, abi: REWARD_ABI, functionName: 'depositSeasonBonus', args: [BigInt(seasonId), token.address, amount] })

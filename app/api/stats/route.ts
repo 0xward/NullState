@@ -86,6 +86,12 @@ export async function GET() {
     let purchaseCount = 0
     let purchaseVolumeUsd = 0
     let volumeEstimated = 0
+    // How many DIFFERENT wallets have ever paid. "12 purchases" means something
+    // very different depending on whether it is twelve people or one person
+    // twelve times, and without this the page cannot tell you which — which is
+    // exactly the ambiguity that made a run of developer test purchases look
+    // like demand.
+    const buyers = new Set<string>()
     const revenueByKind: Record<string, { count: number; usd: number }> = {
       items: { count: 0, usd: 0 },
       passes: { count: 0, usd: 0 },
@@ -110,6 +116,8 @@ export async function GET() {
       purchaseVolumeUsd += usd
       revenueByKind[kind].count++
       revenueByKind[kind].usd += usd
+
+      if (typeof rec.wallet === 'string' && rec.wallet) buyers.add(rec.wallet.toLowerCase())
 
       const at = n(rec.at)
       touch(rec.wallet, at)
@@ -239,6 +247,23 @@ export async function GET() {
         passMints,
         rewardsPaidCount,
         rewardsPaidUsd: Math.round(rewardsPaidUsd * 1e6) / 1e6,
+        // How many different wallets have ever paid. Read this next to
+        // `purchases`: the two being far apart means a handful of people are
+        // buying repeatedly, which is a very different business from the same
+        // number of one-off buyers.
+        uniqueBuyers: buyers.size,
+        // Revenue minus rewards. Reported rather than left for the reader to
+        // subtract, because the two figures sat on this page for weeks without
+        // anybody putting them together — and the answer was negative the whole
+        // time. Rewards are a marketing cost, and a marketing cost you have not
+        // named is one you are not deciding about.
+        netUsd: Math.round((purchaseVolumeUsd - rewardsPaidUsd) * 100) / 100,
+        // Dollars paid out per dollar taken in. null rather than Infinity when
+        // nothing has been sold, so the UI shows "—" instead of a number that
+        // looks like a measurement.
+        rewardRatio: purchaseVolumeUsd > 0
+          ? Math.round((rewardsPaidUsd / purchaseVolumeUsd) * 100) / 100
+          : null,
         // passMints is no longer added on top — it is already in purchaseCount.
         transactionsTotal: purchaseCount + rewardsPaidCount,
         purchasesPerDay: perDay,
