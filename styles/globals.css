@@ -671,17 +671,31 @@ button:not(:disabled):active, a:active, [role='button']:active {
    read as warm film damage rather than a digital signal fault. */
 .ns-logo-g-a {
   filter: grayscale(1) sepia(1) saturate(9) hue-rotate(-95deg) brightness(1.05);
-  animation: nsLogoGlitchA 7.2s steps(1) infinite;
+  animation: nsLogoGlitchA 7.2s steps(1) -5.6s infinite;
 }
 /* Cyan ghost, trailing the other way — the offset pair is what the eye reads
    as chromatic aberration rather than as a drop shadow. */
 .ns-logo-g-b {
   filter: sepia(1) saturate(7) hue-rotate(142deg) brightness(1.15);
-  animation: nsLogoGlitchB 7.2s steps(1) infinite;
+  animation: nsLogoGlitchB 7.2s steps(1) -5.6s infinite;
 }
 /* The original shifts a pixel or two on the same beats. Without this the
    ghosts look like they are sliding out from behind something stationary. */
-.ns-logo-base { animation: nsLogoShift 7.2s steps(1) infinite; }
+.ns-logo-base { animation: nsLogoShift 7.2s steps(1) -5.6s infinite; }
+
+/* ─── Why all three carry -5.6s ────────────────────────────────────────────
+   The burst lives at 91–98% of a 7.2s cycle, so without a delay the first one
+   lands 6.6 seconds after the page opens — by which time most people have
+   already decided what this page is, and a good number have already tapped
+   PLAY. The effect was shipping to almost nobody.
+
+   A negative delay starts the animation mid-cycle. -5.6s puts the clock at
+   5.6s on the first frame, so the burst fires at t≈0.95s: immediately after
+   the logo's own fadeUp finishes at 0.85s, which is the earliest it can happen
+   without glitching something that is still fading in. Every burst after that
+   is on the normal 7.2s cadence.
+
+   Identical on all three so the ghosts and the base stay in lockstep. */
 
 @keyframes nsLogoGlitchA {
   0%, 91%  { opacity: 0;   transform: translate3d(0, 0, 0);      clip-path: inset(0 0 0 0); }
