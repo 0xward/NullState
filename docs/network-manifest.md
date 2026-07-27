@@ -217,21 +217,70 @@ Verified at runtime, the app contacts exactly **two** external origins.
     score still needs to be measured for real** after deploying to a
     preview URL. Regression-check Accessibility/Best Practices/SEO (all
     100 before this session) on that same run.
+- **✅ CURRENT — PageSpeed, `https://playnullstate.xyz`, mobile, 2026-07-27
+  22:46–22:50 WIB.** Run by Fa on pagespeed.web.dev; Moto G Power emulated,
+  slow-4G throttling, Lighthouse 13.4.0, HeadlessChromium 149. **This is the
+  score to attach to the MiniPay submission** — it is the URL being submitted.
+
+  | | Perf | A11y | Best Practices | SEO | Agentic |
+  |---|---|---|---|---|---|
+  | `/` | **99** | 100 | 100 | 92 | 2/2 |
+  | `/game` | **89** | 95 | 96 | 100 | 2/2 |
+
+  | metric | `/` | `/game` |
+  |---|---|---|
+  | First Contentful Paint | 0.9 s | 1.1 s |
+  | Largest Contentful Paint | 1.8 s | 2.7 s |
+  | Total Blocking Time | 40 ms | 120 ms |
+  | Cumulative Layout Shift | 0 | 0 |
+  | Speed Index | 3.1 s | 6.8 s |
+
+  Against the last reading (83 on the old domain, 2026-07-14) the landing page
+  is now 99 and comfortably in Google's green band. `/game` at 89 is one point
+  under. No field data yet ("Tidak Ada Data") — the origin has too few real
+  users for CrUX, which is what `lib/webVitals.ts` exists to work around.
+
+  - **Fixed in response to this run**: the LCP image on `/game`
+    (`/worldmap/map-bg.webp`) had no `fetchPriority`, which Lighthouse called
+    out directly — the request was discoverable in the initial document but
+    competing at default priority. And two rail badges failed WCAG AA contrast:
+    amber `#ffcf4d` on `#7a5a1f` was 4.32:1 against the 4.5:1 needed at 8px,
+    white on `#ff5a6a` was 3.03:1. Both deepened (7.82:1 and 5.43:1) with the
+    badge colours still recognisable.
+  - **Known and not acted on**, with the reason:
+    - *Oversized images, ~36 KiB* — `map-bg.webp` is served at 1024×1536 and
+      displayed at 960×1440 on the emulated device; the logo 680×680 vs
+      577×577. The "displayed" size is per-device: a 3× phone wants more pixels
+      than the emulator asked for, so shrinking the source trades sharpness on
+      real hardware for 36 KiB on a benchmark. Not obviously worth it on the
+      game's main art.
+    - *Render-blocking CSS, ~490 ms* — `/game` → CSS → CSS, a two-hop chain
+      ending at 1133 ms. This is the cost of the dungeon-CSS split (PERF-10)
+      and is worth revisiting with a preload, not by undoing the split.
+    - *Legacy JavaScript, ~12 KiB* — polyfills for `Array.prototype.at/flat/
+      flatMap`, `Object.fromEntries/hasOwn`, `String.trimStart/trimEnd`. A
+      modern `browserslist` drops them, but the floor that removes `Object.hasOwn`
+      is Safari/iOS 15.4 (March 2022), and getting that wrong is a white screen
+      rather than a slow page. 12 KiB is not worth deciding unilaterally.
+    - *Unused JavaScript, ~106 KiB* — three chunks. Real, but it is a
+      code-splitting project rather than a switch.
+  - **Open question**: SEO on `/` is 92 where `/game` is 100 and the old
+    reading was 100. Checked from the served HTML and ruled out: every `<a>`
+    has an `href` (9 of 9), meta description present, viewport correct, title
+    present. The remaining candidates are layout-dependent (tap-target spacing,
+    legible font sizes) and cannot be confirmed without the report's SEO
+    section.
 - **⚠ SUPERSEDED — the score below was measured against a URL that no longer
   serves the app.** On 2026-07-27 the site moved to its own domain,
   `https://playnullstate.xyz`; `nullstate-ten.vercel.app` now only `307`s
-  there. The number is kept as the last known reading, not as a current one.
-  The MiniPay submission attaches a score for the URL being submitted, so this
-  has to be re-run against the new domain **before** the form goes in.
-  - **Re-running it takes about 30 seconds and has to be done outside this
-    sandbox**: open https://pagespeed.web.dev/, paste `https://playnullstate.xyz`,
-    pick Mobile. Both automated routes were tried here on 2026-07-27 and
-    neither works from this container: the public PageSpeed API returns HTTP
-    429 (the shared anonymous project's daily quota is exhausted, and no API
-    key is configured), and a local Lighthouse run cannot load the page at all
-    — Chromium gets `ERR_CONNECTION_RESET` reaching the live host, with or
-    without the egress proxy, while `curl` to the same URL succeeds. That is an
-    environment limit, not a fault in the site.
+  there. Kept as history, under the current reading above.
+  - Both automated routes were tried from the container on 2026-07-27 and
+    neither works: the public PageSpeed API returns HTTP 429 (the shared
+    anonymous project's daily quota is exhausted, no API key configured), and a
+    local Lighthouse run cannot load the page — Chromium gets
+    `ERR_CONNECTION_RESET` reaching the live host, with or without the egress
+    proxy, while `curl` to the same URL succeeds. Environment limit, not a
+    fault in the site. Re-runs have to happen on pagespeed.web.dev.
   - What *could* be measured here, live against the new domain on 2026-07-27,
     for whatever it is worth as a regression check — **transfer weight of the
     resources referenced by the initial HTML**, compressed, as actually served:

@@ -122,7 +122,12 @@ function RailBtn({
           className="absolute font-mono font-extrabold"
           style={{
             top: -2, right: 3, minWidth: 15, height: 15, padding: '0 3px', fontSize: 8,
-            background: badge === 'SOON' ? '#7a5a1f' : '#ff5a6a',
+            // Both pairs failed WCAG AA. At 8px this is small text, so it needs
+            // 4.5:1 and the amber sat at 4.32 — near enough to pass by eye,
+            // which is exactly why it survived. Deepening the browns and reds
+            // keeps the badge colours recognisable: amber now 7.82:1, red
+            // 5.43:1. PageSpeed flagged the amber on /game (Accessibility 95).
+            background: badge === 'SOON' ? '#4a3610' : '#cc2434',
             color: badge === 'SOON' ? '#ffcf4d' : '#fff',
             borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #000',
           }}
@@ -229,8 +234,14 @@ export default function WorldMapHub({
           to the painted doors regardless of screen size (see .ns-hub-map). */}
       <div className="ns-hub-map">
         {/* eslint-disable-next-line @next/next/no-img-element */}
+        {/* fetchPriority="high": this is the LCP element on /game, and
+            PageSpeed flagged it explicitly — the request was discoverable in
+            the initial document but competing with everything else at default
+            priority. The browser cannot know a full-bleed decorative-looking
+            <img> is the thing the user is waiting for. LCP was 2.7s. */}
         <img
           src={MAP} alt="" aria-hidden="true"
+          fetchPriority="high" decoding="async"
           style={{ width: '100%', height: '100%', display: 'block', filter: 'brightness(1.12) contrast(1.06) saturate(1.05)' }}
         />
 
