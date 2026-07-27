@@ -223,6 +223,53 @@ async function pickBestTokenSymbol(
   }
 }
 
+/**
+ * Every accepted stablecoin balance, as a human number.
+ *
+ * pickBestTokenSymbol() above already reads all three on the way to answering
+ * "which does the user hold most of", then throws the amounts away. The shop's
+ * "Pay with" selector was therefore offering three tokens with no hint of what
+ * the player actually has: the DEFAULT was correct, but a player who tapped a
+ * token they hold none of learned that only by watching a transaction fail.
+ *
+ * Returns null per token when the balance cannot be read, so a UI can tell
+ * "you have zero" apart from "we could not check" — the first is worth showing
+ * as 0.00, the second is not worth showing at all. Never throws.
+ */
+export async function readStablecoinBalances(
+  publicClient: { readContract: (args: any) => Promise<unknown> } | undefined | null,
+  userAddress: `0x${string}` | undefined,
+): Promise<Record<MarketplaceTokenSymbol, number | null>> {
+  const empty = { USDm: null, USDC: null, USDT: null } as Record<MarketplaceTokenSymbol, number | null>;
+  if (!publicClient || !userAddress) return empty;
+
+  const symbols = Object.keys(MARKETPLACE_TOKENS) as MarketplaceTokenSymbol[];
+  const out = { ...empty };
+
+  await Promise.all(
+    symbols.map(async (symbol) => {
+      const cfg = MARKETPLACE_TOKENS[symbol];
+      try {
+        const raw = (await publicClient.readContract({
+          address: cfg.address as `0x${string}`,
+          abi: ERC20_READ_ABI,
+          functionName: 'balanceOf',
+          args: [userAddress],
+        })) as bigint;
+        // Integer division for the whole part, remainder for the fraction —
+        // Number(raw) on an 18-decimal balance loses precision well before it
+        // reaches a value anyone would spend.
+        const d = BigInt(10) ** BigInt(cfg.decimals);
+        out[symbol] = Number(raw / d) + Number(raw % d) / Number(d);
+      } catch {
+        out[symbol] = null;
+      }
+    }),
+  );
+
+  return out;
+}
+
 export async function pickBestFeeCurrency(
   publicClient: { readContract: (args: any) => Promise<unknown> } | undefined | null,
   userAddress: `0x${string}` | undefined,
