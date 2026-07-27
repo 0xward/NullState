@@ -948,6 +948,53 @@ function spawnDecorInto(floor, d){
       floor.decor.push(new Decor(t,c.px,c.py,'down'));
       midPlaced++;
     }
+
+    // ---- ambient dressing pass (owner rules) --------------------------
+    // Scenery that cannot be broken, opened or looted. Every rule below is
+    // the owner's, and each one is a constraint on WHERE, because the art
+    // itself only works in one place:
+    //
+    //   N wall only      — one front view per sprite, no S/E/W variant to
+    //                      fall back to (unlike tables, which have four)
+    //   never mid-floor  — so this pass reuses the wall-hug candidates and
+    //                      skips the mid-room list entirely
+    //   never at a door  — inherited free: `cand` already dropped anything
+    //                      within 2.2 tiles of a doorway
+    //   crates to the corners — the two stacked-crate sprites are the
+    //                      heaviest shapes here; parked at the far ends of
+    //                      the N wall they frame the room instead of
+    //                      interrupting it
+    //   never in the cells — the prison block's top strip is barred cells,
+    //                      and stacking crates against bars reads as a bug
+    if(r.shape !== 'cells'){
+      const north = cand.filter(c => c.facing === 'down');
+      if(north.length){
+        const AMB_CORNER = ['amb_crate_stack_a','amb_crate_stack_b'];
+        const AMB_WALL   = ['amb_barrel_a','amb_barrel_b','amb_barrel_c',
+                            'amb_urn_a','amb_urn_b','amb_urn_c','amb_urn_d','amb_urn_e',
+                            'amb_urn_f','amb_urn_g','amb_urn_h','amb_urn_i'];
+        const free = (px,py,gap) => !floor.decor.some(o=>Math.hypot(o.x-px,o.y-py)<TILE*gap);
+        // Corners first: the extreme ends of the room's north wall.
+        const byX = north.slice().sort((a,b)=>a.px-b.px);
+        const ends = byX.length>1 ? [byX[0], byX[byX.length-1]] : [byX[0]];
+        for(const e of ends){
+          if(Math.random()<0.35) continue;              // not every room, or it becomes a pattern
+          if(!free(e.px,e.py,1.15)) continue;
+          floor.decor.push(new Decor(AMB_CORNER[(Math.random()*AMB_CORNER.length)|0], e.px, e.py, 'down'));
+        }
+        // Then a couple of smaller pieces anywhere else along the same wall.
+        const rest = north.filter(c=>!ends.includes(c));
+        for(let i=rest.length-1;i>0;i--){ const j=(Math.random()*(i+1))|0; const t=rest[i]; rest[i]=rest[j]; rest[j]=t; }
+        let amb=0;
+        const nAmb = Math.min(rest.length, 1 + ((Math.random()*2)|0));
+        for(const c of rest){
+          if(amb>=nAmb) break;
+          if(!free(c.px,c.py,1.15)) continue;
+          floor.decor.push(new Decor(AMB_WALL[(Math.random()*AMB_WALL.length)|0], c.px, c.py, 'down'));
+          amb++;
+        }
+      }
+    }
   }
 }
 
@@ -1816,7 +1863,7 @@ function updateProjectiles(dt){
     // still open by walking up, an arrow just flies past them). Same
     // collision anchor as melee: prop center lifted by 0.4*h.
     for(const o of G.decor){
-      if(o.broken || o.interactive) continue;
+      if(o.broken || o.interactive || o.ambient) continue;  // ambient = scenery, never smashable
       if(Math.hypot(o.x-pr.x, (o.y-o.h*0.4)-pr.y) < pr.r+o.r){
         smashDecor(o);
         pr.dead=true;   // arrow stops in the prop it hits (no piercing)
@@ -1959,7 +2006,7 @@ function hitTest(){
       if(any===false){ /* swing missed enemies */ }
       // breakable decorations caught in the same swing (skip interactive containers)
       for(const o of G.decor){
-        if(o.broken || o.interactive) continue;
+        if(o.broken || o.interactive || o.ambient) continue;  // ambient = scenery, never smashable
         if(Math.hypot(o.x-(z.x), (o.y-o.h*0.4)-z.y) < z.r+o.r){
           smashDecor(o);
         }
@@ -3247,7 +3294,7 @@ function update(dt){
   G._nd=nd;
   // nearest unbroken non-interactive decoration (auto-smash targets only)
   let nearDecor=null, ndd=1e9;
-  for(const o of G.decor){ if(o.broken||o.interactive) continue;
+  for(const o of G.decor){ if(o.broken||o.interactive||o.ambient) continue;
     const d=Math.hypot(o.x-p.x,o.y-p.y); if(d<ndd){ ndd=d; nearDecor=o; } }
   // v65 T4: auto-attack must not trigger on targets the player hasn't
   // physically reached. isEntityVisibleToPlayer() only means the tile is
