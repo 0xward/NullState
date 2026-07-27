@@ -138,7 +138,11 @@ export function buildWeaponEvolution(item: MarketplaceItem): WeaponEvolutionTier
       atkBonusDelta: delta,
       spriteOverrideTint: brightenHex(fx, 0.20 + 0.20 * i),
       fxColorOverride: brightenHex(fx, 0.30 + 0.25 * i),
-      glowOverride: fx, // premium aura in the weapon's signature color
+      // The aura used to be `fx` flat, which meant tier 2 and tier 3 emitted
+      // the SAME glow — the one cue a player reads from across a room, and it
+      // did not move at all for the more expensive upgrade. Now the final tier
+      // burns noticeably hotter than the first, in the weapon's own colour.
+      glowOverride: brightenHex(fx, 0.35 * i), // i=0 -> signature colour, i=1 -> hot
     }
     if (util && i === steps - 1) tier.unlockUtility = util // granted at MAX tier only
     tiers.push(tier)

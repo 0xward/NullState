@@ -204,7 +204,10 @@
         atkBonusDelta: delta,
         spriteOverrideTint: brightenHex(fx, 0.20 + 0.20 * i),
         fxColorOverride: brightenHex(fx, 0.30 + 0.25 * i),
-        glowOverride: fx,
+        // Must stay identical to lib/constants/marketplace.ts — this file is
+        // the engine's mirror of it. Flat `fx` gave tier 2 and tier 3 the same
+        // aura, so the most visible cue did not move for the pricier upgrade.
+        glowOverride: brightenHex(fx, 0.35 * i),
       };
       if (util && i === steps - 1) tier.unlockUtility = util; // MAX tier only
       tiers.push(tier);

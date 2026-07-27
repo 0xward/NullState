@@ -870,9 +870,14 @@ class Player {
       // applyEquipment) into the swing FX so a leveled weapon visibly swings
       // bigger + brighter. evo 1 = byte-identical to the pre-evolution look.
       const evo = Math.max(1, this._wpnTier || 1);
-      const evoBoost = 1 + (evo-1)*0.18;     // 1, 1.18, 1.36
+      // Owner: tier 2 and 3 have to be obviously different from tier 1 and from
+      // each other. They were 1.00 / 1.18 / 1.36 — an 18% step, which is under
+      // the threshold anyone notices mid-fight on a 393px phone, so two paid
+      // upgrades landed as "did that do anything?". Now 1.00 / 1.30 / 1.65,
+      // a table rather than a formula so the steps are read, not derived.
+      const evoBoost = [1, 1, 1.30, 1.65][Math.min(3, evo)];
       const tierScale = (0.8 + tier*0.3) * evoBoost;      // base * evolution
-      const tierAlpha = Math.min(1, 0.65 + tier*0.15 + (evo-1)*0.06);
+      const tierAlpha = Math.min(1, 0.65 + tier*0.15 + (evo-1)*0.10);
       const fx = this.x+Math.cos(aimAng)*30, fy = this.y-6+Math.sin(aimAng)*30;
 
       // Ranged weapons (Ironbolt Crossbow 'ranged', Sunfire Longbow 'volley'):
@@ -942,7 +947,12 @@ class Player {
       // skipped entirely at base tier so the plain look is unchanged.
       if(evo>1){
         const gcol = this._weaponGlow || wc || '#ffffff';
-        const n = 2 + evo*2;                 // 6 at T2, 8 at T3
+        // Was 2 + evo*2 → 6 at T2, 8 at T3. Two sparks apart is not a visible
+        // difference; the spray just looked the same either way. 10 and 18
+        // read as "more" and "a lot more" without filling the screen — the
+        // spray is still confined to the swing arc, so it never hides the
+        // enemy the player is aiming at.
+        const n = evo >= 3 ? 18 : 10;
         for(let i=0;i<n;i++){
           const ang=base+dir*((i-n/2)*(1.7/n));
           const rr=(20+prog*24)*tierScale;
