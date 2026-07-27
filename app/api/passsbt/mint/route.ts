@@ -8,6 +8,7 @@ import { maybeGiftReferralPass } from '@/lib/server/referrals'
 import { MARKETPLACE_TOKENS, TREASURY_WALLET, type MarketplaceTokenSymbol } from '@/lib/constants/marketplace'
 import { parseTokenAmount } from '@/lib/constants/tokens'
 import { PASS_SBT_ADDRESS, PASS_SBT_ABI, getPassPriceUsd } from '@/lib/contract-abi'
+import { getServerAttributionSuffix } from '@/lib/attribution-tag'
 
 // =============================================
 // PASSSBT PAID-MINT VERIFY + BACKEND MINT
@@ -205,6 +206,7 @@ export async function POST(req: NextRequest) {
         functionName: 'backendMintPass',
         args: [wallet as `0x${string}`, seasonId],
         account,
+        dataSuffix: getServerAttributionSuffix(),
       })
       await publicClient.waitForTransactionReceipt({ hash: mintHash })
     } catch (mintErr: unknown) {

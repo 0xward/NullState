@@ -125,3 +125,70 @@ confirming the check goes red.
   ODIS phone verification before the reward pools grow.
 - **Screenshots** for the submission (≥3, ≤500 KB each) not yet captured.
 - The device checklist above.
+
+---
+
+## Celo-wide audit (celopedia, beyond the MiniPay listing form) — 2026-07-26
+
+The listing checklist only covers MiniPay. This pass went through the rest of
+the celopedia references — fee abstraction, attribution, token addresses,
+Celo-specific security risks, and the app-fit constraints.
+
+### Fixed: the backend's transactions were unattributed
+
+ERC-8021 attribution traces a transaction back to the app that sent it. It feeds
+Celo's impact tracking and future reward distribution, and it **cannot be
+backfilled** — an untagged transaction is unattributed permanently.
+
+`lib/attribution-tag.ts` derived the code from `window.location.hostname`, which
+does not exist on a server. So the four transactions the **backend** signs were
+all going out bare:
+
+| Where | Transaction |
+|---|---|
+| `app/api/vault/submit` | Treasure Vault payout — *real USDT to a player* |
+| `app/api/vault/submit` | Weekly vault code write |
+| `app/api/passsbt/mint` | Season Pass mint |
+| `lib/server/referrals.ts` | Referral pass gift |
+
+The payout is the single most worth-attributing transaction the project sends,
+and it was the one being lost. `getServerAttributionSuffix()` now covers all
+four. The hostname is hardcoded to the production host rather than read from a
+request header, for two reasons: it has to produce the *same* code as the
+browser (`celo_135bf4523d70`, verified by round-tripping through
+`fromDataSuffix`) or the dashboard splits NullState in two, and a header is
+attacker-controlled — deriving from one would let anyone send transactions under
+our code.
+
+`scripts/check-attribution.js` (`npm run check:attribution`, in CI) now fails the
+build on any `writeContract`/`sendTransaction` without a tag. 8 call sites, all
+covered; verified by removing a tag and watching it go red.
+
+### Verified correct, no change needed
+
+- **Fee-currency adapters** — the single easiest thing to get wrong here. USDC
+  and USDT must pass their *adapter* address in `feeCurrency`, not the token
+  address; USDm passes its own. `lib/constants/tokens.ts` has all three right
+  (`0x2F25deB3…` / `0x0E2A3e05…`), and `balanceOf` correctly reads the *token*
+  address, not the adapter.
+- **Token addresses** — USDm, USDC and USDT all match the canonical list
+  exactly.
+- **Preferred-stablecoin adaptation** — `pickBestTokenSymbol()` normalizes
+  6-decimal USDC/USDT against 18-decimal USDm before comparing, so the "which
+  does the user hold most of" answer is not skewed by decimals.
+- **Legacy transactions only** — no `maxFeePerGas` / `maxPriorityFeePerGas` /
+  `gasPrice` anywhere. MiniPay does not accept EIP-1559 fields.
+- **CIP-64 fee-abstraction accounting** — the purchase verifier matches an ERC20
+  `Transfer` event to the treasury rather than diffing balances, so a user
+  paying network fees in the same token they are spending cannot corrupt the
+  check. Also uses `>=`, not `==`.
+- **CELO token duality** — not applicable; every contract path is ERC20
+  stablecoin, none accepts native CELO.
+
+### Noted, deliberately not changed
+
+The UI labels the Mento Dollar **USDM** (uppercase), which is a real, *different*
+token on Celo — Mountain Protocol USD, `0x59D9356E…`. Ours is Mento's USDm,
+`0x765DE816…`, and the address in code is correct; only the display string is
+ambiguous. This was a deliberate product decision (task #14) so it stands, but
+it is worth knowing if a reviewer asks.

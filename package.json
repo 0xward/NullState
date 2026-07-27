@@ -17,7 +17,8 @@
     "build:engine": "node scripts/minify-game-engine.js",
     "build:weapons": "node scripts/build-weapon-skins.js",
     "audit": "node scripts/audit-references.js",
-    "check:copy": "node scripts/check-minipay-copy.js"
+    "check:copy": "node scripts/check-minipay-copy.js",
+    "check:attribution": "node scripts/check-attribution.js"
   },
   "dependencies": {
     "@celo/attribution-tags": "^0.3.0",

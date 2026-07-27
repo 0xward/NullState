@@ -39,3 +39,35 @@ export function withAttribution(data: Hex): Hex {
   const tag = getAttributionSuffix()
   return tag ? (concat([data, tag]) as Hex) : data
 }
+
+// ─── Server-side transactions ────────────────────────────────────────────────
+// Not every NullState transaction comes from a browser. The backend signs four
+// of them itself — the Treasure Vault payout and its score write
+// (app/api/vault/submit), the Season Pass mint (app/api/passsbt/mint), and the
+// referral pass gift (lib/server/referrals.ts) — and those were going out
+// completely untagged, because getAttributionSuffix() reads
+// window.location.hostname and there is no window on a server.
+//
+// That is the wrong half to lose. The vault payout is the transaction that
+// moves real USDT to a player; it is the most worth attributing of anything we
+// send. And attribution cannot be backfilled — untagged history stays
+// unattributed, so every payout signed before this was permanently uncounted.
+//
+// The hostname is hardcoded rather than read from a request header on purpose.
+// It has to produce the SAME code as the browser does on production, or the
+// dashboard splits NullState into two apps; and a header is attacker-controlled,
+// so deriving it from one would let anyone mint transactions under our code (or
+// ours under someone else's). This matches SITE_URL in app/layout.tsx.
+const PROD_HOSTNAME = 'nullstate-ten.vercel.app'
+
+let serverCached: Hex | null = null
+
+export function getServerAttributionSuffix(): Hex | undefined {
+  if (serverCached) return serverCached
+  try {
+    serverCached = toDataSuffix(codeFromHostname(PROD_HOSTNAME)) as Hex
+    return serverCached
+  } catch {
+    return undefined
+  }
+}
