@@ -543,6 +543,64 @@ button:not(:disabled):active, a:active, [role='button']:active {
    sideways, so the drift never shows a seam. Two instances at different sizes
    and opposite directions — one layer alone reads as a texture sliding past;
    two moving against each other read as weather. */
+/* ─── Landing backdrop: alive, not a photograph ────────────────────────────
+   The still frame read as dead, and the clouds that were supposed to fix that
+   were invisible in practice: alpha 0.11–0.15 under a 26–38px blur, sitting
+   BEHIND the vignette, drifting 28% over 74 seconds — about 0.4% of the
+   viewport per second. Technically animated, perceptually a JPEG.
+
+   Three layers now, all transform/opacity only so they stay on the compositor
+   and cost nothing on the main thread (PERF-6 was exactly this lesson):
+     1. the backdrop itself slowly pushes in and pans   — the depth cue
+     2. clouds, brighter and faster                     — the mid-ground
+     3. embers rising                                   — the foreground tell
+
+   Embers are the same idiom as the world map's .ns-hub-motes on purpose: the
+   landing page and the game should look like one place. */
+
+/* 1. Backdrop. Was a static inline transform: scale(1.06). A slow push-in with
+      a little lateral drift is the cheapest possible parallax — one element,
+      one composited property, no image work. 52s and eased so it never reads
+      as a loop; alternate so it breathes in and out instead of snapping back. */
+.ns-hero-bg {
+  filter: brightness(.46) saturate(.85) blur(2px);
+  transform: scale(1.06);
+  animation: nsHeroPush 52s ease-in-out infinite alternate;
+  will-change: transform;
+}
+@keyframes nsHeroPush {
+  from { transform: scale(1.06) translate3d(0, 0, 0); }
+  to   { transform: scale(1.15) translate3d(-1.6%, -1.1%, 0); }
+}
+
+/* 3. Embers. One element, gradient dots on a strip tiled vertically, scrolled
+      by exactly half its height so the loop is seamless. Sits under the
+      vignette so they fade out at the edges rather than ending abruptly. */
+.ns-hero-motes {
+  position: absolute;
+  left: 0; right: 0; top: 0;
+  height: 200%;
+  pointer-events: none;
+  opacity: .55;
+  background-image:
+    radial-gradient(2.2px 2.2px at 14% 9%,  rgba(150, 255, 200, .85), transparent 100%),
+    radial-gradient(1.6px 1.6px at 68% 17%, rgba(120, 235, 180, .70), transparent 100%),
+    radial-gradient(2.6px 2.6px at 37% 31%, rgba(175, 255, 215, .80), transparent 100%),
+    radial-gradient(1.8px 1.8px at 86% 39%, rgba(130, 240, 190, .65), transparent 100%),
+    radial-gradient(2.0px 2.0px at 24% 47%, rgba(160, 255, 205, .75), transparent 100%),
+    radial-gradient(1.5px 1.5px at 57% 21%, rgba(200, 255, 230, .60), transparent 100%);
+  background-repeat: repeat-y;
+  background-size: 100% 50%;
+  animation: nsHeroMotes 38s linear infinite;
+  will-change: transform;
+}
+@keyframes nsHeroMotes {
+  from { transform: translateY(0); }
+  to   { transform: translateY(-50%); }
+}
+
+/* 2. Clouds. Same shapes, roughly 1.7x the alpha and a shorter cycle, which is
+      the difference between "a still image" and "weather". */
 .ns-hero-cloud {
   position: absolute;
   top: -12%;
@@ -551,21 +609,22 @@ button:not(:disabled):active, a:active, [role='button']:active {
   height: 90%;
   pointer-events: none;
   background:
-    radial-gradient(38% 46% at 18% 42%, rgba(150, 190, 175, 0.15) 0%, transparent 62%),
-    radial-gradient(30% 40% at 45% 62%, rgba(130, 175, 160, 0.12) 0%, transparent 60%),
-    radial-gradient(42% 38% at 74% 36%, rgba(160, 200, 185, 0.13) 0%, transparent 64%);
+    radial-gradient(38% 46% at 18% 42%, rgba(150, 190, 175, 0.26) 0%, transparent 62%),
+    radial-gradient(30% 40% at 45% 62%, rgba(130, 175, 160, 0.21) 0%, transparent 60%),
+    radial-gradient(42% 38% at 74% 36%, rgba(160, 200, 185, 0.23) 0%, transparent 64%);
   filter: blur(26px);
-  animation: nsCloudDrift 74s linear infinite;
+  animation: nsCloudDrift 44s linear infinite;
+  will-change: transform;
 }
 .ns-hero-cloud-b {
   top: 18%;
   height: 78%;
-  opacity: 0.75;
+  opacity: 0.8;
   background:
-    radial-gradient(34% 42% at 28% 50%, rgba(120, 160, 150, 0.14) 0%, transparent 60%),
-    radial-gradient(46% 34% at 66% 40%, rgba(145, 185, 170, 0.11) 0%, transparent 62%);
+    radial-gradient(34% 42% at 28% 50%, rgba(120, 160, 150, 0.24) 0%, transparent 60%),
+    radial-gradient(46% 34% at 66% 40%, rgba(145, 185, 170, 0.19) 0%, transparent 62%);
   filter: blur(38px);
-  animation: nsCloudDrift 108s linear infinite reverse;
+  animation: nsCloudDrift 68s linear infinite reverse;
 }
 @keyframes nsCloudDrift {
   from { transform: translateX(0); }
@@ -577,8 +636,10 @@ button:not(:disabled):active, a:active, [role='button']:active {
   html { scroll-behavior: auto; }
   .ns-fade-in, .ns-rise, .ns-rise-1, .ns-rise-2, .ns-rise-3 { animation: none; }
   /* The clouds stay put rather than disappearing — reduced motion means stop
-     moving, not stop existing. */
-  .ns-hero-cloud, .ns-hero-cloud-b { animation: none; }
+     moving, not stop existing. Same for the embers and the backdrop push: the
+     scene keeps every layer, it just holds still. */
+  .ns-hero-cloud, .ns-hero-cloud-b, .ns-hero-motes { animation: none; }
+  .ns-hero-bg { animation: none; transform: scale(1.06); }
   button, a, [role='button'], .menu-btn { transition: none; }
   button:not(:disabled):active, a:active, [role='button']:active { transform: none; }
 }
