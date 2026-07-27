@@ -27,3 +27,26 @@ License for all pieces below: dual CC-BY-SA 3.0 / GPL 3.0 (LPC contest terms).
 Attribution required on distribution: credit the authors above, the
 Liberated Pixel Cup, and link the license (CC-BY-SA 3.0:
 https://creativecommons.org/licenses/by-sa/3.0/ or GPL 3.0).
+
+## Ambient dressing set (`amb_*.png`) + `amb_chest_gold.png`
+
+15 sprites cut (crop + alpha-trim only, no repainting) from
+`public/sprites/tiles2/topdown_objects.png`, which was already in this repo but
+which **nothing had ever loaded** — it shipped in `public/` and was referenced
+by no code path at all.
+
+Provenance of that sheet is UNVERIFIED. It entered the repository inside a
+single large squash commit (`01be51c`) with no CREDITS entry and no source URL,
+so its licence is unknown. That is a real gap, not an oversight in this file:
+the pieces are in use now, so if the original source can be identified it
+should be recorded here, and if it turns out to be incompatible these fifteen
+files are the ones to replace. `docs/network-manifest.md` also notes the sheet.
+
+- `amb_crate_stack_a/b` — stacked crates, corner dressing
+- `amb_barrel_a/b/c`    — sealed barrels
+- `amb_urn_a`…`amb_urn_i` — clay urns and vases, nine sizes
+- `amb_chest_gold`      — open gold chest; replaces the framed-coin art on the
+                          `plaque_coin` prop, which is now an openable container
+
+The first fourteen are `ambient:true` in props.js: scenery only, never
+breakable, never lootable, never interactive.

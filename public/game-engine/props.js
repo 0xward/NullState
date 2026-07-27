@@ -50,7 +50,13 @@ const DECOR_TYPES = {
   chalice:      { hp:1, w:26, h:40, label:'Ritual Chalice',  loot:[['relic',1,16],['xp',24,38],['hp',10,22],['gshard',1,10],['none',0,24]] },
   basin:        { hp:1, w:30, h:26, label:'Wash Basin',      loot:[['hp',10,52],['xp',10,24],['none',0,24]] },
   plaque_sword: { hp:1, w:24, h:26, label:'Armory Plaque',   loot:[['xp',20,52],['item',1,16],['none',0,32]], northOnly:true },
-  plaque_coin:  { hp:1, w:24, h:26, label:'Treasury Plaque', loot:[['xp',22,40],['relic',1,10],['item',1,16],['none',0,34]], northOnly:true },
+  // Owner: this one read as a framed photograph hanging on the wall, which
+  // is a strange thing to smash for XP. It is now the open gold chest cut
+  // from the same sheet as the ambient props — an actual container, opened
+  // with the OPEN button rather than hit, so what it looks like and what it
+  // does finally agree. Renamed to match; the key stays `plaque_coin` so no
+  // saved floor built before this change breaks on load.
+  plaque_coin:  { hp:2, w:29, h:22, label:'Gold Chest', loot:[['relic',1,16],['item',3,34],['xp',55,20],['hp',24,14],['gshard',1,16]], interactive:true, containerMaterial:'iron', northOnly:true },
   skull_heap:   { hp:1, w:32, h:16, label:'Skull Heap',      loot:[['xp',12,44],['relic',1,7],['hp',6,20],['gshard',1,8],['none',0,29]] },
   cot:          { hp:2, w:26, h:56, label:'Rotten Cot',      loot:[['hp',12,36],['xp',14,30],['item',1,12],['none',0,22]], northOnly:true },
   // ---- interactive containers (opened via OPEN button, like cabinet_s) ----
@@ -70,6 +76,41 @@ const DECOR_TYPES = {
   // containerMaterial is set anyway for consistency even though the vault
   // door never actually opens #containerWindow (see isVaultDoor routing).
   vault_door: { hp:1, w:50, h:74, label:'Sealed Vault Door', loot:[], interactive:true, isVaultDoor:true, containerMaterial:'vault' },
+
+  // ---- AMBIENT DRESSING (owner request) ---------------------------------
+  // Pure decoration. Cannot be broken, cannot be opened, drops nothing, and
+  // never shows an OPEN prompt — a room's furniture, not its contents.
+  //
+  // Everything else in this file is loot wearing a costume, which is why the
+  // bunkers read as a shop rather than a place: every object in frame is a
+  // thing the player is meant to consume. These are the objects that are just
+  // there. That is the entire point of them, so `ambient:true` is checked in
+  // Decor.hit(), in the melee sweep and in the interact scan — three places,
+  // because one missed guard turns a wall of scenery into a free XP farm.
+  //
+  // Art cut (crop + alpha-trim only, no repainting) from the top-down object
+  // sheet already in the repo at /sprites/tiles2/topdown_objects.png, which
+  // until now nothing ever loaded. Owner picked the pieces; stairs, ladders,
+  // keys, the window frame and the weapon rack were rejected.
+  //
+  // northOnly on every one of them: this art has a single front view, so it
+  // only reads correctly against the top wall. There is no S/E/W variant to
+  // fall back to, unlike the tables and benches.
+  amb_crate_stack_a: { hp:0, w:28, h:36, label:'Stacked Crates', loot:[], ambient:true, northOnly:true, corner:true },
+  amb_crate_stack_b: { hp:0, w:25, h:30, label:'Stacked Crates', loot:[], ambient:true, northOnly:true, corner:true },
+  amb_barrel_a:      { hp:0, w:29, h:32, label:'Sealed Barrels', loot:[], ambient:true, northOnly:true },
+  amb_barrel_b:      { hp:0, w:27, h:30, label:'Sealed Barrels', loot:[], ambient:true, northOnly:true },
+  amb_barrel_c:      { hp:0, w:22, h:29, label:'Sealed Barrel',  loot:[], ambient:true, northOnly:true },
+  amb_urn_a:         { hp:0, w:16, h:24, label:'Clay Urns',      loot:[], ambient:true, northOnly:true },
+  amb_urn_b:         { hp:0, w:14, h:19, label:'Clay Urn',       loot:[], ambient:true, northOnly:true },
+  amb_urn_c:         { hp:0, w:21, h:24, label:'Clay Urns',      loot:[], ambient:true, northOnly:true },
+  amb_urn_d:         { hp:0, w:14, h:19, label:'Clay Urn',       loot:[], ambient:true, northOnly:true },
+  amb_urn_e:         { hp:0, w:14, h:19, label:'Clay Urn',       loot:[], ambient:true, northOnly:true },
+  amb_urn_f:         { hp:0, w:11, h:16, label:'Small Urn',      loot:[], ambient:true, northOnly:true },
+  amb_urn_g:         { hp:0, w:11, h:16, label:'Small Urn',      loot:[], ambient:true, northOnly:true },
+  amb_urn_h:         { hp:0, w:9,  h:12, label:'Small Urn',      loot:[], ambient:true, northOnly:true },
+  amb_urn_i:         { hp:0, w:9,  h:12, label:'Small Urn',      loot:[], ambient:true, northOnly:true },
+
   // ---- Phase 8: sealed caches gated by a weapon-evolution traversal utility.
   // interactive (immune to combat swings) + loot:[] so open() rolls no window
   // slots — game.js grants a direct Glitch-Shard haul instead, and only when
@@ -113,19 +154,35 @@ const DECOR_SPRITE_SETS = {
   chalice:        { n:'chalice' },
   basin:          { n:'basin' },
   plaque_sword:   { n:'plaque_sword' },
-  plaque_coin:    { n:'plaque_coin' },
+  plaque_coin:    { n:'amb_chest_gold' },
   skull_heap:     { n:'skull_heap' },
   cot:            { n:'cot' },
   footlocker:     { n:'footlocker', broken:'footlocker_open' },
   shelf_stocked:  { n:'shelf_stocked', broken:'shelf_empty' },
   dresser:        { n:'dresser' },
   cabinet_ornate: { n:'cabinet_ornate' },
+  // Ambient dressing — one front view each, hence northOnly in DECOR_TYPES.
+  amb_crate_stack_a: { n:'amb_crate_stack_a' },
+  amb_crate_stack_b: { n:'amb_crate_stack_b' },
+  amb_barrel_a:      { n:'amb_barrel_a' },
+  amb_barrel_b:      { n:'amb_barrel_b' },
+  amb_barrel_c:      { n:'amb_barrel_c' },
+  amb_urn_a:         { n:'amb_urn_a' },
+  amb_urn_b:         { n:'amb_urn_b' },
+  amb_urn_c:         { n:'amb_urn_c' },
+  amb_urn_d:         { n:'amb_urn_d' },
+  amb_urn_e:         { n:'amb_urn_e' },
+  amb_urn_f:         { n:'amb_urn_f' },
+  amb_urn_g:         { n:'amb_urn_g' },
+  amb_urn_h:         { n:'amb_urn_h' },
+  amb_urn_i:         { n:'amb_urn_i' },
 };
 const DECOR_TYPE_TO_SET = { cabinet_s:'cabinet', wardrobe:'cabinet', safe:'safe', table_w:'table_w', bench:'bench',
   oak_barrel:'oak_barrel', barrel_stack:'barrel_stack', bucket:'bucket', bucket_water:'bucket_water',
   boulder:'boulder', hay_pile:'hay_pile', chalice:'chalice', basin:'basin',
   plaque_sword:'plaque_sword', plaque_coin:'plaque_coin', skull_heap:'skull_heap', cot:'cot',
   footlocker:'footlocker', shelf_stocked:'shelf_stocked', dresser:'dresser', cabinet_ornate:'cabinet_ornate',
+  amb_crate_stack_a:'amb_crate_stack_a', amb_crate_stack_b:'amb_crate_stack_b', amb_barrel_a:'amb_barrel_a', amb_barrel_b:'amb_barrel_b', amb_barrel_c:'amb_barrel_c', amb_urn_a:'amb_urn_a', amb_urn_b:'amb_urn_b', amb_urn_c:'amb_urn_c', amb_urn_d:'amb_urn_d', amb_urn_e:'amb_urn_e', amb_urn_f:'amb_urn_f', amb_urn_g:'amb_urn_g', amb_urn_h:'amb_urn_h', amb_urn_i:'amb_urn_i',
   // Phase 8 caches reuse existing container art (no new PNGs needed).
   cache_grapple:'safe', cache_melt:'footlocker', premium_cache:'cabinet' };
 const _decorImgs = {};
@@ -178,10 +235,15 @@ class Decor {
     this.bob=Math.random()*Math.PI*2;
     // Interactive containers (chests): opened via interact key, not combat.
     this.interactive=!!def.interactive;
+    // Ambient dressing: scenery. Not breakable, not openable, drops nothing.
+    this.ambient=!!def.ambient;
     this.opened=false; this.openT=0;
   }
   hit(dmg){
     if(this.broken) return false;
+    // Scenery absorbs nothing and yields nothing — a swing passes through it
+    // as if it were part of the wall, which is what it is.
+    if(this.ambient) return false;
     // Interactive containers cannot be damaged by combat swings.
     if(this.interactive) return false;
     this.hp-=1; this.hitFlash=0.16; this.shake=4;
