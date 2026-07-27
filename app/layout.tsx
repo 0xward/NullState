@@ -75,6 +75,37 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               "try{if(sessionStorage.getItem('ns-splash-seen')==='1'){document.documentElement.classList.add('ns-splash-seen')}}catch(e){}",
           }}
         />
+        {/* Structured data. Search engines cannot tell from HTML alone that this
+            page is a free game rather than an article about one, so a text
+            crawler has to guess — and it guesses from a landing page whose
+            content is mostly styled fragments. This states it outright, which
+            is what makes a result eligible for Google's app rich results.
+
+            `price: 0` is the literal truth and worth being precise about: the
+            game is free to play, and the only things that cost money are
+            optional cosmetics inside it. Claiming otherwise in structured data
+            is the kind of mismatch that gets rich results revoked. */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              '@context': 'https://schema.org',
+              '@type': 'VideoGame',
+              name: 'NULL_STATE',
+              url: SITE_URL,
+              description:
+                'A real-time pixel dungeon crawler on Celo. Descend the Forsaken Depths, survive permadeath, and earn real USDT rewards — playable free inside MiniPay.',
+              image: `${SITE_URL}/og-image.png`,
+              applicationCategory: 'GameApplication',
+              genre: ['Role-playing game', 'Dungeon crawler'],
+              operatingSystem: 'Web, Android (MiniPay)',
+              gamePlatform: ['Web browser', 'MiniPay'],
+              playMode: 'SinglePlayer',
+              author: { '@type': 'Organization', name: '1892 Studio' },
+              offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+            }),
+          }}
+        />
       </head>
       <body className="min-h-screen bg-null-bg text-null-white antialiased">
         {/* Boot splash — deep-black logo screen + 2.5s loading bar shown on
