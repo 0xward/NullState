@@ -14,6 +14,9 @@ interface StatsPayload {
     purchases: number
     purchasesByToken: { USDM: number; USDC: number; USDT: number }
     purchaseVolumeUsd: number
+    uniqueBuyers?: number
+    netUsd?: number
+    rewardRatio?: number | null
     volumeEstimated: number
     revenueByKind: Record<string, { count: number; usd: number }>
     passMints: number
@@ -240,6 +243,32 @@ export default function StatsPage() {
               />
               <Stat label="Season Passes" value={fmt(t?.passMints)} accent="#c9a0ff" />
               <Stat label="USDT rewards paid" value={fmtUsd(t?.rewardsPaidUsd)} accent="#7ef0a6" hint={`${fmt(t?.rewardsPaidCount)} payouts`} />
+              {/* Revenue minus rewards, and how many different people have ever
+                  paid. Both numbers existed on this page already — one as two
+                  figures nobody subtracted, the other not at all — and between
+                  them they are the difference between "we sold twelve things"
+                  and "one person bought twelve things while we paid out two and
+                  a half times what came in". */}
+              <Stat
+                label="Net position"
+                // fmtUsd already carries the $; the sign goes in front of it,
+                // not instead of it. The first version sliced the $ off and
+                // rendered "−18.05", which reads as a quantity rather than
+                // money.
+                value={t?.netUsd == null ? '—' : `${t.netUsd < 0 ? '−' : '+'}${fmtUsd(Math.abs(t.netUsd))}`}
+                accent={t?.netUsd != null && t.netUsd < 0 ? '#f0787a' : '#7ef0a6'}
+                hint={t?.rewardRatio != null ? `$${t.rewardRatio.toFixed(2)} paid out per $1 in` : 'revenue − rewards'}
+              />
+              <Stat
+                label="Paying wallets"
+                value={fmt(t?.uniqueBuyers)}
+                accent="#f2cd82"
+                hint={
+                  t?.uniqueBuyers && t?.purchases
+                    ? `${(t.purchases / t.uniqueBuyers).toFixed(1)} purchases each`
+                    : 'distinct buyers, all time'
+                }
+              />
               <Stat
                 label="Paid with"
                 value={`${fmt(t?.purchasesByToken.USDM)}·${fmt(t?.purchasesByToken.USDC)}·${fmt(t?.purchasesByToken.USDT)}`}
