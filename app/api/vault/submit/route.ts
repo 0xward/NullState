@@ -20,6 +20,7 @@ import {
   parseWeekId,
   normalizeWalletAddress,
 } from '@/lib/vault-utils'
+import { getServerAttributionSuffix } from '@/lib/attribution-tag'
 
 // The on-chain payout can involve up to TWO sequential transactions the first
 // time anyone wins in a given week (store the week's code on-chain, then pay),
@@ -74,6 +75,7 @@ async function finalizeVaultPayout(params: {
           functionName: 'storeWeeklyVaultCode',
           args: [weekBig, expectedCode], // the Firebase code the Paper shows
           account,
+          dataSuffix: getServerAttributionSuffix(),
         })
         await publicClient.waitForTransactionReceipt({ hash: storeHash })
       } catch (storeErr) {
@@ -95,6 +97,7 @@ async function finalizeVaultPayout(params: {
       functionName: 'submitVaultCode',
       args: [walletAddress as `0x${string}`, weekBig, expectedCode],
       account,
+      dataSuffix: getServerAttributionSuffix(),
     })
     await publicClient.waitForTransactionReceipt({ hash })
 

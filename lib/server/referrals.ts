@@ -4,6 +4,7 @@ import { celo } from 'viem/chains'
 import { PASS_SBT_ABI, PASS_SBT_ADDRESS } from '@/lib/contract-abi'
 import { getCurrentSeasonId } from '@/lib/web3-client'
 import type { getAdminDb } from '@/firebase-config'
+import { getServerAttributionSuffix } from '@/lib/attribution-tag'
 
 // =============================================
 // REFERRALS — shared server helpers (growth blueprint 2A)
@@ -93,6 +94,7 @@ export async function maybeGiftReferralPass(db: Db, buyerWallet: string): Promis
       functionName: 'backendMintPass',
       args: [referrer as `0x${string}`, seasonId],
       account,
+      dataSuffix: getServerAttributionSuffix(),
     })
     await publicClient.waitForTransactionReceipt({ hash: mintHash })
     await giftRef.update({ status: 'success', mintTxHash: mintHash })

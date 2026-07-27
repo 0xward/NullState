@@ -109,5 +109,12 @@ jobs:
       - name: MiniPay copy rules
         run: npm run check:copy
 
+      # An untagged Celo transaction is unattributed FOREVER — the ERC-8021
+      # suffix cannot be backfilled. Nothing else notices: the tx succeeds
+      # either way, dataSuffix is an optional param, and the loss is only
+      # visible on a dashboard nobody checks per-PR.
+      - name: Celo attribution tags
+        run: npm run check:attribution
+
       - name: TypeScript
         run: npx tsc --noEmit
