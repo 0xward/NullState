@@ -217,6 +217,38 @@ Verified at runtime, the app contacts exactly **two** external origins.
     score still needs to be measured for real** after deploying to a
     preview URL. Regression-check Accessibility/Best Practices/SEO (all
     100 before this session) on that same run.
+- **⚠ SUPERSEDED — the score below was measured against a URL that no longer
+  serves the app.** On 2026-07-27 the site moved to its own domain,
+  `https://playnullstate.xyz`; `nullstate-ten.vercel.app` now only `307`s
+  there. The number is kept as the last known reading, not as a current one.
+  The MiniPay submission attaches a score for the URL being submitted, so this
+  has to be re-run against the new domain **before** the form goes in.
+  - **Re-running it takes about 30 seconds and has to be done outside this
+    sandbox**: open https://pagespeed.web.dev/, paste `https://playnullstate.xyz`,
+    pick Mobile. Both automated routes were tried here on 2026-07-27 and
+    neither works from this container: the public PageSpeed API returns HTTP
+    429 (the shared anonymous project's daily quota is exhausted, and no API
+    key is configured), and a local Lighthouse run cannot load the page at all
+    — Chromium gets `ERR_CONNECTION_RESET` reaching the live host, with or
+    without the egress proxy, while `curl` to the same URL succeeds. That is an
+    environment limit, not a fault in the site.
+  - What *could* be measured here, live against the new domain on 2026-07-27,
+    for whatever it is worth as a regression check — **transfer weight of the
+    resources referenced by the initial HTML**, compressed, as actually served:
+
+    | page | requests | over the wire | breakdown |
+    |---|---|---|---|
+    | `/` | 22 | **0.46 MB** | webp 177KB · js 172KB · woff2 87KB · css 11KB |
+    | `/game` | 31 | **0.63 MB** | webp 291KB · js 269KB · woff2 42KB · css 14KB |
+
+    Against MiniPay's 2 MB footprint guidance that is ~32% of the budget on the
+    heavier of the two. Note this counts only what the initial HTML references
+    — lazily-imported chunks and sprites the game engine fetches at runtime are
+    not in it, so it is a first-paint weight and not a session total.
+  - Server response on the new domain, same run: `/` 200 in 2.2s, `/game` 200
+    in 0.7s, `/stats` 200 in 1.1s, `/terms` 200 in 0.3s (cold vs warm cache
+    explains most of the spread; these are single samples through a proxy, so
+    treat them as smoke-test evidence that the routes are up, not as timings).
 - **PageSpeed score (recorded 2026-07-14, session v57 — corrected with actual
   screenshots from Fa's run): Performance 83, Accessibility 100, Best
   Practices 100, SEO 100, Agentic Crawling 2/2.** Mobile, run against
