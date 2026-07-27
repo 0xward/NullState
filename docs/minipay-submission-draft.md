@@ -13,7 +13,7 @@ prep so Fa can copy-paste and adjust.
 | **Terms of Service** | https://nullstate-ten.vercel.app/terms |
 | **Privacy Policy** | https://nullstate-ten.vercel.app/privacy |
 | **Category** | Games |
-| **App URL (linkUrl)** | https://nullstate-ten.vercel.app *(confirm this is the final production domain before submitting)* |
+| **App URL (linkUrl)** | https://nullstate-ten.vercel.app *(**must change before listing** — the Celo review asked for an owned domain with HTTPS, not a Vercel subdomain. Runbook: `docs/custom-domain.md`)* |
 | **Icon** | `public/icon-512.png` (512×512, already exists) |
 
 ## Notes / things to double-check before submitting
@@ -27,8 +27,13 @@ prep so Fa can copy-paste and adjust.
   Telegram/WhatsApp/web support portal *ideally*, but email is explicitly
   allowed. If the Discord mentioned in `docs/faq.md` is live and public,
   that could be a stronger Support URL than a personal Gmail — your call.
-- **App URL** — flagged in the gap list already: confirm `nullstate-ten.vercel.app`
-  is the domain you're actually shipping with, not a placeholder/dev deploy.
+- **App URL** — resolved, and it is a blocker rather than a nice-to-have. The
+  Celo team reviewed the game (2026-07, Telegram) and said: *"The domain needs
+  to be your own with HTTPS not vercel."* So the three URLs above all move to
+  the owned domain before this form is submitted. The code side is already
+  ready — one variable, `NEXT_PUBLIC_SITE_URL` — but there is one step that
+  must happen FIRST and cannot be undone afterwards: pinning the Celo
+  attribution code. `docs/custom-domain.md` has the order.
 
 ---
 
