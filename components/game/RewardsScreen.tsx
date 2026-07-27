@@ -15,6 +15,7 @@ import type { IconType } from 'react-icons'
 import { PlayerProfile } from '@/lib/contract'
 import { tokenLabel } from '@/lib/constants/tokens'
 import { useReward } from '@/hooks/useReward'
+import { useWallet } from '@/lib/WalletProvider'
 
 interface BurnItem {
   id: string
@@ -357,7 +358,16 @@ export default function RewardsScreen({ onBack, address }: RewardsScreenProps) {
     }
   }
 
+  // A guest's `address` is a locally generated id, not a wallet — see
+  // getGuestAddress() in lib/WalletProvider.tsx. Labelling it "Wallet" was
+  // actively misleading: opening the game in a plain browser showed a
+  // wallet-shaped string under the word WALLET, which reads as "my wallet is
+  // connected here" even to someone who knows the codebase. If it can fool the
+  // developer, it will fool a player — and a player who believes a wallet is
+  // attached will expect rewards to reach it.
+  const { isGuest } = useWallet()
   const shortAddr = address ? `${address.slice(0, 6)}…${address.slice(-4)}` : 'NOT CONNECTED'
+  const idLabel = isGuest ? 'Guest ID' : 'Wallet'
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-[rgba(10,7,4,0.97)] p-4 sm:p-6">
@@ -376,7 +386,7 @@ export default function RewardsScreen({ onBack, address }: RewardsScreenProps) {
         </header>
 
         <p className="mb-4 font-mono text-[10px] uppercase tracking-[2px] text-[#9c7a4f]">
-          Wallet <span className="normal-case tracking-normal text-[#c39a5f]">{shortAddr}</span>
+          {idLabel} <span className="normal-case tracking-normal text-[#c39a5f]">{shortAddr}</span>
         </p>
 
         {/* Reward loop — one glance at how a run becomes real USDT */}

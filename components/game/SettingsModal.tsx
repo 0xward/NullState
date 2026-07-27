@@ -129,7 +129,7 @@ export default function SettingsModal({
           <div className="ns-settings-label">Season Pass</div>
           {!address ? (
             <p className="ns-settings-hint" style={{ marginTop: 6 }}>
-              Connect a wallet to mint a Season Pass.
+              Open NullState in MiniPay to mint a Season Pass.
             </p>
           ) : passLoading ? (
             <p className="ns-settings-hint" style={{ marginTop: 6 }}>Checking pass…</p>
