@@ -116,5 +116,13 @@ jobs:
       - name: Celo attribution tags
         run: npm run check:attribution
 
+      # A stylesheet that uses a token another (lazily-loaded) sheet declares
+      # produces no error and no visible fallback — an undefined var() resolves
+      # to nothing, which for `background` is transparent. That is how a primary
+      # button shipped as near-black text on a dark modal: in the DOM, correctly
+      # sized, clickable, unreadable.
+      - name: Stylesheets declare the tokens they use
+        run: npm run check:cssvars
+
       - name: TypeScript
         run: npx tsc --noEmit

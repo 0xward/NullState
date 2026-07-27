@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getAddress } from 'viem'
 import { getAdminDb } from '@/firebase-config'
 import {
+  INVITEE_WELCOME,
   REFERRAL_TIERS,
   ensureRefCode,
   type ReferralTierKey,
@@ -85,8 +86,32 @@ export async function POST(req: NextRequest) {
       const tx = await db.ref(`referredBy/${me}`).transaction((cur: unknown) =>
         cur ? undefined : { referrer: normalize(referrer), at: Date.now() }
       )
+
+      // The invitee's welcome weapon. Gated on tx.committed, which is only true
+      // on the FIRST bind — the client re-runs this on every mount, so an
+      // ungated grant would top the trial up forever.
+      //
+      // Granted, then reported. `welcome` is only non-null when the grant
+      // actually happened this call, so the UI can announce it exactly once
+      // instead of every time the page reloads.
+      let welcome: { weaponId: string; hours: number } | null = null
+      if (tx.committed && isTrialableWeapon(INVITEE_WELCOME.weaponId)) {
+        await db.ref(`trials/${me}`).transaction((cur: TrialRecord | null) => {
+          const next: TrialRecord = cur ? { ...cur } : { durationH: 48 }
+          next.items = { ...(next.items || {}) }
+          // Never clobber a trial of the same weapon that is already running —
+          // same rule the tier claim below follows.
+          const existing = next.items[INVITEE_WELCOME.weaponId]
+          if (!existing || activeTrialInfos({ items: { [INVITEE_WELCOME.weaponId]: existing } }).length === 0) {
+            next.items[INVITEE_WELCOME.weaponId] = { activatedAt: null, durationH: INVITEE_WELCOME.hours }
+          }
+          return next
+        })
+        welcome = { weaponId: INVITEE_WELCOME.weaponId, hours: INVITEE_WELCOME.hours }
+      }
+
       // Already bound is fine/idempotent — never surface an error for it.
-      return NextResponse.json({ success: true, bound: tx.committed })
+      return NextResponse.json({ success: true, bound: tx.committed, welcome })
     }
 
     // ---- credit: invitee cleared Act 1 -> count for their referrer ----

@@ -11,6 +11,7 @@ import MainMenu from './MainMenu'
 import WorldMapHub from './WorldMapHub'
 import { useWorldMapHubFlag } from '@/lib/worldMapHubFlag'
 import NewGameConfirmModal from './NewGameConfirmModal'
+import WelcomeGiftModal from './WelcomeGiftModal'
 
 // ─── Code-split (PSI v58: ~96 KiB unused JS di initial load) ────────────────
 // Screen-screen ini cuma dirender setelah user klik sesuatu di MainMenu
@@ -120,6 +121,9 @@ export default function GameFlowManager() {
   // caller wants it — currently unused by MainMenu but kept for parity with
   // the other loading flags here).
   const [checkingNewGame, setCheckingNewGame] = useState(false)
+  // Set only when /api/referrals reports a first-time bind, so the welcome
+  // gift is announced once and never again.
+  const [welcomeGift, setWelcomeGift] = useState<{ weaponId: string; hours: number } | null>(null)
   const [showNewGameConfirm, setShowNewGameConfirm] = useState(false)
 
   // Render the world-map hub instead of the classic MainMenu when the flag is
@@ -199,6 +203,12 @@ export default function GameFlowManager() {
         if (d && (d.success || d.error)) {
           try { localStorage.removeItem('nullstate-refcode-pending') } catch { /* ignore */ }
         }
+        // The server sets `welcome` only on the FIRST bind, so showing it here
+        // announces the gift exactly once. Announcing it matters as much as
+        // granting it: a weapon the player never learns about does nothing to
+        // stop them leaving on the screen where they'd otherwise notice their
+        // inviter is the only one being rewarded.
+        if (d?.welcome?.weaponId) setWelcomeGift(d.welcome)
       })
       .catch(() => { /* offline — keep pending, retry next mount */ })
   }, [realAddress])
@@ -397,6 +407,11 @@ export default function GameFlowManager() {
           onConfirm={handleConfirmNewGame}
           onContinue={playerProfile?.isRegistered ? handleContinueFromModal : null}
           onCancel={handleCancelNewGame}
+        />
+        <WelcomeGiftModal
+          weaponId={welcomeGift?.weaponId ?? null}
+          hours={welcomeGift?.hours ?? 0}
+          onClose={() => setWelcomeGift(null)}
         />
       </>
     )
