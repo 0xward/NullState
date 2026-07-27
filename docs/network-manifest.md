@@ -43,6 +43,7 @@ Verified at runtime, the app contacts exactly **two** external origins.
 | `celoscan.io` | Celo blockchain explorer — contract/transaction links shown in UI | `components/ui/Footer.tsx`, `app/terms/page.tsx` | No (informational links only) |
 | `t.me` (`t.me/nullstate_id`) | Telegram support channel (outbound link only, no fetch) | `components/ui/Footer.tsx`, `app/terms/page.tsx`, `app/privacy/page.tsx` | No (support link) |
 | `github.com` | GitHub repository link (outbound link only, no fetch) | `components/ui/Footer.tsx` | No (informational link) |
+| `us.i.posthog.com` (server-side) | Reads the Web Vitals p75 back out of PostHog so /stats can display it. Runs **only on the server** (`app/api/webvitals`) with a personal API key that never reaches the browser; the client receives five aggregate numbers. Unset env vars = never called. | `app/api/webvitals/route.ts` | No (display only) |
 | `us.i.posthog.com` | Real-user Web Vitals (LCP/INP/CLS/FCP/TTFB) — MiniPay grades load speed on the p75 of real users, not a PageSpeed run. One POST per pageview, fired as the page is being hidden. Carries an anonymous random id, the URL and the timings — **never the wallet address**. Silent and never contacted unless `NEXT_PUBLIC_POSTHOG_KEY` is set. | `lib/webVitals.ts`, `components/common/WebVitals.tsx` | No (measurement only) |
 | `talent.app` | Talent Protocol project verification (meta tag + outbound link) | `app/layout.tsx`, `app/docs/page.tsx` | No (optional) |
 

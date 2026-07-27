@@ -56,9 +56,112 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   )
 }
 
+// ─── Real-user load speed ────────────────────────────────────────────────────
+// MiniPay's listing review grades load speed on the p75 of REAL users, so it is
+// surfaced here rather than left in a PostHog tab: a reviewer (and we) can see
+// it without leaving the page. Filled by /api/webvitals, which reads it back
+// out of PostHog server-side — the key that query needs must never reach a
+// browser.
+
+type Vitals = {
+  configured: boolean
+  error?: string
+  windowDays?: number
+  samples?: number
+  lowConfidence?: boolean
+  lcp: number | null
+  inp: number | null
+  cls: number | null
+  fcp: number | null
+  thresholds?: Record<string, { good: number; poor: number }>
+}
+
+// Google's own colour language for Core Web Vitals: green good, amber needs
+// improvement, red poor. Using the thresholds the API sends rather than a copy
+// here means the two can never drift apart.
+function rate(value: number | null, t?: { good: number; poor: number }) {
+  if (value == null || !t) return { colour: '#8a9a91', word: '—' }
+  if (value <= t.good) return { colour: '#7ef0a6', word: 'Good' }
+  if (value <= t.poor) return { colour: '#f2cd82', word: 'Needs work' }
+  return { colour: '#f0787a', word: 'Poor' }
+}
+
+const ms = (v: number | null) => (v == null ? '—' : v >= 1000 ? `${(v / 1000).toFixed(2)} s` : `${Math.round(v)} ms`)
+const unitless = (v: number | null) => (v == null ? '—' : v.toFixed(3))
+
+function VitalsSection({ v }: { v: Vitals }) {
+  // Not configured is the normal state before a PostHog key exists — show
+  // nothing rather than an empty card that looks broken.
+  if (!v.configured) return null
+
+  const rows = [
+    { key: 'lcp', label: 'Largest Contentful Paint', short: 'LCP', value: v.lcp, fmt: ms, what: 'time until the main content appears' },
+    { key: 'inp', label: 'Interaction to Next Paint', short: 'INP', value: v.inp, fmt: ms, what: 'how quickly taps respond' },
+    { key: 'cls', label: 'Cumulative Layout Shift', short: 'CLS', value: v.cls, fmt: unitless, what: 'how much the layout jumps while loading' },
+    { key: 'fcp', label: 'First Contentful Paint', short: 'FCP', value: v.fcp, fmt: ms, what: 'time until anything is drawn' },
+  ]
+
+  return (
+    <section className="mb-8">
+      <div className="mb-3 font-mono text-[10px] tracking-[4px] uppercase text-null-green">
+        {'// REAL-USER LOAD SPEED'}
+      </div>
+      <div className="rounded-md border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)] p-4">
+        {v.error ? (
+          <div className="font-mono text-xs text-[#f0a878]">Speed data unavailable: {v.error}</div>
+        ) : (
+          <>
+            <div className="mb-3 font-mono text-[10px] leading-relaxed text-null-muted">
+              75th percentile across {fmt(v.samples)} page load{v.samples === 1 ? '' : 's'} in the last{' '}
+              {v.windowDays} days — measured on real players&apos; phones, not a lab test.
+            </div>
+
+            {v.lowConfidence && (
+              <div className="mb-3 rounded border border-[rgba(242,205,130,0.35)] bg-[rgba(242,205,130,0.07)] px-3 py-2 font-mono text-[10px] text-[#f2cd82]">
+                Too few samples yet to be reliable — one slow phone can swing these numbers.
+              </div>
+            )}
+
+            <div className="space-y-2">
+              {rows.map(r => {
+                const { colour, word } = rate(r.value, v.thresholds?.[r.key])
+                return (
+                  <div key={r.key} className="flex items-baseline justify-between gap-3 border-b border-[rgba(255,255,255,0.05)] pb-2 last:border-0 last:pb-0">
+                    <div className="min-w-0">
+                      <div className="font-mono text-[11px] text-null-white">
+                        {r.short} <span className="text-null-muted">· {r.what}</span>
+                      </div>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <div className="font-mono text-sm" style={{ color: colour }}>{r.fmt(r.value)}</div>
+                      <div className="font-mono text-[9px] uppercase tracking-[1px]" style={{ color: colour }}>{word}</div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </>
+        )}
+      </div>
+    </section>
+  )
+}
+
 export default function StatsPage() {
   const [data, setData] = useState<StatsPayload | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [vitals, setVitals] = useState<Vitals | null>(null)
+
+  // Fetched independently of /api/stats: a PostHog outage must cost one card,
+  // not the whole page. Failure here is swallowed on purpose.
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/webvitals')
+      .then(r => r.json())
+      .then(j => { if (!cancelled) setVitals(j) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -111,6 +214,11 @@ export default function StatsPage() {
             Loading live stats…
           </div>
         )}
+
+        {/* Outside the `data &&` gate on purpose: load speed comes from a
+            different source than the Firebase stats, so it should still show
+            when those are unavailable. */}
+        {vitals && <VitalsSection v={vitals} />}
 
         {data && (
           <>
