@@ -42,11 +42,13 @@ export default function HeroSection() {
       {/* Backdrop: a real outdoor scene from the game, pushed back with
           brightness + blur so the type on top of it stays readable and it never
           competes for attention. */}
+      {/* The filter and transform moved to .ns-hero-bg so the push-in can own
+          the transform — a CSS animation and an inline transform on the same
+          element is a fight the animation wins, but only confusingly. */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={BACKDROP} alt="" aria-hidden="true"
-        className="absolute inset-0 h-full w-full object-cover"
-        style={{ filter: 'brightness(.46) saturate(.85) blur(2px)', transform: 'scale(1.06)' }}
+        className="absolute inset-0 h-full w-full object-cover ns-hero-bg"
       />
 
       {/* Drifting cloud banks. Two layers at different sizes and speeds moving
@@ -56,6 +58,12 @@ export default function HeroSection() {
           prefers-reduced-motion. */}
       <span className="ns-hero-cloud" aria-hidden="true" />
       <span className="ns-hero-cloud ns-hero-cloud-b" aria-hidden="true" />
+
+      {/* Embers rising off the treeline. The clouds move too slowly to register
+          as motion on their own — this is the layer the eye actually catches,
+          and it is the same effect the world map uses, so the two screens read
+          as one world. */}
+      <span className="ns-hero-motes" aria-hidden="true" />
 
       {/* Vignette — same treatment as the in-game map, so arriving at the game
           feels like the same place rather than a different product. Sits ABOVE
@@ -83,16 +91,20 @@ export default function HeroSection() {
           {'// PIXEL DUNGEON CRAWLER'}
         </p>
 
-        {/* 840px source for a 420px max display: exactly 2x, so a DPR-2 phone
-            and a 1x desktop both get a clean downscale. The first pass shipped
-            a 640px file, which meant the browser resampled an already-resampled
-            image and the logo's pixel-art edges went soft. */}
+        {/* Was min(78vw,420px), which on a 393px phone is 307px — the logo ran
+            nearly edge to edge and took the whole middle of the screen, so the
+            scene behind it had nowhere to be seen and the buttons read as an
+            afterthought below it. min(58vw,280px) gives 228px there: still the
+            largest thing on the page, no longer the only thing.
+            280 is also 840/3 exactly, so the desktop cap stays an integer
+            downscale of the source — the reason this file is 840px wide and
+            not 640 is that a resampled resample softens the pixel edges. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={LOGO}
           alt="NullState"
           width={840} height={318}
-          className="w-[min(78vw,420px)] h-auto"
+          className="w-[min(58vw,280px)] h-auto"
           style={{ animation: 'fadeUp .6s .25s both', filter: 'drop-shadow(0 4px 22px rgba(0,0,0,.85))' }}
         />
 
@@ -107,14 +119,23 @@ export default function HeroSection() {
           className="flex gap-3 items-center justify-center flex-wrap mt-9"
           style={{ animation: 'fadeUp .6s .8s both' }}
         >
+          {/* Sized down from 168x52. Two 168px buttons plus the gap came to
+              348px against 345px of usable width on a 393px phone — they filled
+              the row wall to wall, which is what made them read as heavy slabs
+              rather than a choice.
+              The HEIGHT stays at 48 and does not go lower: that is the tap
+              target floor (WCAG 2.5.5, and MiniPay's own guidance), and this is
+              a game whose audience plays one-handed on cheap Android hardware.
+              Making a button look lighter by making it harder to hit is not a
+              trade worth taking — the width and the border weight carry it. */}
           <a
             href="/game"
             className="font-mono font-bold uppercase no-underline inline-flex items-center justify-center"
             style={{
-              minHeight: 52, minWidth: 168, fontSize: 16, letterSpacing: '3px',
+              minHeight: 48, minWidth: 132, fontSize: 14, letterSpacing: '2.5px',
               color: '#04140c', background: '#39ff9a',
-              border: '3px solid #0a3d24',
-              boxShadow: 'inset 2px 2px 0 rgba(255,255,255,.4), 0 0 22px rgba(57,255,154,.45)',
+              border: '2px solid #0a3d24',
+              boxShadow: 'inset 2px 2px 0 rgba(255,255,255,.4), 0 0 18px rgba(57,255,154,.4)',
             }}
           >
             PLAY
@@ -133,7 +154,7 @@ export default function HeroSection() {
             aria-label="Learn more about how NULL_STATE works"
             className="font-mono uppercase no-underline inline-flex items-center justify-center"
             style={{
-              minHeight: 52, minWidth: 168, fontSize: 12, letterSpacing: '2.5px',
+              minHeight: 48, minWidth: 132, fontSize: 11, letterSpacing: '2px',
               color: '#8ea89d', background: 'rgba(6,12,9,.72)',
               border: '2px solid rgba(255,255,255,.16)',
             }}

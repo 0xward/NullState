@@ -39,12 +39,18 @@ export default function Navbar() {
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
+  // STATS is last and deliberately outside the /docs run above: the other five
+  // are anchors into one page, this one is a page of its own with live
+  // numbers — players, purchases, rewards actually paid. Burying the only
+  // page that proves the reward loop is real, behind no link at all, was the
+  // odd part.
   const navLinks = [
     { href: '/docs#overview', label: 'ABOUT'    },
     { href: '/docs#mechanics', label: 'GAMEPLAY' },
     { href: '/docs#chain',    label: 'CHAIN'    },
     { href: '/docs#roadmap', label: 'ROADMAP'  },
     { href: '/docs#faq',     label: 'FAQ'      },
+    { href: '/stats',        label: 'STATS'    },
   ]
 
   return (
