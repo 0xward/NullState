@@ -4,23 +4,37 @@ Complete list of external network origins contacted by the NullState frontend an
 This table is intended to be copy-paste-ready for the MiniPay submission form's network manifest
 field.
 
-**Last audited:** 2026-07-10  
-**Audit method:** repo-wide grep for `https://`, `http://`, `images.domains`, `.env.example`,
-`app/layout.tsx` font imports, `lib/firebase.ts`, `lib/Web3Providers.tsx`, and all API route
-files.
+**Last audited:** 2026-07-26
+
+**Audit method:** a real browser, not a grep. Chromium loads `/`, `/game`, `/docs`,
+`/stats` and `/profile` and every request is recorded, so what is listed below is
+what the app *actually* contacts — not what the source suggests it might.
+
+The previous audit was grep-based and overstated the surface badly. Grep cannot
+tell a build-time import from a runtime fetch, a live component from a dead one,
+or a config key that has since been deleted. Three entries were wrong:
+
+- **`fonts.googleapis.com` / `fonts.gstatic.com`** — listed as *required*. They
+  are not contacted at all. Fonts moved to `next/font/google`, which downloads
+  them at **build** time and self-hosts from our own origin; the browser never
+  reaches Google.
+- **`pbs.twimg.com` / `abs.twimg.com`** — listed from an `images.domains` entry
+  in `next.config.js` that no longer exists.
+- **`token-logos-static.s3.amazonaws.com`** — listed as *required*, from
+  `components/common/USDmDisplay.tsx`. That component is imported by nothing, and
+  would have thrown if it ever were (a remote `next/image` src with no
+  `images.domains` configured). It now points at the local `/assets/tokens/usdm.png`,
+  so the origin is gone for good rather than merely dormant.
+
+Verified at runtime, the app contacts exactly **two** external origins.
 
 ---
 
 | Domain | Purpose | Where used (file) | Required for core functionality? |
 |---|---|---|---|
-| `fonts.googleapis.com` | Google Fonts stylesheet (Share Tech Mono, Cinzel, Rajdhani, Orbitron) | `app/layout.tsx` | Yes |
-| `fonts.gstatic.com` | Google Fonts font-file CDN | `app/layout.tsx` | Yes |
 | `forno.celo.org` | Celo Mainnet JSON-RPC endpoint (on-chain reads/writes) | `lib/Web3Providers.tsx`, `lib/useContractPlayer.ts`, `.env.example` | Yes |
 | `forno.celo-sepolia.celo-testnet.org` | Celo Sepolia testnet JSON-RPC (default transport for `celoSepolia` chain via wagmi) | `lib/Web3Providers.tsx` (wagmi chain default) | No (testnet only) |
-| `pbs.twimg.com` | Twitter/X user avatar images | `next.config.js` (`images.domains`) | No (social feature) |
-| `abs.twimg.com` | Twitter/X media images | `next.config.js` (`images.domains`) | No (social feature) |
 | `twitter.com` | Twitter/X share-intent links and profile links (outbound links only, no fetch) | `lib/utils.ts`, `components/ui/Footer.tsx` | No (social feature) |
-| `token-logos-static.s3.amazonaws.com` | USDM token logo image | `lib/tokens.ts`, `components/game/GameFullUI.tsx`, `.env.example` | Yes |
 | `firestore.googleapis.com` | Firebase Firestore — player data, leaderboard, game state persistence | `lib/firebase.ts` | Yes |
 | `identitytoolkit.googleapis.com` | Firebase Authentication REST API | Firebase SDK (client-side) | Yes |
 | `securetoken.googleapis.com` | Firebase Auth token exchange | Firebase SDK (client-side) | Yes |
@@ -29,6 +43,7 @@ files.
 | `celoscan.io` | Celo blockchain explorer — contract/transaction links shown in UI | `components/ui/Footer.tsx`, `app/terms/page.tsx` | No (informational links only) |
 | `t.me` (`t.me/nullstate_id`) | Telegram support channel (outbound link only, no fetch) | `components/ui/Footer.tsx`, `app/terms/page.tsx`, `app/privacy/page.tsx` | No (support link) |
 | `github.com` | GitHub repository link (outbound link only, no fetch) | `components/ui/Footer.tsx` | No (informational link) |
+| `us.i.posthog.com` | Real-user Web Vitals (LCP/INP/CLS/FCP/TTFB) — MiniPay grades load speed on the p75 of real users, not a PageSpeed run. One POST per pageview, fired as the page is being hidden. Carries an anonymous random id, the URL and the timings — **never the wallet address**. Silent and never contacted unless `NEXT_PUBLIC_POSTHOG_KEY` is set. | `lib/webVitals.ts`, `components/common/WebVitals.tsx` | No (measurement only) |
 | `talent.app` | Talent Protocol project verification (meta tag + outbound link) | `app/layout.tsx`, `app/docs/page.tsx` | No (optional) |
 
 ---

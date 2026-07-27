@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import '../styles/globals.css'
 import { fontVariables } from '@/lib/fonts'
 import SplashScreen from '@/components/ui/SplashScreen'
+import WebVitals from '@/components/common/WebVitals'
 
 // ─── NOTE: Web3Providers moved to per-route nested layouts ───────────────────
 // app/game/layout.tsx and app/profile/layout.tsx wrap those routes with
@@ -80,6 +81,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             open, then fades to reveal the page. Client component; renders over
             {children}, which loads normally behind it. */}
         <SplashScreen />
+        {/* Real-user load speed → PostHog. MiniPay grades the p75 of actual
+            users, not a PageSpeed run, and we had no way to see that number.
+            Inert until NEXT_PUBLIC_POSTHOG_KEY is set. */}
+        <WebVitals />
         {/*
           Web3Providers adalah 'use client' component yang membungkus:
           WagmiProvider → QueryClientProvider → RainbowKitProvider → WalletProvider
