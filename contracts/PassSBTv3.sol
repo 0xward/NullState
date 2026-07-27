@@ -76,6 +76,17 @@ contract PassSBTv3 is ERC721, Ownable {
 
     // ============ Constants ============
     uint256 public constant TOTAL_SEASONS = 6;
+    // DEPLOYED AND IMMUTABLE — do not "fix" this string. The app moved to
+    // https://playnullstate.xyz in July 2026, but this constant is compiled
+    // into the live contract with no setter, so tokenURI() will name the
+    // original host for as long as the contract exists. It still resolves
+    // because that host 307s to the current domain, where
+    // app/assets/sbt-pass/metadata/[file]/route.ts answers.
+    //
+    // Consequence: the Vercel subdomain can never be deleted. Removing it
+    // breaks the metadata of every pass already minted, permanently. See
+    // docs/custom-domain.md. If this contract is ever redeployed, make
+    // BASE_URI owner-settable rather than constant.
     string public constant BASE_URI = "https://nullstate-ten.vercel.app/assets/sbt-pass/metadata/";
 
     // ============ Configurable Parameters ============

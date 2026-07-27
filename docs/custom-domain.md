@@ -98,9 +98,39 @@ Once pinned, it must never change again.
 
 ---
 
+## ⚠ The Vercel subdomain can never be deleted
+
+`PassSBTv3` has the Season Pass metadata URL compiled in as a `string public
+constant` — no setter, and the contract is deployed:
+
+```solidity
+string public constant BASE_URI =
+    "https://nullstate-ten.vercel.app/assets/sbt-pass/metadata/";
+```
+
+Confirmed by reading the live contract on Celo mainnet, not just the source.
+`tokenURI(1)` returns
+`https://nullstate-ten.vercel.app/assets/sbt-pass/metadata/202607.json`.
+
+That URL resolves today only because the old host `307`s to the current domain,
+where `app/assets/sbt-pass/metadata/[file]/route.ts` answers. Delete the Vercel
+subdomain and every pass ever minted loses its metadata — permanently, with no
+on-chain fix available, because the constant cannot be changed.
+
+If the domain moves again, the redirect chain has to survive too: old host →
+whatever the app is served from. Two hops is fine; a broken first hop is not.
+
+*(A separate, pre-existing bug found at the same time: that path had never been
+served at all. `public/assets/sbt-pass/` did not exist, so every pass resolved
+to a 404 in wallets and explorers — the game itself draws the pass from its own
+UI and never reads `tokenURI`, which is why it went unnoticed. Fixed by the
+route above.)*
+
 ## What does *not* need to change
 
-- **Contracts.** Nothing on-chain references the domain.
+- **Contract logic.** Nothing on-chain needs redeploying — but see the section
+  directly above: `PassSBTv3.BASE_URI` does hardcode the original host, which
+  is why the old subdomain has to keep resolving forever.
 - **Firebase.** Add the new domain to the authorized-domains list if auth is
   ever used; the RTDB and Firestore calls this app makes are unaffected.
 - **The RPC.** Independent of the site's own hostname.
