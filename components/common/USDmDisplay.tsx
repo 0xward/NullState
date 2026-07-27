@@ -41,7 +41,7 @@ export function USDmDisplay({
         <div className="relative flex-shrink-0">
           {!logoError ? (
             <Image
-              src="https://token-logos-static.s3.amazonaws.com/USDm.png"
+              src="/assets/tokens/usdm.png"
               alt="USDm Logo"
               width={iconSize}
               height={iconSize}
@@ -90,7 +90,7 @@ export function USDmBadge({
     >
       {!logoError ? (
         <Image
-          src="https://token-logos-static.s3.amazonaws.com/USDm.png"
+          src="/assets/tokens/usdm.png"
           alt="USDm"
           width={16}
           height={16}
@@ -156,7 +156,7 @@ export function RewardCard({
       <div className="flex items-center gap-2">
         {!logoError ? (
           <Image
-            src="https://token-logos-static.s3.amazonaws.com/USDm.png"
+            src="/assets/tokens/usdm.png"
             alt="USDm"
             width={24}
             height={24}
@@ -186,7 +186,7 @@ export function USDmTokenInfo() {
     <div className="flex items-start gap-3 p-4 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
       {!logoError ? (
         <Image
-          src="https://token-logos-static.s3.amazonaws.com/USDm.png"
+          src="/assets/tokens/usdm.png"
           alt="USDm"
           width={32}
           height={32}
