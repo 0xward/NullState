@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createPublicClient, createWalletClient, http } from 'viem'
+import { createPublicClient, createWalletClient } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { celo } from 'viem/chains'
+import { celoTransport } from '@/lib/celoRpc'
 import { formatUnits } from 'viem'
 import { TREASURE_VAULT_ABI, TREASURE_VAULT_ADDRESS } from '@/lib/contract-abi'
 import { MARKETPLACE_TOKENS } from '@/lib/constants/tokens'
@@ -55,7 +56,7 @@ async function finalizeVaultPayout(params: {
 
   try {
     const account = privateKeyToAccount(backendPrivateKey)
-    const transport = http(process.env.CELO_RPC_URL ?? process.env.NEXT_PUBLIC_CELO_RPC ?? 'https://forno.celo.org')
+    const transport = celoTransport()
     const publicClient = createPublicClient({ chain: celo, transport })
     const walletClient = createWalletClient({ chain: celo, transport, account })
     const weekBig = BigInt(weekId)

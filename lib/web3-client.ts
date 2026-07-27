@@ -8,15 +8,16 @@
  * For React components, prefer wagmi's usePublicClient() hook.
  */
 
-import { createPublicClient, http } from 'viem'
+import { createPublicClient } from 'viem'
+import { celoTransport } from '@/lib/celoRpc'
 import { celo } from 'viem/chains'
-
-const CELO_RPC =
-  process.env.NEXT_PUBLIC_CELO_RPC ?? 'https://forno.celo.org'
 
 export const publicClient = createPublicClient({
   chain: celo,
-  transport: http(CELO_RPC),
+  // Endpoint choice lives in lib/celoRpc.ts so the browser and the server can
+  // never disagree about it — they used to, and only this half honoured the
+  // env var.
+  transport: celoTransport(),
 })
 
 /** ISO week helper — returns YYYYWW (e.g. 202627) */

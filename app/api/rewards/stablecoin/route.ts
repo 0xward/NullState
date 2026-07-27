@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createPublicClient, http, formatUnits } from 'viem'
 import { celo } from 'viem/chains'
+import { celoTransport } from '@/lib/celoRpc'
 import { getAdminDb } from '@/firebase-config'
 import { walletAddressSchema } from '@/lib/validation'
 import { normalizeWalletAddress } from '@/lib/vault-utils'
@@ -34,7 +35,7 @@ for (const t of Object.values(MARKETPLACE_TOKENS)) {
 async function currentVaultRewardInfo(): Promise<{ amount: number; token: string } | null> {
   try {
     if (!TREASURE_VAULT_ADDRESS || TREASURE_VAULT_ADDRESS === '0x') return null
-    const transport = http(process.env.CELO_RPC_URL ?? process.env.NEXT_PUBLIC_CELO_RPC ?? 'https://forno.celo.org')
+    const transport = celoTransport()
     const publicClient = createPublicClient({ chain: celo, transport })
     const [reward, tokenAddr] = await Promise.all([
       publicClient.readContract({ address: TREASURE_VAULT_ADDRESS, abi: VAULT_READ_ABI, functionName: 'vaultReward' }) as Promise<bigint>,

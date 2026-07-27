@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createPublicClient, http } from 'viem'
+import { createPublicClient } from 'viem'
 import { celo } from 'viem/chains'
+import { celoTransport } from '@/lib/celoRpc'
 import { REWARD_ABI, REWARD_CONTRACT_ADDRESS } from '@/lib/contract-abi'
 import { getCurrentSeasonId } from '@/lib/web3-client'
 import { getAdminDb } from '@/firebase-config'
@@ -40,7 +41,7 @@ export async function GET(req: NextRequest) {
     if (REWARD_CONTRACT_ADDRESS && REWARD_CONTRACT_ADDRESS !== '0x') {
       const publicClient = createPublicClient({
         chain: celo,
-        transport: http(process.env.CELO_RPC_URL ?? process.env.NEXT_PUBLIC_CELO_RPC ?? 'https://forno.celo.org'),
+        transport: celoTransport(),
       })
       const result = await publicClient.readContract({
         address: REWARD_CONTRACT_ADDRESS,

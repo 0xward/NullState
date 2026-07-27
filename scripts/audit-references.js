@@ -133,6 +133,30 @@ for (const m of wpnBlock.matchAll(/^\s{2}([a-z_]+):\s*\{ src:`\$\{NS_WPN\}\/([a-
   if (!exists(`/sprites/weapons/${m[2]}`)) note('missing weapon sprite', m[2])
 }
 
+// ── 6. one place decides the Celo RPC ────────────────────────────────────────
+// The endpoint was configured in six places. Five read CELO_RPC_URL then
+// NEXT_PUBLIC_CELO_RPC; the sixth — wagmi's transport, the one every player's
+// browser uses — hardcoded Forno. So setting the variable moved the server and
+// left the browser behind, which is the half that generates the load. A config
+// knob that silently only half-works is worse than no knob.
+const rpcHosts = []
+for (const dir of ['app', 'lib', 'hooks']) {
+  const abs = path.join(ROOT, dir)
+  if (!fs.existsSync(abs)) continue
+  for (const file of walk(abs)) {
+    if (!/\.(ts|tsx)$/.test(file)) continue
+    const rel = path.relative(ROOT, file)
+    if (rel === path.join('lib', 'celoRpc.ts')) continue // the one place allowed to name it
+    const src = fs.readFileSync(file, 'utf8')
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/(^|[^:])\/\/[^\n]*/g, '$1')
+    if (/forno\.celo\.org|NEXT_PUBLIC_CELO_RPC|CELO_RPC_URL/.test(src)) rpcHosts.push(rel)
+  }
+}
+for (const f of rpcHosts) {
+  note('RPC endpoint set outside lib/celoRpc.ts', f)
+}
+
 // ── report ───────────────────────────────────────────────────────────────────
 console.log(`checked ${checkedAssets} asset paths, ${checkedLayers} LPC layers, ${checkedWeapons} weapons`)
 if (!problems.length) {

@@ -1,6 +1,7 @@
-import { createPublicClient, createWalletClient, http } from 'viem'
+import { createPublicClient, createWalletClient } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { celo } from 'viem/chains'
+import { celoTransport } from '@/lib/celoRpc'
 import { PASS_SBT_ABI, PASS_SBT_ADDRESS } from '@/lib/contract-abi'
 import { getCurrentSeasonId } from '@/lib/web3-client'
 import type { getAdminDb } from '@/firebase-config'
@@ -95,7 +96,7 @@ export async function maybeGiftReferralPass(db: Db, buyerWallet: string): Promis
     const backendPrivateKey = process.env.BACKEND_PRIVATE_KEY as `0x${string}` | undefined
     if (!backendPrivateKey || !PASS_SBT_ADDRESS) { await giftRef.remove(); return }
 
-    const transport = http(process.env.CELO_RPC_URL ?? process.env.NEXT_PUBLIC_CELO_RPC ?? 'https://forno.celo.org')
+    const transport = celoTransport()
     const publicClient = createPublicClient({ chain: celo, transport })
     const holds = await publicClient.readContract({
       address: PASS_SBT_ADDRESS,
