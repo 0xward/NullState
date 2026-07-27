@@ -447,6 +447,30 @@
    map, before any dungeon stylesheet has been fetched. It was in the dungeon
    sheet for one release of the CSS split and the dialog came up unstyled.
    ════════════════════════════════════════════════════════════════════════ */
+/* The palette tokens this file's rules depend on.
+   ─────────────────────────────────────────────────────────────────────────────
+   These are ALSO declared on .ns-game-root in dungeon.css, and that used to be
+   their only home. That was fine while one stylesheet covered the whole /game
+   route — but the CSS split (#151) moved the dungeon's sheet behind a dynamic
+   import, and the rules that consume these tokens stayed here.
+
+   The result was invisible: .ns-confirm-btn.primary resolved background to
+   var(--green) with --green undefined, which falls back to transparent, on top
+   of near-black text. The New Game dialog's primary button was there, sized,
+   clickable and unreadable — dark text on a dark modal — for anyone who had not
+   already been inside the dungeon that session.
+
+   Declared on :root rather than a wrapper because the confirm dialogs are
+   rendered by GameFlowManager, outside .ns-game-root, and this file is only
+   loaded on /game — so it cannot leak into the landing page.
+
+   If you add a token here, add it to dungeon.css too, or the reverse of this
+   bug appears the moment a rule moves the other way. */
+:root{
+  --green:#00ff88; --green-dim:#0a3;
+  --amber:#ffb347; --red:#ff3b5c; --blue:#4ad7ff;
+}
+
 .ns-confirm-overlay{position:fixed;inset:0;z-index:90;display:flex;align-items:center;justify-content:center;
   background:radial-gradient(circle at 50% 40%,rgba(4,8,12,.88),rgba(2,4,6,.97));
   backdrop-filter:blur(3px);padding:24px;}

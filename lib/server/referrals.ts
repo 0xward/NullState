@@ -55,6 +55,25 @@ export const REFERRAL_TIERS = {
 } as const
 export type ReferralTierKey = keyof typeof REFERRAL_TIERS
 
+// ─── What the INVITEE gets ───────────────────────────────────────────────────
+// Every tier above rewards the referrer. For a long time the person arriving
+// through the link got nothing at all — and they are the one asked to do the
+// work, because a referral only counts once they have cleared Act 1. Hours of
+// play, no reward, while the friend who sent the link collects a weapon and a
+// skin. That is the single most common way referral programmes fail: the
+// invitee has no reason to follow through, so they don't, and the referrer's
+// reward never triggers either. Both sides losing is not a stable design.
+//
+// So the invitee is handed a weapon the moment they bind. No choice screen and
+// no claim step: this fires at the exact moment drop-off is highest, and every
+// extra tap there costs conversion.
+//
+// Mid-tier on purpose. Something cheap would not register as a gift; something
+// top-tier would undercut the shop, which is the thing that actually pays for
+// the rewards. The trial clock starts on ACTIVATION, not on grant, so it cannot
+// quietly expire on the shelf before they next open the game.
+export const INVITEE_WELCOME = { weaponId: 'argent_waraxe', hours: 48 } as const
+
 // Gift a free Season Pass to the referrer when their invitee makes a first
 // purchase (weapon buy or pass mint). One gift per referrer per season;
 // skipped silently if the referrer already holds this season's pass (the

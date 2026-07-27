@@ -67,8 +67,8 @@ export default function DocsPage() {
           </h2>
           <div className="pl-4 flex flex-col gap-4 text-[15px] leading-relaxed text-null-muted">
             <p>
-              NULL_STATE is a top-down, real-time dungeon crawler. Connect a
-              wallet, take up the Knight&apos;s armor, and descend through
+              NULL_STATE is a top-down, real-time dungeon crawler. Take up the
+              Knight&apos;s armor and descend through
               procedurally generated bunkers — fighting enemies, looting
               containers, and gearing up along the way. Your wallet address is
               your player identity; there is no separate account or sign-up.

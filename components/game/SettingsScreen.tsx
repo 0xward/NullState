@@ -201,7 +201,7 @@ export default function SettingsScreen({ onBack, playerProfile, setPlayerUsernam
           </p>
           {isGuest && (
             <p className="mt-1 font-mono text-[9px] leading-relaxed" style={{ color: '#4e6b5e' }}>
-              Your progress is saved to this device. Connect a wallet to keep it if you reinstall.
+              Your progress is saved to this device. Open NullState in MiniPay to keep it if you reinstall.
             </p>
           )}
           <div className="mt-3 flex flex-wrap items-center justify-center gap-1 border-t pt-2" style={{ borderColor: 'rgba(255,255,255,.08)' }}>

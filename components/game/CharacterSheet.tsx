@@ -387,7 +387,7 @@ export default function CharacterSheet({
 
             {isGuest && !loading && (
               <p className="mt-3 font-mono text-[9px] leading-relaxed" style={{ color: '#5f8d78' }}>
-                You are playing as a guest. Your gear is saved to this device — connect a wallet to keep it if you reinstall.
+                You are playing as a guest. Your gear is saved to this device — open NullState in MiniPay to keep it if you reinstall.
               </p>
             )}
           </>

@@ -18,7 +18,8 @@
     "build:weapons": "node scripts/build-weapon-skins.js",
     "audit": "node scripts/audit-references.js",
     "check:copy": "node scripts/check-minipay-copy.js",
-    "check:attribution": "node scripts/check-attribution.js"
+    "check:attribution": "node scripts/check-attribution.js",
+    "check:cssvars": "node scripts/check-css-vars.js"
   },
   "dependencies": {
     "@celo/attribution-tags": "^0.3.0",

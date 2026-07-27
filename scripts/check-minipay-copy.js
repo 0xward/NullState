@@ -47,7 +47,12 @@ const BANNED = [
   [/\boff-?ramp\w*\b/i, 'say "Withdraw"'],
   [/\bcrypto\w*\b/i, 'say "Stablecoin" or "Digital dollar"'],
   [/\badd\s+cash\b/i, 'label the action "Deposit"'],
-  [/\bconnect\s+(your\s+)?wallet\b/i, CONNECT_RULE],
+  // Any article, not just "your". The first version matched `connect your
+  // wallet` and `connect wallet`, and sailed straight past "Connect a wallet to
+  // keep it" sitting in Settings — same prompt, same problem, different
+  // determiner. A pattern that only catches the phrasings you happened to think
+  // of gives false confidence, which is worse than no check.
+  [/\bconnect\s+(a|an|the|your|my)?\s*wallet\b/i, CONNECT_RULE],
 ]
 
 // Props whose string value is rendered to the user. `alt` counts: screen
@@ -58,17 +63,26 @@ const TEXT_PROPS = /\b(title|label|placeholder|alt|aria-label|ariaLabel|buttonTe
 // braces (which would make it an expression container, not literal copy).
 const JSX_TEXT = />([^<>{}]*[A-Za-z][^<>{}]*)</g
 
-// Terms and Privacy are exempt from the VOCABULARY rule only.
+// Terms and Privacy are exempt from the COPY rules — vocabulary and
+// connect-wallet both. The message-signing rule still applies everywhere.
 //
 // MiniPay's copy rules exist so a first-time user is never asked to understand
-// the machinery — they govern product surfaces: buttons, errors, tooltips. Our
-// legal pages are the one place with the opposite duty. "NullState Point is not
-// a cryptocurrency, security, or money" is a disclaimer that has to name the
-// category precisely to mean anything; rewriting it to "not a stablecoin" would
-// make it both softer and false.
+// the machinery. They govern product surfaces: buttons, errors, tooltips. Legal
+// pages have the opposite duty — they must describe the machinery accurately.
+// "NullState Point is not a cryptocurrency, security, or money" has to name the
+// category to mean anything, and "when you connect a wallet, guest progress is
+// migrated onto your wallet account" is a statement of what the software does
+// with someone's data, not an invitation to do it.
 //
-// The connect-wallet rule and the message-signing rule are NOT waived here —
-// those are behavioural, and a legal page has no business doing either.
+// The connect-wallet rule was originally kept in force here, on the reasoning
+// that a legal page has no business prompting anyone. That reasoning confused
+// prompting with describing: the privacy policy has to explain the wallet-
+// connection path precisely because that is the moment local data moves. A rule
+// that forces a privacy policy to be vaguer about data handling is working
+// against its own purpose.
+//
+// Signing is not waived, because that is a claim about code, not prose — and
+// there is no legitimate reason for either file to reference it.
 const VOCAB_EXEMPT = [path.join('app', 'terms'), path.join('app', 'privacy')]
 
 function walk(dir, out = []) {
@@ -105,9 +119,10 @@ for (const dir of SRC_DIRS) {
       while ((m = re.exec(src))) {
         const text = (re === JSX_TEXT ? m[1] : m[3]).trim()
         if (!text) continue
-        const vocabExempt = VOCAB_EXEMPT.some(p => rel.startsWith(p))
+        // Legal pages skip every prose rule; see VOCAB_EXEMPT above.
+        const legalPage = VOCAB_EXEMPT.some(p => rel.startsWith(p))
         for (const [pattern, fix] of BANNED) {
-          if (vocabExempt && fix !== CONNECT_RULE) continue
+          if (legalPage) continue
           if (pattern.test(text)) {
             problems.push(`${rel}:${lineOf(src, m.index)} — "${text}" → ${fix}`)
           }

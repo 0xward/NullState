@@ -472,66 +472,13 @@ body::before {
   animation: shimmer 3s linear infinite;
 }
 
-/* ─────────────────────────────────────────────
-   MAIN MENU — filled HUD-style buttons
-   (used by MenuButton in components/game/MainMenu.tsx)
-   Each button sets its own accent via the --btn-c inline custom
-   property; everything else (corner brackets, scanline texture,
-   hover glow/lift) is shared here so all six buttons stay visually
-   consistent while still reading as distinct colors.
-   ───────────────────────────────────────────── */
-.menu-btn {
-  position: relative;
-  isolation: isolate;
-  overflow: hidden;
-}
-.menu-btn:not(:disabled) {
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--btn-c) 45%, transparent),
-              0 4px 14px rgba(0,0,0,0.35);
-}
-.menu-btn:not(:disabled):hover {
-  transform: translateY(-2px);
-  box-shadow: 0 0 0 1px var(--btn-c),
-              0 0 26px color-mix(in srgb, var(--btn-c) 65%, transparent),
-              0 8px 18px rgba(0,0,0,0.4);
-}
-.menu-btn:not(:disabled):active { transform: translateY(0); }
+/* The .menu-btn rule set lived here and is gone: nothing in the app has used
+   the class since MainMenu was rebuilt, and its buttons now carry Tailwind
+   utilities directly. It was also the last consumer of --btn-c, a token no
+   stylesheet ever declared — the comment claimed MainMenu set it inline, and
+   MainMenu did not. Dead rules depending on a token that does not exist is a
+   trap for whoever revives them. */
 
-/* subtle scanline texture over the fill — clipped automatically to the
-   button's own angled clip-path since clip-path masks the whole subtree */
-.menu-btn-scan {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: repeating-linear-gradient(
-    0deg,
-    transparent, transparent 2px,
-    rgba(0,0,0,0.14) 2px, rgba(0,0,0,0.14) 3px
-  );
-  mix-blend-mode: multiply;
-  opacity: 0.6;
-}
-
-/* corner-bracket accents on the two square (uncut) corners of the
-   angled button shape — top-right and bottom-left */
-.menu-btn-bracket {
-  position: absolute;
-  width: 11px;
-  height: 11px;
-  pointer-events: none;
-}
-.menu-btn-bracket-tr {
-  top: 3px; right: 3px;
-  border-top: 2px solid rgba(0,0,0,0.5);
-  border-right: 2px solid rgba(0,0,0,0.5);
-}
-.menu-btn-bracket-bl {
-  bottom: 3px; left: 3px;
-  border-bottom: 2px solid rgba(0,0,0,0.5);
-  border-left: 2px solid rgba(0,0,0,0.5);
-}
-.menu-btn.menu-btn-outline .menu-btn-bracket-tr { border-color: rgba(0,255,136,0.35); }
-.menu-btn.menu-btn-outline .menu-btn-bracket-bl { border-color: rgba(0,255,136,0.35); }
 
 
 @keyframes rotateCW {
