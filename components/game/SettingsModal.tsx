@@ -105,17 +105,25 @@ export default function SettingsModal({
   return (
     <div className="ns-settings-overlay" role="dialog" aria-label="Settings">
       <div className="ns-settings-panel">
+        {/* Header mirrors the world map's Settings screen — same title, same
+            bordered leave-button — so the two read as one menu system. The map
+            spells the game's name out as a "// NULLSTATE" kicker above the
+            title; here the brand mark already is that word, so it takes the
+            kicker's place instead of repeating it. */}
         <div className="ns-settings-header">
-          <Image
-            src="/NullState_Logo_Transparent.webp"
-            alt="NullState"
-            width={106}
-            height={26}
-            className="ns-settings-logo-corner"
-          />
+          <div className="ns-settings-title-wrap">
+            <Image
+              src="/NullState_Logo_Transparent.webp"
+              alt="NullState"
+              width={90}
+              height={22}
+              className="ns-settings-logo-corner"
+            />
+            <div className="ns-settings-title">SETTINGS</div>
+          </div>
 
           <button className="ns-settings-close" onClick={onClose} aria-label="Close settings">
-            [CLOSED]
+            ✕ Close
           </button>
         </div>
 
@@ -134,23 +142,7 @@ export default function SettingsModal({
           ) : passLoading ? (
             <p className="ns-settings-hint" style={{ marginTop: 6 }}>Checking pass…</p>
           ) : hasPass ? (
-            <div
-              style={{
-                marginTop: 6,
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 6,
-                fontFamily: 'monospace',
-                fontSize: 13,
-                letterSpacing: 0.5,
-                color: '#00ff88',
-                border: '1px solid rgba(0,255,136,0.5)',
-                background: 'rgba(0,255,136,0.08)',
-                padding: '6px 10px',
-                borderRadius: 4,
-                textShadow: '0 0 6px rgba(0,255,136,0.6)',
-              }}
-            >
+            <div className="ns-settings-pass">
               ◆ Season {passSeasonNumber ?? passSeasonId.toString()} Pass — Active
             </div>
           ) : (
@@ -238,10 +230,14 @@ export default function SettingsModal({
           )}
         </div>
 
-        {/* Sound */}
+        {/* Sound — laid out like the map's "Sound & feel" card: one card label,
+            then sentence-case rows each carrying the hint that says what the
+            switch actually does. */}
         <div className="ns-settings-section">
-          <div className="ns-settings-row">
-            <div className="ns-settings-label">Volume</div>
+          <div className="ns-settings-label">Sound &amp; feel</div>
+
+          <div className="ns-settings-row" style={{ opacity: soundMuted ? 0.45 : 1 }}>
+            <span className="ns-settings-rowtext"><span className="t">Music volume</span></span>
             <span className="ns-settings-volume-value">{Math.round(musicVolume * 100)}%</span>
           </div>
           <input
@@ -260,8 +256,11 @@ export default function SettingsModal({
               the engine's toggleMute, which only silences the music bed — so
               "Sound off" left every hit and menu tap still audible. It now goes
               through lib/audioControl, the one place that derives both. */}
-          <div className="ns-settings-row" style={{ marginTop: 18 }}>
-            <div className="ns-settings-label">Sound (all)</div>
+          <div className="ns-settings-row" style={{ marginTop: 16 }}>
+            <span className="ns-settings-rowtext">
+              <span className="t">Sound</span>
+              <span className="h">The master switch — music and effects</span>
+            </span>
             <button
               className={`ns-settings-toggle-switch ${!soundMuted ? 'is-on' : ''}`}
               onClick={onToggleSound}
@@ -276,7 +275,10 @@ export default function SettingsModal({
           {/* Dimmed while the master switch is off — effects cannot be heard
               then whatever this says. The preference is still remembered. */}
           <div className="ns-settings-row" style={{ marginTop: 16, opacity: soundMuted ? 0.45 : 1 }}>
-            <div className="ns-settings-label">SFX</div>
+            <span className="ns-settings-rowtext">
+              <span className="t">Sound effects</span>
+              <span className="h">Hits, pickups, menu taps</span>
+            </span>
             <button
               className={`ns-settings-toggle-switch ${sfxEnabled ? 'is-on' : ''}`}
               onClick={onToggleSfx}
@@ -293,7 +295,10 @@ export default function SettingsModal({
               doesn't touch hit-stop, knockback, or particle FX, just the
               camera-offset wobble itself (see render() in game.js). */}
           <div className="ns-settings-row" style={{ marginTop: 16 }}>
-            <div className="ns-settings-label">Screen Shake</div>
+            <span className="ns-settings-rowtext">
+              <span className="t">Screen shake</span>
+              <span className="h">Turn off if the camera movement bothers you</span>
+            </span>
             <button
               className={`ns-settings-toggle-switch ${screenShakeEnabled ? 'is-on' : ''}`}
               onClick={onToggleScreenShake}
