@@ -860,15 +860,14 @@ export default function DungeonGame({ playerProfile, setPlayerUsername, isNewRun
               elixirs are stocked but not yet drunk. */}
           <button
             type="button"
-            className="ns-elixir-trigger"
+            className="ns-elixir-trigger is-mapicon"
             aria-label="Drop-Rate Elixir"
             onClick={() => { setElixirModal(true); setElixirMsg(null); refreshElixir() }}
           >
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M10 3h4M10 3v4.5L6.2 15a3 3 0 0 0 2.7 4.3h6.2a3 3 0 0 0 2.7-4.3L14 7.5V3"
-                stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round"/>
-              <path d="M7.4 13h9.2" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
-            </svg>
+            {/* Generated to match the rail set — see assets-src/worldmap/icons. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/worldmap/icons/elixir.webp" alt="" aria-hidden="true" width={30} height={30}
+              style={{ width: 30, height: 30, display: 'block', imageRendering: 'pixelated' }} />
             {elixirActive ? (
               <span className="ns-elixir-badge ns-elixir-badge-timer">
                 {(() => {
@@ -893,17 +892,12 @@ export default function DungeonGame({ playerProfile, setPlayerUsername, isNewRun
             aria-pressed={soundMuted}
             onClick={handleToggleSound}
           >
-            {soundMuted ? (
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M4 9v6h3.5L13 20V4L7.5 9H4Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"/>
-                <path d="M17 9.5l4 5M21 9.5l-4 5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
-              </svg>
-            ) : (
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M4 9v6h3.5L13 20V4L7.5 9H4Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"/>
-                <path d="M16.5 8.5a5 5 0 0 1 0 7M18.8 6.2a8 8 0 0 1 0 11.6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
-              </svg>
-            )}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={soundMuted ? '/worldmap/icons/volume_off.webp' : '/worldmap/icons/volume.webp'}
+              alt="" aria-hidden="true" width={30} height={30}
+              style={{ width: 30, height: 30, display: 'block', imageRendering: 'pixelated' }}
+            />
           </button>
           {/* Inventory — a centered modal (like #containerWindow/#itemZoom)
               rather than a small corner panel, so it never sits under the
