@@ -38,7 +38,21 @@
 @supports (height: 100dvh){
   .ns-game-root{ height:100dvh; }
 }
-.ns-game-root *{box-sizing:border-box;margin:0;padding:0;}
+/* Reset for the DOM the vanilla engine owns — scoped to #app on purpose.
+   It used to be `.ns-game-root *`, which reaches BOTH React overlays that
+   sit as siblings of #app (SettingsModal, SaveConfirmModal). Their own
+   styles live in settings.css / game.css, and `.ns-game-root *` has the
+   same specificity as a plain `.ns-settings-panel` — so in the production
+   bundle, where dungeon.css is concatenated AFTER those files, source order
+   decided it and every padding in both modals collapsed to 0. In-run
+   Settings rendered edge-to-edge with its text against the screen border,
+   while the identical panel on the world map (outside .ns-game-root) was
+   fine — which is exactly why it looked like a different product.
+   It never showed up in dev: there each stylesheet is served separately in
+   import order, and SettingsModal's CSS loads after dungeon.css there.
+   Scoping to #app leaves the engine's markup reset exactly as before and
+   takes the collision away entirely. */
+.ns-game-root #app *{box-sizing:border-box;margin:0;padding:0;}
 .ns-game-root #app{position:relative;width:100%;height:100%;overflow:hidden;}
 .ns-game-root canvas#game{position:absolute;inset:0;width:100%;height:100%;display:block;
   image-rendering:pixelated;image-rendering:crisp-edges;background:#04060a;}
