@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import { useWallet } from '@/lib/WalletProvider'
 import { useContractPlayer } from '@/lib/useContractPlayer'
@@ -93,7 +93,7 @@ type GamePhase = 'menu' | 'username-setup' | 'character-select' | 'game' | 'lead
  * All player progress is stored ON-CHAIN via the contract.
  */
 export default function GameFlowManager() {
-  const { address, isConnected, realAddress } = useWallet()
+  const { address, isConnected, realAddress, isGuest } = useWallet()
   const {
     playerProfile,
     isLoading: isLoadingProfile,
@@ -166,6 +166,29 @@ export default function GameFlowManager() {
     window.addEventListener('nullstate-bunker-cleared', onCleared)
     return () => window.removeEventListener('nullstate-bunker-cleared', onCleared)
   }, [useWorldMapHub, address])
+
+  // Owner: everyone who clicks Play Game should count as a player right away.
+  //
+  // They always had an id — a wallet, or a guest id in localStorage — but the
+  // first thing that ever RECORDED it was the energy row written by starting a
+  // run. So a person who opened the game, looked at the world map and left
+  // existed only on their own device, and the stats page could not see them.
+  //
+  // This is that record, fired once when the game shell mounts with an id in
+  // hand. Deliberately fire-and-forget: it is a dashboard number, and it must
+  // never delay the map painting or surface an error to someone who just
+  // wanted to play. Once per mount, not per render, so a re-render storm
+  // cannot turn one player into a write loop.
+  const seenSent = useRef(false)
+  useEffect(() => {
+    if (!address || seenSent.current) return
+    seenSent.current = true
+    fetch('/api/player/seen', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ wallet: address, guest: !!isGuest }),
+    }).catch(() => { /* a missed count is not worth a single visible failure */ })
+  }, [address, isGuest])
 
   // If wallet disconnects, go back to menu
   useEffect(() => {

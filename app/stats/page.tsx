@@ -12,6 +12,7 @@ interface StatsPayload {
   players: {
     total: number; dau: number; wau: number; mau: number
     paying?: number; nonPaying?: number; conversionPct?: number | null
+    guests?: number; wallets?: number; guestKnown?: number
   }
   onchain: {
     purchases: number
@@ -251,6 +252,17 @@ export default function StatsPage() {
                 value={fmt(data.players.nonPaying)}
                 hint="includes duplicate guest ids"
               />
+              {/* Only ids recorded since /api/player/seen shipped carry the
+                  guest flag, so the card says what it is measured over rather
+                  than implying it covers every player above. */}
+              {!!data.players.guestKnown && (
+                <Stat
+                  label="Wallet vs guest"
+                  value={`${fmt(data.players.wallets)} / ${fmt(data.players.guests)}`}
+                  accent="#4ad7ff"
+                  hint={`of ${fmt(data.players.guestKnown)} ids labelled so far`}
+                />
+              )}
             </Section>
 
             <Section title="On-chain activity">

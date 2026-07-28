@@ -43,6 +43,7 @@ export async function GET() {
       paperSnap,    // paperClaims/{weekId}/{wallet}
       ownedSnap,    // marketplaceOwned/{wallet}/{itemId}
       energySnap,   // energy/{wallet}
+      playersSnap,  // players/{id} = { firstSeen, lastSeen, guest }
     ] = await Promise.all([
       db.ref('marketplaceTxHashes').get(),
       db.ref('passMintTxHashes').get(),
@@ -56,6 +57,7 @@ export async function GET() {
       db.ref('paperClaims').get(),
       db.ref('marketplaceOwned').get(),
       db.ref('energy').get(),
+      db.ref('players').get(),
     ])
 
     // Track every wallet we ever see (unique-players proxy) and each wallet's
@@ -219,6 +221,34 @@ export async function GET() {
     if (ownedSnap.exists()) for (const w of Object.keys(ownedSnap.val())) touch(w)
     if (energySnap.exists()) for (const w of Object.keys(energySnap.val())) touch(w)
 
+    // ---- players/{id}: registered on opening the game, not on playing it ----
+    // Owner: "anyone who clicks Play Game should count straight away." Before
+    // this root, the earliest trace of a player was the energy row written by
+    // STARTING A RUN, so anyone who opened the game, looked at the map and left
+    // was invisible. /api/player/seen now records them on mount.
+    //
+    // lastSeen is a far better activity signal than what DAU/WAU/MAU had to
+    // work with — timestamps scavenged from whichever gameplay side effect
+    // happened to leave one — so it feeds the same `touch` and simply wins
+    // whenever it is the more recent of the two.
+    //
+    // `guest` is the field that makes the headline honest. A guest id is 20
+    // random bytes shaped like an address, so a browser cleared twice is three
+    // ids and one person. Only ids recorded from now on carry the flag, which
+    // is why `guestKnown` is reported alongside the split — without it a reader
+    // would take "2 guests" as a fact about all players rather than about the
+    // ones we have had a chance to label.
+    let guests = 0, wallets = 0, guestKnown = 0
+    if (playersSnap.exists()) {
+      for (const [id, rec] of Object.entries(playersSnap.val() as Record<string, any>)) {
+        touch(id, n(rec?.lastSeen))
+        if (rec && typeof rec.guest === 'boolean') {
+          guestKnown++
+          if (rec.guest) guests++; else wallets++
+        }
+      }
+    }
+
     // ---- DAU / MAU from collected activity timestamps ----
     let dau = 0, wau = 0, mau = 0
     for (const ts of lastActive.values()) {
@@ -259,6 +289,10 @@ export async function GET() {
         // anything, plus duplicate guest ids, mixed together.
         paying: buyers.size,
         nonPaying: Math.max(0, seen.size - buyers.size),
+        // Only ids seen since /api/player/seen shipped can be classified.
+        // guestKnown says how many that is, so the split is never mistaken for
+        // a statement about everyone.
+        guests, wallets, guestKnown,
         conversionPct: seen.size > 0
           ? Math.round((buyers.size / seen.size) * 1000) / 10
           : null,
