@@ -827,22 +827,25 @@ export default function DungeonGame({ playerProfile, setPlayerUsername, isNewRun
 
           <div id="log" className="log" />
 
-          {/* Inventory button sits just under the canvas-drawn minimap
-              (top-right) and toggles the inventory panel. */}
-          {/* Owner: use the map's buttons in here too. The world map rail is
-              pixel art; this was a thin vector line-icon on a CSS gradient
-              plate, so walking from the map into a bunker changed art style
-              mid-stride for the same three controls.
-              Same icon file the rail uses, at 30px inside the existing 44px
-              button so the tap target does not shrink — the request was to
-              match the in-game SIZE, and 44 is the floor for a thumb. */}
-          <button id="invBtn" className="inv-btn is-mapicon" aria-label="Inventory">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/worldmap/icons/bag.webp" alt="" aria-hidden="true" width={30} height={30}
-              style={{ width: 30, height: 30, display: 'block', imageRendering: 'pixelated' }} />
-          </button>
+          {/* ── Right-hand control rail (settings / bag / elixir / mute) ──
+              Owner: use the map's buttons in here too, and at the map's size.
 
-          {/* Settings button — progress, save game, username, sound, links */}
+              The four used to be positioned one by one, each with its own
+              `top:` in two orientations — eight numbers that had to agree for
+              the cluster to look like a cluster. They are one flex column now,
+              so the size and the gap are each stated once and the run of
+              buttons cannot drift apart again.
+
+              Icons are the rail's own files at the rail's own 46px (they were
+              30px, which is why they read as a different, smaller control set
+              than the map two taps away). Sizing lives in dungeon.css rather
+              than inline here, so the short-viewport rule can actually shrink
+              them — an inline style would have won over it. */}
+          <div className="ns-hud-rail">
+          {/* Settings button — progress, save game, username, sound, links.
+              First in the column because that is where it has always been on
+              screen; the old `top:` values put it above the bag even though
+              the bag came first in the markup. */}
           <button
             type="button"
             className="ns-settings-trigger is-mapicon"
@@ -851,8 +854,12 @@ export default function DungeonGame({ playerProfile, setPlayerUsername, isNewRun
           >
             {/* Same gear the world map rail uses. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/worldmap/icons/gear.webp" alt="" aria-hidden="true" width={30} height={30}
-              style={{ width: 30, height: 30, display: 'block', imageRendering: 'pixelated' }} />
+            <img className="ns-hud-ico" src="/worldmap/icons/gear.webp" alt="" aria-hidden="true" width={46} height={46} />
+          </button>
+
+          <button id="invBtn" className="inv-btn is-mapicon" aria-label="Inventory">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img className="ns-hud-ico" src="/worldmap/icons/bag.webp" alt="" aria-hidden="true" width={46} height={46} />
           </button>
           {/* Phase 3 — Drop-Rate Elixir button. Sits under the settings gear
               in the same right-hand control cluster. Shows a live countdown
@@ -866,8 +873,7 @@ export default function DungeonGame({ playerProfile, setPlayerUsername, isNewRun
           >
             {/* Generated to match the rail set — see assets-src/worldmap/icons. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/worldmap/icons/elixir.webp" alt="" aria-hidden="true" width={30} height={30}
-              style={{ width: 30, height: 30, display: 'block', imageRendering: 'pixelated' }} />
+            <img className="ns-hud-ico" src="/worldmap/icons/elixir.webp" alt="" aria-hidden="true" width={46} height={46} />
             {elixirActive ? (
               <span className="ns-elixir-badge ns-elixir-badge-timer">
                 {(() => {
@@ -894,11 +900,12 @@ export default function DungeonGame({ playerProfile, setPlayerUsername, isNewRun
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
+              className="ns-hud-ico"
               src={soundMuted ? '/worldmap/icons/volume_off.webp' : '/worldmap/icons/volume.webp'}
-              alt="" aria-hidden="true" width={30} height={30}
-              style={{ width: 30, height: 30, display: 'block', imageRendering: 'pixelated' }}
+              alt="" aria-hidden="true" width={46} height={46}
             />
           </button>
+          </div>
           {/* Inventory — a centered modal (like #containerWindow/#itemZoom)
               rather than a small corner panel, so it never sits under the
               minimap/settings gear and always has room to show a full,

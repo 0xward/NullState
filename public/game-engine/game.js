@@ -894,6 +894,63 @@ function spawnDecorInto(floor, d){
     // shuffle candidates
     for(let i=cand.length-1;i>0;i--){ const j=(Math.random()*(i+1))|0; const t=cand[i]; cand[i]=cand[j]; cand[j]=t; }
     const area=r.w*r.h;
+
+    // ---- ambient CORNER dressing (owner) -------------------------------
+    // "the stacked crates aren't cornered enough and aren't big enough —
+    //  fix it on every map."
+    //
+    // This runs BEFORE the loot props, because it used to run after them and
+    // lose. The wall-hug pass had already taken the corner cell, the
+    // 1.15-tile spacing check then rejected the corner, and the crates ended
+    // up a tile or two inside the room — which is the "not cornered enough"
+    // in the report. Placing them first makes that same spacing check
+    // protect the corner instead of stealing it.
+    //
+    // It also builds its own candidates from the room's north row rather
+    // than reusing `cand`. `cand` drops every cell within 2.4 tiles of the
+    // entrance and the stairs, so whenever either sat near a corner, the
+    // "extreme end" it returned was already well into the room. Scenery in a
+    // corner blocks nothing the player needs to reach, so only a doorway
+    // keep-out survives here — and it steps inward one cell at a time until
+    // it clears, instead of giving up on the corner entirely.
+    //
+    // Not in the prison block: its top strip is barred cells, and crates
+    // stacked against bars read as a bug.
+    if(r.shape !== 'cells'){
+      const northRow=[];
+      for(let tx=r.x; tx<r.x+r.w; tx++){
+        let ty=r.y;
+        while(ty<r.y+r.h && g[ty][tx]===0) ty++;   // first floor cell down this column
+        if(ty>=r.y+r.h) continue;
+        if(!isWall(tx,ty-1)) continue;             // must actually hug the north wall
+        if(isWall(tx,ty+1)) continue;              // must have floor under its base
+        northRow.push({ tx, px:(tx+0.5)*TILE, py:(ty+0.66)*TILE });
+      }
+      const clear = c => {
+        for(const door of r.doors){
+          if(Math.hypot(c.px-(door.x+0.5)*TILE, c.py-(door.y+0.5)*TILE) < TILE*2.0) return false;
+        }
+        return Math.hypot(c.px-d.startPx.x, c.py-d.startPx.y) >= TILE*1.6
+            && Math.hypot(c.px-d.stairsPx.x, c.py-d.stairsPx.y) >= TILE*1.6;
+      };
+      const firstClear = list => { for(const c of list){ if(clear(c)) return c; } return null; };
+      if(northRow.length){
+        const AMB_CORNER=['amb_crate_stack_a','amb_crate_stack_b'];
+        const left  = firstClear(northRow);
+        const right = firstClear(northRow.slice().reverse());
+        const ends=[];
+        if(left) ends.push(left);
+        if(right && (!left || right.tx!==left.tx)) ends.push(right);
+        for(const e of ends){
+          // Still not every corner of every room, or the bunkers start to
+          // look stamped out — but far less often skipped than before (0.35),
+          // because the report was that they are missing from the corners.
+          if(Math.random()<0.18) continue;
+          floor.decor.push(new Decor(AMB_CORNER[(Math.random()*AMB_CORNER.length)|0], e.px, e.py, 'down'));
+        }
+      }
+    }
+
     // v80: denser dressing (owner: "maps cenderung kosong") — cap 3 -> 5 per
     // room, area divisor 20 -> 14, min spacing 1.3 -> 1.15 tiles.
     const n=Math.min(cand.length, Math.min(5, Math.max(1, Math.round(area/14))));
@@ -949,7 +1006,7 @@ function spawnDecorInto(floor, d){
       midPlaced++;
     }
 
-    // ---- ambient dressing pass (owner rules) --------------------------
+    // ---- ambient WALL dressing pass (owner rules) ---------------------
     // Scenery that cannot be broken, opened or looted. Every rule below is
     // the owner's, and each one is a constraint on WHERE, because the art
     // itself only works in one place:
@@ -960,30 +1017,20 @@ function spawnDecorInto(floor, d){
     //                      skips the mid-room list entirely
     //   never at a door  — inherited free: `cand` already dropped anything
     //                      within 2.2 tiles of a doorway
-    //   crates to the corners — the two stacked-crate sprites are the
-    //                      heaviest shapes here; parked at the far ends of
-    //                      the N wall they frame the room instead of
-    //                      interrupting it
     //   never in the cells — the prison block's top strip is barred cells,
     //                      and stacking crates against bars reads as a bug
+    //
+    // The stacked crates are NOT placed here — they are the corner pass at
+    // the top of this loop, which runs before the loot props so the corner
+    // is still free when it gets there.
     if(r.shape !== 'cells'){
       const north = cand.filter(c => c.facing === 'down');
       if(north.length){
-        const AMB_CORNER = ['amb_crate_stack_a','amb_crate_stack_b'];
         const AMB_WALL   = ['amb_barrel_a','amb_barrel_b','amb_barrel_c',
                             'amb_urn_a','amb_urn_b','amb_urn_c','amb_urn_d','amb_urn_e',
                             'amb_urn_f','amb_urn_g','amb_urn_h','amb_urn_i'];
         const free = (px,py,gap) => !floor.decor.some(o=>Math.hypot(o.x-px,o.y-py)<TILE*gap);
-        // Corners first: the extreme ends of the room's north wall.
-        const byX = north.slice().sort((a,b)=>a.px-b.px);
-        const ends = byX.length>1 ? [byX[0], byX[byX.length-1]] : [byX[0]];
-        for(const e of ends){
-          if(Math.random()<0.35) continue;              // not every room, or it becomes a pattern
-          if(!free(e.px,e.py,1.15)) continue;
-          floor.decor.push(new Decor(AMB_CORNER[(Math.random()*AMB_CORNER.length)|0], e.px, e.py, 'down'));
-        }
-        // Then a couple of smaller pieces anywhere else along the same wall.
-        const rest = north.filter(c=>!ends.includes(c));
+        const rest = north.slice();
         for(let i=rest.length-1;i>0;i--){ const j=(Math.random()*(i+1))|0; const t=rest[i]; rest[i]=rest[j]; rest[j]=t; }
         let amb=0;
         const nAmb = Math.min(rest.length, 1 + ((Math.random()*2)|0));
