@@ -9,7 +9,10 @@ import Link from 'next/link'
 
 interface StatsPayload {
   generatedAt: number
-  players: { total: number; dau: number; wau: number; mau: number }
+  players: {
+    total: number; dau: number; wau: number; mau: number
+    paying?: number; nonPaying?: number; conversionPct?: number | null
+  }
   onchain: {
     purchases: number
     purchasesByToken: { USDM: number; USDC: number; USDT: number }
@@ -226,10 +229,28 @@ export default function StatsPage() {
         {data && (
           <>
             <Section title="Players">
-              <Stat label="Total players" value={fmt(data.players.total)} />
+              <Stat
+                label="Total players"
+                value={fmt(data.players.total)}
+                hint="ids that played at least once — not visitors"
+              />
               <Stat label="Active today (DAU)" value={fmt(data.players.dau)} accent="#4ad7ff" />
               <Stat label="Active 7d (WAU)" value={fmt(data.players.wau)} accent="#4ad7ff" />
               <Stat label="Active 30d (MAU)" value={fmt(data.players.mau)} accent="#4ad7ff" />
+              {/* Owner asked to see who has paid and who has not. Paying is the
+                  reliable half — it needs a real wallet and an on-chain
+                  transaction, so a guest id can never land in it. */}
+              <Stat
+                label="Paid at least once"
+                value={fmt(data.players.paying)}
+                accent="#f2cd82"
+                hint={data.players.conversionPct != null ? `${data.players.conversionPct}% of players` : undefined}
+              />
+              <Stat
+                label="Never paid"
+                value={fmt(data.players.nonPaying)}
+                hint="includes duplicate guest ids"
+              />
             </Section>
 
             <Section title="On-chain activity">

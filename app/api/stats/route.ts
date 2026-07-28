@@ -233,6 +233,35 @@ export async function GET() {
       players: {
         total: seen.size,
         dau, wau, mau,
+        // Owner: "24 total players — where does that come from, and which of
+        // them ever paid?"
+        //
+        // `total` is every id that has ever written anything server-side: a
+        // purchase, a vault completion, a quest claim, a burn, a reward, an
+        // owned item, or an energy record. That last one is the wide door —
+        // starting a single run creates it.
+        //
+        // Two things it is NOT, and both matter before this number is quoted
+        // anywhere:
+        //   - it is not visitors. Opening the landing page or the world map
+        //     writes nothing, so someone who looked and left is invisible here.
+        //     Measuring that needs PostHog, which is still unconfigured.
+        //   - it is not humans, and not even wallets. A player without a wallet
+        //     gets a random guest id in localStorage that is shaped exactly
+        //     like an address, and every Firebase-keyed flow uses it. Clear the
+        //     browser or open the game on a second device and the same person
+        //     counts twice.
+        //
+        // The split below is the part that IS solid, because paying requires a
+        // real wallet and an on-chain transaction — a guest id can never appear
+        // in it. So `paying` is a floor on real distinct people, and
+        // `nonPaying` is everyone else: real players who have not bought
+        // anything, plus duplicate guest ids, mixed together.
+        paying: buyers.size,
+        nonPaying: Math.max(0, seen.size - buyers.size),
+        conversionPct: seen.size > 0
+          ? Math.round((buyers.size / seen.size) * 1000) / 10
+          : null,
       },
       onchain: {
         // `purchases` now spans every paid flow, so passes are inside this
