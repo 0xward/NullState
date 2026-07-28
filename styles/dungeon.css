@@ -1049,28 +1049,27 @@
    The drop-shadow is the rail's, so the icons stay legible over a bright floor
    tile the way they do over the map art. */
 .ns-game-root .inv-btn.is-mapicon,
-.ns-game-root .ns-settings-trigger.is-mapicon{
+.ns-game-root .ns-settings-trigger.is-mapicon,
+.ns-game-root .ns-elixir-trigger.is-mapicon,
+.ns-game-root .ns-mute-trigger.is-mapicon{
   background:none;box-shadow:none;color:inherit;
   clip-path:none;
   filter:drop-shadow(0 3px 5px rgba(0,0,0,.7));}
 .ns-game-root .inv-btn.is-mapicon:hover,
-.ns-game-root .ns-settings-trigger.is-mapicon:hover{
+.ns-game-root .ns-settings-trigger.is-mapicon:hover,
+.ns-game-root .ns-elixir-trigger.is-mapicon:hover,
+.ns-game-root .ns-mute-trigger.is-mapicon:hover{
   background:none;box-shadow:none;
   filter:drop-shadow(0 0 7px rgba(255,209,102,.55)) drop-shadow(0 3px 5px rgba(0,0,0,.7));}
 .ns-game-root .inv-btn.is-mapicon:active,
-.ns-game-root .ns-settings-trigger.is-mapicon:active{
+.ns-game-root .ns-settings-trigger.is-mapicon:active,
+.ns-game-root .ns-elixir-trigger.is-mapicon:active,
+.ns-game-root .ns-mute-trigger.is-mapicon:active{
   transform:scale(.9);box-shadow:none;
   filter:brightness(1.25) drop-shadow(0 3px 5px rgba(0,0,0,.7));}
 
-/* Sound has no pixel icon in the rail set — on the map it is the green
-   notched MusicButton, so that is what it matches here. Same outline, same
-   background, same corner cut, at the same 40px the map draws it. */
-.ns-game-root .ns-mute-trigger.is-mapicon{
-  width:40px;height:40px;
-  background:rgba(4,8,6,.78);
-  border:1px solid rgba(57,255,154,.35);
-  color:#4dffa6;
-  box-shadow:none;
-  clip-path:polygon(9px 0,100% 0,100% calc(100% - 9px),calc(100% - 9px) 100%,0 100%,0 9px);}
-.ns-game-root .ns-mute-trigger.is-mapicon.is-muted{color:rgba(255,255,255,.5);}
-.ns-game-root .ns-mute-trigger.is-mapicon:active{transform:translateY(1px);box-shadow:none;}
+/* Sound and elixir now have generated icons of their own (see
+   assets-src/worldmap/icons/volume*.png, elixir.png), drawn against the rail
+   set's own frame plate, so all four controls are the same kind of object.
+   The interim green MusicButton copy that stood in for sound is gone — it was
+   a stand-in for a missing asset, not a design. */
