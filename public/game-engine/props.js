@@ -49,7 +49,25 @@ const DECOR_TYPES = {
   hay_pile:     { hp:1, w:44, h:50, label:'Straw Bedding',   loot:[['hp',8,44],['xp',10,28],['item',1,8],['none',0,20]] },
   chalice:      { hp:1, w:26, h:40, label:'Ritual Chalice',  loot:[['relic',1,16],['xp',24,38],['hp',10,22],['gshard',1,10],['none',0,24]] },
   basin:        { hp:1, w:30, h:26, label:'Wash Basin',      loot:[['hp',10,52],['xp',10,24],['none',0,24]] },
-  plaque_sword: { hp:1, w:24, h:26, label:'Armory Plaque',   loot:[['xp',20,52],['item',1,16],['none',0,32]], northOnly:true },
+  // Owner: this one read as a framed photograph on the wall — "delete it,
+  // put another lootable thing there instead". Same call they made about
+  // plaque_coin, and for the same reason: a picture frame is not something a
+  // player expects to smash for XP, and two of them hanging in a bunker made
+  // the place look like somebody's hallway.
+  //
+  // It is a spilled heap of coins on the floor now — cut from the same
+  // top-down sheet the ambient props came from, so it is art the repo
+  // already owned. Nothing else in the pool is loose gold, so it reads as
+  // "loot" at a glance without a label, which is the whole job.
+  //
+  // The key stays `plaque_sword` on purpose: a floor saved before this
+  // change still names it, and renaming would break loading that floor.
+  // northOnly is gone with the plaque — this art is flat and top-down, so
+  // unlike the wall-hung frame it looks right against any wall.
+  // Sized to the flat-pile family it now belongs to (bones 36x18, skull_heap
+  // 32x16) rather than to its own 22x17 source pixels — drawn at source size
+  // it was the smallest thing on the floor and read as a scuff mark.
+  plaque_sword: { hp:1, w:32, h:25, label:'Spilled Coins',   loot:[['xp',24,40],['gshard',1,18],['item',1,16],['hp',8,10],['none',0,16]] },
   // Owner: this one read as a framed photograph hanging on the wall, which
   // is a strange thing to smash for XP. It is now the open gold chest cut
   // from the same sheet as the ambient props — an actual container, opened
@@ -96,8 +114,15 @@ const DECOR_TYPES = {
   // northOnly on every one of them: this art has a single front view, so it
   // only reads correctly against the top wall. There is no S/E/W variant to
   // fall back to, unlike the tables and benches.
-  amb_crate_stack_a: { hp:0, w:28, h:36, label:'Stacked Crates', loot:[], ambient:true, northOnly:true, corner:true },
-  amb_crate_stack_b: { hp:0, w:25, h:30, label:'Stacked Crates', loot:[], ambient:true, northOnly:true, corner:true },
+  // Owner: "the crates are too small". They were drawn at their source pixel
+  // size (28x36 / 25x30) while every hand-sized prop around them — the barrel
+  // stack at 46x56, the wardrobe at 48x64 — was scaled up to read as
+  // furniture. Sized to the barrel stack now. Heights drive the draw (see
+  // Decor.draw: dh = def.h, dw follows the sprite's own aspect), and the
+  // widths below are that aspect worked back out, so the collision footprint
+  // still matches what is on screen.
+  amb_crate_stack_a: { hp:0, w:42, h:54, label:'Stacked Crates', loot:[], ambient:true, northOnly:true, corner:true },
+  amb_crate_stack_b: { hp:0, w:38, h:46, label:'Stacked Crates', loot:[], ambient:true, northOnly:true, corner:true },
   amb_barrel_a:      { hp:0, w:29, h:32, label:'Sealed Barrels', loot:[], ambient:true, northOnly:true },
   amb_barrel_b:      { hp:0, w:27, h:30, label:'Sealed Barrels', loot:[], ambient:true, northOnly:true },
   amb_barrel_c:      { hp:0, w:22, h:29, label:'Sealed Barrel',  loot:[], ambient:true, northOnly:true },
@@ -153,7 +178,7 @@ const DECOR_SPRITE_SETS = {
   hay_pile:       { n:'hay_pile' },
   chalice:        { n:'chalice' },
   basin:          { n:'basin' },
-  plaque_sword:   { n:'plaque_sword' },
+  plaque_sword:   { n:'coin_pile' },   // see DECOR_TYPES: the frame became a coin heap
   plaque_coin:    { n:'amb_chest_gold' },
   skull_heap:     { n:'skull_heap' },
   cot:            { n:'cot' },

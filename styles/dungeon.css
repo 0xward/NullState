@@ -644,7 +644,7 @@
 /* HUD redesign (owner): order top-to-bottom under the raised minimap is now
    SETTINGS then INVENTORY then ELIXIR (settings must sit above inventory). The
    whole cluster moved up to follow the minimap (now top:14, was 78). */
-.ns-game-root .inv-btn{position:absolute;top:208px;right:12px;z-index:7;pointer-events:auto;
+.ns-game-root .inv-btn{position:relative;pointer-events:auto;
   width:44px;height:44px;border-radius:0;cursor:pointer;border:0;
   background:linear-gradient(180deg,#8a5a34 0%,#6b4526 55%,#503018 100%);color:#ffe9c4;
   display:flex;align-items:center;justify-content:center;
@@ -719,7 +719,7 @@
    8px gap. Gray/steel palette vs. the inventory button's brown/leather palette
    keeps the two visually distinct despite matching size. */
 /* v80 pixel skin: same chunky notched treatment as .inv-btn, steel palette */
-.ns-game-root .ns-settings-trigger{position:absolute;top:156px;right:12px;z-index:7;pointer-events:auto;
+.ns-game-root .ns-settings-trigger{position:relative;pointer-events:auto;
   width:44px;height:44px;border-radius:0;cursor:pointer;border:0;
   background:linear-gradient(180deg,#7a7f85 0%,#565a60 55%,#3e4247 100%);color:#e8ebee;
   display:flex;align-items:center;justify-content:center;
@@ -730,9 +730,6 @@
   box-shadow:inset 0 0 0 2px #cfd4d9, inset 0 3px 0 2px rgba(255,255,255,.2), inset 0 -4px 0 2px rgba(0,0,0,.4);}
 .ns-game-root .ns-settings-trigger:active{transform:translateY(1px);
   box-shadow:inset 0 0 0 2px #2e3134, inset 0 4px 0 2px rgba(0,0,0,.35);}
-@media (orientation:portrait){
-  .ns-game-root .ns-settings-trigger{top:120px;}
-}
 
 /* ════════════════════════════════════════════════════════════════════════
    LIFT — floor-select popup. Compact variant of the .overlay pattern
@@ -783,7 +780,6 @@
 .ns-game-root .scene-loader-fill{height:100%;width:0%;background:#fff;}
 
 @media (orientation:portrait){
-  .ns-game-root .inv-btn{top:172px;}
   .ns-game-root .inv-panel-inner{width:min(94vw,380px);padding:16px 14px;}
 }
 
@@ -1003,7 +999,7 @@
 /* Phase 3 — Drop-Rate Elixir trigger, third button in the right-hand
    control cluster (under inventory + settings). Violet pixel skin to match
    the shard/buff color family. Badge shows owned count or live countdown. */
-.ns-game-root .ns-elixir-trigger{position:absolute;top:260px;right:12px;z-index:7;pointer-events:auto;
+.ns-game-root .ns-elixir-trigger{position:relative;pointer-events:auto;
   width:44px;height:44px;border-radius:0;cursor:pointer;border:0;
   background:linear-gradient(180deg,#7a4db0 0%,#5c3690 55%,#412066 100%);color:#f0e4ff;
   display:flex;align-items:center;justify-content:center;
@@ -1020,14 +1016,11 @@
   color:#1a0f2a;background:#ffd166;border:1px solid #2e1848;border-radius:8px;}
 .ns-game-root .ns-elixir-badge-timer{background:#b46bff;color:#fff;min-width:30px;border-radius:6px;
   box-shadow:0 0 8px rgba(180,107,255,.6);}
-@media (orientation:portrait){
-  .ns-game-root .ns-elixir-trigger{top:224px;}
-}
 
 /* Mute toggle — sits at the bottom of the right-hand control cluster, same
    chunky steel skin as the settings gear. Always visible during play so a
    player can silence the game in one tap (owner: "mute gampang dilihat"). */
-.ns-game-root .ns-mute-trigger{position:absolute;top:312px;right:12px;z-index:7;pointer-events:auto;
+.ns-game-root .ns-mute-trigger{position:relative;pointer-events:auto;
   width:44px;height:44px;border-radius:0;cursor:pointer;border:0;
   background:linear-gradient(180deg,#7a7f85 0%,#565a60 55%,#3e4247 100%);color:#e8ebee;
   display:flex;align-items:center;justify-content:center;
@@ -1042,33 +1035,63 @@
 .ns-game-root .ns-mute-trigger.is-muted{background:linear-gradient(180deg,#a8564e 0%,#7e3b35 55%,#5c2824 100%);color:#ffdedb;
   box-shadow:inset 0 0 0 2px #3a1a17, inset 0 3px 0 2px rgba(255,255,255,.14), inset 0 -4px 0 2px rgba(0,0,0,.4);}
 .ns-game-root .ns-mute-trigger.is-muted:hover{background:linear-gradient(180deg,#c26a61 0%,#94473f 55%,#6c302b 100%);color:#fff;}
+
+/* ── Right-hand HUD rail (settings / bag / elixir / mute) ─────────────────
+   Owner, first pass: "use the buttons from the maps in here too."
+   Owner, this pass: "they're not big enough — make them the same size as the
+   map's."
+
+   The first pass kept the icons at 30px inside the existing 44px boxes, on
+   the reasoning that 44px is the floor for a thumb. That protected the tap
+   target and missed the point: at 30px against the map rail's 46px they
+   still read as a different, smaller set of controls than the ones two taps
+   away. They are 46px now, in a 52px box — the rail's own numbers — so the
+   two really are the same control at the same size, and the tap target grew
+   rather than shrank.
+
+   The four used to be positioned individually, each with a `top:` in each
+   orientation: eight numbers that all had to agree, and that silently
+   decided the on-screen order independently of the markup. One flex column
+   states the size and the gap once instead.
+
+   The short-viewport rule below is why the icon size lives here rather than
+   inline on the <img>: an inline style would outrank it, and the rail would
+   overflow the bottom of a landscape phone with no way to stop it. */
+.ns-game-root .ns-hud-rail{position:absolute;top:156px;right:12px;z-index:7;
+  display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none;}
+.ns-game-root .ns-hud-rail > *{pointer-events:auto;}
+.ns-game-root .ns-hud-ico{width:46px;height:46px;display:block;image-rendering:pixelated;}
 @media (orientation:portrait){
-  .ns-game-root .ns-mute-trigger{top:276px;}
+  /* The minimap shrinks to 78px on a narrow portrait screen (see
+     getMinimapMetrics in game.js), so the rail follows it up. */
+  .ns-game-root .ns-hud-rail{top:120px;}
 }
-
-/* ── Map-matched HUD controls (owner request) ─────────────────────────────
-   "the inventory, settings and sound buttons in-game — just use the ones from
-   the maps, only smaller, matched to the in-game size."
-
-   The three controls used to be CSS gradient plates holding thin vector line
-   icons, while the world map rail two taps away is pixel art. Walking from the
-   map into a bunker changed art style mid-stride for the same three buttons.
-
-   `.is-mapicon` strips the plate so the rail's own icon is the button, exactly
-   as it is on the map. The 44x44 box STAYS — that is the tap target, and this
-   game is played one-handed on cheap Android hardware; the request was to
-   match the in-game size, not to shrink the thing a thumb has to hit. The icon
-   inside is 30px against the rail's 46px, which is the "smaller" part.
-
-   The drop-shadow is the rail's, so the icons stay legible over a bright floor
-   tile the way they do over the map art. */
+/* `.is-mapicon` strips the CSS plate so the rail's own icon IS the button,
+   exactly as on the map. The drop-shadow is the rail's, so the icons stay
+   legible over a bright floor tile the way they do over the map art. */
 .ns-game-root .inv-btn.is-mapicon,
 .ns-game-root .ns-settings-trigger.is-mapicon,
 .ns-game-root .ns-elixir-trigger.is-mapicon,
 .ns-game-root .ns-mute-trigger.is-mapicon{
+  width:52px;height:52px;
   background:none;box-shadow:none;color:inherit;
   clip-path:none;
   filter:drop-shadow(0 3px 5px rgba(0,0,0,.7));}
+
+/* Landscape on a phone leaves ~360px of height for everything. Four 52px
+   buttons plus gaps do not fit under the minimap there, so the rail steps
+   back down to the old 44px box — still a legal tap target, and still the
+   map's artwork, just not the map's scale on a screen that has no room for
+   it. */
+@media (max-height:460px){
+  .ns-game-root .ns-hud-rail{top:130px;gap:5px;}
+  .ns-game-root .ns-hud-ico{width:38px;height:38px;}
+  .ns-game-root .inv-btn.is-mapicon,
+  .ns-game-root .ns-settings-trigger.is-mapicon,
+  .ns-game-root .ns-elixir-trigger.is-mapicon,
+  .ns-game-root .ns-mute-trigger.is-mapicon{width:44px;height:44px;}
+}
+
 .ns-game-root .inv-btn.is-mapicon:hover,
 .ns-game-root .ns-settings-trigger.is-mapicon:hover,
 .ns-game-root .ns-elixir-trigger.is-mapicon:hover,

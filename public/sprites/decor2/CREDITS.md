@@ -47,6 +47,14 @@ files are the ones to replace. `docs/network-manifest.md` also notes the sheet.
 - `amb_urn_a`…`amb_urn_i` — clay urns and vases, nine sizes
 - `amb_chest_gold`      — open gold chest; replaces the framed-coin art on the
                           `plaque_coin` prop, which is now an openable container
+- `coin_pile`           — spilled gold heap; replaces the framed-sword art on
+                          the `plaque_sword` prop (owner: both wall frames read
+                          as hung photographs). Sixteenth cut from the same
+                          sheet, same terms, same unverified provenance.
 
 The first fourteen are `ambient:true` in props.js: scenery only, never
-breakable, never lootable, never interactive.
+breakable, never lootable, never interactive. `amb_chest_gold` and `coin_pile`
+are not — they dress real loot props.
+
+`plaque_sword.png` (the framed crossed swords this replaced) was deleted rather
+than left orphaned; `plaque_coin.png` is likewise no longer referenced.
