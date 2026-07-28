@@ -829,32 +829,30 @@ export default function DungeonGame({ playerProfile, setPlayerUsername, isNewRun
 
           {/* Inventory button sits just under the canvas-drawn minimap
               (top-right) and toggles the inventory panel. */}
-          <button id="invBtn" className="inv-btn" aria-label="Inventory">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M8 8V6.5a4 4 0 0 1 8 0V8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
-              <rect x="5" y="8" width="14" height="13" rx="2.5" stroke="currentColor" strokeWidth="1.6"/>
-              <path d="M9 8v3.2a3 3 0 0 0 6 0V8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
-              <rect x="9.5" y="14" width="5" height="4" rx="0.8" stroke="currentColor" strokeWidth="1.2"/>
-            </svg>
+          {/* Owner: use the map's buttons in here too. The world map rail is
+              pixel art; this was a thin vector line-icon on a CSS gradient
+              plate, so walking from the map into a bunker changed art style
+              mid-stride for the same three controls.
+              Same icon file the rail uses, at 30px inside the existing 44px
+              button so the tap target does not shrink — the request was to
+              match the in-game SIZE, and 44 is the floor for a thumb. */}
+          <button id="invBtn" className="inv-btn is-mapicon" aria-label="Inventory">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/worldmap/icons/bag.webp" alt="" aria-hidden="true" width={30} height={30}
+              style={{ width: 30, height: 30, display: 'block', imageRendering: 'pixelated' }} />
           </button>
 
           {/* Settings button — progress, save game, username, sound, links */}
           <button
             type="button"
-            className="ns-settings-trigger"
+            className="ns-settings-trigger is-mapicon"
             aria-label="Settings"
             onClick={handleOpenSettings}
           >
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path
-                d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4Z"
-                stroke="currentColor" strokeWidth="1.6"
-              />
-              <path
-                d="M19.4 13.6c.05-.53.05-1.07 0-1.6l1.6-1.25a.6.6 0 0 0 .14-.77l-1.5-2.6a.6.6 0 0 0-.73-.26l-1.9.76a7.4 7.4 0 0 0-1.38-.8l-.29-2.02a.6.6 0 0 0-.6-.51h-3a.6.6 0 0 0-.6.51l-.29 2.02c-.5.2-.96.48-1.38.8l-1.9-.76a.6.6 0 0 0-.73.26l-1.5 2.6a.6.6 0 0 0 .14.77l1.6 1.25c-.05.53-.05 1.07 0 1.6l-1.6 1.25a.6.6 0 0 0-.14.77l1.5 2.6a.6.6 0 0 0 .73.26l1.9-.76c.42.32.88.6 1.38.8l.29 2.02a.6.6 0 0 0 .6.51h3a.6.6 0 0 0 .6-.51l.29-2.02c.5-.2.96-.48 1.38-.8l1.9.76a.6.6 0 0 0 .73-.26l1.5-2.6a.6.6 0 0 0-.14-.77l-1.6-1.25Z"
-                stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"
-              />
-            </svg>
+            {/* Same gear the world map rail uses. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/worldmap/icons/gear.webp" alt="" aria-hidden="true" width={30} height={30}
+              style={{ width: 30, height: 30, display: 'block', imageRendering: 'pixelated' }} />
           </button>
           {/* Phase 3 — Drop-Rate Elixir button. Sits under the settings gear
               in the same right-hand control cluster. Shows a live countdown
@@ -890,7 +888,7 @@ export default function DungeonGame({ playerProfile, setPlayerUsername, isNewRun
               the two stay in sync. Icon + red tint reflect the muted state. */}
           <button
             type="button"
-            className={`ns-mute-trigger${soundMuted ? ' is-muted' : ''}`}
+            className={`ns-mute-trigger is-mapicon${soundMuted ? ' is-muted' : ''}`}
             aria-label={soundMuted ? 'Unmute sound' : 'Mute sound'}
             aria-pressed={soundMuted}
             onClick={handleToggleSound}
