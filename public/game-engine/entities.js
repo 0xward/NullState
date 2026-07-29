@@ -1389,8 +1389,12 @@ class Enemy {
       ctx.arc(this.x,this.y-this.r*0.6,this.r*2.4,0,Math.PI*2); ctx.fill(); ctx.restore();
     }
     // shadow
+    // Was centre y+6, half-height 6: the whole ellipse sat below the feet
+    // line, which is the same detached-puddle look the player's own shadow was
+    // fixed for at +2 (see the comment above Player.draw's shadow). Matched to
+    // that tuning rather than invented — enemies stand on the same floor.
     ctx.save(); ctx.globalAlpha=0.3*a; ctx.fillStyle='#000';
-    ctx.beginPath(); ctx.ellipse(this.x,this.y+6,this.r*1.2,6,0,0,7); ctx.fill(); ctx.restore();
+    ctx.beginPath(); ctx.ellipse(this.x,this.y+2,this.r*1.15,5,0,0,7); ctx.fill(); ctx.restore();
     if(this.windupT>0 && !this.dead){
       const pulse=1-this.windupT/0.22;
       ctx.save(); ctx.globalCompositeOperation='lighter';
