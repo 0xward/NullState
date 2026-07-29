@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import Image from 'next/image'
 import { PlayerProfile } from '@/lib/contract'
 import { usernameSchema } from '@/lib/validation'
@@ -58,6 +59,14 @@ export default function SettingsModal({
   const [usernameStatus, setUsernameStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const [usernameError, setUsernameError] = useState<string | null>(null)
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  // document.body only exists in the browser, and this renders through a
+  // portal. DungeonGame imports it with ssr:false so today it never runs on
+  // the server — but nothing in this file says so, and a future import without
+  // that flag would crash the render instead of degrading. Gating on a mount
+  // flag rather than `typeof document` also keeps server and first client
+  // render agreeing, so it can never trip hydration either.
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => { setMounted(true) }, [])
 
   // TASK #7 (owner request): the pass badge is NOT shown on the in-game HUD.
   // Instead a connected wallet that has minted the active-season pass sees a
@@ -80,7 +89,7 @@ export default function SettingsModal({
     }
   }, [open, playerProfile?.username])
 
-  if (!open) return null
+  if (!open || !mounted) return null
 
   const handleUsernameSave = async () => {
     if (!usernameInput.trim() || usernameInput === playerProfile?.username) return
@@ -102,7 +111,24 @@ export default function SettingsModal({
     setSaveStatus(ok ? 'saved' : 'error')
   }
 
-  return (
+  // Rendered on document.body, not where this component sits in the tree.
+  // DungeonGame mounts it inside .ns-game-root, whose stylesheet resets margin
+  // and padding on every descendant so the vanilla engine's markup starts from
+  // a known state. That reset is a plain `.ns-game-root *`, the same
+  // specificity as this panel's own `.ns-settings-panel` rules, so whichever
+  // stylesheet the bundler happened to concatenate last won — and in
+  // production that was the reset, which flattened every padding in here and
+  // put the panel edge-to-edge against the phone's screen.
+  //
+  // Scoping the reset instead was the first attempt and was worse: adding an
+  // id to the selector outranked every panel rule INSIDE the game too, so the
+  // HUD bars and the loot window lost their insets as well.
+  //
+  // A portal ends the argument rather than winning it. The modal is
+  // position:fixed and belongs to the viewport, not to the game root, so it
+  // has no reason to be nested in it; out here nothing resets it, and
+  // .ns-game-root's touch-action:none no longer fights the panel's own scroll.
+  return createPortal(
     <div className="ns-settings-overlay" role="dialog" aria-label="Settings">
       <div className="ns-settings-panel">
         {/* Header mirrors the world map's Settings screen — same title, same
@@ -385,6 +411,7 @@ export default function SettingsModal({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 
 interface SaveConfirmModalProps {
   open: boolean
@@ -18,8 +19,11 @@ export default function SaveConfirmModal({
   onCancel,
 }: SaveConfirmModalProps) {
   const [saving, setSaving] = useState(false)
+  // See SettingsModal: portalled to document.body, so it waits for mount.
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => { setMounted(true) }, [])
 
-  if (!open) return null
+  if (!open || !mounted) return null
 
   const handleSaveAndExit = async () => {
     setSaving(true)
@@ -27,7 +31,10 @@ export default function SaveConfirmModal({
     setSaving(false)
   }
 
-  return (
+  // Portalled to document.body for the same reason as SettingsModal: this is
+  // a viewport-fixed dialog rendered inside .ns-game-root, whose `* { padding:0 }`
+  // reset ties with these rules on specificity and wins on bundle order.
+  return createPortal(
     <div className="ns-confirm-overlay" role="dialog" aria-label="Save progress">
       <div className="ns-confirm-box">
         <div className="ns-confirm-title">Save Progress?</div>
@@ -50,6 +57,7 @@ export default function SaveConfirmModal({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

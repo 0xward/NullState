@@ -397,8 +397,22 @@ class Decor {
         // contact shadow (skip for the cut back view — it sits IN the wall)
         if(!cut){
           ctx.save();
-          ctx.globalAlpha=0.34*a; ctx.fillStyle='#000';
-          ctx.beginPath(); ctx.ellipse(this.x, this.y+2, dw*0.52, 5.5, 0, 0, 7); ctx.fill();
+          // Owner: "the props look like they're hovering — the shadow is too
+          // far away to read as touching the floor."
+          //
+          // It was: centre y+2, half-height 5.5, half-width dw*0.52. The
+          // sprite's own bottom edge is at exactly this.y, so that ellipse ran
+          // from 3px above the base to 7px BELOW it and stuck out past both
+          // sides — a puddle sitting on the floor with the object above it,
+          // not a contact shadow. Most of these sprites also carry their own
+          // painted shading, so it read as two shadows.
+          //
+          // Now it sits under the base and barely clears it: centre y-2,
+          // half-height 2.8, half-width dw*0.38, and a touch lighter. What the
+          // player sees is a thin dark sliver either side of where the object
+          // meets the ground, which is what "standing on it" looks like.
+          ctx.globalAlpha=0.30*a; ctx.fillStyle='#000';
+          ctx.beginPath(); ctx.ellipse(this.x, this.y-2, dw*0.38, 2.8, 0, 0, 7); ctx.fill();
           ctx.restore();
         }
         ctx.save();
@@ -426,14 +440,19 @@ class Decor {
 
     // ---- contact shadow: anchors the prop to the floor/wall so it doesn't float ----
     ctx.save();
-    ctx.globalAlpha=0.34*a; ctx.fillStyle='#000';
-    // shadow stretches a touch INTO the room (away from the wall) for grounding
-    let shx=this.x, shy=this.y+2;
-    if(f==='down') shy=this.y+1;
-    else if(f==='up') shy=this.y+3;
-    else if(f==='right') shx=this.x+3;
-    else if(f==='left')  shx=this.x-3;
-    ctx.beginPath(); ctx.ellipse(shx, shy, this.r*1.12, 5.5, 0, 0, 7); ctx.fill();
+    ctx.globalAlpha=0.30*a; ctx.fillStyle='#000';
+    // Same correction as the sprite path above: the ellipse used to sit BELOW
+    // the base (y+1..y+3, half-height 5.5) and reach out to r*1.12, wider than
+    // the prop itself. Tucked under the base and tightened. The small
+    // directional nudge stays — it leans away from the wall the prop hugs,
+    // which is where the light in these rooms comes from — but at 2px it no
+    // longer detaches the shadow from the object.
+    let shx=this.x, shy=this.y-2;
+    if(f==='down') shy=this.y-2;
+    else if(f==='up') shy=this.y-1;
+    else if(f==='right') shx=this.x+2;
+    else if(f==='left')  shx=this.x-2;
+    ctx.beginPath(); ctx.ellipse(shx, shy, this.r*0.78, 2.8, 0, 0, 7); ctx.fill();
     ctx.restore();
 
     // ---- body ----
