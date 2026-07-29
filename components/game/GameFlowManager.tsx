@@ -253,7 +253,8 @@ export default function GameFlowManager() {
   // Actually begins a fresh run (marks isNewRun so DungeonGame's mount
   // effect skips loading any saved bunker snapshot). v72 (user finding #2):
   // REGISTERED players now skip the username-setup screen entirely and drop
-  // straight into the game — they already have an on-chain username, and
+  // straight into the game — they already have a saved username (Firestore
+  // `usernames/<address>`; nothing about the name is on-chain), and
   // being routed back through "SET USERNAME" on every New Game read as a
   // blocking bug popup. Only first-time (unregistered) players see setup.
   const proceedToNewGame = () => {

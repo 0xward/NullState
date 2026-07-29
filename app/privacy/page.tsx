@@ -99,6 +99,7 @@ export default function PrivacyPage() {
                 </p>
                 <ul className="flex flex-col gap-2 font-mono text-sm">
                   {[
+                    'Your username (the display name shown on the leaderboard — chosen by you, or auto-generated from the last 4 characters of your address if you never set one)',
                     'Item inventory (items collected during your runs)',
                     'Season stats (items earned, kills, days active per season)',
                     'Vault codes (weekly puzzle codes, used for verification only)',
@@ -110,9 +111,12 @@ export default function PrivacyPage() {
                   ))}
                 </ul>
                 <p className="mt-3">
-                  Off-chain records are keyed to your wallet address. Progress is drafted locally
-                  and synced to this database at key moments — advancing a floor, leveling up, dying,
-                  or leaving the game — and can also be manually saved at any time.
+                  Your username is the one piece of this you control directly: it is stored only
+                  here, never written to the blockchain, and you can change it at any time from
+                  the Settings screen. Off-chain records are keyed to your wallet address.
+                  Progress is drafted locally and synced to this database at key moments —
+                  advancing a floor, leveling up, dying, or leaving the game — and can also be
+                  manually saved at any time.
                 </p>
               </div>
 
@@ -151,7 +155,7 @@ export default function PrivacyPage() {
                 </p>
                 <ul className="flex flex-col gap-2 font-mono text-sm">
                   {[
-                    'Your name, email address, phone number, or any personal identity information (KYC)',
+                    'Your real name, email address, phone number, or any personal identity information (KYC)',
                     'Your private key, seed phrase, or any wallet credential',
                     'Payment card or bank account details (all payments are on-chain)',
                     'Location data or device identifiers beyond what a standard web browser may send to our hosting provider',
