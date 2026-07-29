@@ -74,7 +74,7 @@ export default function UsernameSetup({
         </h2>
 
         <p className="text-null-muted text-sm mb-8 leading-relaxed">
-          This username will be stored on-chain and visible on the leaderboard.
+          Choose the name other players will see on the leaderboard.
         </p>
 
         {/* Input */}
@@ -147,9 +147,9 @@ export default function UsernameSetup({
         {/* Info */}
         <div className="mt-8 pt-6 border-t border-[rgba(0,255,136,0.2)]">
           <p className="font-mono text-[10px] text-null-muted leading-relaxed tracking-[1px]">
-            Your username will be stored on-chain and visible to all players.
+            Saved to your NULL_STATE account — not written to the blockchain.
             <br />
-            It cannot be changed.
+            Other players can see it. You can change it any time in Settings.
           </p>
         </div>
       </div>
