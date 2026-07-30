@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 import { useWallet } from '@/lib/WalletProvider'
 import { PlayerProfile } from '@/lib/contract'
 import { loadGameSession, saveGameSession, clearGameSession, saveGameSessionDraft, clearGameSessionDraft } from '@/lib/gameSessionService'
+import { pickBestPaymentToken, type MarketplaceTokenSymbol } from '@/lib/constants/tokens'
 import { recordRunKills, recordRunProgress } from '@/lib/leaderboardService'
 import { GAME_CONFIG } from '@/lib/constants/game-config'
 import { readWorldMapHubFlag } from '@/lib/worldMapHubFlag'
@@ -144,6 +145,32 @@ export default function DungeonGame({ playerProfile, setPlayerUsername, isNewRun
       .split(',').map(a => a.trim().toLowerCase()).filter(Boolean)
       .includes(wallet.address.toLowerCase())
 
+  /**
+   * Which stablecoin to charge this wallet in.
+   *
+   * Both dollar purchases in this file used to hardcode 'USDm'. Every other
+   * paid flow — Marketplace, Crafting, blueprints, shard packs — asks
+   * pickBestPaymentToken which of USDm/USDC/USDT the wallet actually holds the
+   * most of, which is also MiniPay's "Dynamic Adaptation" requirement.
+   *
+   * Hardcoding it meant a wallet holding USDC but no USDm sent a transfer that
+   * moved nothing, and the server then correctly reported "No matching payment
+   * to treasury found in this tx". Owner hit exactly that on elixir in the OKX
+   * browser, with every other purchase working — because every other purchase
+   * asked first.
+   *
+   * Falls back to USDm on any read failure, which is what pickBestPaymentToken
+   * itself does, so a flaky RPC degrades to the old behaviour rather than
+   * blocking the sale.
+   */
+  const bestToken = async (addr: string): Promise<MarketplaceTokenSymbol> => {
+    try {
+      return await pickBestPaymentToken(walletRef.current.publicClient, addr as `0x${string}`)
+    } catch {
+      return 'USDm'
+    }
+  }
+
   const handleEnergyRefill = async () => {
     if (energyBusy) return
     const addr = walletRef.current.address
@@ -152,15 +179,17 @@ export default function DungeonGame({ playerProfile, setPlayerUsername, isNewRun
     setEnergyMsg(isDevWallet ? 'DEV: requesting free refill…' : 'Sending $1…')
     try {
       let txHash = ''
+      let token: MarketplaceTokenSymbol = 'USDm'
       if (!isDevWallet) {
-        txHash = await walletRef.current.buyMarketplaceItem(1, 'USDm')
+        token = await bestToken(addr)
+        txHash = await walletRef.current.buyMarketplaceItem(1, token)
         setEnergyMsg('Payment sent — verifying on-chain…')
       }
       const res = await fetch('/api/energy/refill', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(
-          isDevWallet ? { wallet: addr, devBypass: true } : { wallet: addr, txHash, token: 'USDm' },
+          isDevWallet ? { wallet: addr, devBypass: true } : { wallet: addr, txHash, token },
         ),
       })
       const data = await res.json()
@@ -195,15 +224,17 @@ export default function DungeonGame({ playerProfile, setPlayerUsername, isNewRun
     setElixirMsg(isDevWallet ? 'DEV: requesting free elixir…' : 'Sending $1…')
     try {
       let txHash = ''
+      let token: MarketplaceTokenSymbol = 'USDm'
       if (!isDevWallet) {
-        txHash = await walletRef.current.buyMarketplaceItem(1, 'USDm')
+        token = await bestToken(addr)
+        txHash = await walletRef.current.buyMarketplaceItem(1, token)
         setElixirMsg('Payment sent — verifying on-chain…')
       }
       const res = await fetch('/api/elixir/buy', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(
-          isDevWallet ? { wallet: addr, devBypass: true } : { wallet: addr, txHash, token: 'USDm' },
+          isDevWallet ? { wallet: addr, devBypass: true } : { wallet: addr, txHash, token },
         ),
       })
       const data = await res.json()
