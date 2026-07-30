@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * measure-containers.js — how many fragment-earning containers a bunker holds.
+ * measure-bunker.js — what one full bunker actually contains.
  *
  * WHY THIS EXISTS. The Vault Fragment thresholds (lib/server/vault-fragments.ts)
  * are a balance decision resting on one number: how many interactive containers
@@ -85,7 +85,10 @@ function cleanHarness(){
         if(!g||!g.decor){ out.push({depth,err:1}); continue }
         const inter=g.decor.filter(d=>d.interactive && !d.def.isVaultDoor
                       && !d.def.isSealedCache && !d.def.isPremiumCache)
+        const breakable=g.decor.filter(d=>!d.interactive && !d.ambient)
         out.push({ depth:g.depth, interactive:inter.length, allDecor:g.decor.length,
+                   enemies:g.enemies.length, boss:g.enemies.some(e=>e.isBoss),
+                   breakable:breakable.length,
                    rooms:g.dun?g.dun.rooms.length:0 })
       }
     }
@@ -94,17 +97,41 @@ function cleanHarness(){
 
   const bad=rows.filter(r=>r.err).length
   if(bad) console.log('gagal:',bad,'dari',rows.length)
-  const by={}; rows.filter(r=>!r.err).forEach(r=>{(by[r.depth]=by[r.depth]||[]).push(r.interactive)})
-  console.log('\n  lantai | sebaran peti ber-OPEN')
-  let sum=0
+  const good=rows.filter(r=>!r.err)
+  const by={}; good.forEach(r=>{(by[r.depth]=by[r.depth]||[]).push(r)})
+  const avg=(a,k)=>a.reduce((s,x)=>s+x[k],0)/a.length
+
+  console.log('\n  lantai | peti ber-OPEN | musuh | prop pecah | ruangan')
+  let C=0,E=0,B=0
   for(const d of Object.keys(by).sort()){
-    const v=by[d].slice().sort((a,c)=>a-c), avg=v.reduce((a,c)=>a+c,0)/v.length
-    sum+=avg
-    const med=v[Math.floor(v.length/2)]; console.log('    '+d+'    | n='+v.length+'  min-max '+v[0]+'-'+v[v.length-1]+'  median '+med+'  rata2 '+avg.toFixed(2))
+    const v=by[d]
+    const c=avg(v,'interactive'), e=avg(v,'enemies'), b=avg(v,'breakable'), rm=avg(v,'rooms')
+    C+=c; E+=e; B+=b
+    console.log('    '+d+'    |     '+c.toFixed(2).padStart(5)+'     | '+e.toFixed(1).padStart(5)
+      +' |   '+b.toFixed(1).padStart(5)+'    |  '+rm.toFixed(1)+(v[0].boss?'   (boss)':''))
   }
-  console.log('\n  ► SATU BUNKER (5 lantai, semua peti dibuka): '+sum.toFixed(1)+' peti ber-OPEN')
-  console.log('  ► ambang saat ini: Paper 12, Golden Key 28')
-  console.log('  ► artinya: Paper ≈ '+(12/sum).toFixed(2)+' bunker, Key ≈ '+(28/sum).toFixed(2)+' bunker')
+  console.log('\n  ── SATU BUNKER PENUH (5 lantai, semua dibuka & dibunuh) ──')
+  console.log('     peti ber-OPEN : '+C.toFixed(1))
+  console.log('     musuh         : '+E.toFixed(1))
+  console.log('     prop pecah    : '+B.toFixed(1))
+
+  console.log('\n  ── APAKAH KONTRAK HARIAN TERCAPAI? ──')
+  const pool=[['kills30','musuh',30,E],['kills60','musuh',60,E],['floors3','lantai',3,5],
+              ['cont5','peti',5,C],['cont8','peti',8,C],['burn8','item dibakar',8,null]]
+  for(const [id,unit,target,per] of pool){
+    if(per===null){ console.log('     '+id.padEnd(9)+' butuh '+target+' '+unit+' — tergantung loot, tidak diukur'); continue }
+    const n=target/per
+    console.log('     '+id.padEnd(9)+' butuh '+String(target).padStart(3)+' '+unit.padEnd(6)
+      +' = '+n.toFixed(2)+' bunker'+(n<=1.05?'   ✔ satu bunker':(n<=1.5?'   ~ satu bunker lebih':'   ✗ butuh 2+ bunker')))
+  }
+
+  console.log('\n  ── AMBANG VAULT (fragment = peti ber-OPEN) ──')
+  for(const [label,t] of [['Old Paper',8],['Golden Key',18]]){
+    console.log('     '+label.padEnd(11)+t+' fragment = '+(t/C).toFixed(2)+' bunker penuh'
+      +'  |  70% dibuka: '+(t/(C*0.7)).toFixed(2)+' bunker')
+  }
+  console.log('\n  ── ISI SATU RAID (harga: 1 energy) ──')
+  console.log('     '+C.toFixed(1)+' peti ber-OPEN + '+B.toFixed(0)+' prop pecah + '+E.toFixed(0)+' musuh')
   await b.close()
   } finally { cleanHarness() }
 })().catch(e=>{cleanHarness();console.error('ERROR',e.message);process.exit(1)})

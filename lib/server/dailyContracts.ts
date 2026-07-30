@@ -43,17 +43,34 @@ export interface ContractDef {
   reward: ContractReward
 }
 
-// The pool. Targets are sized against the measured run — a bunker holds about
-// seven lockable containers (npm run measure:containers), so "open 5" is most
-// of one bunker and "clear 3 floors" is most of one too. One session should
-// finish two of the three; the third is the nudge to come back.
+// The pool, sized against a MEASURED bunker rather than a guessed one — run
+// `npm run measure:bunker` and it prints exactly this arithmetic.
+//
+// A full five-floor clear yields roughly 7.5 lockable containers and 30
+// enemies. That second figure is the one that caught me out: floor 5 is the
+// boss floor and holds exactly ONE enemy, so almost every kill comes from
+// floors 1-4. The first version of this pool asked for 40 and 80 kills, which
+// is 1.3 and 2.7 bunkers — a day rolling the 80 would have had the player
+// clear a whole bunker and finish one contract out of three, which reads as
+// punishment rather than a nudge.
+//
+// Targets now, in bunkers of effort:
+//   floors3  0.6    cont5  0.7    kills30  1.0
+//   cont8    1.1    kills60  2.0   (the deliberate stretch)
+//
+// Three metrics are picked per day and never repeat, so at most ONE kills
+// contract can appear. On most days a thorough bunker finishes two of the
+// three. On the day that rolls the 60-kill stretch alongside cont8 it takes
+// two bunkers to clear everything — stated plainly rather than claimed away,
+// because two of five daily runs for a full sweep is a fair price and
+// pretending otherwise is how a target ends up wrong.
 export const CONTRACT_POOL: ContractDef[] = [
-  { id: 'kills40', metric: 'kills', target: 40, label: 'Put down 40 of them', reward: { kind: 'point', amount: 250 } },
+  { id: 'kills30', metric: 'kills', target: 30, label: 'Put down 30 of them', reward: { kind: 'point', amount: 250 } },
   { id: 'floors3', metric: 'floors', target: 3, label: 'Secure 3 floors', reward: { kind: 'shard', tier: 't1', amount: 3 } },
   { id: 'cont5', metric: 'containers', target: 5, label: 'Crack 5 lockable containers', reward: { kind: 'point', amount: 200 } },
   { id: 'burn8', metric: 'burns', target: 8, label: 'Burn 8 items', reward: { kind: 'shard', tier: 't1', amount: 2 } },
-  { id: 'kills80', metric: 'kills', target: 80, label: 'Put down 80 of them', reward: { kind: 'shard', tier: 't1', amount: 4 } },
-  { id: 'cont10', metric: 'containers', target: 10, label: 'Crack 10 lockable containers', reward: { kind: 'point', amount: 400 } },
+  { id: 'kills60', metric: 'kills', target: 60, label: 'Put down 60 of them', reward: { kind: 'shard', tier: 't1', amount: 4 } },
+  { id: 'cont8', metric: 'containers', target: 8, label: 'Crack 8 lockable containers', reward: { kind: 'point', amount: 400 } },
 ]
 
 export const CONTRACTS_PER_DAY = 3

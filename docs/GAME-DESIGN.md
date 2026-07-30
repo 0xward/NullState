@@ -212,7 +212,7 @@ requirements line.
 **The numbers, and how they were arrived at.** They started at 12 and 28,
 *estimated* from `spawnDecorInto` at 8–15 interactive containers per bunker.
 
-Measured with the real generator (`npm run measure:containers`, which mounts the
+Measured with the real generator (`npm run measure:bunker`, which mounts the
 actual engine at each depth and counts what it builds), a bunker holds about
 **7** — two runs of 200 floors landed at 6.3 and 7.4. The estimate was 1.3–2.4×
 too high.
@@ -232,7 +232,7 @@ At 8 and 18 the Paper lands on day one, so the mechanic teaches itself early,
 and the Key falls mid-week — the arc in §4.
 
 > Still a model, not player data: it assumes one bunker per session and ~70% of
-> containers opened. Re-run the measurement whenever `props.js` gains or loses
+> containers opened. Re-run `npm run measure:bunker` whenever `props.js` gains or loses
 > an interactive type, and revisit once real weeks exist.
 
 **Why this is the top priority:** it fixes the dead-end, the unlucky-week
@@ -243,8 +243,32 @@ churn, and the empty day 2 — with one mechanic, at zero cost.
 Three objectives, reset 00:00 UTC, drawn deterministically from a six-entry
 pool by a hash of the day id — so everyone gets the same three that day, no
 state is needed to remember the roll, and two players can compare notes.
-Targets are sized against the measured bunker (~7 lockable containers), so one
-session finishes two of the three and the third is the nudge to come back.
+**Targets are sized against a measured bunker, not a guessed one.**
+`npm run measure:bunker` mounts the real engine at every depth and prints the
+arithmetic. A full five-floor clear yields roughly **7 lockable containers and
+30 enemies** — and that second number is the one that caught the first draft
+out, because **floor 5 is the boss floor and holds exactly one enemy**, so
+almost every kill comes from floors 1–4.
+
+The pool originally asked for 40 and 80 kills. Measured, those are 1.3 and 2.7
+bunkers: a day rolling the 80 would have had the player clear a whole bunker
+and finish **one contract out of three**, which reads as punishment, not a
+nudge. Retuned:
+
+| Contract | Bunkers of effort |
+|---|---|
+| `floors3` | 0.6 |
+| `cont5` | 0.7 |
+| `kills30` | 1.0 |
+| `cont8` | 1.2 |
+| `kills60` | 2.0 — the deliberate stretch |
+
+Three metrics are picked per day and never repeat, so at most one kills
+contract can appear. On most days a thorough bunker finishes two of the three.
+**On the day that rolls the 60-kill stretch alongside `cont8` it takes two
+bunkers to clear everything** — said plainly rather than claimed away, because
+two of five daily runs for a full sweep is a fair price and pretending
+otherwise is how a target ends up wrong in the first place.
 
 Rewards are Glitch Shards and NullState Point, credited **the instant a bar
 fills** — no claim step, matching how burning already works. Deliberately

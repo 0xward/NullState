@@ -43,7 +43,7 @@ export type FragmentGoalKey = (typeof FRAGMENT_GOALS)[number]['key']
 // per room, 12% of them rare, northOnly types falling back to tables on side
 // walls) at 8-15 interactive containers per bunker.
 //
-// Measured with the real generator — `npm run measure:containers`, which mounts
+// Measured with the real generator — `npm run measure:bunker`, which mounts
 // the actual engine at each depth and counts what it produces — a bunker holds
 // about **7**, across two runs of 200 floors that landed at 6.3 and 7.4. The
 // estimate was between 1.3x and 2.4x too high.
