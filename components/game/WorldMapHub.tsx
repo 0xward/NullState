@@ -5,6 +5,7 @@ import { useWallet } from '@/lib/WalletProvider'
 import { maskAddress } from '@/lib/addressMask'
 import { PlayerProfile } from '@/lib/contract'
 import { loadGameSession, loadGameSessionDraft } from '@/lib/gameSessionService'
+import { readHighestAct } from '@/lib/campaignProgress'
 import { useEquippedPortrait } from '@/lib/heroPortrait'
 import { usePassSBT } from '@/hooks/usePassSBT'
 import { isPassCurrent, seasonNumberOf } from '@/lib/season'
@@ -37,6 +38,12 @@ import { playUiSound, type UiSound } from '@/lib/uiSound'
 interface WorldMapHubProps {
   onContinueGame: (profile: PlayerProfile) => void
   onNewGame: () => void
+  /**
+   * Re-enter an already-cleared bunker as a fresh raid (GAME-DESIGN.md §7).
+   * Costs one energy, exactly like a first descent — grinding having a price is
+   * what keeps the refill meaningful.
+   */
+  onRaid: (actIndex: number) => void
   onLeaderboard: () => void
   onRewards: () => void
   onReferral: () => void
@@ -142,7 +149,7 @@ function RailBtn({
 }
 
 export default function WorldMapHub({
-  onContinueGame, onNewGame, onLeaderboard, onRewards, onReferral,
+  onContinueGame, onNewGame, onRaid, onLeaderboard, onRewards, onReferral,
   onMintPass, onMarketplace, onCrafting, onHowToPlay, onCharacter, onSettings,
   playerProfile, isLoadingProfile, profileSettled,
 }: WorldMapHubProps) {
@@ -194,11 +201,19 @@ export default function WorldMapHub({
   useEffect(() => {
     if (!address) return
     let alive = true
+    // Progress is the HIGH-WATER MARK, not the live session's act index. Those
+    // used to be the same number, and stopped being once raids existed: raiding
+    // Bunker 1 sets the session index to 0, the in-run autosave persists it, and
+    // reading it straight back here would show a five-bunker veteran a map with
+    // Bunker 1 active and 3-5 locked. readHighestAct takes the max and writes it
+    // back, so an existing player is seeded from their own save on first view
+    // and a raid can never walk it backwards. See lib/campaignProgress.ts.
     const apply = (act: number | undefined) => {
-      if (!alive || typeof act !== 'number' || !isFinite(act)) return
-      const clamped = Math.min(NODES.length - 1, Math.max(0, Math.floor(act)))
-      setCurrentAct(clamped)
-      setSelectedAct(clamped)
+      if (!alive) return
+      const maxAct = NODES.length - 1
+      const highest = readHighestAct(address, act, maxAct)
+      setCurrentAct(highest)
+      setSelectedAct((prev) => (prev > highest ? highest : prev))
     }
     apply(loadGameSessionDraft(address)?.campaignActIndex)
     loadGameSession(address).then((s) => apply(s?.campaignActIndex)).catch(() => {})
@@ -229,21 +244,23 @@ export default function WorldMapHub({
   const nodeByAct = (act: number) => NODES.find((n) => n.act === act)
   const sel = nodeByAct(selectedAct) ?? NODES[NODES.length - 1]
   const selState = stateOf(sel.act)
-  const canEnter = selState === 'active'
+  const canEnter = selState === 'active' || selState === 'cleared'
 
-  // The engine resumes at the saved act, so ENTER is only offered on the active
-  // bunker. Re-entering a cleared bunker would need an engine entry point that
-  // doesn't exist yet — we say so instead of pretending.
+  // A cleared bunker is no longer a dead end. The campaign is the tutorial; the
+  // map is the game (GAME-DESIGN.md §2), so every bunker you have beaten stays
+  // open to raid for loot, shards and vault fragments. It costs one energy,
+  // same as a first descent — said out loud here rather than discovered.
   const enterLabel = selState === 'active' ? (hasSave ? 'ENTER ▸' : 'START ▸')
-    : selState === 'cleared' ? 'CLEARED' : 'LOCKED'
+    : selState === 'cleared' ? 'RAID ▸' : 'LOCKED'
   const subline = selState === 'active'
     ? (hasSave ? `Bunker ${sel.act + 1} · Continue your descent` : `Bunker ${sel.act + 1} · Begin your descent`)
-    : selState === 'cleared' ? `Bunker ${sel.act + 1} · Already cleared`
+    : selState === 'cleared' ? `Bunker ${sel.act + 1} · Cleared — raid it again for loot (1 energy)`
       : `Locked · Clear ${nodeByAct(sel.act - 1)?.name ?? 'the previous bunker'} first`
 
   const startRun = () => {
     if (!canEnter) { playUiSound('denied'); return }
     playUiSound('confirm')
+    if (selState === 'cleared') { onRaid(sel.act); return }
     if (hasSave) onContinueGame(playerProfile!)
     else onNewGame()
   }

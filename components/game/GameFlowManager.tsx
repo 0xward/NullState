@@ -5,10 +5,11 @@ import dynamic from 'next/dynamic'
 import { useWallet } from '@/lib/WalletProvider'
 import { useContractPlayer } from '@/lib/useContractPlayer'
 import { PlayerProfile, LeaderboardEntry } from '@/lib/contract'
-import { loadGameSession, clearGameSession, saveGameSession, saveGameSessionDraft } from '@/lib/gameSessionService'
+import { loadGameSession, loadGameSessionDraft, clearGameSession, saveGameSession, saveGameSessionDraft } from '@/lib/gameSessionService'
 import { migrateGuestProgress, getStoredGuestId } from '@/lib/guestMigration'
 import { getStoredAuthAddress, hasSkippedSignIn } from '@/lib/authIdentity'
 import { useAccountActions } from '@/lib/useAccountActions'
+import { readHighestAct, recordHighestAct, stashCampaignResume, takeCampaignResume } from '@/lib/campaignProgress'
 import MainMenu from './MainMenu'
 import WorldMapHub from './WorldMapHub'
 import { useWorldMapHubFlag } from '@/lib/worldMapHubFlag'
@@ -127,7 +128,9 @@ export default function GameFlowManager() {
   const [isNewRun, setIsNewRun] = useState(false)
   // Which run the player chose from the menu — threaded to the engine so it
   // skips the canvas title/preview and starts that mode directly.
-  const [startMode, setStartMode] = useState<'new' | 'continue' | 'cycle' | 'abyss'>('new')
+  const [startMode, setStartMode] = useState<'new' | 'continue' | 'cycle' | 'abyss' | 'raid'>('new')
+  /** Which bunker a raid targets. Null for every other start mode. */
+  const [raidActIndex, setRaidActIndex] = useState<number | null>(null)
   // True while handleNewGame is checking Firestore for an existing saved
   // session (so the New Game button can show a brief pending state if the
   // caller wants it — currently unused by MainMenu but kept for parity with
@@ -169,6 +172,43 @@ export default function GameFlowManager() {
           // a clear under any circumstances, because it is the last thing
           // standing between that value and the player's saved game.
           const snap = { ...raw, depth: 1, maxDepthReached: 1 }
+          // Bank the high-water mark BEFORE the snapshot is the only record of
+          // it. The map reads progress from here, not from the live session, so
+          // a later raid on an earlier bunker cannot walk it backwards — see
+          // lib/campaignProgress.ts.
+          if (typeof snap.campaignActIndex === 'number') recordHighestAct(address, snap.campaignActIndex)
+          saveGameSessionDraft(address, snap)
+          saveGameSession(address, snap).catch(() => { /* draft already covers the map */ })
+        }
+      } catch { /* never block the return to the map on a save problem */ }
+      setPhase('menu')
+    }
+    // A RAID finishing is not the campaign finishing (GAME-DESIGN.md §7), and
+    // it must not be handled by onCleared above — that writes the engine's
+    // current campaignActIndex as the saved session, which for a raid is the
+    // bunker being farmed. A player who had cleared all five and raided the
+    // first would come back with ENTER pointing at Bunker 1.
+    //
+    // So the raid's loot and level are kept (the run snapshot is real progress)
+    // while campaignActIndex is forced back to the true high-water mark before
+    // it is written. recordHighestAct is never called here: raiding a bunker
+    // you already beat unlocks nothing.
+    const onRaidCleared = () => {
+      try {
+        const NSG = (window as { NullStateGame?: { getSaveSnapshot?: () => unknown } }).NullStateGame
+        const raw = NSG?.getSaveSnapshot?.() as Parameters<typeof saveGameSession>[1] | undefined
+        if (raw && address) {
+          // Put the campaign back exactly where the raid found it — act, floor
+          // and all — while keeping everything the raid earned. Falls back to
+          // the high-water mark on floor 1 if there was no campaign run to
+          // preserve (a player who had already cleared everything).
+          const resume = takeCampaignResume(address)
+          const snap = {
+            ...raw,
+            campaignActIndex: resume ? resume.campaignActIndex : readHighestAct(address),
+            depth: resume ? resume.depth : 1,
+            maxDepthReached: resume ? resume.maxDepthReached : 1,
+          }
           saveGameSessionDraft(address, snap)
           saveGameSession(address, snap).catch(() => { /* draft already covers the map */ })
         }
@@ -176,7 +216,11 @@ export default function GameFlowManager() {
       setPhase('menu')
     }
     window.addEventListener('nullstate-bunker-cleared', onCleared)
-    return () => window.removeEventListener('nullstate-bunker-cleared', onCleared)
+    window.addEventListener('nullstate-raid-cleared', onRaidCleared)
+    return () => {
+      window.removeEventListener('nullstate-bunker-cleared', onCleared)
+      window.removeEventListener('nullstate-raid-cleared', onRaidCleared)
+    }
   }, [useWorldMapHub, address])
 
   // Owner: everyone who clicks Play Game should count as a player right away.
@@ -310,8 +354,33 @@ export default function GameFlowManager() {
   // blocking bug popup. Only first-time (unregistered) players see setup.
   const proceedToNewGame = () => {
     setStartMode('new')
+    setRaidActIndex(null)
     setIsNewRun(true)
     goPlaying(playerProfile?.isRegistered ? 'game' : 'username-setup')
+  }
+
+  // Raid an already-cleared bunker (GAME-DESIGN.md §7). isNewRun is FALSE on
+  // purpose despite this being a fresh descent: isNewRun is what makes
+  // DungeonGame wipe the saved session, and a raid must never destroy the
+  // campaign save the player is midway through. The engine builds the run from
+  // scratch either way — see startRaid() in game.js.
+  const handleRaid = (actIndex: number) => {
+    // Remember where the campaign was standing. A raid shares the same saved
+    // session document, so without this a player farming Bunker 1 would come
+    // back to find their Bunker 3 run reset to floor 1. Put back by
+    // onRaidCleared. See lib/campaignProgress.ts.
+    if (address) {
+      const draft = loadGameSessionDraft(address)
+      stashCampaignResume(address, draft ? {
+        campaignActIndex: draft.campaignActIndex,
+        depth: draft.depth,
+        maxDepthReached: draft.maxDepthReached,
+      } : null)
+    }
+    setStartMode('raid')
+    setRaidActIndex(actIndex)
+    setIsNewRun(false)
+    goPlaying('game')
   }
 
   // Where the player was headed when the sign-in screen interrupted them.
@@ -532,6 +601,7 @@ export default function GameFlowManager() {
         <MenuScreen
           onContinueGame={handleContinueGame}
           onNewGame={handleNewGame}
+          onRaid={handleRaid}
           onLeaderboard={handleLeaderboardClick}
           onRewards={handleRewardsClick}
           onReferral={handleReferralClick}
@@ -735,6 +805,7 @@ export default function GameFlowManager() {
         setPlayerUsername={setPlayerUsername}
         isNewRun={isNewRun}
         startMode={startMode}
+        raidActIndex={raidActIndex}
       />
     )
   }

@@ -60,6 +60,9 @@ let INITIAL_STATS = null;
 // onStart() restores it, so it can't be replayed (matches "Death is
 // permanent" — no save-scumming a dangerous fight).
 let SAVED_SESSION = null;
+// Which bunker a RAID re-enters (mount({raidActIndex})). Meaningless in every
+// other start mode; startRaid() clamps it to a real act regardless.
+let RAID_ACT_INDEX = 0;
 // START_MODE (owner request): the React Main Menu is now the ONE entry point,
 // so its "New Game" / "Continue" / "New Game+" / "The Null Abyss" buttons
 // should drop STRAIGHT into play — the canvas title + character preview is
@@ -5126,6 +5129,38 @@ function toRoman(n){ const r=['','I','II','III','IV','V','VI','VII','VIII','IX',
 //     (onRevive -> endAbyssRun -> POST /api/abyss/score)
 // campaignActIndex is set to 0 so no act-4 hard-mode / vault logic fires;
 // the void look comes from the abyssMode theme override in descend().
+// ---- RAID: re-enter a bunker you have already cleared (GAME-DESIGN.md §7) ----
+// The campaign is the tutorial; the map is the game. A raid is that promise
+// made real — pick any beaten bunker and descend it again for loot, shards and
+// vault fragments.
+//
+// It goes through the OUTDOOR strip rather than dropping straight into the
+// bunker, and that is deliberate: onOutdoorReachedDoor already owns the energy
+// gate, the retreat-from-the-door animation when a wallet is out of runs, and
+// the refill modal. Reusing it means a raid costs one energy with no second
+// copy of that logic to keep in sync. resumeAtDoor skips the arrival speech —
+// this act was greeted the first time through and does not need greeting again.
+//
+// RAID_MODE is what keeps a raid from being mistaken for campaign progress: it
+// suppresses the pre-bunker cutscene and the first-bunker tutorial (see
+// _enterBunkerFromDoor), and it stops onActBunkerCleared from advancing the
+// act or rolling the ending. The map's own progress record is separate and
+// monotonic (lib/campaignProgress.ts), so a raid can never walk it backwards.
+let RAID_MODE = false;
+function startRaid(actIndex){
+  const idx = Math.max(0, Math.min(CAMPAIGN.length-1, actIndex|0));
+  RAID_MODE = true;
+  abyssMode = false;
+  campaignCycle = loadStoredCycle();   // a raid keeps whatever NG+ tier they are on
+  SAVED_SESSION = null; CARRY_OVER_SNAPSHOT = null;
+  campaignActIndex = idx;
+  campaignReturningFromBunker = false;
+  const t=$('title'); if(t) t.classList.add('hidden');
+  $('hud').classList.remove('hidden');
+  if(atkBtn) atkBtn.classList.remove('hidden');
+  enterOutdoorAct(idx, true);
+  log('◆ RAID — '+(CAMPAIGN[idx].title||('BUNKER '+(idx+1)))+'. Loot, shards and vault fragments all count. Your campaign progress is untouched.', 'reward');
+}
 function startAbyss(){
   if(!hasCompletedCampaign()) return; // button only shows post-PROTOCOL ZERO
   abyssMode = true;
@@ -5178,6 +5213,7 @@ function enterSavedSession(){
   campaignActIndex = SAVED_SESSION.campaignActIndex || 0;
   campaignCycle = SAVED_SESSION.campaignCycle || 0; // Null Cycles — restore NG+ difficulty
   abyssMode = !!SAVED_SESSION.abyssMode;            // Null Abyss — restore dive state
+  RAID_MODE = !!SAVED_SESSION.raid;                 // a resumed raid is still a raid
   // Phase 1: resuming a saved run re-opens the SAME RunSession unit —
   // resumed=true, and it costs no energy (the fresh entry already paid).
   if(window.NS_RUN) NS_RUN.start(campaignActIndex, true);
@@ -5255,6 +5291,10 @@ function _enterBunkerFromDoor(act, isFirstBunker){
     }
     newGame(selectedChar, restoreSnapshot);
     if(atkBtn) atkBtn.classList.remove('hidden');
+    // A raid skips the story beat and the tutorial. Both are first-visit
+    // material, and a farming run that opens with a cutscene every time is a
+    // farming run nobody repeats.
+    if(RAID_MODE){ updateHUD(); return; }
     cutscene(act.preBunker, ()=>{
       updateHUD();
       if(isFirstBunker) showTutorial(()=>updateHUD());
@@ -5293,6 +5333,24 @@ function onActBunkerCleared(){
     G.inventory.gshards = { t1:0, t2:0, t3:0 };
   }
   if(window.NS_RUN) NS_RUN.close('Cleared'); // Phase 1: run unit ends here
+  // A RAID ends here and nowhere else: back to the map, no act advanced, no
+  // ending rolled, no story beat. The shards banked above still count — that is
+  // the point of raiding — but the campaign is exactly where it was. The shell
+  // listens for its own event (not nullstate-bunker-cleared) precisely because
+  // that handler persists campaignActIndex, and a raid's act index must never
+  // become the player's resume point.
+  if(RAID_MODE){
+    const raidAct = campaignActIndex;
+    showLoadingTransition(() => {
+      G = null; resetInput();
+      RAID_MODE = false;
+    }, () => {
+      try{
+        window.dispatchEvent(new CustomEvent('nullstate-raid-cleared', { detail:{ actIndex: raidAct } }));
+      }catch(e){ returnToTitleScreen(); }
+    }, 'RETURNING TO THE SURFACE…');
+    return;
+  }
   // v84 (owner bug): the FINAL act must NOT walk back out onto the overworld.
   // onOutdoorAdvanceToNextAct() clamps campaignActIndex back to the last act,
   // so surfacing after Bunker 5 sent the player straight back INTO Bunker 5 —
@@ -5610,7 +5668,11 @@ async function boot(){
     } else {
       // New Game+ / Abyss build a run synchronously (no internal preload
       // await), so gate them on the full preload here first.
-      const _go = ()=>{ if(destroyed){ hideSceneLoader(); return; } if(START_MODE==='cycle') startCycle(); else startAbyss(); hideSceneLoaderAfterPaint(); };
+      const _go = ()=>{ if(destroyed){ hideSceneLoader(); return; }
+        if(START_MODE==='cycle') startCycle();
+        else if(START_MODE==='raid') startRaid(RAID_ACT_INDEX);
+        else startAbyss();
+        hideSceneLoaderAfterPaint(); };
       _fullPreloadPromise.then(_go).catch(_go);
     }
     return;
@@ -5683,6 +5745,12 @@ function mount(opts){
   INITIAL_STATS = opts.initialStats || null;
   SAVED_SESSION = opts.savedSession || null;
   START_MODE = opts.startMode || null;
+  RAID_ACT_INDEX = (typeof opts.raidActIndex === 'number') ? opts.raidActIndex : 0;
+  // Module state outlives unmount (see the note in unmount()), so clear this
+  // explicitly: a raid left over from the previous session would otherwise
+  // suppress the story beats of a genuine campaign descent. startRaid() and
+  // enterSavedSession() both set it back on, after this line.
+  RAID_MODE = false;
   WORLDMAP_HUB = !!opts.worldMapHub;
   // Belt-and-suspenders for the "preview still shows" bug: the moment we know
   // this is a Main Menu entry (startMode set), hide the canvas title
@@ -5776,6 +5844,11 @@ function getSaveSnapshot(){
     },
     goldenKeysRemaining: G.goldenKeysRemaining,
     paperRemaining: G.paperRemaining,
+    // A raid saved mid-run must RESUME as a raid. Without this the resumed run
+    // would clear as a campaign bunker and advance the act off the raid's
+    // index — quietly moving the player's resume point to a bunker they had
+    // already beaten.
+    raid: !!RAID_MODE,
     savedAt: Date.now(),
   };
   LAST_BUNKER_SNAPSHOT = snap;

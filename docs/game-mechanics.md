@@ -16,6 +16,13 @@ of Bunker 5, "The Last Light".
 | 4 | The Hollow Market | Hard |
 | 5 | The Last Light | Very Hard — holds the Vault |
 
+**Cleared a bunker? It stays open.** Tap any bunker with a ✓ on the world map
+and the button reads **RAID** — you drop back in for a freshly generated run.
+Loot, Glitch Shards, XP and Vault Fragments all count exactly as they do the
+first time. A raid costs **1 energy**, same as a first descent, and it never
+touches your campaign progress: the story does not replay and your place in the
+bunker you are working through is kept.
+
 Enemy difficulty scales two ways: their stats rise with the **floor depth**,
 and the **monster roster widens with each bunker**, so later bunkers throw
 crews you have not met before.
