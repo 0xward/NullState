@@ -64,19 +64,26 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" suppressHydrationWarning className={fontVariables}>
       <head>
         <meta name="color-scheme" content="dark" />
-        {/* Firestore is on the LCP path of /game. The hub's player-name span
-            cannot paint until the profile resolves, and that request opens a
-            fresh TLS connection to firestore.googleapis.com — PageSpeed
-            measured the handshake at ~300ms of pure LCP delay and reported
-            zero preconnected origins. Warming the socket here overlaps the
-            handshake with document parse instead of paying for it serially.
+        {/* NO PRECONNECTS HERE — this has been tried and measured, twice.
+            See the long note in app/game/layout.tsx: preconnects to
+            firestore.googleapis.com and forno.celo.org were added once before
+            for the same reason PageSpeed keeps suggesting them, and PageSpeed's
+            own verdict afterwards was "Preconnect not used. Check that you are
+            using the crossorigin attribute properly" — the anonymous sockets
+            they opened were not the ones either client went on to use.
 
-            Only this one origin. Preconnect is a budget, not a free win: each
-            hint costs a socket the browser could have spent elsewhere, and the
-            guidance is to stay under four. forno.celo.org is deliberately left
-            out — it is 1 KiB with no main-thread time and is nowhere near the
-            first paint. */}
-        <link rel="preconnect" href="https://firestore.googleapis.com" crossOrigin="" />
+            It was then re-added here in #186 with crossOrigin="" — the very
+            anonymous mode that had already failed — because this file does not
+            mention the earlier finding and the route layout that does was never
+            opened. Reverted. A global hint was also the wrong scope: it made
+            every route, including a landing page that never touches Firestore,
+            open a socket it had no use for.
+
+            PageSpeed still reports ~300ms here, so the opportunity may well be
+            real. But it needs the right crossorigin mode proven by measurement,
+            not guessed at a third time. If someone picks this up: Firestore's
+            WebChannel is what to match, and a PSI run has to confirm the hint
+            is actually used before this ships. */}
         {/* Pre-paint flash guard for the splash on a second full-page load
             (Launch Game → /game): if this session already saw the splash, hide
             #ns-splash-root before first paint. READ-ONLY — the SplashScreen
