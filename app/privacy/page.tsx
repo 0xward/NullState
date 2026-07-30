@@ -100,6 +100,7 @@ export default function PrivacyPage() {
                 <ul className="flex flex-col gap-2 font-mono text-sm">
                   {[
                     'Your username (the display name shown on the leaderboard — chosen by you, or auto-generated from the last 4 characters of your address if you never set one)',
+                    'If — and only if — you choose to create an account: your email address, or the email address and name held by the Google account you sign in with. This is optional; the game is fully playable without it.',
                     'Item inventory (items collected during your runs)',
                     'Season stats (items earned, kills, days active per season)',
                     'Vault codes (weekly puzzle codes, used for verification only)',
@@ -113,7 +114,19 @@ export default function PrivacyPage() {
                 <p className="mt-3">
                   Your username is the one piece of this you control directly: it is stored only
                   here, never written to the blockchain, and you can change it at any time from
-                  the Settings screen. Off-chain records are keyed to your wallet address.
+                  the Settings screen.
+                </p>
+                <p className="mt-3">
+                  <strong className="text-null-white">About the optional account.</strong> Signing
+                  in with Google or an email link exists for one reason: so your progress follows
+                  you to another device instead of living in one browser. It is handled by Firebase
+                  Authentication (Google). We use the email address only to identify your account —
+                  we do not send marketing, and we do not sell or share it. An account is not a
+                  wallet: it cannot hold funds, buy items, or claim rewards, and it is never written
+                  to the blockchain. You can play without one, and you can ask us to delete it.
+                </p>
+                <p className="mt-3">
+                  Off-chain records are keyed to your wallet address.
                   Progress is drafted locally and synced to this database at key moments —
                   advancing a floor, leveling up, dying, or leaving the game — and can also be
                   manually saved at any time.
@@ -155,7 +168,7 @@ export default function PrivacyPage() {
                 </p>
                 <ul className="flex flex-col gap-2 font-mono text-sm">
                   {[
-                    'Your real name, email address, phone number, or any personal identity information (KYC)',
+                    'Your real name, phone number, date of birth, or any government identity document (KYC)',
                     'Your private key, seed phrase, or any wallet credential',
                     'Payment card or bank account details (all payments are on-chain)',
                     'Location data or device identifiers beyond what a standard web browser may send to our hosting provider',

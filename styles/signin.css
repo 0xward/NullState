@@ -1,0 +1,55 @@
+/* signin.css — the save-your-progress screen.
+   ─────────────────────────────────────────────────────────────────────────────
+   Its own stylesheet for the same reason settings.css is: styles/game.css is
+   imported by app/game/layout.tsx and therefore blocks the world map's first
+   paint, and this screen is not on that path. Nobody reaches it without first
+   tapping Play Game, and most players — everyone inside MiniPay, everyone who
+   already has a wallet, everyone who has skipped once — never reach it at all.
+
+   Imported by components/game/SignInScreen.tsx, so Next emits it as that
+   component's own chunk and fetches it the first time the screen renders.
+
+   Shapes are borrowed from the SET USERNAME screen it sits directly in front of
+   — same clip-path bevel, same mono tracking — so the two read as one flow
+   rather than two designs by two people. */
+
+.ns-signin-btn{
+  width:100%; padding:13px 24px;
+  font-family:var(--font-mono),monospace; font-size:13px; letter-spacing:1.5px;
+  color:#e2efe9; background:rgba(0,255,136,.05);
+  border:1px solid rgba(0,255,136,.3);
+  clip-path:polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%);
+  transition:background .18s ease,border-color .18s ease;
+}
+.ns-signin-btn:hover:not(:disabled){ background:rgba(0,255,136,.12); border-color:rgba(0,255,136,.55) }
+.ns-signin-btn:disabled{ opacity:.5; cursor:not-allowed }
+
+.ns-signin-btn.is-primary{
+  color:var(--null-bg); background:var(--null-green); border-color:var(--null-green); font-weight:700;
+}
+.ns-signin-btn.is-primary:hover:not(:disabled){ background:var(--null-acid); box-shadow:0 0 20px rgba(0,255,136,.5) }
+
+.ns-signin-input{
+  width:100%; padding:13px 16px;
+  font-family:var(--font-mono),monospace; font-size:13px;
+  color:var(--null-green); background:rgba(0,255,136,.05);
+  border:2px solid rgba(0,255,136,.3);
+  clip-path:polygon(4px 0,100% 0,calc(100% - 4px) 100%,0 100%);
+}
+.ns-signin-input:focus{ outline:none; border-color:var(--null-green) }
+.ns-signin-input::placeholder{ color:var(--null-muted) }
+
+/* Skip is a plain underlined control, not a bordered button: it has to be
+   unmissable without competing with the thing being recommended. It is
+   deliberately NOT dimmed below the body text's contrast — an escape hatch
+   nobody can read is a dark pattern, and it is one MiniPay's reviewers look
+   for. --null-muted is the same token the screen's own body copy uses, which
+   was raised to ~5:1 during the legibility pass. */
+.ns-signin-skip{
+  display:block; margin:22px auto 0; padding:8px 12px;
+  font-family:var(--font-mono),monospace; font-size:12px; letter-spacing:1.5px;
+  color:var(--null-muted); background:none; border:none;
+  text-decoration:underline; text-underline-offset:4px;
+}
+.ns-signin-skip:hover:not(:disabled){ color:#e2efe9 }
+.ns-signin-skip:disabled{ opacity:.5; cursor:not-allowed }

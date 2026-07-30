@@ -13,6 +13,7 @@ import type { MarketplaceTokenSymbol } from './constants/tokens'
 // they can be imported here without violating the rule above.
 import { GUEST_STORAGE_KEY, generateAutoUsername } from './guestIdentity'
 import { writeCachedProfile } from './profileCache'
+import { getStoredAuthAddress } from './authIdentity'
 
 // ─── Contract config ─────────────────────────────────────────────────────────
 
@@ -109,18 +110,35 @@ function getGuestAddress(): string | null {
 export function useWallet() {
   const w = useWalletBridge()
 
-  // Guest fallback: with no real wallet, hand back a stable guest id as the
-  // play/`address` so all Firebase-keyed flows (save, username, materials,
-  // energy) work unchanged. `realAddress` stays null and `isGuest` is true so
-  // on-chain paths — purchases, leaderboard entry — can be gated off.
+  // No-wallet fallback: hand back a wallet-shaped id as `address` so all
+  // Firebase-keyed flows (save, username, materials, energy) work unchanged.
+  // `realAddress` stays null so on-chain paths — purchases, leaderboard entry —
+  // can be gated off exactly as before.
+  //
+  // Three tiers, most-authoritative first:
+  //
+  //   realAddress  a wallet. Can sign, so it is the only one that can pay or
+  //                claim. Always wins — a signed-in player who connects a
+  //                wallet is telling us which identity they mean.
+  //   authAddress  a Firebase account, as an address (see lib/authIdentity.ts).
+  //                Cannot sign, but is the same on every device they sign in
+  //                on, which is the whole reason the account exists.
+  //   guestAddress a random local id. Cannot sign and dies with localStorage.
+  //
+  // The guest id is only minted when the first two are absent — otherwise
+  // signing in would leave a stray guest identity behind it, and the next
+  // sign-out would land the player on a stranger's progress.
   const realAddress = w.address ?? null
-  const guestAddress = realAddress ? null : getGuestAddress()
+  const authAddress = realAddress ? null : getStoredAuthAddress()
+  const guestAddress = realAddress || authAddress ? null : getGuestAddress()
   const isGuest = !realAddress && !!guestAddress
 
   return {
-    address:      realAddress ?? guestAddress ?? null,
+    address:      realAddress ?? authAddress ?? guestAddress ?? null,
     realAddress,
     isGuest,
+    /** Signed into a Firebase account. Still cannot sign a transaction. */
+    isSignedIn:   !realAddress && !!authAddress,
     chainId:      w.chainId,
     isConnected:  w.isConnected,
     // True while wagmi itself is still loading, which is the honest answer to
