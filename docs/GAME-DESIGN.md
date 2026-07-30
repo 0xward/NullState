@@ -186,7 +186,7 @@ only one of the two, and there is no recourse.
   twice.
 - Fragments are per-wallet at `vaultFragments/{weekId}/{wallet}` and reset
   with the ISO week alongside everything else.
-- **12 fragments → Old Paper granted.** **28 fragments → Golden Key granted.**
+- **8 fragments → Old Paper granted.** **18 fragments → Golden Key granted.**
 - The existing 16% roll stays untouched on top, so luck still shortcuts the
   grind — it just no longer *gates* it.
 - Grants write the **same** `paperClaims/` and `goldenKeyClaims/` records that
@@ -206,16 +206,31 @@ requirements line.
 **Shipped in:** `lib/server/vault-fragments.ts`, `app/api/vault/fragments/route.ts`,
 `creditVaultFragment()` in `game.js`.
 
-**Starting numbers, and why.** Interactive containers run roughly 8–15 per
-bunker (max 5 props/room, 12% rare, `northOnly` types fall back to tables on
-side walls — `game.js` `spawnDecorInto`). So 12 ≈ one thorough bunker, 28 ≈
-about three. With 5 energy/day that is Paper on day 1–2 and the Key by day
-3–4, leaving the back of the week to the leaderboard and crafting.
+**The numbers, and how they were arrived at.** They started at 12 and 28,
+*estimated* from `spawnDecorInto` at 8–15 interactive containers per bunker.
 
-> **These two numbers are guesses that need real play to tune.** I could not
-> measure actual containers-opened-per-run from a sandbox. Ship them behind
-> a server constant, watch the first week, adjust. If Paper lands on day 1
-> for most players, raise both.
+Measured with the real generator (`npm run measure:containers`, which mounts the
+actual engine at each depth and counts what it builds), a bunker holds about
+**7** — two runs of 200 floors landed at 6.3 and 7.4. The estimate was 1.3–2.4×
+too high.
+
+That mattered, because **the vault needs both items**. At 28 the Golden Key took
+~4.4 fully-cleared bunkers; a player opening a realistic ~70% of what they find
+had to play nearly every day of the week to reach it. Anyone playing three to
+five sessions got the Paper, missed the Key, and therefore earned **nothing** —
+precisely the outcome this mechanic exists to make impossible.
+
+| Thresholds | 3 sessions | 4 | 5 | 7 |
+|---|---|---|---|---|
+| 12 / 28 (old) | Paper | Paper | Paper | both |
+| **8 / 18** | Paper | **both** | both | both |
+
+At 8 and 18 the Paper lands on day one, so the mechanic teaches itself early,
+and the Key falls mid-week — the arc in §4.
+
+> Still a model, not player data: it assumes one bunker per session and ~70% of
+> containers opened. Re-run the measurement whenever `props.js` gains or loses
+> an interactive type, and revisit once real weeks exist.
 
 **Why this is the top priority:** it fixes the dead-end, the unlucky-week
 churn, and the empty day 2 — with one mechanic, at zero cost.

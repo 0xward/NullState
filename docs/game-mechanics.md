@@ -107,8 +107,8 @@ one **Vault Fragment**.
 
 | Fragments | You get |
 |---|---|
-| 12 | 📄 **Old Paper**, guaranteed |
-| 28 | 🔑 **Golden Key**, guaranteed |
+| 8 | 📄 **Old Paper**, guaranteed |
+| 18 | 🔑 **Golden Key**, guaranteed |
 
 Both can still drop early by chance, and often do — the fragments are the floor,
 not the ceiling. **A week of playing can never pay you nothing.**
