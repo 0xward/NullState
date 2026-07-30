@@ -346,6 +346,19 @@ A raid saved mid-run carries `raid: true` in its snapshot and resumes as a
 raid — otherwise the resumed run would clear as a campaign bunker and move the
 player's resume point to one they had already beaten.
 
+**Locked down by `npm run test:raid`** (`scripts/test-raid-campaign-resume.js`),
+which drives the real map in headless Chromium: it seeds a player midway through
+Bunker 3, checks the cleared bunkers offer `RAID`, taps it, and asserts the
+campaign's act *and floor* come back while everything the raid earned is kept.
+
+That test found a fourth hazard the three above had missed — the resume stash
+was consumed inside the snapshot guard, so any path where the engine had no
+snapshot to give left it on disk for the *next* raid to restore. Its own first
+run was also a false green: with no engine mounted the whole write block was
+skipped and the assertions passed against the untouched seeded draft. The
+engine stub and the "raid keeps what it earned" assertion exist to make that
+impossible to repeat.
+
 **Bunkers need a reason to choose between them — `[TARGET]`.** With all five
 open, "which one?" needs an answer, and today the only difference is theme
 and monster roster. The intended axis is **time vs risk**: bunker 1 short,
