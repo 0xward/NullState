@@ -53,3 +53,12 @@ export const goldenKeyClaimBodySchema = z.object({
 export const paperClaimBodySchema = z.object({
   wallet: walletAddressSchema,
 })
+
+// Vault Fragment credit (GAME-DESIGN.md §5.1) — wallet only, for the same
+// reason as the two claims above. There is deliberately NO amount field: the
+// client says "a container was opened", the server decides what that is worth.
+// A client-supplied amount would let anyone mint their way to the weekly
+// reward in one request.
+export const vaultFragmentBodySchema = z.object({
+  wallet: walletAddressSchema,
+})

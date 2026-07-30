@@ -279,6 +279,73 @@ window.NS_PAPER = {
   }
 };
 
+// ---- Vault Fragments (GAME-DESIGN.md §5.1) ----------------------------------
+// The effort path to the weekly Vault. Opening an interactive container earns
+// one fragment; crossing a threshold GRANTS Old Paper or the Golden Key
+// outright, so a week of play can never pay nothing. The 16% loot roll above
+// is untouched and still fires on top — luck shortcuts the grind, it just no
+// longer gates it.
+//
+// The server owns every number here (see lib/server/vault-fragments.ts). This
+// side only reports "a container was opened" and reacts to what comes back:
+// there is deliberately no amount in the request, because a client that could
+// name its own reward would not need to play.
+let VAULT_FRAG = { loaded:false, fragments:0, nextGoal:null };
+
+async function refreshVaultFragments(){
+  if(!WALLET_ADDRESS){ VAULT_FRAG = { loaded:false, fragments:0, nextGoal:null }; return; }
+  try{
+    const res = await fetch('/api/vault/fragments?wallet='+encodeURIComponent(WALLET_ADDRESS));
+    const data = await res.json();
+    if(res.ok && data) VAULT_FRAG = { loaded:true, fragments:data.fragments|0, nextGoal:data.nextGoal||null };
+  }catch(e){ /* offline — the bar just shows nothing; credits still land server-side */ }
+}
+
+// Called once per interactive container opened. Fire-and-forget: a container's
+// loot must never wait on the network, and a dropped credit costs the player
+// one fragment out of twelve, not the week.
+function creditVaultFragment(decor){
+  if(!WALLET_ADDRESS || !G) return;
+  fetch('/api/vault/fragments', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ wallet: WALLET_ADDRESS })
+  }).then(r=>r.json()).then(data=>{
+    if(!data || typeof data.fragments !== 'number') return;
+    VAULT_FRAG = { loaded:true, fragments:data.fragments, nextGoal:data.nextGoal||null };
+    const granted = Array.isArray(data.granted) ? data.granted : [];
+    if(granted.length && G){
+      // Drop the granted item where the container stands, through the exact
+      // same applyLoot the lucky-roll path uses — same stash write, same
+      // floating text, same log line, so the two award routes are
+      // indistinguishable to the player.
+      const gx = decor ? decor.x : G.player.x;
+      const gy = decor ? (decor.y - decor.h*0.8) : G.player.y;
+      if(granted.indexOf('paper') >= 0){
+        applyLoot('paper', 1, gx, gy);
+        // Stop this run's 16% roll from also producing one. The server would
+        // reject the duplicate claim anyway, but the client grants the ITEM
+        // locally before it hears back — so without this the player could end
+        // up holding two Papers against a single weekly claim record.
+        G.paperRemaining = 0; PAPER_WEEK = { loaded:true, canClaim:false, weekId:data.weekId||null };
+        log('◆ VAULT FRAGMENTS COMPLETE — the Paper is yours.', 'reward', 'scroll');
+      }
+      if(granted.indexOf('goldenKey') >= 0){
+        applyLoot('goldkey', 1, gx, gy);
+        G.goldenKeysRemaining = 0; GOLDKEY_WEEK = { loaded:true, canClaim:false, weekId:data.weekId||null };
+        log('◆ VAULT FRAGMENTS COMPLETE — the Golden Key is yours.', 'reward', 'key');
+      }
+      updateInventoryPanel();
+    } else if(VAULT_FRAG.nextGoal){
+      // Quiet progress. Only every fifth fragment, and only on the way to
+      // something still missing — a line per container would bury the run log.
+      const n = VAULT_FRAG.fragments, goal = VAULT_FRAG.nextGoal;
+      if(n % 5 === 0 && n < goal.threshold){
+        log('Vault fragments ' + n + '/' + goal.threshold + ' — ' + goal.label, 'dm');
+      }
+    }
+  }).catch(()=>{ /* offline — see above */ });
+}
+
 // Recompute level-derived stats (maxHp/atkDmg/speed) so a restored player
 // at level N has exactly the same numbers gainXp()'s level-up loop would
 // have produced getting there naturally — see entities.js Player.gainXp().
@@ -447,6 +514,7 @@ function newGame(charKey, restoreSnapshot){
   // than awaited.
   refreshGoldenKeyWeeklyStatus();
   refreshPaperWeeklyStatus();
+  refreshVaultFragments();
   const cfg = HERO[charKey];
   const p = new Player(charKey, cfg);
   G = { player:p, dun:null, enemies:[], decor:[], particles:[], dmgNums:[], projectiles:[], rings:[],
@@ -1345,6 +1413,12 @@ function openContainerWindow(decor){
   renderContainerSlots();
   renderStashPanel('containerPlayerItems','containerPlayerEmpty',{readonly:true, gridSlots:CONTAINER_GRID_SLOT_COUNT});
   win.classList.remove('hidden');
+  // One fragment per interactive container (GAME-DESIGN.md §5.1). This is the
+  // right hook precisely because of what does NOT reach it: onOpenButtonTap
+  // routes the vault door to openVaultWindow and sealed/premium caches to
+  // grantCacheLoot, so neither can farm the bar. Decor.open() also guards on
+  // this.opened, so re-opening the same container is impossible.
+  creditVaultFragment(decor);
 }
 // Non-item loot kinds that DO have a real sprite/icon representation (same
 // files used by renderStashPanel's addRow() for the persistent counters).
@@ -1522,12 +1596,14 @@ async function refreshVaultRequirements(){
   set('', 'Checking what you carry…');
   const chip=(label,has)=>'<span class="vault-chip'+(has?' has':'')+'">'+(has?'✓':'✗')+' '+label+'</span>';
   try{
-    const [p,k] = await Promise.all([
+    const [p,k,f] = await Promise.all([
       fetch('/api/paper/status?walletAddress='+encodeURIComponent(WALLET_ADDRESS)).then(r=>r.json()),
-      fetch('/api/goldenkey/status?walletAddress='+encodeURIComponent(WALLET_ADDRESS)).then(r=>r.json())
+      fetch('/api/goldenkey/status?walletAddress='+encodeURIComponent(WALLET_ADDRESS)).then(r=>r.json()),
+      fetch('/api/vault/fragments?wallet='+encodeURIComponent(WALLET_ADDRESS)).then(r=>r.json()).catch(()=>null)
     ]);
     const hasPaper = !!(p && p.claimed);
     const hasKey   = !!(k && k.claimed);
+    if(f && typeof f.fragments === 'number') VAULT_FRAG = { loaded:true, fragments:f.fragments, nextGoal:f.nextGoal||null };
     const chips = '<span class="vault-chips">'+chip('Paper',hasPaper)+chip('Golden Key',hasKey)+'</span>';
     if(hasPaper && hasKey){
       set('ok', chips+'<span class="vault-req-hint">Tap your Paper in the inventory to read this week\'s code.</span>');
@@ -1535,8 +1611,21 @@ async function refreshVaultRequirements(){
       const missing = (!hasPaper && !hasKey) ? 'You need both this week.'
                     : (!hasPaper ? 'The Paper is what carries the code.'
                                  : 'The Key is what turns the door.');
-      set('warn', chips+'<span class="vault-req-hint">'+missing
-        +' Both drop inside the Rotten Armoire and the Lost Cache — go back and search. This door stays open.</span>');
+      // With fragments live, "go search" is no longer a shrug — it is a
+      // countable distance. Telling the player exactly how many containers
+      // stand between them and the item is the whole point of §5.1: a player
+      // who can see the number left never concludes the week is a write-off.
+      let route;
+      const goal = (f && f.nextGoal) ? f.nextGoal : null;
+      if(goal){
+        const have = Math.min(f.fragments|0, goal.threshold);
+        route = 'Open <b>'+Math.max(0, goal.threshold-have)+'</b> more lockable containers and the '
+              + goal.label + ' is yours outright — you are at ' + have + '/' + goal.threshold
+              + '. It can also drop early by luck.';
+      } else {
+        route = 'Both drop inside lockable containers — go back and search.';
+      }
+      set('warn', chips+'<span class="vault-req-hint">'+missing+' '+route+' This door stays open.</span>');
     }
   }catch(e){
     set('warn','Could not check your stash — you can still enter a code if you have one.');
@@ -3812,6 +3901,24 @@ function renderStashPanel(targetId, emptyId, opts){
   if(!opts.readonly){
     if(keyRow)   keyRow.addEventListener(  'click',()=>openItemZoom({mode:'special-item',kind:'goldkey', count:keyCount}));
     if(paperRow) paperRow.addEventListener('click',()=>openItemZoom({mode:'paper-code'}));
+  }
+  // Vault fragment bar (GAME-DESIGN.md §5.1). Sits directly under the two
+  // items it buys, because that is the only place it means anything: a bar
+  // whose reward is off-screen is just a number. Shown only while something is
+  // still missing — once both are held there is nothing left to fill.
+  if(!opts.readonly && opts.filter!=='food' && VAULT_FRAG.loaded && VAULT_FRAG.nextGoal){
+    const goal = VAULT_FRAG.nextGoal;
+    const have = Math.min(VAULT_FRAG.fragments, goal.threshold);
+    const pct  = Math.round((have/goal.threshold)*100);
+    const row  = document.createElement('div');
+    row.className = 'inv-frag';
+    row.innerHTML =
+      '<div class="inv-frag-top"><span class="inv-frag-label">Vault fragments → '+goal.label+'</span>'
+      + '<span class="inv-frag-count">'+have+'/'+goal.threshold+'</span></div>'
+      + '<div class="inv-frag-track"><span class="inv-frag-fill" style="width:'+pct+'%"></span></div>'
+      + '<div class="inv-frag-hint">Open any lockable container to earn one.</div>';
+    host.appendChild(row);
+    rowCount++;
   }
   for(const entry of itemEntries){
     const it=entry.item;

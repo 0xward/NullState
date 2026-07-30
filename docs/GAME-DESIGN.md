@@ -160,7 +160,7 @@ payout.** Today it buys nothing. That is the single biggest fix in this doc.
 All four run on systems already in the repo. No new currency, no new
 contract, no new vendor.
 
-### 5.1 Vault Fragments — `[TARGET]` — **highest priority**
+### 5.1 Vault Fragments — `[TODAY]` — **highest priority**
 
 **The problem.** Old Paper and Golden Key are pure 16% rolls on rare
 containers, capped 1 per wallet per week (`props.js` `rollLootSlots`).
@@ -175,17 +175,36 @@ only one of the two, and there is no recourse.
 
 **The design.** Effort becomes a guaranteed path, luck stays as a shortcut.
 
-- Opening any **interactive container** (`wardrobe`, `chest`, `safe`,
-  `footlocker`, `shelf_stocked`, `dresser`, `cabinet_ornate`, `cabinet_s`)
-  grants **+1 Vault Fragment**.
-- Fragments are per-wallet, reset with the ISO week alongside everything
-  else.
+- Opening any **interactive container** grants **+1 Vault Fragment**. That is
+  the nine types carrying `interactive: true` in `props.js` — `cabinet_s`,
+  `wardrobe`, `chest`, `safe`, `plaque_coin`, `footlocker`, `shelf_stocked`,
+  `dresser`, `cabinet_ornate`.
+- The sealed and premium caches and the vault door are **excluded for free**:
+  `onOpenButtonTap` routes those to `grantCacheLoot`/`openVaultWindow` and
+  never reaches `openContainerWindow`, which is where the credit fires.
+  `Decor.open()` guards on `this.opened`, so a container cannot be farmed
+  twice.
+- Fragments are per-wallet at `vaultFragments/{weekId}/{wallet}` and reset
+  with the ISO week alongside everything else.
 - **12 fragments → Old Paper granted.** **28 fragments → Golden Key granted.**
 - The existing 16% roll stays untouched on top, so luck still shortcuts the
   grind — it just no longer *gates* it.
-- Grants route through the existing `/api/paper/claim` and
-  `/api/goldenkey/claim`, so the 1-per-wallet-per-week server cap still
-  holds and nothing can over-grant.
+- Grants write the **same** `paperClaims/` and `goldenKeyClaims/` records that
+  `/api/paper/claim` and `/api/goldenkey/claim` write and `/api/vault/submit`
+  gates on, through the same abort-if-present transaction. So the
+  1-per-wallet-per-week cap holds for free, the two award paths can never both
+  pay out, and no other route needed changing.
+- The client never names an amount. It reports "a container was opened" and
+  the server decides what that is worth — a client-supplied quantity would let
+  anyone mint the weekly reward in one request.
+
+**Where the player sees it:** a progress bar in the inventory directly beneath
+the Golden Key and Old Paper rows (it disappears once both are held), a run-log
+line every fifth fragment, and an exact "open N more" count in the vault door's
+requirements line.
+
+**Shipped in:** `lib/server/vault-fragments.ts`, `app/api/vault/fragments/route.ts`,
+`creditVaultFragment()` in `game.js`.
 
 **Starting numbers, and why.** Interactive containers run roughly 8–15 per
 bunker (max 5 props/room, 12% rare, `northOnly` types fall back to tables on
@@ -253,7 +272,7 @@ exists.
 | Craft timers (6h/12h) | Daily | Self-set appointment | `[TODAY]`, hidden |
 | Glitch Shards | Daily→Weekly | Power ratchet | `[TODAY]` |
 | NullState Point | Daily→Weekly | Gear ratchet (faucet-only) | `[TODAY]` |
-| Vault Fragments | Daily→Weekly | **Connects daily play to money** | `[TARGET]` |
+| Vault Fragments | Daily→Weekly | **Connects daily play to money** | `[TODAY]` |
 | The Vault | Weekly | The jackpot | `[TODAY]` |
 | Leaderboard | Seasonal | Competition | `[CHANGE]` §9 |
 | Season Pass | Seasonal | Subscription | `[TODAY]` |
@@ -404,7 +423,7 @@ time.
 ## 11. Build order
 
 **Before the MiniPay listing — required**
-1. §5.1 Vault Fragments — fixes the dead-end, unlucky weeks, and empty day 2
+1. ~~§5.1 Vault Fragments~~ — **shipped**
 2. §7 Bunker raids — without this the map lies to the player
 3. §5.5 Daily status on the map — the hook must be visible immediately
 
