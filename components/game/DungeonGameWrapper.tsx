@@ -16,7 +16,9 @@ interface DungeonGameWrapperProps {
   isNewRun?: boolean
   // Which run the Main Menu chose — threaded to DungeonGame -> engine mount so
   // it starts straight into that mode (no canvas title/preview).
-  startMode?: 'new' | 'continue' | 'cycle' | 'abyss'
+  startMode?: 'new' | 'continue' | 'cycle' | 'abyss' | 'raid'
+  /** Which bunker a raid targets; null for every other mode. */
+  raidActIndex?: number | null
 }
 
 /**
@@ -37,7 +39,7 @@ interface DungeonGameWrapperProps {
  *    it can validate it and record it (Firestore + on-chain recordBurn via
  *    the backend signer — see app/api/burn/record/route.ts).
  */
-export default function DungeonGameWrapper({ playerProfile, setPlayerUsername, isNewRun, startMode }: DungeonGameWrapperProps) {
+export default function DungeonGameWrapper({ playerProfile, setPlayerUsername, isNewRun, startMode, raidActIndex }: DungeonGameWrapperProps) {
   const { address, isGuest } = useWallet()
 
   useEffect(() => {
@@ -79,6 +81,6 @@ export default function DungeonGameWrapper({ playerProfile, setPlayerUsername, i
   }, [])
 
   return (
-    <DungeonGame playerProfile={playerProfile} setPlayerUsername={setPlayerUsername} isNewRun={isNewRun} startMode={startMode} />
+    <DungeonGame playerProfile={playerProfile} setPlayerUsername={setPlayerUsername} isNewRun={isNewRun} startMode={startMode} raidActIndex={raidActIndex} />
   )
 }

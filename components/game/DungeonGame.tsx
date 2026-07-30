@@ -75,10 +75,12 @@ interface DungeonGameProps {
   // Which run the Main Menu chose. Passed to the engine's mount() as
   // startMode so it drops straight into play (no canvas title/preview):
   // 'new' | 'continue' | 'cycle' (New Game+) | 'abyss' (The Null Abyss).
-  startMode?: 'new' | 'continue' | 'cycle' | 'abyss'
+  startMode?: 'new' | 'continue' | 'cycle' | 'abyss' | 'raid'
+  /** Which bunker a raid targets; null for every other mode. */
+  raidActIndex?: number | null
 }
 
-export default function DungeonGame({ playerProfile, setPlayerUsername, isNewRun, startMode }: DungeonGameProps) {
+export default function DungeonGame({ playerProfile, setPlayerUsername, isNewRun, startMode, raidActIndex }: DungeonGameProps) {
   const wallet = useWallet()
   const router = useRouter()
 
@@ -458,7 +460,13 @@ export default function DungeonGame({ playerProfile, setPlayerUsername, isNewRun
         const addr = walletRef.current.address
         let savedSession = null as any
         if (addr) {
-          if (isNewRun) {
+          if (startMode === 'raid') {
+            // A RAID builds its own run from scratch (startRaid in game.js), so
+            // it needs no snapshot — and must not go near the one on disk. The
+            // Continue branch below CONSUMES the save it reads, which for a raid
+            // would silently delete the campaign the player is midway through.
+            // Nothing loaded, nothing cleared.
+          } else if (isNewRun) {
             // Entered via "New Game" (GameFlowManager already asked for
             // confirmation if a save existed — see NewGameConfirmModal).
             // Deliberately skip loadGameSession() so this run always starts
@@ -532,6 +540,9 @@ export default function DungeonGame({ playerProfile, setPlayerUsername, isNewRun
           // Fall back to new/continue from isNewRun for any caller that
           // doesn't pass an explicit mode.
           startMode: startMode ?? (isNewRun ? 'new' : 'continue'),
+          // Which bunker a RAID re-enters (GAME-DESIGN.md §7). Ignored by every
+          // other start mode; the engine clamps it to a real act either way.
+          raidActIndex: typeof raidActIndex === 'number' ? raidActIndex : null,
           // With the world-map hub on, clearing a bunker surfaces back to the
           // map instead of auto-walking into the next act (see game.js
           // onOutdoorAdvanceToNextAct). Off = the classic uninterrupted flow.

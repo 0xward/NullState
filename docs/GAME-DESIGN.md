@@ -266,6 +266,7 @@ exists.
 |---|---|---|---|
 | Combat, floors, lift | Session | The game | `[TODAY]` |
 | Campaign (5 acts) | Onboarding | Teach + unlock the map | `[TODAY]` |
+| Bunker raids | Session→Daily | Repeatable content; the map's whole point | `[TODAY]` |
 | Energy (5/day) | Daily | Pace sessions, drive refill sales | `[TODAY]` |
 | Daily Contracts | Daily | Reason to open the app | `[TARGET]` |
 | Streak | Daily | Loss aversion | `[TARGET]` |
@@ -295,14 +296,36 @@ tier. Nobody should ever be forced through it to reach a weekly reward.
 
 ## 7. Bunker re-entry (raids)
 
-**`[TARGET]`.** The map currently promises a world the engine does not have.
+**`[TODAY]`.** The map used to promise a world the engine did not have.
 
-- Cleared bunkers become selectable on the map and enter as a **fresh raid**.
+- Cleared bunkers are selectable on the map and enter as a **fresh raid**
+  (`RAID ▸`). The engine reaches them through `mount({ startMode:'raid',
+  raidActIndex })` → `startRaid()`.
 - **A raid costs 1 energy** (owner decision). Continuing a saved run stays
   free. Grinding having a price is what makes the $1 refill meaningful —
-  this is the natural transaction point, and it is money *in*.
-- Raids do not advance `campaignActIndex` and do not replay story beats.
-- Fragments, contracts, shards and loot all accrue normally in a raid.
+  this is the natural transaction point, and it is money *in*. The cost is
+  charged by routing a raid through the existing outdoor strip, so
+  `onOutdoorReachedDoor` handles the spend, the retreat-from-the-door and the
+  refill modal with no second copy of that logic.
+- Raids do not advance the campaign, replay story beats, or show the tutorial.
+- Fragments, shards, loot, XP and kills all accrue normally in a raid.
+
+**Three ways a raid could have destroyed the player's campaign, all closed:**
+
+1. **Progress regression.** The map read `currentAct` straight off the saved
+   session, so raiding Bunker 1 would have shown a five-bunker veteran a map
+   with 3-5 locked. Progress is now its own monotonic high-water mark
+   (`lib/campaignProgress.ts`), seeded from the save on first read.
+2. **Save deletion.** `DungeonGame`'s Continue branch *consumes* the session it
+   loads. A raid now touches neither — it builds its run from scratch.
+3. **Lost floor position.** A raid shares the same session document, so farming
+   Bunker 1 would have reset a Bunker 3 run to floor 1. The campaign's
+   act/depth is stashed on the way in and restored on the way out, in
+   localStorage rather than a ref so it survives a save-and-exit mid-raid.
+
+A raid saved mid-run carries `raid: true` in its snapshot and resumes as a
+raid — otherwise the resumed run would clear as a campaign bunker and move the
+player's resume point to one they had already beaten.
 
 **Bunkers need a reason to choose between them — `[TARGET]`.** With all five
 open, "which one?" needs an answer, and today the only difference is theme
@@ -452,7 +475,7 @@ time.
 
 **Before the MiniPay listing — required**
 1. ~~§5.1 Vault Fragments~~ — **shipped**
-2. §7 Bunker raids — without this the map lies to the player
+2. ~~§7 Bunker raids~~ — **shipped**
 3. §5.5 Daily status on the map — the hook must be visible immediately
 
 **Before the listing — strongly recommended**
