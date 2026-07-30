@@ -252,17 +252,14 @@ export default function StatsPage() {
                 value={fmt(data.players.nonPaying)}
                 hint="includes duplicate guest ids"
               />
-              {/* Only ids recorded since /api/player/seen shipped carry the
-                  guest flag, so the card says what it is measured over rather
-                  than implying it covers every player above. */}
-              {!!data.players.guestKnown && (
-                <Stat
-                  label="Wallet vs guest"
-                  value={`${fmt(data.players.wallets)} / ${fmt(data.players.guests)}`}
-                  accent="#4ad7ff"
-                  hint={`of ${fmt(data.players.guestKnown)} ids labelled so far`}
-                />
-              )}
+              {/* The "Wallet vs guest" card was removed (owner call). Only ids
+                  recorded since /api/player/seen shipped carry the guest flag,
+                  so it could only ever report a split over 44 of 71 players —
+                  a partial number sitting in a row of totals, which reads as a
+                  contradiction rather than as a caveat no matter how the hint
+                  is worded. The API still returns guests/wallets/guestKnown, so
+                  nothing is lost if it is ever wanted back once the flag covers
+                  everybody. */}
             </Section>
 
             <Section title="On-chain activity">
@@ -272,7 +269,16 @@ export default function StatsPage() {
                 label="Purchase volume"
                 value={fmtUsd(t?.purchaseVolumeUsd)}
                 accent="#f2cd82"
-                hint={t?.volumeEstimated ? `${t.volumeEstimated} sale(s) valued at today's price` : 'items + passes + elixir + shards + blueprints'}
+                // "3 sale(s) valued at today's price" was read as "there were 3
+                // sales" — sitting directly under a Purchases card reading 28,
+                // which made the page look like it contradicted itself. It never
+                // meant that: it counts the records old enough to predate the
+                // `usd` field on a transaction, whose dollar value has to be
+                // inferred from the current price list. Naming both numbers is
+                // what makes it a caveat instead of a second, smaller total.
+                hint={t?.volumeEstimated
+                  ? `${t.volumeEstimated} of ${fmt(t?.purchases)} estimated — no amount was stored at the time`
+                  : 'items + passes + elixir + shards + blueprints'}
               />
               <Stat label="Season Passes" value={fmt(t?.passMints)} accent="#c9a0ff" />
               <Stat label="USDT rewards paid" value={fmtUsd(t?.rewardsPaidUsd)} accent="#7ef0a6" hint={`${fmt(t?.rewardsPaidCount)} payouts`} />
