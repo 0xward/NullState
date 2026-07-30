@@ -6,6 +6,7 @@ import { maskAddress } from '@/lib/addressMask'
 import { PlayerProfile } from '@/lib/contract'
 import { loadGameSession, loadGameSessionDraft } from '@/lib/gameSessionService'
 import { readHighestAct } from '@/lib/campaignProgress'
+import DailyStatusBar from './DailyStatusBar'
 import { useEquippedPortrait } from '@/lib/heroPortrait'
 import { usePassSBT } from '@/hooks/usePassSBT'
 import { isPassCurrent, seasonNumberOf } from '@/lib/season'
@@ -254,7 +255,7 @@ export default function WorldMapHub({
     : selState === 'cleared' ? 'RAID ▸' : 'LOCKED'
   const subline = selState === 'active'
     ? (hasSave ? `Bunker ${sel.act + 1} · Continue your descent` : `Bunker ${sel.act + 1} · Begin your descent`)
-    : selState === 'cleared' ? `Bunker ${sel.act + 1} · Cleared — raid it again for loot (1 energy)`
+    : selState === 'cleared' ? `Bunker ${sel.act + 1} · Cleared · Raid again (1 energy)`
       : `Locked · Clear ${nodeByAct(sel.act - 1)?.name ?? 'the previous bunker'} first`
 
   const startRun = () => {
@@ -507,11 +508,17 @@ export default function WorldMapHub({
         </p>
       )}
 
-      {/* ── Bottom bar: selected bunker + explicit ENTER (never auto-travels) ── */}
+      {/* ── Bottom bar: today's status, the selected bunker, and ENTER ──
+          The status bar shares this container rather than floating on its own
+          so it can never overlap the map's nodes on a short screen — it sits in
+          the same gradient, directly above the button it is meant to be read on
+          the way to. See GAME-DESIGN.md §5.5. */}
       <div
-        className="absolute left-0 right-0 flex items-end gap-3"
+        className="absolute left-0 right-0"
         style={{ bottom: 0, zIndex: 7, padding: '14px 14px 20px', background: 'linear-gradient(0deg,#060d0a 38%,rgba(6,13,10,.55) 80%,transparent)' }}
       >
+        <DailyStatusBar address={address} onCrafting={onCrafting} />
+        <div className="flex items-end gap-3">
         <div className="flex-1 font-mono min-w-0">
           <span style={{ display: 'block', fontSize: 12.5, color: '#fff', letterSpacing: '.5px', fontWeight: 700, textShadow: '0 1px 3px #000' }}>
             {sel.name}
@@ -534,6 +541,7 @@ export default function WorldMapHub({
         >
           {enterLabel}
         </button>
+        </div>
       </div>
 
       {toast && (

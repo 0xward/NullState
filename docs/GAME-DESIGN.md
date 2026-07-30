@@ -238,7 +238,7 @@ Half of this already exists: the Season Pass daily claim grants +1 energy
 and +3 t1 shards per UTC day (`game-config.ts:50-51`) — a login reward that
 was never framed as one.
 
-### 5.4 Surface the craft timer — `[TARGET]`, cheapest win in this doc
+### 5.4 Surface the craft timer — `[TODAY]`
 
 Weapon crafting is already time-gated: 6h into tier 2, 12h into tier 3,
 server-authoritative (`game-config.ts` `weaponEvolution.craft`). It is a
@@ -246,14 +246,33 @@ self-set appointment — one of the most reliable return mechanics there is —
 and today nothing tells the player about it unless they open the Crafting
 screen.
 
-Put **"⏳ WEAPON READY IN 3h 20m"** on the world map. The mechanic is built
-and paid for; it is just invisible.
+Now a chip in the map's daily status bar (§5.5): **⏳ 3h 20m** while it runs,
+and a bright **✦ WEAPON READY** the moment it is done — tappable, straight into
+the Crafting screen. The countdown corrects for client clock skew against the
+server's `serverNow`, so the timer reads true even on a phone with a wrong
+clock.
 
-### 5.5 The map must show the hook in five seconds — `[TARGET]`
+### 5.5 The map must show the hook in five seconds — `[TODAY]`
 
-Opening the app should immediately show: *contracts remaining today ·
-fragments N/12 · craft ready in Xh · streak day N*. If a player has to go
-looking for a reason to play, they will not look.
+Opening the app shows, above the ENTER button and without a tap:
+
+| Chip | Source | Shown when |
+|---|---|---|
+| **✦ WEAPON READY** / **⏳ 2h 14m** | `/api/weapons/craft` | a craft is running |
+| **◈ 7/12** | `/api/vault/fragments` | something is still to earn |
+| **⚡ 4** | `/api/energy` | always, once loaded |
+
+It sits in the bottom bar's own container, in the path the eye already takes
+toward the only action on the screen — read rather than discovered.
+
+**Contracts and streak have no chip yet, on purpose.** They are in the build
+order and not built, and a chip showing a number nobody tracks is exactly how
+`game-config.ts` happened (rule 2, §10). Each chip appears when its system
+does; with all three quiet the bar renders nothing rather than an empty frame.
+
+Every fetch runs after first paint and degrades to a hidden chip, never to an
+error — a status bar that can show an error is one that can make the home
+screen look broken.
 
 ---
 
@@ -270,7 +289,7 @@ exists.
 | Energy (5/day) | Daily | Pace sessions, drive refill sales | `[TODAY]` |
 | Daily Contracts | Daily | Reason to open the app | `[TARGET]` |
 | Streak | Daily | Loss aversion | `[TARGET]` |
-| Craft timers (6h/12h) | Daily | Self-set appointment | `[TODAY]`, hidden |
+| Craft timers (6h/12h) | Daily | Self-set appointment | `[TODAY]` |
 | Glitch Shards | Daily→Weekly | Power ratchet | `[TODAY]` |
 | NullState Point | Daily→Weekly | Gear ratchet (faucet-only) | `[TODAY]` |
 | Vault Fragments | Daily→Weekly | **Connects daily play to money** | `[TODAY]` |
@@ -476,18 +495,17 @@ time.
 **Before the MiniPay listing — required**
 1. ~~§5.1 Vault Fragments~~ — **shipped**
 2. ~~§7 Bunker raids~~ — **shipped**
-3. §5.5 Daily status on the map — the hook must be visible immediately
+3. ~~§5.5 Daily status on the map~~ — **shipped** (absorbed §5.4)
 
 **Before the listing — strongly recommended**
 4. §5.2 Daily Contracts
-5. §5.4 Surface the craft timer (cheapest item here)
-6. Delete the dead blocks in `game-config.ts`
+5. Delete the dead blocks in `game-config.ts`
 
 **After the listing**
-7. §5.3 Login streak
-8. §7 Bunker differentiation (time vs risk)
-9. §8 Seeded dungeon → fixes Save & Exit
-10. §9 Leaderboard consolidation + automated season payout
+6. §5.3 Login streak
+7. §7 Bunker differentiation (time vs risk)
+8. §8 Seeded dungeon → fixes Save & Exit
+9. §9 Leaderboard consolidation + automated season payout
 
 ---
 
