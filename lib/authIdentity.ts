@@ -28,6 +28,7 @@
 
 const ADDR_KEY = 'nullstate-auth-address'
 const UID_KEY = 'nullstate-auth-uid'
+const LABEL_KEY = 'nullstate-auth-label'
 
 const ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/
 
@@ -76,13 +77,31 @@ export async function deriveAuthAddress(uid: string): Promise<string> {
   return `0x${hex}`
 }
 
-export function storeAuthIdentity(uid: string, address: string) {
+export function storeAuthIdentity(uid: string, address: string, label?: string | null) {
   if (typeof window === 'undefined') return
   try {
     window.localStorage.setItem(UID_KEY, uid)
     window.localStorage.setItem(ADDR_KEY, address.toLowerCase())
+    if (label) window.localStorage.setItem(LABEL_KEY, label)
   } catch {
     /* private mode — the player is signed in for this tab and that is all */
+  }
+}
+
+/**
+ * The email (or display name) to show in Settings, cached at sign-in.
+ *
+ * Stored rather than read back from the Auth SDK on demand: Settings would
+ * otherwise have to load firebase/auth just to print one line, which is the
+ * whole thing lib/firebaseAuth.ts's separate-module split exists to avoid. It
+ * is a label, never an identity — nothing branches on it.
+ */
+export function getStoredAuthLabel(): string | null {
+  if (typeof window === 'undefined') return null
+  try {
+    return window.localStorage.getItem(LABEL_KEY)
+  } catch {
+    return null
   }
 }
 
@@ -91,6 +110,7 @@ export function clearAuthIdentity() {
   try {
     window.localStorage.removeItem(UID_KEY)
     window.localStorage.removeItem(ADDR_KEY)
+    window.localStorage.removeItem(LABEL_KEY)
   } catch {
     /* ignore */
   }

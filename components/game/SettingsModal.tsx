@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom'
 import Image from 'next/image'
 import { PlayerProfile } from '@/lib/contract'
 import { usernameSchema } from '@/lib/validation'
+import AccountPanel from './AccountPanel'
 import { usePassSBT } from '@/hooks/usePassSBT'
 import '@/styles/settings.css'
 
@@ -254,6 +255,14 @@ export default function SettingsModal({
           {usernameStatus === 'error' && (
             <p className="ns-settings-error">{usernameError}</p>
           )}
+        </div>
+
+        {/* Account. Directly under the name, because it is the same subject:
+            what the player is called and what that name is attached to. This
+            surface matters more than the map's — a player mid-run is the one
+            with progress worth not losing. */}
+        <div className="ns-settings-section">
+          <AccountPanel />
         </div>
 
         {/* Sound — laid out like the map's "Sound & feel" card: one card label,
