@@ -1,8 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useWallet } from '@/lib/WalletProvider'
-import { maskAddress } from '@/lib/addressMask'
+import AccountPanel from './AccountPanel'
 import { PlayerProfile } from '@/lib/contract'
 import { usernameSchema } from '@/lib/validation'
 import { loadGameSettings, saveGameSettings, type GameSettings } from '@/lib/gameSettings'
@@ -64,7 +63,6 @@ function Toggle({ on, onClick, label, hint }: { on: boolean; onClick: () => void
 }
 
 export default function SettingsScreen({ onBack, playerProfile, setPlayerUsername }: SettingsScreenProps) {
-  const { realAddress, isGuest } = useWallet()
   const [s, setS] = useState<GameSettings | null>(null)
   const [name, setName] = useState(playerProfile?.username || '')
   const [nameState, setNameState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
@@ -195,15 +193,7 @@ export default function SettingsScreen({ onBack, playerProfile, setPlayerUsernam
 
         {/* ── Account + the links MiniPay requires ── */}
         <section className="rounded-lg border p-3" style={{ borderColor: 'rgba(255,255,255,.1)', background: 'rgba(10,24,18,.5)' }}>
-          <p className="mb-2 font-mono text-[10px] uppercase tracking-[2px]" style={{ color: '#5f8d78' }}>Account</p>
-          <p className="font-mono text-[11px]" style={{ color: '#cfe9dc' }}>
-            {realAddress ? maskAddress(realAddress) : 'Guest Mode'}
-          </p>
-          {isGuest && (
-            <p className="mt-1 font-mono text-[9px] leading-relaxed" style={{ color: '#4e6b5e' }}>
-              Your progress is saved to this device. Open NullState in MiniPay to keep it if you reinstall.
-            </p>
-          )}
+          <AccountPanel />
           <div className="mt-3 flex flex-wrap items-center justify-center gap-1 border-t pt-2" style={{ borderColor: 'rgba(255,255,255,.08)' }}>
             <a href="https://t.me/nullstate_id" rel="noopener noreferrer" className="font-mono uppercase" style={linkStyle}>Support</a>
             <span aria-hidden="true" style={{ color: 'rgba(255,255,255,.25)' }}>·</span>

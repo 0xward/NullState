@@ -7,10 +7,8 @@ import { useContractPlayer } from '@/lib/useContractPlayer'
 import { PlayerProfile, LeaderboardEntry } from '@/lib/contract'
 import { loadGameSession, clearGameSession, saveGameSession, saveGameSessionDraft } from '@/lib/gameSessionService'
 import { migrateGuestProgress, getStoredGuestId } from '@/lib/guestMigration'
-import {
-  deriveAuthAddress, storeAuthIdentity, getStoredAuthAddress,
-  hasSkippedSignIn, rememberSignInSkipped,
-} from '@/lib/authIdentity'
+import { getStoredAuthAddress, hasSkippedSignIn } from '@/lib/authIdentity'
+import { useAccountActions } from '@/lib/useAccountActions'
 import MainMenu from './MainMenu'
 import WorldMapHub from './WorldMapHub'
 import { useWorldMapHubFlag } from '@/lib/worldMapHubFlag'
@@ -117,9 +115,6 @@ export default function GameFlowManager() {
   } = useContractPlayer(address || undefined)
 
   const [phase, setPhase] = useState<GamePhase>('menu')
-  // Set once the sign-in link is on its way, so the screen can stop offering
-  // buttons and start telling the player to go and open their inbox.
-  const [emailLinkSentTo, setEmailLinkSentTo] = useState<string | null>(null)
   const [characterTab, setCharacterTab] = useState<'character' | 'items'>('character')
   const [leaderboardEntries, setLeaderboardEntries] = useState<LeaderboardEntry[]>([])
   const [isLoadingLeaderboard, setIsLoadingLeaderboard] = useState(false)
@@ -292,7 +287,7 @@ export default function GameFlowManager() {
           : await auth.resumeRedirectSignIn()
         if (user && !cancelled) {
           sessionStorage.removeItem('ns-signin-redirecting')
-          await adoptAuthUser(user.uid)
+          await acct.adopt(user.uid, user.email ?? user.displayName)
           // Drop the one-time credentials out of the address bar so a shared or
           // bookmarked URL cannot replay them.
           window.history.replaceState({}, '', window.location.pathname)
@@ -365,36 +360,15 @@ export default function GameFlowManager() {
   const shouldOfferSignIn = () =>
     !isMiniPay && !realAddress && !getStoredAuthAddress() && !hasSkippedSignIn()
 
-  /**
-   * Turns a signed-in Firebase user into the address everything else is keyed
-   * by, and carries any guest progress across to it.
-   *
-   * Order matters: migrate BEFORE storing the identity. migrateGuestProgress
-   * reads the stored guest id and moves its documents onto the address given,
-   * then clears it. If the identity were stored first, useWallet() would start
-   * returning the account address on the next render and the guest's run would
-   * be stranded under an id nothing points at any more.
-   */
-  const adoptAuthUser = async (uid: string) => {
-    const authAddress = await deriveAuthAddress(uid)
-    if (getStoredGuestId()) await migrateGuestProgress(authAddress)
-    storeAuthIdentity(uid, authAddress)
-    await fetchPlayerProfile()
-    setPhase(pendingPhase.current)
-  }
+  // The identity work itself lives in lib/useAccountActions — Settings needs
+  // the same three actions, and the migrate-then-store ORDER is too easy to get
+  // wrong in a second copy. What stays here is only the part this screen owns:
+  // where the player goes afterwards.
+  const acct = useAccountActions(fetchPlayerProfile)
 
   const handleSignInGoogle = async () => {
-    const { signInWithGoogle } = await import('@/lib/firebaseAuth')
-    const user = await signInWithGoogle()
-    // null means the popup was blocked and we redirected instead; the page is
-    // navigating away and resumeRedirectSignIn picks it up on the way back.
-    if (user) await adoptAuthUser(user.uid)
-  }
-
-  const handleSignInEmail = async (email: string) => {
-    const { sendEmailSignInLink } = await import('@/lib/firebaseAuth')
-    await sendEmailSignInLink(email, window.location.href)
-    setEmailLinkSentTo(email)
+    await acct.signInGoogle()
+    setPhase(pendingPhase.current)
   }
 
   const handleSignInWallet = async () => {
@@ -403,7 +377,7 @@ export default function GameFlowManager() {
   }
 
   const handleSignInSkip = () => {
-    rememberSignInSkipped()
+    acct.rememberSkipped()
     setPhase(pendingPhase.current)
   }
 
@@ -592,10 +566,10 @@ export default function GameFlowManager() {
     return (
       <SignInScreen
         onGoogle={handleSignInGoogle}
-        onEmail={handleSignInEmail}
+        onEmail={acct.signInEmail}
         onWallet={handleSignInWallet}
         onSkip={handleSignInSkip}
-        emailSent={emailLinkSentTo}
+        emailSent={acct.emailSentTo}
       />
     )
   }
