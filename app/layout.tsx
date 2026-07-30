@@ -64,6 +64,19 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" suppressHydrationWarning className={fontVariables}>
       <head>
         <meta name="color-scheme" content="dark" />
+        {/* Firestore is on the LCP path of /game. The hub's player-name span
+            cannot paint until the profile resolves, and that request opens a
+            fresh TLS connection to firestore.googleapis.com — PageSpeed
+            measured the handshake at ~300ms of pure LCP delay and reported
+            zero preconnected origins. Warming the socket here overlaps the
+            handshake with document parse instead of paying for it serially.
+
+            Only this one origin. Preconnect is a budget, not a free win: each
+            hint costs a socket the browser could have spent elsewhere, and the
+            guidance is to stay under four. forno.celo.org is deliberately left
+            out — it is 1 KiB with no main-thread time and is nowhere near the
+            first paint. */}
+        <link rel="preconnect" href="https://firestore.googleapis.com" crossOrigin="" />
         {/* Pre-paint flash guard for the splash on a second full-page load
             (Launch Game → /game): if this session already saw the splash, hide
             #ns-splash-root before first paint. READ-ONLY — the SplashScreen
