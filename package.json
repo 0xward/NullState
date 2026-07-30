@@ -22,7 +22,8 @@
     "check:cssvars": "node scripts/check-css-vars.js",
     "test:raid": "node scripts/test-raid-campaign-resume.js",
     "test:contracts": "node scripts/test-daily-contracts.js",
-    "measure:bunker": "node scripts/measure-bunker.js"
+    "measure:bunker": "node scripts/measure-bunker.js",
+    "test:traversable": "node scripts/test-floor-traversable.js"
   },
   "dependencies": {
     "@celo/attribution-tags": "^0.3.0",
