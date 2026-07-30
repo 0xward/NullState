@@ -319,6 +319,34 @@ depth) — what is missing is the player-facing reason to pick.
 
 ---
 
+## 7b. Fixed: opened things could never be opened again
+
+**`[TODAY]`.** Found while wiring §5.1, and it was the floor under the reported
+vault dead end.
+
+`Decor.open()` marks a prop `opened`, and `updateActionButton` skipped anything
+opened when picking a target. Two consequences:
+
+- **The vault door became unreachable after one tap.** `closeVaultWindow`'s own
+  comment promised "the vault door stays interactive, so you can check your
+  Paper and re-open it to enter the code" — and it was false. Tapping *back to
+  the bunker* to go read the code locked the player out of the vault for the
+  rest of the run. The only remaining control was *leave without opening*,
+  which **ends the campaign**. The invisible exit buttons fixed earlier were
+  one layer; this was the one underneath.
+- **Container loot left behind was destroyed.** Close the window with slots
+  untaken — one mis-tap on a phone — and it was gone, silently.
+
+Now `_canReopenDecor()` lets the vault door always be re-targeted, and lets a
+container be re-targeted while it still holds untaken slots (the button reads
+`REOPEN`). Closing a container with loot inside says so in the run log.
+
+Neither can be farmed: `rollLootSlots()` memoises on `this.lootSlots`, so a
+reopened container shows the *same* remaining slots rather than a fresh roll,
+and the vault fragment is credited on the first open only.
+
+---
+
 ## 8. Known bug: Save & Exit regenerates floors
 
 **`[CHANGE]`.** Real, and worth writing down because it looks like the

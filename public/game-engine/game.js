@@ -1260,11 +1260,14 @@ function updateActionButton(nearest, nd){
     setActionButton('ulti', 'NULL_STRIKE', 'strike');
     return;
   }
-  // Priority 2: nearest unopened container, but only once its room is clear.
+  // Priority 2: nearest container that still has something to offer, but only
+  // once its room is clear. "Still has something" is deliberately not the same
+  // as "never opened" — see _canReopenDecor.
   const p=G.player;
   let nearestDecor=null, nnd=1e9;
   for(const o of G.decor){
-    if(!o.interactive || o.opened) continue;
+    if(!o.interactive) continue;
+    if(o.opened && !_canReopenDecor(o)) continue;
     const dist=Math.hypot(o.x-p.x, (o.y-o.h*0.35)-p.y);
     if(dist<nnd){ nnd=dist; nearestDecor=o; }
   }
@@ -1275,6 +1278,7 @@ function updateActionButton(nearest, nd){
       let _lbl='OPEN', _ic='open';
       const _def=nearestDecor.def;
       if(_def.isVaultDoor){ _lbl='OPEN VAULT'; _ic='vaultOpen'; }
+      else if(nearestDecor.opened){ _lbl='REOPEN'; _ic='open'; }
       else if(_def.isSealedCache){
         // Phase 8: label reflects whether the equipped weapon has the utility.
         const u=_def.sealedUtility;
@@ -1307,8 +1311,45 @@ function onUltiButtonTap(){
     if(btn){ btn.disabled=false; btn.classList.remove('loading'); }
   }, 450);
 }
+// Can this already-opened thing be walked back up to and used again?
+//
+// TWO BUGS LIVED IN THE ANSWER BEING "NO, EVER".
+//
+// The vault door. closeVaultWindow's own comment promised "the vault door
+// stays interactive, so you can check your Paper and re-open it to enter the
+// code" — and it was not true. open() marks the door `opened`, and the target
+// scan above skipped anything opened, so tapping "BACK TO THE BUNKER" to go
+// read the code off your Paper locked you out of the vault for good. The only
+// remaining control was "leave without opening", which ENDS the campaign. That
+// is the real floor under the reported dead end: the invisible exit buttons
+// were one layer, this was the one underneath.
+//
+// Containers. Close the loot window with slots still untaken — a mis-tap on a
+// phone is all it takes — and that loot was gone permanently. Nothing warned,
+// nothing hinted, the prop just went inert.
+//
+// Reopening cannot be farmed: rollLootSlots() memoises on this.lootSlots, so a
+// reopened container shows the SAME remaining slots, never a fresh roll. And
+// the vault fragment is credited on the FIRST open only (see onOpenButtonTap),
+// so open/close/reopen cannot mint fragments either.
+function _canReopenDecor(o){
+  if(!o || !o.opened) return false;
+  if(o.def.isVaultDoor) return true;
+  // Sealed/premium caches pay out instantly through grantCacheLoot and never
+  // build lootSlots, so they correctly never qualify.
+  return !!(o.lootSlots && o.lootSlots.some(s => !s.taken));
+}
 function onOpenButtonTap(){
-  const target=G.action.target; if(!target || target.opened) return;
+  const target=G.action.target; if(!target) return;
+  // Already open. No open() (it would return false), no break sound, no
+  // fragment — just put the panel back on screen.
+  if(target.opened){
+    if(!_canReopenDecor(target)) return;
+    G.action.mode=null; G.action.target=null; setActionButton(null);
+    if(target.def.isVaultDoor) openVaultWindow(target);
+    else openContainerWindow(target);
+    return;
+  }
   const btn=$('actionBtn');
   // Phase 8: a sealed cache stays shut until the equipped weapon has unlocked
   // the matching traversal utility. No open, no consume — just a hint.
@@ -1328,7 +1369,16 @@ function onOpenButtonTap(){
     G.action.mode=null; G.action.target=null; setActionButton(null);
     if(target.def.isVaultDoor) openVaultWindow(target);
     else if(_cache) grantCacheLoot(target);       // Phase 8 — direct shard haul
-    else openContainerWindow(target);
+    else {
+      openContainerWindow(target);
+      // One fragment per container, credited HERE rather than inside
+      // openContainerWindow: that function is also the reopen path now, and a
+      // bar you could fill by tapping the same chest twice is not a bar.
+      // Reaching this line at all means open() returned true, i.e. this is the
+      // container's first and only open. The vault door and the sealed/premium
+      // caches take the two branches above and never earn a fragment.
+      creditVaultFragment(target);
+    }
   }, 450);
 }
 // Phase 8 — does the equipped weapon grant this traversal utility?
@@ -1413,12 +1463,6 @@ function openContainerWindow(decor){
   renderContainerSlots();
   renderStashPanel('containerPlayerItems','containerPlayerEmpty',{readonly:true, gridSlots:CONTAINER_GRID_SLOT_COUNT});
   win.classList.remove('hidden');
-  // One fragment per interactive container (GAME-DESIGN.md §5.1). This is the
-  // right hook precisely because of what does NOT reach it: onOpenButtonTap
-  // routes the vault door to openVaultWindow and sealed/premium caches to
-  // grantCacheLoot, so neither can farm the bar. Decor.open() also guards on
-  // this.opened, so re-opening the same container is impossible.
-  creditVaultFragment(decor);
 }
 // Non-item loot kinds that DO have a real sprite/icon representation (same
 // files used by renderStashPanel's addRow() for the persistent counters).
@@ -1518,8 +1562,15 @@ function takeAllContainerSlots(){
 }
 function closeContainerWindow(){
   const win=$('containerWindow'); if(win) win.classList.add('hidden');
+  const decor=G._openContainer;
   G._openContainer=null;
   G.paused=false;
+  // Say so when loot is left behind. It is no longer lost (the container can
+  // be walked back up to — see _canReopenDecor), but a player who closed by
+  // mis-tap has no other way to know anything is still in there.
+  if(decor && decor.lootSlots && decor.lootSlots.some(s=>!s.taken)){
+    log(decor.def.label+' still has something in it — walk back and REOPEN.', 'dm');
+  }
 }
 
 // ---- weekly Vault code-submit window (Bunker 5, Phase 5.5 #9C/#10) ----
@@ -3912,11 +3963,15 @@ function renderStashPanel(targetId, emptyId, opts){
     const pct  = Math.round((have/goal.threshold)*100);
     const row  = document.createElement('div');
     row.className = 'inv-frag';
+    // Owner: the first version was too tall for what it says. One line — label,
+    // count, and a hairline track underneath — instead of three. The "how do I
+    // earn these" sentence moved to the title attribute; the vault door already
+    // spells it out in full at the moment it actually matters.
+    row.title = 'Open any lockable container to earn a fragment.';
     row.innerHTML =
-      '<div class="inv-frag-top"><span class="inv-frag-label">Vault fragments → '+goal.label+'</span>'
+      '<div class="inv-frag-top"><span class="inv-frag-label">Fragments → '+goal.label+'</span>'
       + '<span class="inv-frag-count">'+have+'/'+goal.threshold+'</span></div>'
-      + '<div class="inv-frag-track"><span class="inv-frag-fill" style="width:'+pct+'%"></span></div>'
-      + '<div class="inv-frag-hint">Open any lockable container to earn one.</div>';
+      + '<div class="inv-frag-track"><span class="inv-frag-fill" style="width:'+pct+'%"></span></div>';
     host.appendChild(row);
     rowCount++;
   }

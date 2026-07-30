@@ -53,8 +53,10 @@ loot lands as pickups on the spot.
 2. **Take What You Want** → tap a slot to take it, or hit **TAKE ALL**
 3. **No Floor Drop** → container loot goes straight to your stash, never onto
    the ground
-4. **Stays Emptied** → a container you have looted stays looted for the rest
-   of that bunker visit
+4. **Nothing is lost** → close the window with loot still inside and the
+   container stays where it is with that loot in it. Walk back to it and the
+   button reads **REOPEN**. A container you emptied stays empty for the rest of
+   that bunker visit.
 
 ### Rarity Colors
 
