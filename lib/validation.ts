@@ -54,6 +54,18 @@ export const paperClaimBodySchema = z.object({
   wallet: walletAddressSchema,
 })
 
+// Daily Contract progress (GAME-DESIGN.md §5.2). Unlike the fragment credit
+// below, this one DOES carry an amount, because the server has no view of
+// combat and cannot count kills for itself. The server still decides what the
+// amount is worth: it clamps every report to a per-metric ceiling and to the
+// contract's own target (see lib/server/dailyContracts.ts), and the rewards
+// are off-chain Point and shards, never money.
+export const contractReportBodySchema = z.object({
+  wallet: walletAddressSchema,
+  metric: z.enum(['kills', 'floors', 'containers', 'burns']),
+  amount: z.number().int().positive().max(100).optional(),
+})
+
 // Vault Fragment credit (GAME-DESIGN.md §5.1) — wallet only, for the same
 // reason as the two claims above. There is deliberately NO amount field: the
 // client says "a container was opened", the server decides what that is worth.

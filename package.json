@@ -21,7 +21,8 @@
     "check:attribution": "node scripts/check-attribution.js",
     "check:cssvars": "node scripts/check-css-vars.js",
     "test:raid": "node scripts/test-raid-campaign-resume.js",
-    "measure:containers": "node scripts/measure-containers.js"
+    "measure:containers": "node scripts/measure-containers.js",
+    "test:contracts": "node scripts/test-daily-contracts.js"
   },
   "dependencies": {
     "@celo/attribution-tags": "^0.3.0",

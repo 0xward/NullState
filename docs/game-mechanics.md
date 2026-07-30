@@ -99,6 +99,23 @@ Each item has a hidden burn value (random within its rarity range):
 - 🔑 **Golden Key (Legendary)** - Cannot burn. Opens the sealed vault door in Bunker 5.
 - **Both stay in your stash.** They carry between bunkers and survive a Save & Exit — you do not lose them when a run ends. Each is capped at **one per wallet per week** (server-enforced, resets Monday 00:00 UTC).
 
+### 📋 Daily Contracts
+
+Three objectives every day, reset at **00:00 UTC**. Everyone gets the same
+three, so you can compare with a friend.
+
+They pay **Glitch Shards** and **NullState Point** the moment you finish them —
+no claim button, no screen to visit. Typical asks: put down 40 enemies, secure
+3 floors, crack 5 lockable containers, burn 8 items.
+
+One good session usually clears two of the three. The third is what tomorrow is
+for.
+
+Tap the **◇** chip on the map — or the **DAILY** button on the left rail — to
+see today's list and how far along you are.
+
+---
+
 ### 🧩 Vault Fragments — the guaranteed way to get them
 
 You are never left to luck. Every **lockable container** you open — the ones

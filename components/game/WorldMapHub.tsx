@@ -478,7 +478,16 @@ export default function WorldMapHub({
         className="absolute flex flex-col gap-2"
         style={{ top: '46%', transform: 'translateY(-50%)', left: 6, zIndex: 6 }}
       >
-        <RailBtn icon={IC('daily')} label="Daily" hot badge="SOON" sound="reward" onClick={() => showToast('Daily Run — coming soon')} />
+        {/* Was a "SOON" placeholder promising a Daily Run that did not exist.
+            Daily Contracts (GAME-DESIGN.md §5.2) are that feature, and they
+            shipped — so the badge is gone and the button opens the list in the
+            status bar rather than apologising. A map that advertises SOON for
+            something already live is the same class of lie as a config block
+            nothing reads. */}
+        <RailBtn
+          icon={IC('daily')} label="Daily" hot sound="reward"
+          onClick={() => window.dispatchEvent(new CustomEvent('nullstate-open-contracts'))}
+        />
         <RailBtn icon={IC('rewards')} label="Rewards" sound="reward" onClick={onRewards} />
         <RailBtn icon={IC('pass')} label="Pass" sound="reward" onClick={onMintPass} />
         <RailBtn icon={IC('invite')} label="Invite" sound="tick" onClick={onReferral} />
