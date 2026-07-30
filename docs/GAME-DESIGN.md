@@ -1,0 +1,442 @@
+# NullState — Game Design
+
+**Read this before touching anything.** This is the document that answers
+"what game is this, and why would anyone open it tomorrow." Every other doc
+in this folder describes a *system*; this one describes the *game those
+systems are supposed to add up to*.
+
+It exists because they stopped adding up. `lib/constants/game-config.ts`
+still carries a `bunkers` block claiming 6 bunkers of 3 floors, and a
+`specialItems` block placing the Golden Key at "bunker 1, floor 3". Neither
+is true, and neither is read by a single line of source — the engine is a
+static `<script>`, it cannot import from `lib/`. Anyone who trusted that
+file built on sand. This doc is the thing to trust instead.
+
+---
+
+## How to read the status markers
+
+Every claim below is tagged. Nothing here is allowed to be ambiguous about
+whether it is real:
+
+- **`[TODAY]`** — built, shipped, true right now.
+- **`[TARGET]`** — agreed design, not built yet.
+- **`[CHANGE]`** — built, but the agreed design differs from what exists.
+
+If you implement a `[TARGET]`, flip it to `[TODAY]` in the same PR. A
+design doc that drifts from the code is worse than no design doc — that is
+exactly how `game-config.ts` became a liability.
+
+---
+
+## 1. What NullState is
+
+> A short-session mobile dungeon crawler on Celo where **playing this week
+> is what earns you real USDT at the end of it.**
+
+Three words that decide every argument:
+
+**Short.** One raid is 3–10 minutes. MiniPay players are on mid-range
+phones, often on the move. If a loop needs a 20-minute sitting, it is
+wrong for this audience regardless of how good it is.
+
+**Repeatable.** The campaign is not the content. The campaign is the
+tutorial. The content is raiding a world you already unlocked, forever.
+
+**Real.** Money actually moves. That is the differentiator against every
+other pixel roguelite, and it means the *cadence* of payout matters more
+than the *size* of it.
+
+### What it is NOT
+
+- **Not a story game you finish.** The story is the wrapper, not the goal.
+- **Not a daily-payout game.** Daily play pays *progress*. Money is weekly.
+- **Not an idle/tap game.** There is real combat under this. Tap-loops fade;
+  the depth is the moat (see `GROWTH-BLUEPRINT.md`, market grounding).
+
+---
+
+## 2. The structural decision (2026-07-30)
+
+**Campaign = tutorial. The world map = the game.**
+
+The old structure was a linear campaign that ends — `campaignActIndex` only
+ever increments (`game.js:5244`), and `WorldMapHub.tsx:234` says out loud
+that re-entering a cleared bunker "would need an engine entry point that
+doesn't exist yet." A finite campaign and a forever-weekly-payout are two
+different genres bolted together, and the seam is exactly where players got
+stuck: bunker cleared, ✓ on the map, no way back in.
+
+The agreed shape:
+
+| Stage | What it is |
+|---|---|
+| First playthrough | 5 bunkers, story beats, ~2–3 sessions. Onboarding. |
+| After the campaign | **All five bunkers permanently open.** The map is home. |
+| Forever after | Daily and weekly loops run *inside* those bunkers. |
+
+**`[CHANGE]`** Cleared bunkers must become re-enterable. See §7.
+
+### Persistence: what actually needs to persist
+
+This was nearly over-engineered, so it is written down plainly.
+
+**Within one visit — `[TODAY]`, works correctly.** `G.floors[depth]` caches
+`{dun, enemies, decor, bossAlive, visited}` (`game.js:463`), and `descend()`
+writes the live floor back before leaving (`game.js:754-758`). Kill a
+monster on floor 2, ride the lift to floor 4 and back — it is still dead.
+Opened containers stay empty, smashed props stay smashed. No duplicates.
+**Do not "fix" this. It is already right.**
+
+**Across visits — deliberately NOT persistent.** A raid on a cleared bunker
+generates a fresh floor. This is not a compromise, it is the correct design:
+a permanently-looted bunker is a bunker nobody returns to. Farming needs
+respawn. LDOE ships respawn timers for precisely this reason.
+
+The consequence is that re-entry needs **no serialization at all** — just a
+new engine entry point. `mount({ startMode })` already accepts
+`'new' | 'continue' | 'cycle' | 'abyss'` (`game.js:5442-5452`); this is one
+more mode, not surgery.
+
+**Mid-run save fidelity — `[CHANGE]`, separate concern.** See §8.
+
+---
+
+## 3. The four time layers
+
+A live game needs an answer at every timescale. Miss one and the player
+falls out of the loop there. NullState today has layers 1, 3, and a broken
+4. **Layer 2 is empty, and that is the whole problem.**
+
+### Layer 1 — Session: "why play right now" — `[TODAY]`
+
+A raid is 3–10 minutes: descend, fight, loot, extract. This layer works.
+Combat, procedural floors, loot rarity, the lift, containers — all shipped.
+
+### Layer 2 — Daily: "why come back tomorrow" — `[TARGET]`, **empty today**
+
+Nothing currently answers this. Energy (5/day) is a *limiter*, not a
+*reason* — you limit what people want more of, and right now there is
+nothing they want more of once the vault is claimed. Four mechanics fill
+it, all built from systems that already exist (§5).
+
+### Layer 3 — Weekly: "why care this week" — `[TODAY]`, needs §5.1
+
+The Vault. One shared 4-digit code per ISO week (Monday 00:00 UTC), Old
+Paper carries the code, Golden Key opens the door, 3 attempts per wallet,
+correct code pays USDT on-chain immediately.
+
+This layer works mechanically. What is wrong is *how you get in*: pure luck.
+
+### Layer 4 — Seasonal: "why care this month" — `[CHANGE]`, half-broken
+
+Season = `YYYYMM` UTC. Season Pass SBT, leaderboard, top-3 USDm bonus.
+Three real problems, §9.
+
+---
+
+## 4. The player's week (the target)
+
+This is the acceptance test. If a change does not make one of these rows
+better, it is not a priority.
+
+| Day | What the player does | What pulls them back |
+|---|---|---|
+| 1 | Raid, 3 daily contracts, fragments 6/12, start a 6h craft | Craft timer |
+| 1 pm | Collect the craft — weapon is tier 2 | Stronger now |
+| 2 | Deeper bunker, fragments 12/12 → **Paper granted**, streak 2 | Key still 9/28 |
+| 3 | Grind the Key, contracts, streak 3 | Streak + fragments |
+| 4–5 | Fragments 28/28 → **Golden Key granted** | The vault is now open |
+| 6 | Enter the vault → **USDT** | Leaderboard still moving |
+| 7 | Week resets — but the weapon is tier 3, so next week is faster | Ratchet |
+
+The load-bearing sentence: **playing on day 2 must visibly buy the day-6
+payout.** Today it buys nothing. That is the single biggest fix in this doc.
+
+---
+
+## 5. Layer 2 mechanics (the daily loop)
+
+All four run on systems already in the repo. No new currency, no new
+contract, no new vendor.
+
+### 5.1 Vault Fragments — `[TARGET]` — **highest priority**
+
+**The problem.** Old Paper and Golden Key are pure 16% rolls on rare
+containers, capped 1 per wallet per week (`props.js` `rollLootSlots`).
+Two bad outcomes, both common:
+
+- **Lucky player** gets both on day 1 → days 2–7 have no purpose.
+- **Unlucky player** grinds all week and goes home with nothing → and a
+  player who earned nothing for a week's effort does not come back.
+
+It also produced the dead-end that started this: reach the vault holding
+only one of the two, and there is no recourse.
+
+**The design.** Effort becomes a guaranteed path, luck stays as a shortcut.
+
+- Opening any **interactive container** (`wardrobe`, `chest`, `safe`,
+  `footlocker`, `shelf_stocked`, `dresser`, `cabinet_ornate`, `cabinet_s`)
+  grants **+1 Vault Fragment**.
+- Fragments are per-wallet, reset with the ISO week alongside everything
+  else.
+- **12 fragments → Old Paper granted.** **28 fragments → Golden Key granted.**
+- The existing 16% roll stays untouched on top, so luck still shortcuts the
+  grind — it just no longer *gates* it.
+- Grants route through the existing `/api/paper/claim` and
+  `/api/goldenkey/claim`, so the 1-per-wallet-per-week server cap still
+  holds and nothing can over-grant.
+
+**Starting numbers, and why.** Interactive containers run roughly 8–15 per
+bunker (max 5 props/room, 12% rare, `northOnly` types fall back to tables on
+side walls — `game.js` `spawnDecorInto`). So 12 ≈ one thorough bunker, 28 ≈
+about three. With 5 energy/day that is Paper on day 1–2 and the Key by day
+3–4, leaving the back of the week to the leaderboard and crafting.
+
+> **These two numbers are guesses that need real play to tune.** I could not
+> measure actual containers-opened-per-run from a sandbox. Ship them behind
+> a server constant, watch the first week, adjust. If Paper lands on day 1
+> for most players, raise both.
+
+**Why this is the top priority:** it fixes the dead-end, the unlucky-week
+churn, and the empty day 2 — with one mechanic, at zero cost.
+
+### 5.2 Daily Contracts — `[TARGET]`
+
+Three objectives, reset 00:00 UTC. Examples: *clear 2 floors*, *kill 40
+enemies*, *open 5 containers*. Rewards are Glitch Shards, NullState Point,
+and elixir charges — all existing, all off-chain, all free to the operator.
+
+Deliberately **not** USDT (owner decision, and consistent with the earlier
+cancellation of the daily drip in `GROWTH-BLUEPRINT.md` §1A).
+
+### 5.3 Login streak — `[TARGET]`
+
+Seven escalating days; breaking it resets to day 1. Loss aversion is the
+strongest retention force available and it costs nothing.
+
+Half of this already exists: the Season Pass daily claim grants +1 energy
+and +3 t1 shards per UTC day (`game-config.ts:50-51`) — a login reward that
+was never framed as one.
+
+### 5.4 Surface the craft timer — `[TARGET]`, cheapest win in this doc
+
+Weapon crafting is already time-gated: 6h into tier 2, 12h into tier 3,
+server-authoritative (`game-config.ts` `weaponEvolution.craft`). It is a
+self-set appointment — one of the most reliable return mechanics there is —
+and today nothing tells the player about it unless they open the Crafting
+screen.
+
+Put **"⏳ WEAPON READY IN 3h 20m"** on the world map. The mechanic is built
+and paid for; it is just invisible.
+
+### 5.5 The map must show the hook in five seconds — `[TARGET]`
+
+Opening the app should immediately show: *contracts remaining today ·
+fragments N/12 · craft ready in Xh · streak day N*. If a player has to go
+looking for a reason to play, they will not look.
+
+---
+
+## 6. What every existing system is FOR
+
+Cross-check for future work. If a system has no row here, question why it
+exists.
+
+| System | Layer | Role | Status |
+|---|---|---|---|
+| Combat, floors, lift | Session | The game | `[TODAY]` |
+| Campaign (5 acts) | Onboarding | Teach + unlock the map | `[TODAY]` |
+| Energy (5/day) | Daily | Pace sessions, drive refill sales | `[TODAY]` |
+| Daily Contracts | Daily | Reason to open the app | `[TARGET]` |
+| Streak | Daily | Loss aversion | `[TARGET]` |
+| Craft timers (6h/12h) | Daily | Self-set appointment | `[TODAY]`, hidden |
+| Glitch Shards | Daily→Weekly | Power ratchet | `[TODAY]` |
+| NullState Point | Daily→Weekly | Gear ratchet (faucet-only) | `[TODAY]` |
+| Vault Fragments | Daily→Weekly | **Connects daily play to money** | `[TARGET]` |
+| The Vault | Weekly | The jackpot | `[TODAY]` |
+| Leaderboard | Seasonal | Competition | `[CHANGE]` §9 |
+| Season Pass | Seasonal | Subscription | `[TODAY]` |
+| Referrals | Growth | Acquisition | `[TODAY]` |
+| Null Abyss | Endgame | Skill ceiling + season metric | `[TODAY]` |
+| Null Cycles (NG+) | Endgame | Difficulty mode, **not** a replay gate | `[CHANGE]` |
+
+Two notes on that last column:
+
+**Money in vs money out.** In: energy refill $1, elixir $1, shard pack $1,
+blueprints $1×5, gear $0.5–2, craft skip $1–2, Season Pass (price is
+on-chain). Out: the weekly vault, and the monthly top-3 bonus. Daily play
+must stay free to operate — that is why layer 2 pays progress, not money.
+
+**NG+ changes meaning.** Once the map is the game, NEW GAME+ stops being
+"replay to reach the vault again" and becomes purely an optional difficulty
+tier. Nobody should ever be forced through it to reach a weekly reward.
+
+---
+
+## 7. Bunker re-entry (raids)
+
+**`[TARGET]`.** The map currently promises a world the engine does not have.
+
+- Cleared bunkers become selectable on the map and enter as a **fresh raid**.
+- **A raid costs 1 energy** (owner decision). Continuing a saved run stays
+  free. Grinding having a price is what makes the $1 refill meaningful —
+  this is the natural transaction point, and it is money *in*.
+- Raids do not advance `campaignActIndex` and do not replay story beats.
+- Fragments, contracts, shards and loot all accrue normally in a raid.
+
+**Bunkers need a reason to choose between them — `[TARGET]`.** With all five
+open, "which one?" needs an answer, and today the only difference is theme
+and monster roster. The intended axis is **time vs risk**: bunker 1 short,
+easy, lower tier; bunker 5 long, hard, top tier. The scaling half-exists
+already (roster widens per act, `game.js:630`; enemy stats scale with
+depth) — what is missing is the player-facing reason to pick.
+
+> **Open question:** how long is one bunker in real play? This cannot be
+> measured from a sandbox and it decides whether a separate short-raid mode
+> is needed. If a full 5-floor clear is over ~10 minutes, add a "raid one
+> floor and extract" option, because that is the shape a MiniPay session
+> actually has.
+
+---
+
+## 8. Known bug: Save & Exit regenerates floors
+
+**`[CHANGE]`.** Real, and worth writing down because it looks like the
+persistence question but is a separate defect.
+
+`getSaveSnapshot()` (`game.js:5581-5621`) persists 14 fields — act, depth,
+maxDepthReached, xp/level/kills/hp, equipment, inventory, weekly run-caps —
+but **not `G.floors`**. `applyRestoredState()` (`game.js:305-343`) does not
+restore it either. Both verified line by line.
+
+So: Save & Exit on floor 3 → Continue → `ensureFloor(3)` finds an empty
+cache → `makeDungeon(3)` builds a **new** floor. Killed monsters are alive,
+looted containers are lootable, smashed props are whole, and the layout is
+different — `dungeon.js` uses bare `Math.random()` with no seed, so the same
+floor cannot be reproduced at all.
+
+**Not at risk:** the weekly Paper and Golden Key. Guarded twice — the run
+caps are saved, *and* the server enforces 1 per wallet per week. The USDT
+reward cannot be farmed through this.
+
+**At risk:** XP, ordinary items (→ NullState Point via burn), and Glitch
+Shards. The last one has real revenue impact, since shards are also sold at
+$1 per 5.
+
+**Severity: medium, and mostly about feel.** A player who saves mid-bunker
+and returns to a different map with resurrected monsters concludes the game
+is broken. The economic leak is real but small, and partly damped by
+`clearGameSession()` consuming the save on load (single-use by design —
+`gameSessionService.ts:11-14`).
+
+> Not verified empirically — this is read from source, not reproduced in a
+> running game. How *exploitable* it is remains an educated guess.
+
+**Fix:** seed the generator — `seed = hash(wallet, cycle, actIndex, depth)`
+— and persist only the deltas (which enemies died, which containers opened,
+which loot slots taken). A few KB instead of hundreds. Lower priority than
+everything in §5: this annoys players who save mid-run, while §5 decides
+whether they come back at all.
+
+---
+
+## 9. Known problems in the seasonal layer
+
+**`[CHANGE]` Two leaderboards that disagree.**
+1. Firestore `leaderboard`, written client-side, sorted by **XP** — this is
+   what the player sees (`Leaderboard.tsx`).
+2. RTDB `leaderboards/{seasonId}` + the on-chain `getSeasonLeaderboard` —
+   this is what decides **who gets paid** (`/api/leaderboard`).
+
+`LeaderboardDisplay.tsx`, which reads the second one, is **rendered
+nowhere**. So the ranking players see is not the ranking that pays. Pick
+one and delete the other.
+
+**`[CHANGE]` The season bonus is entirely manual.** `seasonRewards`
+($20/$5/$3) in `game-config.ts` is read by nothing. Paying out requires the
+owner to run `scripts/deposit-reward.js` to push the top 3 on-chain *and*
+deposit the tokens, every month, by hand. No cron, no reminder. Miss it and
+the claim button is simply dead for every player.
+
+**`[CHANGE]` Three different "kills" numbers.** On-chain `kills` is
+structurally inaccurate — `executeAction()` takes a boolean, so a 40-kill
+run increments it by 1. Firestore `totalKills` is the real figure.
+`p.kills` is the live per-run counter. The code already admits this
+(`leaderboardService.ts:18-26`). Decide which one is canonical.
+
+---
+
+## 10. Rules for future contributors
+
+These are the invariants. Breaking one is how the game drifted the first
+time.
+
+1. **The engine cannot import from `lib/`.** `public/game-engine/*.js` are
+   static `<script>` files. Shared values cross the boundary through
+   `window.__NS`, `mount()` options, or an API call — never an import. If a
+   constant must be shared, the engine's copy is authoritative for gameplay
+   and the `lib/` copy must say so in a comment.
+
+2. **Config that nothing reads is a lie.** Before adding to
+   `game-config.ts`, confirm something will read it. Four blocks there
+   (`bunkers`, `specialItems`, `loot`, `seasonRewards`) have zero source
+   references and actively contradict the game.
+
+3. **Money is weekly. Progress is daily.** Do not add USDT payouts to the
+   daily layer.
+
+4. **Never make a real reward reachable only by luck.** Luck may accelerate
+   it; effort must guarantee it. §5.1 is the pattern.
+
+5. **Sessions stay short.** If a change makes the minimum useful session
+   longer than ~5 minutes, it is wrong for MiniPay.
+
+6. **Content does not fix a missing loop.** More bunkers, monsters and
+   weapons will not answer "why come back tomorrow." Content is consumed;
+   loops are not. Fix the loop first.
+
+7. **Update this file in the same PR.** Flip `[TARGET]` → `[TODAY]` when you
+   ship it.
+
+---
+
+## 11. Build order
+
+**Before the MiniPay listing — required**
+1. §5.1 Vault Fragments — fixes the dead-end, unlucky weeks, and empty day 2
+2. §7 Bunker raids — without this the map lies to the player
+3. §5.5 Daily status on the map — the hook must be visible immediately
+
+**Before the listing — strongly recommended**
+4. §5.2 Daily Contracts
+5. §5.4 Surface the craft timer (cheapest item here)
+6. Delete the dead blocks in `game-config.ts`
+
+**After the listing**
+7. §5.3 Login streak
+8. §7 Bunker differentiation (time vs risk)
+9. §8 Seeded dungeon → fixes Save & Exit
+10. §9 Leaderboard consolidation + automated season payout
+
+---
+
+## Decision log
+
+| Date | Decision | By |
+|---|---|---|
+| 2026-07-30 | Campaign = tutorial, world map = the game | Owner |
+| 2026-07-30 | Paper/Key guaranteed by effort (fragments); luck stays as a shortcut | Owner |
+| 2026-07-30 | Raiding a cleared bunker costs 1 energy | Owner |
+| 2026-07-30 | Daily rewards pay progress only; USDT stays weekly | Owner |
+| 2026-07-22 | Daily USDT drip cancelled — no capital pre-revenue | Owner (`GROWTH-BLUEPRINT.md` §1A) |
+
+---
+
+## Related documents
+
+- [`GROWTH-BLUEPRINT.md`](./GROWTH-BLUEPRINT.md) — acquisition, referrals, endgame
+- [`game-mechanics.md`](./game-mechanics.md) — player-facing rules
+- [`treasure-vault-quest.md`](./treasure-vault-quest.md) — vault specifics
+- [`rewards-system.md`](./rewards-system.md) — payout mechanics
+- [`OWNER-RUNBOOK.md`](./OWNER-RUNBOOK.md) — operational tasks
