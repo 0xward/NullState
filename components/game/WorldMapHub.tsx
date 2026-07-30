@@ -362,12 +362,27 @@ export default function WorldMapHub({
           style={{ backgroundImage: `url(${portrait})` }}
         />
         <span className="font-mono leading-none">
-          <span className="ns-hub-name">{hasSave ? playerProfile!.username.toUpperCase() : 'WALKER'}</span>
-          <span className="ns-hub-lv">
-            {passLive
-              ? `LV ${playerProfile?.level ?? 1} · S${passNo ?? '?'} PASS`
-              : hasSave ? `LV ${playerProfile!.level}` : 'NEW SIGNAL'}
-          </span>
+          {/* The name is the last thing on this plate to know what it says: the
+              profile is a network round-trip, and until it lands there is no
+              username to render. Showing "WALKER" during that window and then
+              swapping in the real name is a visible rewrite of the one label
+              that identifies the player — it reads as the screen correcting
+              itself. The skeleton holds the same box at the same size and
+              stays quiet until there is something true to put in it. */}
+          {isLoadingProfile
+            ? <span className="ns-hub-name ns-hub-name--skeleton" aria-label="Loading player name" />
+            : <span className="ns-hub-name">{hasSave ? playerProfile!.username.toUpperCase() : 'WALKER'}</span>}
+          {/* Same reasoning as the name: "NEW SIGNAL" flipping to "LV 3" a
+              second later tells the player they were briefly someone else. */}
+          {isLoadingProfile
+            ? <span className="ns-hub-lv ns-hub-lv--skeleton" aria-hidden="true" />
+            : (
+              <span className="ns-hub-lv">
+                {passLive
+                  ? `LV ${playerProfile?.level ?? 1} · S${passNo ?? '?'} PASS`
+                  : hasSave ? `LV ${playerProfile!.level}` : 'NEW SIGNAL'}
+              </span>
+            )}
         </span>
       </button>
 

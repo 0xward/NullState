@@ -219,6 +219,40 @@
 .ns-hub-name{ display:block; font-size:11.5px; color:#fff; font-weight:700; letter-spacing:.6px; }
 .ns-hub-lv{ display:block; font-size:9px; color:#39ff9a; letter-spacing:1.4px; margin-top:3px; }
 
+/* Skeletons for the two plate labels while the profile is in flight.
+   Measured, not guessed: the plate is shrink-to-fit, so the name's width is
+   what sets the plate's width, and a skeleton narrower than the text that
+   replaces it makes the whole plate jump. At 6.5em the block matches the
+   74.9px that the default `Player_XXXX` name renders to — the length almost
+   every first load actually gets — so the common path lands with no shift.
+   A hand-picked name can still be longer or shorter; nothing can size for a
+   string that has not arrived yet.
+
+   Heights are 1em so each block fills its own line box exactly and the level
+   line underneath does not move either. The shimmer is the plate's own green
+   at low alpha rather than the usual grey, so it reads as part of this UI and
+   not as a broken image. prefers-reduced-motion keeps the block, drops the
+   animation. */
+.ns-hub-name--skeleton,
+.ns-hub-lv--skeleton{
+  border-radius:2px;
+  background:linear-gradient(90deg,rgba(57,255,154,.10) 0%,rgba(57,255,154,.22) 50%,rgba(57,255,154,.10) 100%);
+  background-size:200% 100%;
+  animation:ns-hub-skeleton 1.1s ease-in-out infinite;
+}
+.ns-hub-name--skeleton{ width:6.5em; height:1em; }
+.ns-hub-lv--skeleton{ width:4em; height:1em; margin-top:3px; }
+
+@keyframes ns-hub-skeleton{
+  from{ background-position:150% 0 }
+  to{ background-position:-50% 0 }
+}
+
+@media (prefers-reduced-motion: reduce){
+  .ns-hub-name--skeleton,
+  .ns-hub-lv--skeleton{ animation:none; background:rgba(57,255,154,.16); }
+}
+
 /* Help button — same octagon cut as the rail icons. Until a first-time player
    has opened How to Play it pulses with a label; after that it goes quiet. */
 .ns-hub-help{
