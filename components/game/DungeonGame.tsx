@@ -1244,12 +1244,35 @@ export default function DungeonGame({ playerProfile, setPlayerUsername, isNewRun
           <div className="vault-inner">
             <div className="vault-title">SEALED VAULT DOOR</div>
             <div className="vault-sub">Enter the 4-digit code from this week&apos;s Paper.</div>
-            <input id="vaultCodeInput" className="vault-code-input" inputMode="numeric" pattern="[0-9]*" maxLength={4} placeholder="0000" autoComplete="off" />
+            {/* Filled by refreshVaultRequirements() on every open: which of the
+                two weekly items the wallet actually holds, and what to do when
+                one is missing. Without it the screen was a blank code box with
+                no way to tell why nothing worked. */}
+            <div id="vaultReq" className="vault-req" />
+            {/* readOnly + no autofocus: the pad below is the keyboard. See the
+                keypad note in game.js — the OS keyboard was the reported lag. */}
+            <input id="vaultCodeInput" className="vault-code-input" readOnly inputMode="none" maxLength={4} placeholder="0000" autoComplete="off" aria-label="Vault code" />
+            <div id="vaultPad" className="vault-pad">
+              <button type="button" className="vault-key" data-key="1">1</button>
+              <button type="button" className="vault-key" data-key="2">2</button>
+              <button type="button" className="vault-key" data-key="3">3</button>
+              <button type="button" className="vault-key" data-key="4">4</button>
+              <button type="button" className="vault-key" data-key="5">5</button>
+              <button type="button" className="vault-key" data-key="6">6</button>
+              <button type="button" className="vault-key" data-key="7">7</button>
+              <button type="button" className="vault-key" data-key="8">8</button>
+              <button type="button" className="vault-key" data-key="9">9</button>
+              <button type="button" className="vault-key is-alt" data-key="clear" aria-label="Clear">CLR</button>
+              <button type="button" className="vault-key" data-key="0">0</button>
+              <button type="button" className="vault-key is-alt" data-key="del" aria-label="Delete">⌫</button>
+            </div>
             <div id="vaultMsg" className="vault-msg" />
             <div className="vault-btns">
               <button id="vaultSubmitBtn" className="big-btn">SUBMIT</button>
-              <button id="vaultClose" className="ghost-btn">▾ close (check Paper)</button>
-              <button id="vaultLeave" className="ghost-btn">leave the bunker →</button>
+              <button id="vaultClose" className="ghost-btn">▾ BACK TO THE BUNKER</button>
+              {/* Spelled out because it is irreversible: this is what ends the
+                  last bunker and rolls the ending. */}
+              <button id="vaultLeave" className="ghost-btn is-danger">LEAVE WITHOUT OPENING →</button>
             </div>
           </div>
         </div>
