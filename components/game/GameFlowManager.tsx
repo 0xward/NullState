@@ -97,6 +97,7 @@ export default function GameFlowManager() {
   const {
     playerProfile,
     isLoading: isLoadingProfile,
+    profileSettled,
     setPlayerUsername,
     fetchPlayerProfile,
     fetchLeaderboard
@@ -425,6 +426,7 @@ export default function GameFlowManager() {
           onSettings={handleSettingsClick}
           playerProfile={playerProfile}
           isLoadingProfile={isLoadingProfile}
+          profileSettled={profileSettled}
         />
         <NewGameConfirmModal
           open={showNewGameConfirm}
