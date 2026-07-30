@@ -6,10 +6,11 @@ import { useState } from 'react'
 import '@/styles/signin.css'
 
 // ─── Save-your-progress screen ───────────────────────────────────────────────
-// Sits between "Play Game" and SET USERNAME, for players who are not in MiniPay
-// and have no wallet. It exists because until now those players were guests
-// forever: progress lived in one browser's localStorage under a random id, and
-// clearing site data — or opening the game on another phone — lost everything.
+// Sits between starting a run and SET USERNAME, for players who are not in
+// MiniPay and have no wallet. It exists because until now those players were
+// guests forever: progress lived in one browser's localStorage under a random
+// id, so clearing site data — or opening the game on another phone — lost
+// everything.
 //
 // THREE RULES, none of them cosmetic:
 //
@@ -20,13 +21,12 @@ import '@/styles/signin.css'
 //
 //  2. Skip is a real option and looks like one. A dismissable prompt that is
 //     hard to dismiss is worse than no prompt. The choice is remembered, so
-//     declining once means declining for good (see rememberSignInSkipped).
+//     declining once means declining for good.
 //
 //  3. No button may say "Connect Wallet". check:copy rejects the phrase
 //     anywhere under components/ and app/, because inside MiniPay it is always
-//     the wrong prompt — and a label that has to be special-cased per surface
-//     is a label worth not having. "I already have a wallet" says the same
-//     thing to the only people who need it.
+//     the wrong prompt. "I already have a wallet" says the same thing to the
+//     only people who need it.
 //
 // It is also honest about what an account is NOT. Signing in gives you a name
 // and progress that follow you; it does not give you a wallet, so it cannot buy
@@ -34,6 +34,40 @@ import '@/styles/signin.css'
 // the Marketplace.
 
 export type SignInMethod = 'google' | 'email' | 'wallet'
+
+// Google's mark, inlined. It has to be the real four-colour G — a monochrome
+// or recoloured version is off-guideline, and players recognise the actual one
+// at a glance, which is the entire point of putting it here. Inline because a
+// strict CSP blocks external images and this must never cost a request.
+function GoogleMark() {
+  return (
+    <svg viewBox="0 0 48 48" width="20" height="20" aria-hidden="true" focusable="false">
+      <path fill="#4285F4" d="M45.12 24.5c0-1.56-.14-3.06-.4-4.5H24v8.51h11.84c-.51 2.75-2.06 5.08-4.39 6.64v5.52h7.11c4.16-3.83 6.56-9.47 6.56-16.17z" />
+      <path fill="#34A853" d="M24 46c5.94 0 10.92-1.97 14.56-5.33l-7.11-5.52c-1.97 1.32-4.49 2.1-7.45 2.1-5.73 0-10.58-3.87-12.31-9.07H4.34v5.7C7.96 41.07 15.4 46 24 46z" />
+      <path fill="#FBBC05" d="M11.69 28.18C11.25 26.86 11 25.45 11 24s.25-2.86.69-4.18v-5.7H4.34C2.85 17.09 2 20.45 2 24s.85 6.91 2.34 9.88l7.35-5.7z" />
+      <path fill="#EA4335" d="M24 10.75c3.23 0 6.13 1.11 8.41 3.29l6.31-6.31C34.91 4.18 29.93 2 24 2 15.4 2 7.96 6.93 4.34 14.12l7.35 5.7c1.73-5.2 6.58-9.07 12.31-9.07z" />
+    </svg>
+  )
+}
+
+function MailMark() {
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true" focusable="false">
+      <rect x="2.5" y="5" width="19" height="14" rx="1.5" />
+      <path d="M3 6.5 12 13l9-6.5" />
+    </svg>
+  )
+}
+
+function WalletMark() {
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true" focusable="false">
+      <path d="M3 7.5A2.5 2.5 0 0 1 5.5 5H18a1 1 0 0 1 1 1v2" />
+      <rect x="3" y="7.5" width="18" height="12" rx="2" />
+      <circle cx="16.5" cy="13.5" r="1.4" fill="currentColor" stroke="none" />
+    </svg>
+  )
+}
 
 interface SignInScreenProps {
   onGoogle: () => Promise<void>
@@ -78,18 +112,16 @@ export default function SignInScreen({
   const disabled = busy !== null
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[rgba(0,0,0,0.95)] p-6">
-      <div
-        className="absolute pointer-events-none"
-        style={{
-          width: 600, height: 600, borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(0,255,136,0.1) 0%, rgba(0,170,255,0.03) 40%, transparent 70%)',
-          top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
-        }}
-      />
+    <div className="ns-signin-root">
+      <div className="ns-signin-orb" aria-hidden="true" />
 
-      <div className="relative z-10 max-w-md w-full text-center">
-        <div className="font-mono text-[11px] tracking-[6px] text-null-green uppercase mb-6">
+      <div className="ns-signin-panel">
+        {/* Corner brackets, the same device the world map uses to mark a
+            selected bunker. They are what stops this reading as a web form
+            dropped into a game. */}
+        <span className="ns-signin-frame" aria-hidden="true" />
+
+        <div className="ns-signin-kicker">
           {/* Braced on purpose. The bare form — the way the other screens write
               their `//` kickers — trips react/jsx-no-comment-textnodes, which
               is where 34 of this repo's lint errors already come from. Same
@@ -97,32 +129,34 @@ export default function SignInScreen({
           {'// SAVE YOUR PROGRESS'}
         </div>
 
-        <h2 className="font-display font-black text-null-white mb-2" style={{ fontSize: 40 }}>
-          KEEP YOUR RUN
+        <h2 className="ns-signin-title">
+          {emailSent ? 'CHECK YOUR INBOX' : 'KEEP YOUR RUN'}
         </h2>
 
-        <p className="text-null-muted text-sm mb-8 leading-relaxed">
+        <p className="ns-signin-lede">
           {emailSent
-            ? <>Check <span className="text-null-green">{emailSent}</span> and open the link to finish. You can close this and come back.</>
-            : <>Play now and keep your progress on any device. It is free and takes a second.</>}
+            ? <>We sent a link to <span className="ns-signin-em">{emailSent}</span>. Open it and you are in.</>
+            : <>Your run lives in this browser only. Sign in and it follows you anywhere.</>}
         </p>
 
         {!emailSent && (
-          <div className="space-y-3">
+          <div className="ns-signin-stack">
             <button
               onClick={() => run('google', onGoogle)}
               disabled={disabled}
-              className="ns-signin-btn is-primary"
+              className="ns-signin-btn is-google"
             >
-              {busy === 'google' ? '// OPENING…' : 'Continue with Google'}
+              <span className="ns-signin-ico"><GoogleMark /></span>
+              <span>{busy === 'google' ? 'Opening…' : 'Continue with Google'}</span>
             </button>
 
             {showEmail ? (
-              <div className="space-y-3">
+              <div className="ns-signin-stack">
                 <input
                   type="email"
                   inputMode="email"
                   autoComplete="email"
+                  autoFocus
                   value={email}
                   onChange={(e) => { setEmail(e.target.value); setError('') }}
                   onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) submitEmail() }}
@@ -130,39 +164,35 @@ export default function SignInScreen({
                   disabled={disabled}
                   className="ns-signin-input"
                 />
-                <button onClick={submitEmail} disabled={disabled || !email.trim()} className="ns-signin-btn is-primary">
-                  {busy === 'email' ? '// SENDING…' : 'Send me a link'}
+                <button onClick={submitEmail} disabled={disabled || !email.trim()} className="ns-signin-btn is-send">
+                  <span className="ns-signin-ico"><MailMark /></span>
+                  <span>{busy === 'email' ? 'Sending…' : 'Send me a link'}</span>
                 </button>
               </div>
             ) : (
               <button onClick={() => setShowEmail(true)} disabled={disabled} className="ns-signin-btn">
-                Continue with email
+                <span className="ns-signin-ico"><MailMark /></span>
+                <span>Continue with email</span>
               </button>
             )}
 
             <button onClick={onWallet} disabled={disabled} className="ns-signin-btn">
-              I already have a wallet
+              <span className="ns-signin-ico"><WalletMark /></span>
+              <span>I already have a wallet</span>
             </button>
           </div>
         )}
 
-        {error && (
-          <div className="mt-6 p-3 bg-[rgba(255,59,48,0.2)] border border-[rgba(255,59,48,0.5)] text-null-red font-mono text-xs">
-            {error}
-          </div>
-        )}
+        {error && <div className="ns-signin-error">{error}</div>}
 
         <button onClick={onSkip} disabled={disabled} className="ns-signin-skip">
           Skip for now →
         </button>
 
-        <div className="mt-6 pt-6 border-t border-[rgba(0,255,136,0.2)]">
-          <p className="font-mono text-[10px] text-null-muted leading-relaxed tracking-[1px]">
-            An account saves your name and progress.
-            <br />
-            Buying items and claiming rewards needs a wallet — you can add one later.
-          </p>
-        </div>
+        <p className="ns-signin-foot">
+          An account saves your name and progress. Buying items and claiming
+          rewards needs a wallet — you can add one later.
+        </p>
       </div>
     </div>
   )
