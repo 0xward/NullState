@@ -18,7 +18,15 @@ const DECOR_TYPES = {
   vase:     { hp:1, w:24, h:38, label:'Glazed Vase',     loot:[['hp',6,50],['xp',12,32],['relic',1,4],['none',0,14]] },
   pot:      { hp:1, w:30, h:30, label:'Herb Pot',        loot:[['hp',8,58],['xp',10,26],['none',0,16]] },
   barrel:   { hp:2, w:30, h:40, label:'Old Barrel',      loot:[['xp',18,45],['hp',10,35],['none',0,20]] },
-  crate:    { hp:2, w:34, h:34, label:'Supply Crate',    loot:[['xp',22,45],['hp',8,25],['item',1,20],['none',0,10]] },
+  // Owner, again, and about the LOOTABLE crate this time (the earlier pass at
+  // the same complaint only resized the ambient crate stacks at the bottom of
+  // this table): the Supply Crate read as a shoebox next to 42x54 stacked
+  // crates and a 46x56 barrel stack. Its art is procedural, not a sprite, so
+  // its old 34x34 box was a hitbox that the drawing never followed — see
+  // drawScale in Decor.draw(). 1.3x brings the drawn crate to ~44px, in line
+  // with the scenery around it, and w/h below are the matching footprint so
+  // the collision circle and contact shadow still fit what is on screen.
+  crate:    { hp:2, w:44, h:44, drawScale:1.3, label:'Supply Crate', loot:[['xp',22,45],['hp',8,25],['item',1,20],['none',0,10]] },
   cabinet_s:{ hp:2, w:34, h:46, label:'Forgotten Archive', loot:[['hp',14,26],['xp',24,24],['item',2,30],['relic',1,10]], interactive:true, containerMaterial:'wood', northOnly:true }, // owner: cabinets/safes hug the NORTH wall only
   wardrobe: { hp:3, w:48, h:64, label:'Rotten Armoire',  loot:[['hp',32,24],['xp',55,24],['item',2,32]], interactive:true, containerMaterial:'wood_rotten', northOnly:true },
   // ---- ancient ornaments: break them for XP, CELO, or rare relics ----
@@ -471,6 +479,17 @@ class Decor {
       const dir = (f==='right') ? 1 : -1;   // left wall faces right(+), right wall faces left(-)
       ctx.scale(dir, 1);
     }
+
+    // Optional per-type art scale. The sprite path above sizes itself from
+    // def.h, but the procedural props below are drawn at hardcoded pixel
+    // coordinates, so changing def.w/def.h alone only moves the HITBOX — the
+    // shape on screen stays exactly as large as it was written. This is why
+    // the Supply Crate stayed visibly smaller than the scenery crates beside
+    // it (see the note on `crate` in DECOR_TYPES). Scaling here covers
+    // shape(), the tint mask and the hit flash in one go, since all three
+    // draw inside this same transform.
+    const ds = this.def && this.def.drawScale;
+    if(ds && ds !== 1) ctx.scale(ds, ds);
 
     // Blend with the dark dungeon + convey facing through lighting.
     // A 'multiply' tint overlay gets a visually close darken/desaturate

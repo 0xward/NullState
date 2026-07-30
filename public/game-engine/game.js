@@ -1458,11 +1458,89 @@ function openVaultWindow(decor){
   const win=$('vaultWindow'); if(!win) return;
   G._vaultDecor = decor;
   G.paused = true;
-  const input=$('vaultCodeInput'); if(input){ input.value=''; }
+  resetInput();
+  vaultSetCode('');
   const msg=$('vaultMsg'); if(msg){ msg.textContent=''; msg.className='vault-msg'; }
   const submitBtn=$('vaultSubmitBtn'); if(submitBtn){ submitBtn.disabled=false; submitBtn.textContent='SUBMIT'; }
   win.classList.remove('hidden');
-  if(input) setTimeout(()=>input.focus(), 50);
+  // NO input.focus() here on purpose — see the keypad note below.
+  refreshVaultRequirements();
+}
+
+// ---- the 4-digit entry (in-game keypad, not the phone's) ----
+// The code field used to be a focused <input inputmode="numeric">, which pops
+// the OS keyboard open on a phone. That keyboard covers half the screen,
+// re-lays out the whole overlay, and on mid-range Android it drops frames hard
+// enough to feel like the game hung. The field is now READ-ONLY and driven by
+// the pad below, so nothing native ever opens. Desktop still types normally —
+// onVaultKeydown (bound on window in attach()) handles digits, Backspace and
+// Enter whenever the window is open.
+function vaultGetCode(){ const el=$('vaultCodeInput'); return el ? String(el.value||'') : ''; }
+function vaultSetCode(v){
+  const el=$('vaultCodeInput'); if(!el) return;
+  el.value = String(v||'').replace(/\D/g,'').slice(0,4);
+}
+function vaultPushKey(k){
+  if(k==='clear'){ vaultSetCode(''); return; }
+  const cur=vaultGetCode();
+  if(k==='del'){ vaultSetCode(cur.slice(0,-1)); return; }
+  if(!/^[0-9]$/.test(k) || cur.length>=4) return;
+  vaultSetCode(cur+k);
+}
+function onVaultKeydown(e){
+  const win=$('vaultWindow'); if(!win || win.classList.contains('hidden')) return;
+  if(e.key==='Enter'){ e.preventDefault(); submitVaultCode(); return; }
+  if(e.key==='Backspace'){ e.preventDefault(); vaultPushKey('del'); return; }
+  if(/^[0-9]$/.test(e.key)){ e.preventDefault(); vaultPushKey(e.key); }
+}
+
+// ---- what the player is actually carrying ----
+// The door needs BOTH this week's Paper (it carries the code) and the Golden
+// Key. Before this, a player holding only one of them saw an empty code box
+// and two low-contrast buttons, learned nothing, and — going by the report
+// that prompted this — read the whole screen as "no way out but quitting".
+// The window now says up front what is missing and what to do about it, and
+// both exits below are spelled out rather than implied.
+//
+// Ownership is read from the same weekly claim records /api/vault/submit
+// gates on, so this line can never disagree with the submit result. It is
+// display only: SUBMIT stays enabled either way (a missing-items submit is
+// rejected server-side WITHOUT spending an attempt), so a slow or unreachable
+// status check never locks anyone out of a code they legitimately hold.
+let _vaultReqSeq = 0;
+async function refreshVaultRequirements(){
+  const req=$('vaultReq'); if(!req) return;
+  // Close-and-reopen is a normal move here ("go read the Paper, come back"),
+  // so an in-flight check from the previous open must not land on top of the
+  // new one's result.
+  const seq = ++_vaultReqSeq;
+  const set=(cls,html)=>{
+    if(seq!==_vaultReqSeq) return;
+    req.className='vault-req'+(cls?' '+cls:''); req.innerHTML=html;
+  };
+  if(!WALLET_ADDRESS){ set('warn','Wallet not ready yet — reopen this door in a moment.'); return; }
+  set('', 'Checking what you carry…');
+  const chip=(label,has)=>'<span class="vault-chip'+(has?' has':'')+'">'+(has?'✓':'✗')+' '+label+'</span>';
+  try{
+    const [p,k] = await Promise.all([
+      fetch('/api/paper/status?walletAddress='+encodeURIComponent(WALLET_ADDRESS)).then(r=>r.json()),
+      fetch('/api/goldenkey/status?walletAddress='+encodeURIComponent(WALLET_ADDRESS)).then(r=>r.json())
+    ]);
+    const hasPaper = !!(p && p.claimed);
+    const hasKey   = !!(k && k.claimed);
+    const chips = '<span class="vault-chips">'+chip('Paper',hasPaper)+chip('Golden Key',hasKey)+'</span>';
+    if(hasPaper && hasKey){
+      set('ok', chips+'<span class="vault-req-hint">Tap your Paper in the inventory to read this week\'s code.</span>');
+    } else {
+      const missing = (!hasPaper && !hasKey) ? 'You need both this week.'
+                    : (!hasPaper ? 'The Paper is what carries the code.'
+                                 : 'The Key is what turns the door.');
+      set('warn', chips+'<span class="vault-req-hint">'+missing
+        +' Both drop inside the Rotten Armoire and the Lost Cache — go back and search. This door stays open.</span>');
+    }
+  }catch(e){
+    set('warn','Could not check your stash — you can still enter a code if you have one.');
+  }
 }
 // Just close the popup and RESUME the bunker. Bug fix: this used to also
 // finish Bunker 5 (onActBunkerCleared), so tapping "close" to go read the
@@ -5260,7 +5338,15 @@ function attach(){
   $('vaultClose').addEventListener('click', closeVaultWindow);
   { const vl=$('vaultLeave'); if(vl) vl.addEventListener('click', finishBunkerFromVault); }
   $('vaultSubmitBtn').addEventListener('click', submitVaultCode);
-  $('vaultCodeInput').addEventListener('keydown', (e)=>{ if(e.key==='Enter') submitVaultCode(); });
+  // One delegated listener on the pad rather than twelve — the keys are static
+  // markup in DungeonGame.tsx, so data-key is the only thing that varies.
+  { const pad=$('vaultPad'); if(pad) pad.addEventListener('click', (e)=>{
+      const btn = e.target && e.target.closest ? e.target.closest('[data-key]') : null;
+      if(btn) vaultPushKey(btn.getAttribute('data-key'));
+    }); }
+  // Physical keyboards still work (desktop): the field itself is readonly and
+  // never focused, so this has to be caught at the window. See vaultPushKey.
+  winOn('keydown', onVaultKeydown);
   $('burnConfirm').addEventListener('click', onInvConfirmClick); // #5 (v41) — dispatches to confirmBurn (Loot) or confirmEatSelected (Food)
   $('itemZoomTake').addEventListener('click', onItemZoomTake);
   $('itemZoomBurn').addEventListener('click', onItemZoomBurn);
