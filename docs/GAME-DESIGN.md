@@ -467,6 +467,51 @@ and the vault fragment is credited on the first open only.
 
 ---
 
+## 7c. Fixed: a floor could be generated with no way out
+
+**`[TODAY]`.** Reported from a real MiniPay session: entered Bunker 1 floor 1,
+could not move out of the spawn area, could not test anything else.
+
+The cause is geometric, not a placement mistake. A corridor is one tile
+(`TILE = 40`) and the player's radius is 14, so **anything with a solid
+footprint wider than 12px seals one** — which is every prop in the game.
+`spawnDecorInto` keeps props off doorways and hugging room walls, but a room
+whose only exit is narrow, or two props landing either side of a gap, can still
+close the last opening.
+
+Flood-filling from the spawn across generated floors, using the engine's own
+wall test and its own `NS_solidDecorAt` footprint:
+
+| | Floors with the lift unreachable |
+|---|---|
+| crate 44×44 (as shipped in #197) | **5 in 60** |
+| crate 34×34 (before #197) | 2 in 60 |
+| no decor at all | **0 in 100** — walls are never the problem |
+
+So **widening the crate for the art turned a latent bug into a common one**,
+and shrinking it again would only have hidden it.
+
+The fix is therefore a guarantee rather than a size: `_ensureFloorTraversable`
+runs at the end of `ensureFloor`, walks the floor from the spawn, and if the
+lift cannot be reached deletes whichever props sit on the frontier of the
+reachable region, then walks it again. That is the minimal set that can be
+responsible, so it converges in a pass or two and rarely removes more than one
+prop. Vault doors and sealed/premium caches are never removed — they are
+content and are placed inside rooms.
+
+**0 in 150 after the fix**, at every depth. Locked down by
+`npm run test:traversable`.
+
+> Two things this exposed about measuring: the first version of the check
+> required the player to reach the lift's *exact* pixel, which is often
+> wall-adjacent and unreachable for a 14px body — it reported walkable floors
+> as sealed. And the first version of the fix probed only a blocked cell's
+> centre when deciding which prop was guilty, while the reachability walk had
+> probed the body's left and right edges too, so it kept "finding nothing to
+> remove" on 2 floors in 100.
+
+---
+
 ## 8. Known bug: Save & Exit regenerates floors
 
 **`[CHANGE]`.** Real, and worth writing down because it looks like the

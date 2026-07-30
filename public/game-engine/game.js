@@ -742,6 +742,10 @@ function ensureFloor(depth){
   }
   spawnDecorInto(floor, d);
   _spawnPhase8Caches(floor, d, depth);
+  // Last thing before the floor is handed out: guarantee the player can
+  // actually walk from the entrance to the lift. See _ensureFloorTraversable —
+  // this is the fix for the owner's "stuck at the entrance" report.
+  _ensureFloorTraversable(floor, d);
   G.floors[depth] = floor;
   return floor;
 }
@@ -753,18 +757,106 @@ function ensureFloor(depth){
 // corridor. Enemies are intentionally NOT blocked (keeps their pathing simple;
 // decor just becomes cover for the player). Exposed on window for entities.js.
 const NS_FLAT_DECOR = new Set(['bones', 'rubble', 'skull_heap', 'plaque_sword', 'plaque_coin']);
+// One definition of "this prop is in the way", used by the live collision
+// check below AND by the traversability pass that runs at floor generation, so
+// the two can never disagree about what blocks a player.
+function decorBlocksPoint(o, px, py){
+  if(!o || o.broken) return false;
+  if(NS_FLAT_DECOR.has(o.type)) return false;
+  const def = o.def; if(!def) return false;
+  const hw = (def.w || 24) * 0.40;            // horizontal half-footprint
+  const top = o.y - (def.h || 24) * 0.28;     // a little up from the base
+  const bot = o.y + 5;                         // just past the feet line
+  return px >= o.x - hw && px <= o.x + hw && py >= top && py <= bot;
+}
 function decorSolidAt(px, py){
   if(!G || !G.decor) return false;
-  for(const o of G.decor){
-    if(!o || o.broken) continue;
-    if(NS_FLAT_DECOR.has(o.type)) continue;
-    const def = o.def; if(!def) continue;
-    const hw = (def.w || 24) * 0.40;            // horizontal half-footprint
-    const top = o.y - (def.h || 24) * 0.28;     // a little up from the base
-    const bot = o.y + 5;                         // just past the feet line
-    if(px >= o.x - hw && px <= o.x + hw && py >= top && py <= bot) return true;
-  }
+  for(const o of G.decor){ if(decorBlocksPoint(o, px, py)) return true; }
   return false;
+}
+
+// ---- a floor must always be walkable end to end -----------------------------
+//
+// OWNER BUG, reported from MiniPay: entered Bunker 1 floor 1 and could not move
+// out of the spawn area at all. Reproduced by flood-filling from the start
+// point across 60 generated floors — the stairs were unreachable on 5 of them.
+//
+// The cause is geometric, not a placement mistake. A corridor is one tile
+// (TILE=40) and the player's radius is 14, so anything with a solid footprint
+// wider than 12px seals it — which is every prop in the game. spawnDecorInto
+// keeps props off doorways (TILE*2.2) and hugging room walls, but a room whose
+// only exit is narrow, or two props landing either side of a gap, can still
+// close the last opening.
+//
+// It PRE-DATED the crate resize: the same measurement puts the old 34x34 crate
+// at 2 in 60. Widening it to 44x44 for the art took that to 5 in 60. So the
+// resize made a latent bug common enough to hit on the first real play, and
+// shrinking the crate again would only hide it — any prop can do this.
+//
+// Hence a guarantee rather than a tuning: after decor is placed, walk the floor
+// from the spawn. If the stairs cannot be reached, delete whichever props are
+// sitting on the frontier of the reachable region and walk it again. That is
+// the minimal set that can be responsible, so it converges in a pass or two and
+// almost never removes more than one prop.
+function _floorReachable(floor, d, fromX, fromY, toX, toY){
+  const R = 14;                 // Player.r — see entities.js
+  const S = TILE / 2;           // half-tile lattice: fine enough for a 14px body
+  const W = Math.ceil(d.pxW / S), H = Math.ceil(d.pxH / S);
+  const blocked = (x, y) => {
+    if(d.isWall(x, y) || d.isWall(x+R, y) || d.isWall(x-R, y) || d.isWall(x, y+R) || d.isWall(x, y-R)) return true;
+    for(const o of floor.decor){ if(decorBlocksPoint(o, x, y) || decorBlocksPoint(o, x+R, y) || decorBlocksPoint(o, x-R, y)) return true; }
+    return false;
+  };
+  const seen = new Set(), stack = [[Math.round(fromX/S), Math.round(fromY/S)]];
+  seen.add(stack[0][0] + ',' + stack[0][1]);
+  const frontier = [];
+  while(stack.length){
+    const [a, c] = stack.pop();
+    for(const [da, dc] of [[1,0],[-1,0],[0,1],[0,-1]]){
+      const na = a+da, nc = c+dc;
+      if(na < 0 || nc < 0 || na > W || nc > H) continue;
+      const k = na + ',' + nc;
+      if(seen.has(k)) continue;
+      if(blocked(na*S, nc*S)){ frontier.push([na*S, nc*S]); continue; }
+      seen.add(k); stack.push([na, nc]);
+    }
+  }
+  // "Reached" means standing NEXT to the lift, not on its exact pixel. The
+  // stairs often sit against a wall, so the target cell itself can read as
+  // blocked for a 14px body — requiring it exactly reported floors as sealed
+  // that a player could walk perfectly well.
+  const ta = Math.round(toX/S), tc = Math.round(toY/S);
+  let ok = false;
+  for(let da = -2; da <= 2 && !ok; da++){
+    for(let dc = -2; dc <= 2 && !ok; dc++){
+      if(seen.has((ta+da) + ',' + (tc+dc))) ok = true;
+    }
+  }
+  return { ok, frontier };
+}
+function _ensureFloorTraversable(floor, d){
+  if(!d || !d.startPx || !d.stairsPx) return;
+  for(let pass = 0; pass < 12; pass++){
+    const r = _floorReachable(floor, d, d.startPx.x, d.startPx.y, d.stairsPx.x, d.stairsPx.y);
+    if(r.ok) return;
+    // Every prop touching the edge of where the player can currently get to.
+    // Vault doors and the sealed/premium caches are never removed — they are
+    // content, and they are placed inside rooms rather than in doorways.
+    const guilty = new Set();
+    for(const [fx, fy] of r.frontier){
+      for(let i = 0; i < floor.decor.length; i++){
+        const o = floor.decor[i];
+        if(o.def && (o.def.isVaultDoor || o.def.isSealedCache || o.def.isPremiumCache)) continue;
+        // The SAME three probes _floorReachable used to decide the cell was
+        // blocked. Testing only the centre missed props that were blocking the
+        // player's left or right edge, which left 2 floors in 100 still sealed
+        // after a pass that thought it had nothing to remove.
+        if(decorBlocksPoint(o, fx, fy) || decorBlocksPoint(o, fx+14, fy) || decorBlocksPoint(o, fx-14, fy)) guilty.add(i);
+      }
+    }
+    if(!guilty.size) return;   // the walls themselves are the problem; nothing to remove
+    floor.decor = floor.decor.filter((_, i) => !guilty.has(i));
+  }
 }
 if(typeof window !== 'undefined') window.NS_solidDecorAt = decorSolidAt;
 
