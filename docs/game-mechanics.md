@@ -53,8 +53,10 @@ loot lands as pickups on the spot.
 2. **Take What You Want** → tap a slot to take it, or hit **TAKE ALL**
 3. **No Floor Drop** → container loot goes straight to your stash, never onto
    the ground
-4. **Stays Emptied** → a container you have looted stays looted for the rest
-   of that bunker visit
+4. **Nothing is lost** → close the window with loot still inside and the
+   container stays where it is with that loot in it. Walk back to it and the
+   button reads **REOPEN**. A container you emptied stays empty for the rest of
+   that bunker visit.
 
 ### Rarity Colors
 
@@ -89,6 +91,23 @@ Each item has a hidden burn value (random within its rarity range):
 - 📄 **Old Paper (Epic)** - Cannot burn. Tap it in your inventory to read this week's 4-digit vault code.
 - 🔑 **Golden Key (Legendary)** - Cannot burn. Opens the sealed vault door in Bunker 5.
 - **Both stay in your stash.** They carry between bunkers and survive a Save & Exit — you do not lose them when a run ends. Each is capped at **one per wallet per week** (server-enforced, resets Monday 00:00 UTC).
+
+### 🧩 Vault Fragments — the guaranteed way to get them
+
+You are never left to luck. Every **lockable container** you open — the ones
+with an **OPEN** button, like the Rotten Armoire or the Lost Cache — earns you
+one **Vault Fragment**.
+
+| Fragments | You get |
+|---|---|
+| 12 | 📄 **Old Paper**, guaranteed |
+| 28 | 🔑 **Golden Key**, guaranteed |
+
+Both can still drop early by chance, and often do — the fragments are the floor,
+not the ceiling. **A week of playing can never pay you nothing.**
+
+Watch the bar in your inventory, right under the two items it buys. It resets
+with the week, along with everything else.
 
 ---
 
