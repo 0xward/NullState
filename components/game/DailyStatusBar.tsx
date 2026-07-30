@@ -15,10 +15,11 @@ import { playUiSound } from '@/lib/uiSound'
 // already takes on the way to the only action on the screen, so it is read
 // rather than discovered.
 //
-// WHAT IS DELIBERATELY NOT HERE. Daily contracts and the login streak are in
-// the build order but not built, so there is no chip for them. A placeholder
-// that shows a number nobody is tracking is how game-config.ts happened — see
-// rule 2 in GAME-DESIGN.md §10. Chips appear when their system does.
+// WHAT IS DELIBERATELY NOT HERE. The login streak is in the build order but
+// not built, so there is no chip for it. A placeholder showing a number nobody
+// is tracking is how game-config.ts happened — see rule 2 in GAME-DESIGN.md
+// §10. Chips appear when their system does; contracts got theirs the day they
+// shipped.
 //
 // Each chip hides itself when it has nothing true to say: no craft running, no
 // fragments left to earn, energy not yet loaded. With all three quiet the bar
@@ -53,6 +54,11 @@ export default function DailyStatusBar({ address, onCrafting }: DailyStatusBarPr
   const [energy, setEnergy] = useState<{ total: number; free: number } | null>(null)
   const [frag, setFrag] = useState<{ have: number; goal: number; label: string } | null>(null)
   const [craftDoneAt, setCraftDoneAt] = useState<number | null>(null)
+  const [contracts, setContracts] = useState<{ done: number; total: number } | null>(null)
+  const [contractList, setContractList] = useState<
+    { id: string; label: string; progress: number; target: number; done: boolean }[]
+  >([])
+  const [showContracts, setShowContracts] = useState(false)
   // Drives the countdown. Cheap: one re-render every 30s, and only while a
   // craft is actually running (see the effect's guard).
   const [now, setNow] = useState(() => Date.now())
@@ -70,11 +76,16 @@ export default function DailyStatusBar({ address, onCrafting }: DailyStatusBarPr
       j(`/api/energy?wallet=${encodeURIComponent(address)}`),
       j(`/api/vault/fragments?wallet=${encodeURIComponent(address)}`),
       j(`/api/weapons/craft?wallet=${encodeURIComponent(address)}`),
-    ]).then(([e, f, c]) => {
+      j(`/api/contracts?wallet=${encodeURIComponent(address)}`),
+    ]).then(([e, f, c, d]) => {
       if (!alive) return
       if (e && typeof e.total === 'number') setEnergy({ total: e.total, free: e.freeRemaining ?? 0 })
       if (f && typeof f.fragments === 'number' && f.nextGoal) {
         setFrag({ have: Math.min(f.fragments, f.nextGoal.threshold), goal: f.nextGoal.threshold, label: f.nextGoal.label })
+      }
+      if (d && Array.isArray(d.contracts) && d.contracts.length) {
+        setContracts({ done: d.completed ?? 0, total: d.contracts.length })
+        setContractList(d.contracts)
       }
       if (c?.craft?.completesAt) {
         // Correct for client clock skew — the server's own clock is the one the
@@ -86,6 +97,14 @@ export default function DailyStatusBar({ address, onCrafting }: DailyStatusBarPr
 
     return () => { alive = false }
   }, [address])
+
+  // The map's DAILY rail button opens this list too — it used to be a "SOON"
+  // placeholder for a feature that now exists.
+  useEffect(() => {
+    const open = () => setShowContracts(true)
+    window.addEventListener('nullstate-open-contracts', open)
+    return () => window.removeEventListener('nullstate-open-contracts', open)
+  }, [])
 
   useEffect(() => {
     if (craftDoneAt === null) return
@@ -104,6 +123,25 @@ export default function DailyStatusBar({ address, onCrafting }: DailyStatusBarPr
       tone: left <= 0 ? 'ready' : 'amber',
       onClick: () => { playUiSound('panel'); onCrafting() },
       title: left <= 0 ? 'Your weapon has finished evolving — tap to collect it' : 'Weapon evolving — tap to see the craft',
+    })
+  }
+
+  // Ahead of fragments, because it is the one that resets tonight. A player
+  // with an hour to spare should see the perishable thing first.
+  if (contracts) {
+    const all = contracts.done >= contracts.total
+    chips.push({
+      key: 'contracts',
+      icon: all ? '✓' : '◇',
+      label: `${contracts.done}/${contracts.total}`,
+      tone: all ? 'ready' : 'green',
+      // A count with no way to see what is being counted is a tease. Tapping
+      // opens the list right here rather than sending the player to a screen —
+      // three lines of text do not need a route.
+      onClick: () => { playUiSound('panel'); setShowContracts((v) => !v) },
+      title: all
+        ? "Today's contracts are all done — new ones at 00:00 UTC"
+        : `${contracts.total - contracts.done} of today's contracts still open`,
     })
   }
 
@@ -132,6 +170,18 @@ export default function DailyStatusBar({ address, onCrafting }: DailyStatusBarPr
   if (!chips.length) return null
 
   return (
+    <>
+      {showContracts && contractList.length > 0 && (
+        <div className="ns-hub-contracts" role="region" aria-label="Today's contracts">
+          <p className="ns-hub-contracts-head">Today · resets 00:00 UTC</p>
+          {contractList.map((c) => (
+            <div key={c.id} className={`ns-hub-contract${c.done ? ' is-done' : ''}`}>
+              <span className="ns-hub-contract-label">{c.done ? '✓ ' : ''}{c.label}</span>
+              <span className="ns-hub-contract-count">{Math.min(c.progress, c.target)}/{c.target}</span>
+            </div>
+          ))}
+        </div>
+      )}
     <div className="ns-hub-daily" role="status" aria-label="Today">
       {chips.map((c) => {
         const inner = (
@@ -149,5 +199,6 @@ export default function DailyStatusBar({ address, onCrafting }: DailyStatusBarPr
         )
       })}
     </div>
+    </>
   )
 }

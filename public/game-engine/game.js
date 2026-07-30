@@ -295,6 +295,40 @@ window.NS_PAPER = {
 // name its own reward would not need to play.
 let VAULT_FRAG = { loaded:false, fragments:0, nextGoal:null };
 
+// ---- Daily Contracts (GAME-DESIGN.md §5.2) ---------------------------------
+// Three objectives a day, reset 00:00 UTC, paying Glitch Shards and NullState
+// Point. This side only REPORTS what happened; the server owns which contracts
+// are live today, what each is worth, and every ceiling (see
+// lib/server/dailyContracts.ts). A finished contract pays out on the spot, so
+// there is nothing to claim and nothing to remember.
+//
+// Kills are batched rather than sent one per corpse: a busy floor would
+// otherwise fire a request every second or so for a counter that only needs to
+// be roughly live. Flushed on floor clear, on death, and on unmount.
+let CONTRACT_KILLS = 0;
+function reportContract(metric, amount){
+  if(!WALLET_ADDRESS || !(amount > 0)) return;
+  fetch('/api/contracts', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ wallet: WALLET_ADDRESS, metric, amount })
+  }).then(r=>r.json()).then(data=>{
+    const granted = data && Array.isArray(data.granted) ? data.granted : [];
+    if(!granted.length || !data.contracts) return;
+    for(const id of granted){
+      const c = data.contracts.find(x=>x.id===id); if(!c) continue;
+      const r = c.reward || {};
+      const paid = r.kind==='point' ? ('+'+r.amount+' NullState Point')
+                 : r.kind==='shard' ? ('+'+r.amount+' Glitch Shard') : 'reward';
+      log('◆ CONTRACT COMPLETE — '+c.label+'. '+paid+'.', 'reward');
+    }
+  }).catch(()=>{ /* offline — the counter simply does not advance */ });
+}
+function flushContractKills(){
+  if(CONTRACT_KILLS <= 0) return;
+  const n = CONTRACT_KILLS; CONTRACT_KILLS = 0;
+  reportContract('kills', n);
+}
+
 async function refreshVaultFragments(){
   if(!WALLET_ADDRESS){ VAULT_FRAG = { loaded:false, fragments:0, nextGoal:null }; return; }
   try{
@@ -1381,6 +1415,7 @@ function onOpenButtonTap(){
       // container's first and only open. The vault door and the sealed/premium
       // caches take the two branches above and never earn a fragment.
       creditVaultFragment(target);
+      reportContract('containers', 1);   // Daily Contracts §5.2
     }
   }, 450);
 }
@@ -1983,6 +2018,11 @@ function checkFloorClearReward(){
   G.floorClearShown[G.depth]=true;
   G.player.hp=Math.min(G.player.maxHp, G.player.hp+18);
   if(window.NS_RUN) NS_RUN.onFloorCleared(); // Phase 1: per-run stat
+  // Daily Contracts: a secured floor, plus whatever kills piled up getting
+  // there. Flushing here keeps the kill counter roughly live without a request
+  // per corpse (see reportContract).
+  reportContract('floors', 1);
+  flushContractKills();
   showBanner('FLOOR SECURED', 'LIFT UNLOCKED');
   spark(G.player.x,G.player.y-18,'#00ff88',36,240);
   updateHUD();
@@ -2320,6 +2360,7 @@ function hitTest(){
 
 function onEnemyKilled(e){
   A.enemyDeath();
+  CONTRACT_KILLS++;   // Daily Contracts §5.2 — batched, see flushContractKills
   // Enhanced death effects (Phase 5)
   const _fxK = window.NS_FX;
   const _shakeCfgK = (window.NS_MONSTER_CONFIG||{}).shake || {};
@@ -4127,6 +4168,7 @@ function confirmBurn(){
   }
   G.burnQueue.clear();
   if(items.length){
+    reportContract('burns', items.reduce((a,i)=>a+(i.qty||1),0));   // Daily Contracts §5.2
     window.dispatchEvent(new CustomEvent('nullstate-items-burned', {
       detail: { wallet: WALLET_ADDRESS, items, totalValue: Math.round(totalValue), timestamp: Date.now() }
     }));
@@ -4343,6 +4385,7 @@ function burnSingleItem(itemId){
   const totalValue=entry.item.burnValue*entry.qty;
   delete G.inventory.items[itemId];
   G.burnQueue.delete(itemId);
+  reportContract('burns', entry.qty || 1);   // Daily Contracts §5.2
   window.dispatchEvent(new CustomEvent('nullstate-items-burned', {
     detail: { wallet: WALLET_ADDRESS, items, totalValue: Math.round(totalValue), timestamp: Date.now() }
   }));
@@ -4865,6 +4908,7 @@ function onRevive(){
   // multiplier (first death free, -20% per extra, floor 40%) will feed the
   // Phase 2 material payout.
   if(window.NS_RUN) NS_RUN.onDeath();
+  flushContractKills();   // don't lose a floor's worth of kills to a death
   if(!G){ newGame(selectedChar); updateHUD(); return; }
   const deathDepth = G.depth;
   const p = G.player;
@@ -5776,6 +5820,9 @@ function mount(opts){
   boot();
 }
 function unmount(){
+  // Last chance to bank kills that never reached a floor-clear — exit to the
+  // map, Save & Exit, or the tab closing all land here.
+  try{ flushContractKills(); }catch(e){}
   destroyed = true; mounted = false;
   // Phase 1: leaving the game screen (exit/save&exit/back to menu) closes
   // any run still open as Abandoned — a saved session re-opens it later.

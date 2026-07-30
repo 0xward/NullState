@@ -115,12 +115,13 @@ falls out of the loop there. NullState today has layers 1, 3, and a broken
 A raid is 3–10 minutes: descend, fight, loot, extract. This layer works.
 Combat, procedural floors, loot rarity, the lift, containers — all shipped.
 
-### Layer 2 — Daily: "why come back tomorrow" — `[TARGET]`, **empty today**
+### Layer 2 — Daily: "why come back tomorrow" — `[TODAY]`
 
-Nothing currently answers this. Energy (5/day) is a *limiter*, not a
-*reason* — you limit what people want more of, and right now there is
-nothing they want more of once the vault is claimed. Four mechanics fill
-it, all built from systems that already exist (§5).
+This was the empty layer, and the whole problem. Energy (5/day) is a
+*limiter*, not a *reason* — you limit what people want more of, and there
+was nothing they wanted more of once the vault was claimed. Three of the
+four mechanics in §5 now fill it: Vault Fragments, Daily Contracts and the
+surfaced craft timer. Only the login streak (§5.3) is still open.
 
 ### Layer 3 — Weekly: "why care this week" — `[TODAY]`, needs §5.1
 
@@ -237,14 +238,37 @@ and the Key falls mid-week — the arc in §4.
 **Why this is the top priority:** it fixes the dead-end, the unlucky-week
 churn, and the empty day 2 — with one mechanic, at zero cost.
 
-### 5.2 Daily Contracts — `[TARGET]`
+### 5.2 Daily Contracts — `[TODAY]`
 
-Three objectives, reset 00:00 UTC. Examples: *clear 2 floors*, *kill 40
-enemies*, *open 5 containers*. Rewards are Glitch Shards, NullState Point,
-and elixir charges — all existing, all off-chain, all free to the operator.
+Three objectives, reset 00:00 UTC, drawn deterministically from a six-entry
+pool by a hash of the day id — so everyone gets the same three that day, no
+state is needed to remember the roll, and two players can compare notes.
+Targets are sized against the measured bunker (~7 lockable containers), so one
+session finishes two of the three and the third is the nudge to come back.
 
-Deliberately **not** USDT (owner decision, and consistent with the earlier
-cancellation of the daily drip in `GROWTH-BLUEPRINT.md` §1A).
+Rewards are Glitch Shards and NullState Point, credited **the instant a bar
+fills** — no claim step, matching how burning already works. Deliberately
+**not** USDT (owner decision, consistent with the cancelled daily drip in
+`GROWTH-BLUEPRINT.md` §1A). Both currencies already exist and are off-chain,
+so the feature costs the operator nothing.
+
+**On trust.** Container progress is credited server-side off the same call that
+awards a vault fragment, so it cannot be inflated. Kills, floors and burns
+cannot be — the server has no view of combat, so the client reports them. That
+is a real limitation, bounded three ways: a per-metric ceiling on any single
+request, a per-day ceiling that is the contract's own target, and rewards that
+are off-chain and non-withdrawable. It is the same trust level the burn route
+already runs at (it takes the client's word for which items were destroyed).
+Nothing here touches USDT.
+
+**Where the player sees it:** a `◇ 1/3` chip on the map, ahead of fragments
+because it is the thing that resets tonight. Tapping it — or the map's DAILY
+rail button, which until now was a `SOON` badge promising exactly this feature
+— opens today's three with per-contract progress.
+
+**Shipped in:** `lib/server/dailyContracts.ts`, `app/api/contracts/route.ts`,
+`reportContract()` in `game.js`, `DailyStatusBar.tsx`. Locked down by
+`npm run test:contracts`.
 
 ### 5.3 Login streak — `[TARGET]`
 
@@ -304,7 +328,7 @@ exists.
 | Campaign (5 acts) | Onboarding | Teach + unlock the map | `[TODAY]` |
 | Bunker raids | Session→Daily | Repeatable content; the map's whole point | `[TODAY]` |
 | Energy (5/day) | Daily | Pace sessions, drive refill sales | `[TODAY]` |
-| Daily Contracts | Daily | Reason to open the app | `[TARGET]` |
+| Daily Contracts | Daily | Reason to open the app | `[TODAY]` |
 | Streak | Daily | Loss aversion | `[TARGET]` |
 | Craft timers (6h/12h) | Daily | Self-set appointment | `[TODAY]` |
 | Glitch Shards | Daily→Weekly | Power ratchet | `[TODAY]` |
@@ -531,7 +555,7 @@ time.
 3. ~~§5.5 Daily status on the map~~ — **shipped** (absorbed §5.4)
 
 **Before the listing — strongly recommended**
-4. §5.2 Daily Contracts
+4. ~~§5.2 Daily Contracts~~ — **shipped**
 5. ~~Delete the dead blocks in `game-config.ts`~~ — **shipped**
 
 **After the listing**
