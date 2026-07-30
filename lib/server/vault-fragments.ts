@@ -31,24 +31,37 @@ type AdminDb = NonNullable<ReturnType<typeof getAdminDb>>
 
 /** The two items a full fragment bar can buy, and what each costs. */
 export const FRAGMENT_GOALS = [
-  { key: 'paper' as const, threshold: 12, path: 'paperClaims', label: 'Old Paper' },
-  { key: 'goldenKey' as const, threshold: 28, path: 'goldenKeyClaims', label: 'Golden Key' },
+  { key: 'paper' as const, threshold: 8, path: 'paperClaims', label: 'Old Paper' },
+  { key: 'goldenKey' as const, threshold: 18, path: 'goldenKeyClaims', label: 'Golden Key' },
 ]
 
 export type FragmentGoalKey = (typeof FRAGMENT_GOALS)[number]['key']
 
-// STARTING NUMBERS — TUNE THESE AGAINST REAL PLAY.
+// THE NUMBERS, AND HOW THEY WERE ARRIVED AT.
 //
-// Interactive containers run roughly 8-15 per bunker (max 5 props per room,
-// 12% of them rare, and northOnly types fall back to tables on side walls —
-// see spawnDecorInto in game.js). So 12 is about one thorough bunker and 28 is
-// about three. With 5 energy a day that puts Paper on day 1-2 and the Key on
-// day 3-4, which leaves the back half of the week to the leaderboard and
-// crafting rather than to nothing.
+// These started at 12 and 28, ESTIMATED by reading spawnDecorInto (max 5 props
+// per room, 12% of them rare, northOnly types falling back to tables on side
+// walls) at 8-15 interactive containers per bunker.
 //
-// This was estimated by reading the spawn code, NOT measured in a running
-// game. Watch the first week: if most players finish the bar on day one, both
-// numbers are too low.
+// Measured with the real generator — `npm run measure:containers`, which mounts
+// the actual engine at each depth and counts what it produces — a bunker holds
+// about **7**, across two runs of 200 floors that landed at 6.3 and 7.4. The
+// estimate was between 1.3x and 2.4x too high.
+//
+// That mattered, because the vault needs BOTH items. At 28 the Golden Key took
+// roughly 4.4 bunkers of complete clearing; a player opening a realistic ~70%
+// of what they find needed to play close to every day of the week to reach it.
+// Anyone playing three to five sessions got the Paper, missed the Key, and
+// therefore earned NOTHING — which is precisely the outcome this whole
+// mechanic exists to make impossible.
+//
+// At 8 and 18 a four-session week clears both, the Paper lands on day one so
+// the mechanic teaches itself early, and the Key falls mid-week. That matches
+// the arc in GAME-DESIGN.md §4.
+//
+// Still a model, not player data: it assumes one bunker per session and ~70%
+// of containers opened. Re-run the measurement whenever props.js gains or
+// loses an interactive type, and revisit these once real weeks exist.
 
 export interface FragmentState {
   weekId: string
