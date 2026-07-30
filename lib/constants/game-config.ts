@@ -1,43 +1,47 @@
 /**
- * Game Configuration Constants
- * Season, Rewards, and Game Economy Settings
+ * Game economy constants.
+ *
+ * ── THE RULE FOR THIS FILE ───────────────────────────────────────────────────
+ * Everything here MUST be read by something. Before adding a block, confirm a
+ * line of source will import it.
+ *
+ * Nine blocks were removed in one pass because none of them were: `season`,
+ * `bunkers`, `specialItems`, `loot`, `seasonRewards`, `burnRewards`,
+ * `persistence`, `ui` and `docNotes`. They were not merely unused — they were
+ * WRONG, and being wrong in a file called game-config is worse than not
+ * existing, because it reads like the source of truth:
+ *
+ *   bunkers        claimed 6 bunkers of 3 floors. There are 5, of 5.
+ *   specialItems   put the Golden Key at "bunker 1, floor 3". It is a 16% roll
+ *                  in any lockable container, plus the fragment path.
+ *   loot           said a container yields 3-8 items. It rolls 2-4 slots.
+ *   burnRewards    published a rarity split of 40/30/20/8/2. The real weights
+ *                  in items.js give ~59/26/11/3.5/0.6.
+ *   ui             listed a main menu that the world map replaced.
+ *   persistence    claimed a 30s autosave. It is event-driven with a 60s net.
+ *
+ * Those numbers reached the player-facing docs and had to be corrected there
+ * too. See docs/GAME-DESIGN.md §10 rule 2.
+ *
+ * ── WHY SO MUCH OF IT WAS DEAD ───────────────────────────────────────────────
+ * The engine (public/game-engine/*.js) is served as static <script> files and
+ * CANNOT import from lib/. Anything about dungeon generation, loot tables or
+ * item rarity is owned by the engine and can only ever be a stale copy here.
+ * This file is for values the TypeScript side actually reads: prices, energy,
+ * craft timers, pass perks.
+ *
+ * If a value genuinely must exist on both sides, the engine's copy is
+ * authoritative and the copy here must say so. There is precedent below: the
+ * pass price used to live here and was removed for exactly this reason, since
+ * the contract owns it.
  */
 
 export const GAME_CONFIG = {
-  // Season Configuration
-  season: {
-    duration: 'monthly', // 1st to last day of UTC month
-    resetTime: '00:00 UTC', // Season start/end time
-    timezone: 'UTC',
-  },
-
-  // Pass System Configuration
-  //
-  // NOTE ON PRICE: there is deliberately NO price field here. The pass price is
-  // owned ON-CHAIN by PassSBTv3.passPriceUsdCents and read live by the frontend
-  // (hooks/usePassSBT) and the mint verifier (app/api/passsbt/mint), so the
-  // owner can change it with setPassPriceUsdCents() without a redeploy and all
-  // three can never disagree. A `priceUSDm: 0.3` constant used to sit here; it
-  // was read by nothing, and its stale $0.30 contradicted the $10 the contract
-  // actually held — exactly the confusion the on-chain source of truth exists
-  // to prevent. Removed rather than corrected: a second copy of a live value is
-  // a lie waiting to happen.
   pass: {
-    freePassesAvailable: 50, // FCFS for first 50 users
-    seasonsDuration: 5, // 5 seasons of SBT passes pre-generated
-    playLimitFree: 1, // 1 free play per week without pass
-    playLimitWithPass: Infinity, // Unlimited with pass
-    seasonResetDay: 1, // Reset on 1st of month
-    dropRateModifier: {
-      withoutPass: 1.0, // Normal drop rates
-      withPass: 1.0, // Same as without for MVP
-    },
-
     // ── TASK #7 — "make the pass worth its price" perks ───────────────────
     // Every perk is NON-PAY-TO-WIN: the HP-100 cap is untouched and the FREE
     // path always exists alongside (free players still get 5 energy runs/day
     // and earn shards by playing). Holding an ACTIVE-season pass grants:
-    //   - exclusiveSkinId : a cosmetic-only outfit (assets.js LPC_OUTFIT), 0 stats
     //   - a profile + in-game BADGE (cosmetic flair; no config needed)
     //   - dailyEnergyRuns : +N bonus energy runs, claimable once per UTC day
     //   - dailyShards     : a small Glitch-Shard stipend, claimable once per UTC
@@ -46,13 +50,14 @@ export const GAME_CONFIG = {
     //                       this is a convenience nudge, not a power gate)
     // Both daily claims are gated on-chain (PassSBTv3.hasPass) + one-per-UTC-day
     // in Firebase (see app/api/passsbt/perks). Amounts are deliberately modest.
-    exclusiveSkinId: 'pass_warden',
     dailyEnergyRuns: 1,
     dailyShards: { t1: 3, t2: 0, t3: 0 },
   },
 
-  // Energy / Action system (Genius blueprint Phase 1 — finally implements
-  // the long-dead `pass.playLimitFree` intent as a real, generous daily cap).
+  // Energy / Action system (Genius blueprint Phase 1). This replaced a
+  // never-implemented `pass.playLimitFree` / `playLimitWithPass` pair, which
+  // sat in this file describing a cap nothing enforced until energy shipped —
+  // and stayed there afterwards. Both are gone now; energy is the cap.
   // One energy = one fresh bunker entry (RunSession start). Continuing a
   // saved run costs nothing. Owner decision (2026-07-19): 5 free runs per
   // rolling 24h window, $1 refill grants +5 bonus runs, free runs do NOT
@@ -149,137 +154,6 @@ export const GAME_CONFIG = {
   // withdrawn/cashed out; its only use is swapping for Marketplace gear
   // priced $0.5–$2 (see lib/constants/marketplace.ts tokenPrice + the
   // Marketplace "Swap" button).
-  burnRewards: {
-    // NullState Point value ranges (whole numbers, random per item)
-    itemValues: {
-      common: { min: 1, max: 5 },
-      uncommon: { min: 10, max: 50 },
-      rare: { min: 50, max: 150 },
-      epic: { min: 150, max: 350 },
-      legendary: { min: 350, max: 500 },
-    },
-
-    // Rarity distribution percentages
-    distribution: {
-      common: 0.4, // 40%
-      uncommon: 0.3, // 30%
-      rare: 0.2, // 20%
-      epic: 0.08, // 8%
-      legendary: 0.02, // 2%
-    },
-  },
-
-  // Season Rewards (Leaderboard Top 3)
-  seasonRewards: {
-    rank1USDm: 20,
-    rank2USDm: 5,
-    rank3USDm: 3,
-    requireOwnerDeposit: true, // Must owner deposit before players can claim
-    claimableAfterSeasonEnd: true,
-    claimWindow: '7 days', // Players have 7 days after season end to claim
-  },
-
-  // Loot System
-  loot: {
-    containerItemCount: { min: 3, max: 8 }, // Items per container
-    loadingAnimationDuration: 2.5, // seconds
-    containerDropLocation: 'inventory', // Direct to inventory, not floor
-    loadingDirection: 'left-to-right',
-  },
-
-  // Bunker Progression System
-  bunkers: {
-    totalBunkers: 6,
-    floorsPerBunker: 3,
-    mustClearFloorToDescend: true, // Can't go to next bunker without clearing all enemies
-
-    // Rarity unlock by bunker level
-    rarityByBunker: {
-      1: ['common'],
-      2: ['common', 'uncommon'],
-      3: ['common', 'uncommon', 'rare'],
-      4: ['common', 'uncommon', 'rare', 'epic'],
-      5: ['common', 'uncommon', 'rare', 'epic', 'legendary'],
-      6: ['common', 'uncommon', 'rare', 'epic', 'legendary'],
-    },
-
-    // New items introduced per bunker (player discovery)
-    newItemsIntroducedPerBunker: {
-      1: 'tier_1_items', // Base items
-      2: 'tier_2_items', // New items unlock at Bunker 2
-      3: 'tier_3_items',
-      4: 'tier_4_items',
-      5: 'tier_5_items',
-      6: 'tier_6_legendary_items',
-    },
-  },
-
-  // Special Items & Treasure Vault Quest
-  specialItems: {
-    paper: {
-      name: 'Code Paper',
-      rarity: 'epic',
-      location: { bunker: 2, floor: 2 },
-      description: 'Contains a 4-digit vault code (mysterious)',
-      value: 0, // Cannot be burned
-      stackable: false,
-      unique: false, // Can find multiple
-    },
-    goldenKey: {
-      name: 'Golden Key',
-      rarity: 'legendary',
-      location: { bunker: 1, floor: 3 },
-      description: 'Unlocks the treasure vault on final bunker (mysterious)',
-      value: 0, // Cannot be burned
-      stackable: false,
-      unique: true, // Only 1 per run
-      relocateOnDeath: true, // Relocates if player dies before collecting
-    },
-    treasureVault: {
-      name: 'Treasure Vault',
-      location: { bunker: 6, floor: 3 },
-      rewardUSDm: 1,
-      requirePaper: true,
-      requireGoldenKey: true,
-      description: 'Final quest reward - combine paper code + golden key',
-      inputMethod: 'keyboard-4digit',
-      maxAttempts: 3,
-    },
-  },
-
-  // Data Persistence Configuration
-  persistence: {
-    backend: 'firebase', // Firebase Realtime DB
-    saveOnProgress: true,
-    autoSaveInterval: 30, // seconds
-    encryptSensitiveData: true,
-    neverResetOnSave: true, // Data persists when user clicks "Save Game"
-  },
-
-  // Main Menu UI Configuration
-  ui: {
-    mainMenuOptions: ['Continue', 'New Game', 'Leaderboard', 'Reward'],
-    rewardPanelStats: [
-      'username',
-      'walletAddress',
-      'totalItemsCollected',
-      'itemBreakdownWithImages',
-      'nullstateTokenBalance',
-      'totalEarnedUSDm',
-      'daysActive',
-    ],
-  },
-
-  // Documentation Notes (for docs.md)
-  docNotes: {
-    paperLocation: 'Keep mysterious - do not reveal Paper location in docs',
-    goldenKeyLocation: 'Keep mysterious - do not reveal Golden Key location in docs',
-    useImages: 'Include official Paper and Golden Key item images as visual hints',
-    seasonResetExplanation: 'Clearly explain UTC monthly reset times',
-    passSeasonExplanation: 'Explain that Pass is per-season, 1 season = 1 month',
-    bonusRewardExplanation: 'Explain that bonuses are ranked and require owner deposit',
-    dataNotReset: 'Clearly state that Save Game does NOT reset player progress',
-  },
 } as const;
 
 export default GAME_CONFIG;

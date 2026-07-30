@@ -6,11 +6,13 @@ in this folder describes a *system*; this one describes the *game those
 systems are supposed to add up to*.
 
 It exists because they stopped adding up. `lib/constants/game-config.ts`
-still carries a `bunkers` block claiming 6 bunkers of 3 floors, and a
-`specialItems` block placing the Golden Key at "bunker 1, floor 3". Neither
-is true, and neither is read by a single line of source — the engine is a
-static `<script>`, it cannot import from `lib/`. Anyone who trusted that
-file built on sand. This doc is the thing to trust instead.
+carried a `bunkers` block claiming 6 bunkers of 3 floors and a `specialItems`
+block placing the Golden Key at "bunker 1, floor 3". Neither was true, and
+neither was read by a single line of source — the engine is a static
+`<script>`, it cannot import from `lib/`. Those numbers reached the
+player-facing docs. Nine dead blocks have since been deleted from that file
+and it now carries the rule that kept them out; this doc is the thing to
+trust for anything above the level of a price.
 
 ---
 
@@ -496,9 +498,12 @@ time.
    and the `lib/` copy must say so in a comment.
 
 2. **Config that nothing reads is a lie.** Before adding to
-   `game-config.ts`, confirm something will read it. Four blocks there
-   (`bunkers`, `specialItems`, `loot`, `seasonRewards`) have zero source
-   references and actively contradict the game.
+   `game-config.ts`, confirm a line of source will import it. Nine blocks
+   there had zero references and actively contradicted the game — `season`,
+   `bunkers`, `specialItems`, `loot`, `seasonRewards`, `burnRewards`,
+   `persistence`, `ui`, `docNotes` — and their wrong numbers reached the
+   player docs before anyone noticed. They are gone; the file's own header
+   now states the rule.
 
 3. **Money is weekly. Progress is daily.** Do not add USDT payouts to the
    daily layer.
@@ -527,7 +532,7 @@ time.
 
 **Before the listing — strongly recommended**
 4. §5.2 Daily Contracts
-5. Delete the dead blocks in `game-config.ts`
+5. ~~Delete the dead blocks in `game-config.ts`~~ — **shipped**
 
 **After the listing**
 6. §5.3 Login streak
