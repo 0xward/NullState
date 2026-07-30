@@ -7,6 +7,10 @@ import { useContractPlayer } from '@/lib/useContractPlayer'
 import { PlayerProfile, LeaderboardEntry } from '@/lib/contract'
 import { loadGameSession, clearGameSession, saveGameSession, saveGameSessionDraft } from '@/lib/gameSessionService'
 import { migrateGuestProgress, getStoredGuestId } from '@/lib/guestMigration'
+import {
+  deriveAuthAddress, storeAuthIdentity, getStoredAuthAddress,
+  hasSkippedSignIn, rememberSignInSkipped,
+} from '@/lib/authIdentity'
 import MainMenu from './MainMenu'
 import WorldMapHub from './WorldMapHub'
 import { useWorldMapHubFlag } from '@/lib/worldMapHubFlag'
@@ -25,6 +29,15 @@ import WelcomeGiftModal from './WelcomeGiftModal'
 const UsernameSetup = dynamic(() => import('./UsernameSetup'), {
   ssr: false,
   loading: () => <ScreenLoadingFallback label="LOADING WALKER SETUP" />,
+})
+// Split hardest of all: this one pulls firebase/auth behind it, which is a
+// separate entry point from the Firestore SDK the rest of the app already
+// loads. Most players never render it — everyone in MiniPay, everyone with a
+// wallet, everyone who has skipped once — so it must never be in the initial
+// chunk.
+const SignInScreen = dynamic(() => import('./SignInScreen'), {
+  ssr: false,
+  loading: () => <ScreenLoadingFallback label="LOADING SIGN IN" />,
 })
 const Leaderboard = dynamic(() => import('./Leaderboard'), {
   ssr: false,
@@ -80,7 +93,7 @@ function ScreenLoadingFallback({ label }: { label: string }) {
   )
 }
 
-type GamePhase = 'menu' | 'username-setup' | 'character-select' | 'game' | 'leaderboard' | 'rewards' | 'referral' | 'season-pass' | 'marketplace' | 'crafting' | 'how-to-play' | 'character' | 'settings'
+type GamePhase = 'menu' | 'sign-in' | 'username-setup' | 'character-select' | 'game' | 'leaderboard' | 'rewards' | 'referral' | 'season-pass' | 'marketplace' | 'crafting' | 'how-to-play' | 'character' | 'settings'
 
 /**
  * GameFlowManager orchestrates the entire NullState game flow:
@@ -93,7 +106,7 @@ type GamePhase = 'menu' | 'username-setup' | 'character-select' | 'game' | 'lead
  * All player progress is stored ON-CHAIN via the contract.
  */
 export default function GameFlowManager() {
-  const { address, isConnected, realAddress, isGuest } = useWallet()
+  const { address, isConnected, realAddress, isGuest, isMiniPay, connect } = useWallet()
   const {
     playerProfile,
     isLoading: isLoadingProfile,
@@ -104,6 +117,9 @@ export default function GameFlowManager() {
   } = useContractPlayer(address || undefined)
 
   const [phase, setPhase] = useState<GamePhase>('menu')
+  // Set once the sign-in link is on its way, so the screen can stop offering
+  // buttons and start telling the player to go and open their inbox.
+  const [emailLinkSentTo, setEmailLinkSentTo] = useState<string | null>(null)
   const [characterTab, setCharacterTab] = useState<'character' | 'items'>('character')
   const [leaderboardEntries, setLeaderboardEntries] = useState<LeaderboardEntry[]>([])
   const [isLoadingLeaderboard, setIsLoadingLeaderboard] = useState(false)
@@ -251,6 +267,45 @@ export default function GameFlowManager() {
     return () => { cancelled = true }
   }, [realAddress, fetchPlayerProfile])
 
+  // Coming back from a sign-in that left the page.
+  //
+  // Two ways out and back: an email link opened from the inbox, and a Google
+  // redirect on a browser that would not open the popup. Both land here on a
+  // fresh page load with the auth session already established, and both have to
+  // be finished off — Firebase knows who the player is, but nothing has turned
+  // that into the address the rest of the app is keyed by yet.
+  //
+  // Guarded three ways so this never costs anything for the overwhelming
+  // majority who never signed in at all: MiniPay is out, an already-adopted
+  // account is out, and firebase/auth is only import()ed after the URL itself
+  // says there is something to finish.
+  useEffect(() => {
+    if (isMiniPay || getStoredAuthAddress()) return
+    let cancelled = false
+    ;(async () => {
+      const hasLinkInUrl = typeof window !== 'undefined' && window.location.href.includes('apiKey=')
+      if (!hasLinkInUrl && !sessionStorage.getItem('ns-signin-redirecting')) return
+      try {
+        const auth = await import('@/lib/firebaseAuth')
+        const user = auth.isEmailLinkCallback()
+          ? await auth.completeEmailSignIn()
+          : await auth.resumeRedirectSignIn()
+        if (user && !cancelled) {
+          sessionStorage.removeItem('ns-signin-redirecting')
+          await adoptAuthUser(user.uid)
+          // Drop the one-time credentials out of the address bar so a shared or
+          // bookmarked URL cannot replay them.
+          window.history.replaceState({}, '', window.location.pathname)
+        }
+      } catch {
+        /* An expired or already-used link is not an error worth a screen —
+           the player is simply still signed out, and the prompt still works. */
+      }
+    })()
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMiniPay])
+
   // Actually begins a fresh run (marks isNewRun so DungeonGame's mount
   // effect skips loading any saved bunker snapshot). v72 (user finding #2):
   // REGISTERED players now skip the username-setup screen entirely and drop
@@ -261,7 +316,95 @@ export default function GameFlowManager() {
   const proceedToNewGame = () => {
     setStartMode('new')
     setIsNewRun(true)
-    setPhase(playerProfile?.isRegistered ? 'game' : 'username-setup')
+    goPlaying(playerProfile?.isRegistered ? 'game' : 'username-setup')
+  }
+
+  // Where the player was headed when the sign-in screen interrupted them.
+  // Whatever they choose there — sign in, use a wallet, or skip — they end up
+  // here, so the prompt never changes where a tap was going to take them.
+  const pendingPhase = useRef<GamePhase>('game')
+
+  /**
+   * Start playing, offering the account once on the way if it would help.
+   *
+   * Both entry points route through here — ENTER on the world map and New Game
+   * in the menu — because the first is how a guest actually starts a run. An
+   * earlier version hung this off the New Game path only and off
+   * `playerProfile.isRegistered`, and it could never have fired: isRegistered
+   * is hardcoded true for anyone holding a Firebase username (see the comment
+   * in lib/useContractPlayer.ts), so the branch that offered the screen was
+   * unreachable and most guests never pass through New Game anyway.
+   */
+  const goPlaying = (next: GamePhase) => {
+    if (shouldOfferSignIn()) {
+      pendingPhase.current = next
+      setPhase('sign-in')
+      return
+    }
+    setPhase(next)
+  }
+
+  // ── Save-your-progress: who gets asked, and who never does ─────────────────
+  //
+  // Four ways to not be asked, and each one is a case where asking would be
+  // wrong rather than merely unnecessary:
+  //
+  //   isMiniPay      MiniPay's listing rules require zero-click connection. A
+  //                  screen between the player and the game is the friction
+  //                  they reject, and the wallet is already there anyway.
+  //   realAddress    They have a wallet. It already does everything an account
+  //                  does and more.
+  //   authAddress    Already signed in. Asking again says the first time did
+  //                  not count.
+  //   skipped        They said no. Asking on every New Game is how a prompt
+  //                  becomes a nag.
+  //
+  // Note this is only reached on the not-yet-registered path — a returning
+  // player who taps New Game drops straight into the game, which is the v72
+  // finding above and is not being undone here.
+  const shouldOfferSignIn = () =>
+    !isMiniPay && !realAddress && !getStoredAuthAddress() && !hasSkippedSignIn()
+
+  /**
+   * Turns a signed-in Firebase user into the address everything else is keyed
+   * by, and carries any guest progress across to it.
+   *
+   * Order matters: migrate BEFORE storing the identity. migrateGuestProgress
+   * reads the stored guest id and moves its documents onto the address given,
+   * then clears it. If the identity were stored first, useWallet() would start
+   * returning the account address on the next render and the guest's run would
+   * be stranded under an id nothing points at any more.
+   */
+  const adoptAuthUser = async (uid: string) => {
+    const authAddress = await deriveAuthAddress(uid)
+    if (getStoredGuestId()) await migrateGuestProgress(authAddress)
+    storeAuthIdentity(uid, authAddress)
+    await fetchPlayerProfile()
+    setPhase(pendingPhase.current)
+  }
+
+  const handleSignInGoogle = async () => {
+    const { signInWithGoogle } = await import('@/lib/firebaseAuth')
+    const user = await signInWithGoogle()
+    // null means the popup was blocked and we redirected instead; the page is
+    // navigating away and resumeRedirectSignIn picks it up on the way back.
+    if (user) await adoptAuthUser(user.uid)
+  }
+
+  const handleSignInEmail = async (email: string) => {
+    const { sendEmailSignInLink } = await import('@/lib/firebaseAuth')
+    await sendEmailSignInLink(email, window.location.href)
+    setEmailLinkSentTo(email)
+  }
+
+  const handleSignInWallet = async () => {
+    await connect()
+    setPhase(pendingPhase.current)
+  }
+
+  const handleSignInSkip = () => {
+    rememberSignInSkipped()
+    setPhase(pendingPhase.current)
   }
 
   // New Game+ and The Null Abyss are NOT menu entries — they unlock and are
@@ -324,7 +467,7 @@ export default function GameFlowManager() {
     // Jump straight into the game with their existing profile
     setStartMode('continue')
     setIsNewRun(false)
-    setPhase('game')
+    goPlaying('game')
   }
 
   const handleUsernameSet = async (username: string) => {
@@ -440,6 +583,20 @@ export default function GameFlowManager() {
           onClose={() => setWelcomeGift(null)}
         />
       </>
+    )
+  }
+
+  // PHASE: SIGN IN — offered once, before the name, and only to the players
+  // who have nothing keeping their progress. See shouldOfferSignIn().
+  if (phase === 'sign-in') {
+    return (
+      <SignInScreen
+        onGoogle={handleSignInGoogle}
+        onEmail={handleSignInEmail}
+        onWallet={handleSignInWallet}
+        onSkip={handleSignInSkip}
+        emailSent={emailLinkSentTo}
+      />
     )
   }
 
