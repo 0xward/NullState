@@ -182,11 +182,13 @@
   margin-top:10px; width:100%; min-height:38px; padding:9px 14px;
   font-family:var(--font-mono),monospace; font-size:11px; letter-spacing:1px;
   text-transform:uppercase; font-weight:700;
-  color:#2a1705; background:#e8bd6f;
-  border:1px solid #e8bd6f;
+  /* Green for the same reason .ns-cta is: the panel is brown, the action is
+     not. See the note in game.css. */
+  color:var(--null-bg); background:var(--null-green);
+  border:1px solid var(--null-green);
   clip-path:polygon(7px 0,100% 0,calc(100% - 7px) 100%,0 100%);
 }
-.ns-acct-btn:hover:not(:disabled){ background:#f2cd82; border-color:#f2cd82 }
+.ns-acct-btn:hover:not(:disabled){ background:var(--null-acid); border-color:var(--null-acid) }
 .ns-acct-btn:disabled{ opacity:.5; cursor:not-allowed }
 
 /* Sign-out is not the action being recommended, so it does not look like it. */

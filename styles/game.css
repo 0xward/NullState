@@ -558,14 +558,15 @@
   display:flex; align-items:center; justify-content:center; gap:8px;
   font-family:var(--font-mono),monospace; font-weight:700;
   font-size:13px; letter-spacing:1.6px; text-transform:uppercase;
-  padding:11px 14px; border:2px solid #7a4f24; cursor:pointer;
-  /* Gold, matching the Shop's own primary button (bg-[#e8bd6f], text
-     #2a1705). This is the one treatment shared by every screen's main action —
-     Mint Pass and Claim daily both wear it — so it is what makes the warm
-     palette read as one system rather than as the Shop plus everyone else.
-     Size, weight and geometry are untouched; only the colours moved. */
-  color:#2a1705; background:#e8bd6f;
-  box-shadow:inset 2px 2px 0 rgba(255,255,255,.38), 0 0 18px rgba(232,189,111,.30);
+  padding:11px 14px; border:2px solid #0a3d24; cursor:pointer;
+  /* GREEN, and it stays green. #194 made this gold to match the Shop's panel
+     and that was the wrong read of the brief — owner: "cokelat hanya vibes
+     warna belakang saja, jgn sampe tombol2 nya serupa warna". Brown is the
+     room; green is the thing you press, the same green as PLAY GAME on the
+     landing page. A button the colour of the panel behind it stops announcing
+     itself, which is the opposite of what .ns-cta exists for. */
+  color:#04140c; background:var(--green);
+  box-shadow:inset 2px 2px 0 rgba(255,255,255,.38), 0 0 18px rgba(0,255,136,.32);
   clip-path:polygon(7px 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%, 0 7px);
   transition:filter .12s ease, transform .08s ease;
 }
