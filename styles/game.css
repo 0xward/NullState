@@ -609,3 +609,35 @@
   .ns-cta{ transition:none; }
   .ns-cta:active{ transform:none; }
 }
+
+/* ─── Daily status bar (components/game/DailyStatusBar.tsx) ──────────────────
+   GAME-DESIGN.md §5.5 — the five-second answer to "why am I here today?". Sits
+   just above the ENTER button, in the path the eye already takes toward the
+   only action on the screen.
+
+   Small on purpose: this file blocks the map's first paint (see the header),
+   and the bar is three chips. Every chip hides itself when it has nothing true
+   to say, so the common case for a brand-new player is that none of this
+   renders at all. */
+.ns-hub-daily{
+  display:flex; gap:6px; flex-wrap:wrap; align-items:center;
+  margin:0 0 8px; padding:0 2px;
+}
+.ns-hub-chip{
+  display:inline-flex; align-items:center; gap:5px;
+  padding:4px 9px; border-radius:999px;
+  font-family:var(--font-mono),monospace; font-size:10px; font-weight:700;
+  letter-spacing:.6px; white-space:nowrap;
+  border:1px solid rgba(0,255,136,.3); background:rgba(4,20,12,.82);
+  color:#9fe6c2; text-shadow:0 1px 2px #000;
+}
+.ns-hub-chip.is-amber{ border-color:rgba(255,179,71,.45); color:#ffcf8a; }
+/* The one state worth interrupting for: something finished and is waiting to
+   be collected. */
+.ns-hub-chip.is-ready{
+  border-color:#39ff9a; color:#04140c; background:#39ff9a;
+  text-shadow:none; box-shadow:0 0 14px rgba(57,255,154,.45);
+}
+.ns-hub-chip.is-tappable{ cursor:pointer; }
+.ns-hub-chip.is-tappable:active{ transform:translateY(1px); }
+.ns-hub-daily-ico{ font-size:11px; line-height:1; }
