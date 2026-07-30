@@ -9,6 +9,10 @@ import { ReactNode, useMemo } from 'react'
 import { NavbarWalletContext } from './NavbarWalletContext'
 import { useWalletBridge } from './walletBridge'
 import type { MarketplaceTokenSymbol } from './constants/tokens'
+// Both are deliberately dependency-free (no firebase, no wagmi) precisely so
+// they can be imported here without violating the rule above.
+import { GUEST_STORAGE_KEY, generateAutoUsername } from './guestIdentity'
+import { writeCachedProfile } from './profileCache'
 
 // ─── Contract config ─────────────────────────────────────────────────────────
 
@@ -56,7 +60,7 @@ interface WalletExtras {
 // /^0x[0-9a-f]{40}$/) accepts it exactly like a real wallet. It is NEVER an
 // on-chain account: it can't sign or send transactions, so buying and
 // leaderboard entry are gated off for guests (see `isGuest` / `realAddress`).
-const GUEST_KEY = 'nullstate-guest-id'
+const GUEST_KEY = GUEST_STORAGE_KEY
 function getGuestAddress(): string | null {
   if (typeof window === 'undefined') return null
   try {
@@ -66,6 +70,33 @@ function getGuestAddress(): string | null {
     ;(window.crypto || (window as unknown as { msCrypto: Crypto }).msCrypto).getRandomValues(bytes)
     const id = '0x' + Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('')
     localStorage.setItem(GUEST_KEY, id)
+
+    // FIRST PAINT — the one branch where the name needs no network.
+    //
+    // The world map's LCP element is the player's name. For a returning visitor
+    // profileCache already answers instantly, but a first-ever open has empty
+    // storage, so the plate waits on /api/player/identity: PageSpeed measured
+    // 2,500ms of element render delay against an LCP of 6.1s. That route's
+    // answer for an address with no username is generateAutoUsername(address) —
+    // a pure function of the address we are holding right here.
+    //
+    // This line is the only place that can know the derived name is definitely
+    // correct: the id did not exist a moment ago, so nothing can have set a
+    // custom name for it. Seeding anywhere later would have to guess, and a
+    // guess that lost would rename the player on screen — the exact thing the
+    // skeleton was added to stop.
+    //
+    // The live fetch still runs and still overwrites this; it just no longer
+    // has anything waiting on it.
+    writeCachedProfile({
+      walletAddress: id,
+      username: generateAutoUsername(id),
+      xp: 0,
+      level: 1,
+      kills: 0,
+      isRegistered: true,
+    })
+
     return id
   } catch { return null }
 }

@@ -73,6 +73,13 @@ export function useContractPlayer(walletAddress: string | undefined) {
   const [playerProfile, setPlayerProfile] = useState<PlayerProfile | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Distinguishes "we have not looked yet" from "we looked and there is
+  // nothing". Without it the two are both `playerProfile === null`, and a
+  // consumer cannot tell whether to show a placeholder or commit to the
+  // anonymous fallback. Starts false on the server AND on the client's first
+  // render, which is what lets the hub render the same thing in both and
+  // hydrate cleanly.
+  const [profileSettled, setProfileSettled] = useState(false)
 
   // Fetch player profile from Firebase (username + live leaderboard stats).
   const fetchPlayerProfile = useCallback(async () => {
@@ -112,6 +119,11 @@ export function useContractPlayer(walletAddress: string | undefined) {
       setPlayerProfile((prev) => prev ?? readCachedProfile(walletAddress))
     } finally {
       setIsLoading(false)
+      // Settled on failure too — a fetch that errored has still answered the
+      // only question the UI is asking, which is whether to keep waiting.
+      // Leaving this false on the error path would strand the placeholder on
+      // screen forever.
+      setProfileSettled(true)
     }
   }, [walletAddress])
 
@@ -181,6 +193,7 @@ export function useContractPlayer(walletAddress: string | undefined) {
   return {
     playerProfile,
     isLoading,
+    profileSettled,
     error,
     fetchPlayerProfile,
     setPlayerUsername,

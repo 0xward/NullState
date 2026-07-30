@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAdminFirestore } from '@/firebase-config'
 import { walletAddressSchema } from '@/lib/validation'
+import { generateAutoUsername } from '@/lib/guestIdentity'
 
 // ─── Why this route exists ───────────────────────────────────────────────────
 // The world map's largest painted element is the player's own name, and until
@@ -39,12 +40,11 @@ function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
   ])
 }
 
-// Must match lib/usernameService.ts generateAutoUsername() exactly. A wallet
-// that gets one name from this route and a different one from the client would
-// see its name change under it.
-function autoUsername(walletAddress: string): string {
-  return `Player_${walletAddress.slice(-4).toUpperCase()}`
-}
+// This used to be a hand-synced copy of lib/usernameService.ts's version, under
+// a comment warning that the two must match or a wallet would see its name
+// change under it. It is now imported from lib/guestIdentity.ts, which both
+// sides share — the warning is enforced by there being one implementation
+// rather than by whoever edits next remembering to read it.
 
 export async function GET(req: NextRequest) {
   const parsed = walletAddressSchema.safeParse(new URL(req.url).searchParams.get('wallet') ?? '')
@@ -74,7 +74,7 @@ export async function GET(req: NextRequest) {
     let assigned = false
 
     if (!username) {
-      username = autoUsername(wallet)
+      username = generateAutoUsername(wallet)
       assigned = true
       // Best effort. If the write fails the player still gets a name for this
       // session and the client's own path will try again — better than making

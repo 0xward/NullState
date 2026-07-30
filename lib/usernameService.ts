@@ -10,6 +10,7 @@ import {
 } from 'firebase/firestore'
 import { db } from './firebase'
 import { usernameSchema, walletAddressSchema } from './validation'
+import { generateAutoUsername } from './guestIdentity'
 
 export interface UsernameRecord {
   walletAddress: string
@@ -40,12 +41,13 @@ export async function getUsername(walletAddress: string): Promise<string | null>
 
 /**
  * Generate auto-assigned username from wallet address
- * Format: Player_0x1234 (last 4 characters of wallet)
+ * Format: Player_1234 (last 4 characters of wallet, uppercased)
+ *
+ * The implementation moved to lib/guestIdentity.ts so the API route and the
+ * first-paint seed can share it instead of hand-syncing copies. Re-exported
+ * here because this is where callers already look for it.
  */
-export function generateAutoUsername(walletAddress: string): string {
-  const shortAddr = walletAddress.slice(-4).toUpperCase()
-  return `Player_${shortAddr}`
-}
+export { generateAutoUsername }
 
 /**
  * Set username for a wallet (create or update)

@@ -229,23 +229,30 @@
    string that has not arrived yet.
 
    Heights are 1em so each block fills its own line box exactly and the level
-   line underneath does not move either. The shimmer is the plate's own green
-   at low alpha rather than the usual grey, so it reads as part of this UI and
-   not as a broken image. prefers-reduced-motion keeps the block, drops the
-   animation. */
+   line underneath does not move either. The colour is the plate's own green at
+   low alpha rather than the usual grey, so it reads as part of this UI and not
+   as a broken image. prefers-reduced-motion keeps the block, drops the
+   animation.
+
+   The shimmer animates OPACITY, not background-position. The first version
+   slid a gradient with `background-position`, and PageSpeed flagged both spans
+   under "Avoid non-composited animations — Unsupported CSS Property:
+   background-position-x": that property cannot run on the compositor, so it
+   drove layout/paint work on the main thread during precisely the window this
+   change exists to protect. Opacity composites, so the pulse is free. */
 .ns-hub-name--skeleton,
 .ns-hub-lv--skeleton{
   border-radius:2px;
-  background:linear-gradient(90deg,rgba(57,255,154,.10) 0%,rgba(57,255,154,.22) 50%,rgba(57,255,154,.10) 100%);
-  background-size:200% 100%;
-  animation:ns-hub-skeleton 1.1s ease-in-out infinite;
+  background:rgba(57,255,154,.18);
+  animation:ns-hub-skeleton 1.2s ease-in-out infinite;
+  will-change:opacity;
 }
 .ns-hub-name--skeleton{ width:6.5em; height:1em; }
 .ns-hub-lv--skeleton{ width:4em; height:1em; margin-top:3px; }
 
 @keyframes ns-hub-skeleton{
-  from{ background-position:150% 0 }
-  to{ background-position:-50% 0 }
+  0%,100%{ opacity:.45 }
+  50%    { opacity:1 }
 }
 
 @media (prefers-reduced-motion: reduce){

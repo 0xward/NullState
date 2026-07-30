@@ -50,6 +50,8 @@ interface WorldMapHubProps {
   onSettings: () => void
   playerProfile: PlayerProfile | null
   isLoadingProfile: boolean
+  /** False until the first profile lookup has finished, win or lose. */
+  profileSettled: boolean
 }
 
 const MAP = '/worldmap/map-bg.webp'
@@ -142,10 +144,28 @@ function RailBtn({
 export default function WorldMapHub({
   onContinueGame, onNewGame, onLeaderboard, onRewards, onReferral,
   onMintPass, onMarketplace, onCrafting, onHowToPlay, onCharacter, onSettings,
-  playerProfile, isLoadingProfile,
+  playerProfile, isLoadingProfile, profileSettled,
 }: WorldMapHubProps) {
   const { realAddress, address } = useWallet()
   const hasSave = !!playerProfile?.isRegistered
+
+  // Show the placeholder while the name is genuinely unknown, and only then.
+  //
+  // Two earlier versions of this condition were both wrong, in opposite ways.
+  // `isLoadingProfile` alone hid the name from everyone who already had one —
+  // profileCache sets a returning player's profile and the refresh then runs
+  // behind it, so the loading flag is true at the exact moment the correct name
+  // is already in state. `isLoadingProfile && !playerProfile` never fired at
+  // all: this component is server-rendered, and on the first client render
+  // isLoading is still false, so the plate committed to "WALKER" before the
+  // effect had run and the skeleton was dead code.
+  //
+  // profileSettled is what actually answers the question. It is false on the
+  // server and false on the client's first render — so both render the same
+  // placeholder and hydration matches — and it flips once the lookup finishes,
+  // win or lose, so a failed fetch falls back to WALKER instead of leaving a
+  // shimmer on screen forever.
+  const nameUnknown = !playerProfile && !profileSettled
 
   // The avatar follows what the player has equipped, so the face on the map is
   // the character they'll actually walk into the bunker with.
@@ -369,12 +389,12 @@ export default function WorldMapHub({
               that identifies the player — it reads as the screen correcting
               itself. The skeleton holds the same box at the same size and
               stays quiet until there is something true to put in it. */}
-          {isLoadingProfile
+          {nameUnknown
             ? <span className="ns-hub-name ns-hub-name--skeleton" aria-label="Loading player name" />
             : <span className="ns-hub-name">{hasSave ? playerProfile!.username.toUpperCase() : 'WALKER'}</span>}
           {/* Same reasoning as the name: "NEW SIGNAL" flipping to "LV 3" a
               second later tells the player they were briefly someone else. */}
-          {isLoadingProfile
+          {nameUnknown
             ? <span className="ns-hub-lv ns-hub-lv--skeleton" aria-hidden="true" />
             : (
               <span className="ns-hub-lv">
