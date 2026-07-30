@@ -194,6 +194,19 @@ export default function GameFlowManager() {
     // it is written. recordHighestAct is never called here: raiding a bunker
     // you already beat unlocks nothing.
     const onRaidCleared = () => {
+      // The stash is consumed FIRST, and unconditionally.
+      //
+      // It used to be taken inside the `if (raw)` below, which meant that any
+      // path where the engine had no snapshot to give — it never mounted, it
+      // was already torn down, getSaveSnapshot threw — left the stash on disk.
+      // A leaked stash is not inert: the NEXT raid to finish would read it and
+      // restore a campaign position from two raids ago. Caught by the
+      // end-to-end test, which traced one write of the key and no removal.
+      //
+      // Discarding it when there is nothing to write is the right outcome
+      // anyway: no snapshot means the saved draft was never overwritten, so it
+      // still holds the campaign position the stash was insurance for.
+      const resume = address ? takeCampaignResume(address) : null
       try {
         const NSG = (window as { NullStateGame?: { getSaveSnapshot?: () => unknown } }).NullStateGame
         const raw = NSG?.getSaveSnapshot?.() as Parameters<typeof saveGameSession>[1] | undefined
@@ -202,7 +215,6 @@ export default function GameFlowManager() {
           // and all — while keeping everything the raid earned. Falls back to
           // the high-water mark on floor 1 if there was no campaign run to
           // preserve (a player who had already cleared everything).
-          const resume = takeCampaignResume(address)
           const snap = {
             ...raw,
             campaignActIndex: resume ? resume.campaignActIndex : readHighestAct(address),
