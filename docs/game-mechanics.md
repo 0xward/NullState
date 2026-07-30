@@ -105,7 +105,7 @@ Three objectives every day, reset at **00:00 UTC**. Everyone gets the same
 three, so you can compare with a friend.
 
 They pay **Glitch Shards** and **NullState Point** the moment you finish them —
-no claim button, no screen to visit. Typical asks: put down 40 enemies, secure
+no claim button, no screen to visit. Typical asks: put down 30 enemies, secure
 3 floors, crack 5 lockable containers, burn 8 items.
 
 One good session usually clears two of the three. The third is what tomorrow is
