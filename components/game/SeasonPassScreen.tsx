@@ -128,11 +128,11 @@ export default function SeasonPassScreen({ onBack, address }: SeasonPassScreenPr
   )
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-[rgba(0,0,0,0.95)] p-4 sm:p-6 overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex flex-col bg-[rgba(10,7,4,0.97)] p-4 sm:p-6 overflow-y-auto">
       <div
         className="absolute pointer-events-none inset-0"
         style={{
-          background: 'radial-gradient(circle at 50% 30%, rgba(0,255,136,0.08) 0%, transparent 60%)',
+          background: 'radial-gradient(circle at 50% 30%, rgba(232,189,111,0.07) 0%, transparent 60%)',
         }}
       />
 
@@ -140,11 +140,11 @@ export default function SeasonPassScreen({ onBack, address }: SeasonPassScreenPr
         {/* Header */}
         <div className="flex items-center justify-between mb-6 sm:mb-8 gap-3">
           <div className="min-w-0">
-            <div className="font-mono text-[9px] sm:text-[10px] tracking-[4px] sm:tracking-[6px] text-null-acid uppercase mb-1 sm:mb-2">
+            <div className="font-mono text-[9px] sm:text-[10px] tracking-[4px] sm:tracking-[6px] text-[#c39a5f] uppercase mb-1 sm:mb-2">
               // SOULBOUND ACCESS TOKEN
             </div>
             <h2
-              className="font-display font-black text-null-white leading-none"
+              className="font-display font-black text-[#f2cd82] leading-none"
               style={{ fontSize: 'clamp(28px, 8vw, 48px)' }}
             >
               SEASON PASS
@@ -153,14 +153,14 @@ export default function SeasonPassScreen({ onBack, address }: SeasonPassScreenPr
 
           <button
             onClick={onBack}
-            className="shrink-0 inline-flex items-center justify-center min-h-11 font-mono text-[10px] sm:text-xs tracking-[1px] sm:tracking-[2px] uppercase text-null-green border border-[rgba(0,255,136,0.4)] px-3 sm:px-4 py-2 transition-all duration-200 hover:border-null-green hover:bg-[rgba(0,255,136,0.05)]"
+            className="shrink-0 inline-flex items-center justify-center min-h-11 font-mono text-[10px] sm:text-xs tracking-[1px] sm:tracking-[2px] uppercase text-[#c39a5f] border border-[#7a4f24] px-3 sm:px-4 py-2 transition-all duration-200 hover:border-[#8a5a2b] hover:bg-[#7a4f24]/20"
             style={{ clipPath: 'polygon(4px 0, 100% 0, calc(100% - 4px) 100%, 0 100%)' }}
           >
             ✕ CLOSE
           </button>
         </div>
 
-        <p className="text-null-muted font-mono text-xs sm:text-sm mb-6 max-w-lg">
+        <p className="text-[#9c7a4f] font-mono text-xs sm:text-sm mb-6 max-w-lg">
           Mint your monthly pass to unlock season perks. Swipe to preview upcoming seasons — only
           the current month can be minted.
         </p>
@@ -169,7 +169,7 @@ export default function SeasonPassScreen({ onBack, address }: SeasonPassScreenPr
             no interaction, so a connect prompt is only ever shown to someone it
             cannot help. Naming MiniPay is the actionable step. */}
         {!address && (
-          <div className="mb-6 rounded border border-[rgba(255,190,11,0.35)] bg-[rgba(255,190,11,0.08)] p-3 text-sm text-null-amber font-mono">
+          <div className="mb-6 rounded border border-[#e8bd6f]/40 bg-[#e8bd6f]/10 p-3 text-sm text-[#f2cd82] font-mono">
             Open NullState in MiniPay to mint a pass.
           </div>
         )}
@@ -182,7 +182,7 @@ export default function SeasonPassScreen({ onBack, address }: SeasonPassScreenPr
                 href={passSBT.addCashUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mt-2 inline-block text-null-amber underline underline-offset-2"
+                className="mt-2 inline-block text-[#f2cd82] underline underline-offset-2"
               >
                 Deposit in MiniPay →
               </a>
@@ -191,7 +191,7 @@ export default function SeasonPassScreen({ onBack, address }: SeasonPassScreenPr
         )}
 
         {mintSuccess && (
-          <div className="mb-4 rounded border border-[rgba(0,255,136,0.35)] bg-[rgba(0,255,136,0.08)] p-3 text-xs text-null-green font-mono">
+          <div className="mb-4 rounded border border-[rgba(0,255,136,0.35)] bg-[rgba(0,255,136,0.08)] p-3 text-xs text-[#f2cd82] font-mono">
             {mintSuccess}
           </div>
         )}
@@ -230,19 +230,19 @@ export default function SeasonPassScreen({ onBack, address }: SeasonPassScreenPr
             FREE path stated alongside, plus once-per-day claim buttons for the
             two economy perks (holders only). All perks are cosmetic or modest
             convenience — the HP-100 cap and combat balance are untouched. */}
-        <div className="mt-8 border border-[rgba(0,255,136,0.25)] bg-[rgba(0,255,136,0.03)] rounded-md p-4 sm:p-5">
-          <div className="font-mono text-[9px] sm:text-[10px] tracking-[3px] uppercase text-null-acid mb-3">
+        <div className="mt-8 border border-[#7a4f24]/60 bg-gradient-to-b from-[#2b1a0d] to-[#1a0f06] rounded-md p-4 sm:p-5">
+          <div className="font-mono text-[9px] sm:text-[10px] tracking-[3px] uppercase text-[#c39a5f] mb-3">
             // PASS PERKS
           </div>
 
-          <ul className="font-mono text-xs text-null-white/85 space-y-2 mb-4">
-            <li>◆ <span className="text-null-green">NullState Warden skin</span> — exclusive acid-green cosmetic (no stats). Equip it in the in-game Gear tab.</li>
-            <li>◆ <span className="text-null-green">Holder emblem</span> — a ◆ PASS badge on your profile and in-game HUD.</li>
-            <li>◆ <span className="text-null-green">+{perks?.energy.amount ?? 1} energy run / day</span> — on top of the free 5/day everyone gets.</li>
-            <li>◆ <span className="text-null-green">Daily Glitch Shards</span> — a small crafting stipend (shards are also earned free by playing).</li>
+          <ul className="font-mono text-xs text-[#f0dcb8]/85 space-y-2 mb-4">
+            <li>◆ <span className="text-[#f2cd82]">NullState Warden skin</span> — exclusive acid-green cosmetic (no stats). Equip it in the in-game Gear tab.</li>
+            <li>◆ <span className="text-[#f2cd82]">Holder emblem</span> — a ◆ PASS badge on your profile and in-game HUD.</li>
+            <li>◆ <span className="text-[#f2cd82]">+{perks?.energy.amount ?? 1} energy run / day</span> — on top of the free 5/day everyone gets.</li>
+            <li>◆ <span className="text-[#f2cd82]">Daily Glitch Shards</span> — a small crafting stipend (shards are also earned free by playing).</li>
           </ul>
 
-          <p className="font-mono text-[10px] text-null-muted mb-4">
+          <p className="font-mono text-[10px] text-[#9c7a4f] mb-4">
             Free to play: everyone keeps 5 energy runs a day and earns shards in-run — the pass only adds a little on top, never a power advantage (HP stays capped at 100).
           </p>
 
@@ -251,8 +251,8 @@ export default function SeasonPassScreen({ onBack, address }: SeasonPassScreenPr
               className={
                 'mb-3 rounded border p-2 text-[11px] font-mono ' +
                 (perkMsg.kind === 'ok'
-                  ? 'border-[rgba(0,255,136,0.35)] bg-[rgba(0,255,136,0.08)] text-null-green'
-                  : 'border-[rgba(255,190,11,0.35)] bg-[rgba(255,190,11,0.08)] text-null-amber')
+                  ? 'border-[rgba(0,255,136,0.35)] bg-[rgba(0,255,136,0.08)] text-[#f2cd82]'
+                  : 'border-[#e8bd6f]/40 bg-[#e8bd6f]/10 text-[#f2cd82]')
               }
             >
               {perkMsg.text}
@@ -260,9 +260,9 @@ export default function SeasonPassScreen({ onBack, address }: SeasonPassScreenPr
           )}
 
           {!address ? (
-            <div className="font-mono text-[11px] text-null-muted">Open NullState in MiniPay to claim daily perks.</div>
+            <div className="font-mono text-[11px] text-[#9c7a4f]">Open NullState in MiniPay to claim daily perks.</div>
           ) : !perks?.hasPass ? (
-            <div className="font-mono text-[11px] text-null-muted">Mint the active-season pass to unlock daily claims.</div>
+            <div className="font-mono text-[11px] text-[#9c7a4f]">Mint the active-season pass to unlock daily claims.</div>
           ) : (
             <div className="flex flex-col sm:flex-row gap-2">
               {/* .ns-cta with the is-done state (styles/game.css). Claimed and
@@ -303,7 +303,7 @@ export default function SeasonPassScreen({ onBack, address }: SeasonPassScreenPr
             </div>
           )}
           {perks?.hasPass && (perks.energy.claimedToday || perks.shards.claimedToday) && (
-            <div className="mt-2 font-mono text-[9px] text-null-muted">
+            <div className="mt-2 font-mono text-[9px] text-[#9c7a4f]">
               Daily perks reset at 00:00 UTC.
             </div>
           )}

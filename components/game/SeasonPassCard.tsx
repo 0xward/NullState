@@ -67,7 +67,7 @@ export default function SeasonPassCard({
 
     return (
       <div
-        className="shrink-0 w-[78%] sm:w-[300px] snap-center border border-[rgba(0,255,136,0.15)] bg-[rgba(0,0,0,0.4)] rounded-md overflow-hidden"
+        className="shrink-0 w-[78%] sm:w-[300px] snap-center border border-[#7a4f24]/45 bg-[rgba(26,15,6,0.6)] rounded-md overflow-hidden"
         style={cardStyle}
       >
         <div className="relative aspect-square w-full">
@@ -80,19 +80,19 @@ export default function SeasonPassCard({
             style={{ filter: 'blur(6px) brightness(0.4)' }}
           />
           <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-            <GiPadlock aria-hidden className="text-4xl text-null-muted" />
+            <GiPadlock aria-hidden className="text-4xl text-[#9c7a4f]" />
           </div>
         </div>
         <div className="p-3 font-mono">
-          <div className="text-null-muted text-[10px] uppercase tracking-[2px] mb-1">
+          <div className="text-[#9c7a4f] text-[10px] uppercase tracking-[2px] mb-1">
             Season {seasonNumber}
           </div>
-          <div className="text-null-white/70 text-xs mb-3">
+          <div className="text-[#f0dcb8]/70 text-xs mb-3">
             {notAnnounced ? 'Not announced yet' : 'Not started yet'}
           </div>
           <button
             disabled
-            className="w-full font-mono text-[10px] tracking-[1px] uppercase text-null-muted border border-[rgba(42,74,53,0.6)] py-2 cursor-not-allowed"
+            className="w-full font-mono text-[10px] tracking-[1px] uppercase text-[#9c7a4f] border border-[#7a4f24]/50 py-2 cursor-not-allowed"
             style={{ clipPath: 'polygon(4px 0, 100% 0, calc(100% - 4px) 100%, 0 100%)' }}
           >
             Coming — Season {seasonNumber}
@@ -149,7 +149,7 @@ export default function SeasonPassCard({
 
   return (
     <div
-      className="shrink-0 w-[86%] sm:w-[320px] snap-center border border-[rgba(0,255,136,0.4)] bg-[rgba(0,255,136,0.03)] rounded-md overflow-hidden"
+      className="shrink-0 w-[86%] sm:w-[320px] snap-center border border-[#7a4f24] bg-gradient-to-b from-[#2b1a0d] to-[#1a0f06] rounded-md overflow-hidden"
       style={cardStyle}
     >
       <div className="relative aspect-square w-full">
@@ -160,25 +160,25 @@ export default function SeasonPassCard({
           sizes="(max-width: 640px) 86vw, 320px"
           className="object-cover"
         />
-        <div className="absolute top-2 left-2 font-mono text-[10px] tracking-[2px] uppercase bg-black/70 text-null-green px-2 py-1 border border-[rgba(0,255,136,0.4)]">
+        <div className="absolute top-2 left-2 font-mono text-[10px] tracking-[2px] uppercase bg-black/70 text-[#7ef0a6] px-2 py-1 border border-[#4ade80]/60">
           ● ACTIVE
         </div>
       </div>
 
       <div className="p-3.5 font-mono">
-        <div className="text-null-acid text-sm font-bold uppercase tracking-[1px] mb-2">
+        <div className="text-[#f2cd82] text-sm font-bold uppercase tracking-[1px] mb-2">
           Season {seasonNumber}
         </div>
 
         <div className="flex items-center justify-between text-[11px] mb-1">
-          <span className="text-null-muted uppercase tracking-[1px]">Minted</span>
-          <span className="text-null-white">
+          <span className="text-[#9c7a4f] uppercase tracking-[1px]">Minted</span>
+          <span className="text-[#f0dcb8]">
             {info ? `${minted.toString()}/${supply.toString()}` : '—'}
           </span>
         </div>
         <div className="flex items-center justify-between text-[11px] mb-3">
-          <span className="text-null-muted uppercase tracking-[1px]">Status</span>
-          <span className="text-null-amber">{statusLine}</span>
+          <span className="text-[#9c7a4f] uppercase tracking-[1px]">Status</span>
+          <span className="text-[#f2cd82]">{statusLine}</span>
         </div>
 
         {/* .ns-cta (styles/game.css): filled slab, 13px bold, 44px floor.
@@ -202,7 +202,7 @@ export default function SeasonPassCard({
           )}
         </button>
         {!hasPass && mintPhase === 'idle' && (
-          <div className="mt-2 text-null-muted text-[9px] tracking-[1px] uppercase text-center">
+          <div className="mt-2 text-[#9c7a4f] text-[9px] tracking-[1px] uppercase text-center">
             Paid in your MiniPay stablecoin
           </div>
         )}

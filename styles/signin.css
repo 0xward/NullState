@@ -162,34 +162,35 @@
    Lives here rather than in settings.css because both Settings surfaces render
    it and only one of them owns that stylesheet — and because it is the same
    concern as the screen above, reached from the same button. Deliberately
-   token-only: it inherits whatever palette the surrounding Settings panel
-   sets, so restyling Settings does not require touching this. */
+   warm: it sits inside Settings, and Settings now follows the Shop's palette.
+   The first version hardcoded the map's greens and stood out as the one teal
+   block on a brown panel — the exact mismatch this restyle exists to remove. */
 .ns-acct-label{
   margin:0 0 6px;
   font-family:var(--font-mono),monospace; font-size:10px; letter-spacing:2px;
-  text-transform:uppercase; color:#5f8d78;
+  text-transform:uppercase; color:#9c7a4f;
 }
 .ns-acct-value{
   margin:0; font-family:var(--font-mono),monospace; font-size:11px;
-  color:#cfe9dc; word-break:break-all;
+  color:#f0dcb8; word-break:break-all;
 }
 .ns-acct-hint{
   margin:4px 0 0; font-family:var(--font-mono),monospace; font-size:9px;
-  line-height:1.6; color:#4e6b5e;
+  line-height:1.6; color:#9c7a4f;
 }
 .ns-acct-btn{
   margin-top:10px; width:100%; min-height:38px; padding:9px 14px;
   font-family:var(--font-mono),monospace; font-size:11px; letter-spacing:1px;
   text-transform:uppercase; font-weight:700;
-  color:var(--null-bg); background:var(--null-green);
-  border:1px solid var(--null-green);
+  color:#2a1705; background:#e8bd6f;
+  border:1px solid #e8bd6f;
   clip-path:polygon(7px 0,100% 0,calc(100% - 7px) 100%,0 100%);
 }
-.ns-acct-btn:hover:not(:disabled){ background:var(--null-acid); border-color:var(--null-acid) }
+.ns-acct-btn:hover:not(:disabled){ background:#f2cd82; border-color:#f2cd82 }
 .ns-acct-btn:disabled{ opacity:.5; cursor:not-allowed }
 
 /* Sign-out is not the action being recommended, so it does not look like it. */
 .ns-acct-btn.is-quiet{
-  color:#cfe9dc; background:transparent; border-color:rgba(0,255,136,.3); font-weight:400;
+  color:#c39a5f; background:transparent; border-color:#7a4f24; font-weight:400;
 }
-.ns-acct-btn.is-quiet:hover:not(:disabled){ background:rgba(0,255,136,.08); border-color:rgba(0,255,136,.55) }
+.ns-acct-btn.is-quiet:hover:not(:disabled){ background:rgba(122,79,36,.25); border-color:#8a5a2b }

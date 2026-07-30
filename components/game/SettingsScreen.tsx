@@ -31,8 +31,8 @@ function Toggle({ on, onClick, label, hint }: { on: boolean; onClick: () => void
   return (
     <div className="flex items-center justify-between gap-3 py-2.5">
       <span className="min-w-0">
-        <span className="block font-mono text-[12px]" style={{ color: '#e8fff4' }}>{label}</span>
-        {hint && <span className="block font-mono text-[9px] leading-relaxed" style={{ color: '#4e6b5e' }}>{hint}</span>}
+        <span className="block font-mono text-[12px]" style={{ color: '#f0dcb8' }}>{label}</span>
+        {hint && <span className="block font-mono text-[9px] leading-relaxed" style={{ color: '#9c7a4f' }}>{hint}</span>}
       </span>
       <button
         onClick={onClick}
@@ -42,8 +42,8 @@ function Toggle({ on, onClick, label, hint }: { on: boolean; onClick: () => void
         className="relative flex-shrink-0"
         style={{
           width: 52, height: 30, minHeight: 30, padding: 0, cursor: 'pointer',
-          background: on ? '#14b869' : 'rgba(255,255,255,.12)',
-          border: `2px solid ${on ? '#39ff9a' : 'rgba(255,255,255,.18)'}`,
+          background: on ? '#8a5a2b' : 'rgba(255,255,255,.12)',
+          border: `2px solid ${on ? '#e8bd6f' : 'rgba(255,255,255,.18)'}`,
           clipPath: 'polygon(7px 0,100% 0,100% calc(100% - 7px),calc(100% - 7px) 100%,0 100%,0 7px)',
           transition: 'background-color .15s ease',
         }}
@@ -52,7 +52,7 @@ function Toggle({ on, onClick, label, hint }: { on: boolean; onClick: () => void
           aria-hidden="true"
           style={{
             position: 'absolute', top: 3, left: 3, width: 18, height: 18,
-            background: on ? '#04140c' : '#8ea89d',
+            background: on ? '#2a1705' : '#c39a5f',
             transform: on ? 'translateX(22px)' : 'translateX(0)',
             transition: 'transform .15s ease',
           }}
@@ -95,32 +95,32 @@ export default function SettingsScreen({ onBack, playerProfile, setPlayerUsernam
 
   const linkStyle: React.CSSProperties = {
     minHeight: 44, padding: '0 10px', fontSize: 10, letterSpacing: '2px',
-    color: '#8ea89d', display: 'inline-flex', alignItems: 'center', textDecoration: 'none',
+    color: '#c39a5f', display: 'inline-flex', alignItems: 'center', textDecoration: 'none',
   }
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto" style={{ background: 'rgba(5,10,8,.975)' }}>
+    <div className="fixed inset-0 z-50 overflow-y-auto" style={{ background: 'rgba(10,7,4,.97)' }}>
       <div className="mx-auto w-full max-w-lg p-4 pb-16">
 
-        <header className="mb-5 flex items-center justify-between border-b pb-3" style={{ borderColor: 'rgba(57,255,154,.22)' }}>
+        <header className="mb-5 flex items-center justify-between border-b pb-3" style={{ borderColor: 'rgba(122,79,36,.55)' }}>
           <div>
-            <p className="font-mono text-[10px] uppercase tracking-[4px]" style={{ color: '#4e8f74' }}>{'// NullState'}</p>
-            <h1 className="font-mono text-2xl font-bold" style={{ color: '#8ef5bd' }}>SETTINGS</h1>
+            <p className="font-mono text-[10px] uppercase tracking-[4px]" style={{ color: '#c39a5f' }}>{'// NullState'}</p>
+            <h1 className="font-mono text-2xl font-bold" style={{ color: '#f2cd82' }}>SETTINGS</h1>
           </div>
           <button
             onClick={onBack}
             className="rounded border px-3 py-2 font-mono text-xs uppercase tracking-wider"
-            style={{ minHeight: 44, borderColor: '#2f6b50', color: '#8ea89d' }}
+            style={{ minHeight: 44, borderColor: '#7a4f24', color: '#c39a5f' }}
           >
             ◂ Map
           </button>
         </header>
 
         {/* ── Audio & feel ── */}
-        <section className="mb-5 rounded-lg border p-3" style={{ borderColor: 'rgba(57,255,154,.18)', background: 'rgba(10,24,18,.6)' }}>
-          <p className="mb-1 font-mono text-[10px] uppercase tracking-[2px]" style={{ color: '#5f8d78' }}>Sound &amp; feel</p>
+        <section className="mb-5 rounded-lg border p-3" style={{ borderColor: 'rgba(122,79,36,.5)', background: 'rgba(43,26,13,.55)' }}>
+          <p className="mb-1 font-mono text-[10px] uppercase tracking-[2px]" style={{ color: '#9c7a4f' }}>Sound &amp; feel</p>
           {!s ? (
-            <p className="py-4 font-mono text-[11px] animate-pulse" style={{ color: '#5f8d78' }}>loading…</p>
+            <p className="py-4 font-mono text-[11px] animate-pulse" style={{ color: '#9c7a4f' }}>loading…</p>
           ) : (
             <>
               <Toggle
@@ -130,8 +130,8 @@ export default function SettingsScreen({ onBack, playerProfile, setPlayerUsernam
               />
               <div className="py-2.5" style={{ opacity: s.soundMuted ? 0.4 : 1 }}>
                 <div className="flex items-center justify-between">
-                  <span className="font-mono text-[12px]" style={{ color: '#e8fff4' }}>Music volume</span>
-                  <span className="font-mono text-[11px] font-bold" style={{ color: '#39ff9a' }}>{Math.round(s.musicVolume * 100)}%</span>
+                  <span className="font-mono text-[12px]" style={{ color: '#f0dcb8' }}>Music volume</span>
+                  <span className="font-mono text-[11px] font-bold" style={{ color: '#e8bd6f' }}>{Math.round(s.musicVolume * 100)}%</span>
                 </div>
                 <input
                   type="range" min={0} max={1} step={0.05}
@@ -140,7 +140,7 @@ export default function SettingsScreen({ onBack, playerProfile, setPlayerUsernam
                   onChange={e => onVolume(Number(e.target.value))}
                   aria-label="Music volume"
                   className="mt-2 w-full"
-                  style={{ accentColor: '#39ff9a', touchAction: 'pan-x' }}
+                  style={{ accentColor: '#e8bd6f', touchAction: 'pan-x' }}
                 />
               </div>
               {/* Dimmed while the master switch is off, because effects cannot
@@ -159,7 +159,7 @@ export default function SettingsScreen({ onBack, playerProfile, setPlayerUsernam
                 onClick={() => setS(saveGameSettings({ screenShakeEnabled: !s.screenShakeEnabled }))}
                 hint="Turn off if the camera movement bothers you"
               />
-              <p className="mt-2 font-mono text-[9px] leading-relaxed" style={{ color: '#4e6b5e' }}>
+              <p className="mt-2 font-mono text-[9px] leading-relaxed" style={{ color: '#9c7a4f' }}>
                 Saved on this device and used by every run from now on.
               </p>
             </>
@@ -167,8 +167,8 @@ export default function SettingsScreen({ onBack, playerProfile, setPlayerUsernam
         </section>
 
         {/* ── Name ── */}
-        <section className="mb-5 rounded-lg border p-3" style={{ borderColor: 'rgba(255,255,255,.1)', background: 'rgba(10,24,18,.5)' }}>
-          <p className="mb-2 font-mono text-[10px] uppercase tracking-[2px]" style={{ color: '#5f8d78' }}>Your name</p>
+        <section className="mb-5 rounded-lg border p-3" style={{ borderColor: 'rgba(255,255,255,.1)', background: 'rgba(43,26,13,.5)' }}>
+          <p className="mb-2 font-mono text-[10px] uppercase tracking-[2px]" style={{ color: '#9c7a4f' }}>Your name</p>
           <div className="flex gap-2">
             <input
               value={name}
@@ -176,23 +176,23 @@ export default function SettingsScreen({ onBack, playerProfile, setPlayerUsernam
               maxLength={24}
               aria-label="Your name"
               className="min-w-0 flex-1 px-3 font-mono text-[13px]"
-              style={{ minHeight: 44, background: 'rgba(0,0,0,.4)', border: '1px solid #2f6b50', color: '#e8fff4' }}
+              style={{ minHeight: 44, background: 'rgba(0,0,0,.4)', border: '1px solid #7a4f24', color: '#f0dcb8' }}
             />
             <button
               onClick={submitName}
               disabled={nameState === 'saving' || !name.trim() || name.trim() === playerProfile?.username}
               className="font-mono text-[11px] font-bold uppercase tracking-[2px] disabled:opacity-40"
-              style={{ minHeight: 44, padding: '0 16px', color: '#04140c', background: '#39ff9a', border: '2px solid #0a3d24' }}
+              style={{ minHeight: 44, padding: '0 16px', color: '#2a1705', background: '#e8bd6f', border: '2px solid #0a3d24' }}
             >
               {nameState === 'saving' ? '…' : 'Save'}
             </button>
           </div>
-          {nameState === 'saved' && <p className="mt-2 font-mono text-[10px]" style={{ color: '#39ff9a' }}>✓ Saved</p>}
+          {nameState === 'saved' && <p className="mt-2 font-mono text-[10px]" style={{ color: '#e8bd6f' }}>✓ Saved</p>}
           {nameState === 'error' && <p className="mt-2 font-mono text-[10px]" style={{ color: '#ff8a6a' }}>{nameError}</p>}
         </section>
 
         {/* ── Account + the links MiniPay requires ── */}
-        <section className="rounded-lg border p-3" style={{ borderColor: 'rgba(255,255,255,.1)', background: 'rgba(10,24,18,.5)' }}>
+        <section className="rounded-lg border p-3" style={{ borderColor: 'rgba(255,255,255,.1)', background: 'rgba(43,26,13,.5)' }}>
           <AccountPanel />
           <div className="mt-3 flex flex-wrap items-center justify-center gap-1 border-t pt-2" style={{ borderColor: 'rgba(255,255,255,.08)' }}>
             <a href="https://t.me/nullstate_id" rel="noopener noreferrer" className="font-mono uppercase" style={linkStyle}>Support</a>
