@@ -12,17 +12,26 @@
 // exists, so the whole feature costs the operator nothing.
 //
 // ── ON TRUST ────────────────────────────────────────────────────────────────
-// Container progress is credited server-side, off the same call that awards a
-// vault fragment, so it cannot be inflated from the client.
+// TWO of the four metrics are credited server-side, off requests the server was
+// already handling, so they cannot be inflated from the client:
 //
-// Kills, floors and burns cannot be: the server has no view of combat, so the
-// client reports them. That is a real limitation and worth naming rather than
-// dressing up. It is bounded three ways — a hard cap on the amount any single
-// request may claim, a per-day ceiling that is the contract's own target, and
-// the fact that the rewards are Glitch Shards and NullState Point, both of
-// which are off-chain, non-withdrawable, and already client-authoritative
-// everywhere else in this game (the burn route takes the client's word for
-// which items were destroyed). Nothing here touches USDT.
+//   containers -> /api/vault/fragments, off the same POST that awards the
+//                 fragment (one per container, first open only)
+//   burns      -> /api/burn/record, off the quantity that route has already
+//                 validated
+//
+// (This paragraph used to claim the container credit and was wrong: the engine
+// was posting the count itself. Fixing the burn path — the owner burned from
+// the Rewards screen, which never runs the engine, and nothing moved — was what
+// surfaced it, since both are the same mistake.)
+//
+// Kills and floors cannot be: the server has no view of combat, so the client
+// reports them. That is a real limitation and worth naming rather than dressing
+// up. It is bounded three ways — a hard cap on the amount any single request
+// may claim, a per-day ceiling that is the contract's own target, and the fact
+// that the rewards are Glitch Shards and NullState Point, both of which are
+// off-chain, non-withdrawable, and already client-authoritative everywhere else
+// in this game. Nothing here touches USDT.
 
 import { getAdminDb } from '@/firebase-config'
 import { getCurrentDayIdString, getNextUtcMidnightMs } from '@/lib/vault-utils'

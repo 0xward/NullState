@@ -510,6 +510,104 @@ content and are placed inside rooms.
 > probed the body's left and right edges too, so it kept "finding nothing to
 > remove" on 2 floors in 100.
 
+### 7c-2. The same bug, one level in: props sealing the *side rooms*
+
+**`[TODAY]`.** After 7c shipped, the owner played again: *"masih banyak yang
+menghalangi jalan, taruh nya yg betul jangan dekat lorong untuk barang yang
+tidak bisa di pecahkan."*
+
+Correct, and the distinction they drew is the one that matters. `props.js`
+`hit()` refuses damage to anything `ambient` or `interactive`, so:
+
+- a **barrel** in a doorway costs a moment — you smash it;
+- a **cabinet or scenery crate** in the same doorway is a wall.
+
+7c only guaranteed *spawn → lift*. A prop could still seal a side room
+entirely, and side rooms are where the lockable containers live — which is to
+say, where the weekly reward comes from. So the guarantee is now two:
+
+| | Guarantee |
+|---|---|
+| **A** | With every **unbreakable** prop in place, each room the walls allow, the lift, and **every lockable container** must still be reachable. |
+| **B** | With **everything** in place, the lift must still be reachable. Breakables may narrow a path; they may not seal the run. |
+
+Removal is minimal and targeted: flood a second region outward from whatever is
+stranded, then remove only the props standing on **both** frontiers — the ones
+literally in the doorway between the two. Intersecting at the *prop* level
+rather than the cell level matters, because a wide cabinet blocks three lattice
+cells in a row and each side may touch only one of them.
+
+**0 in 150** for sealed rooms, sealed containers, and unreachable lifts.
+
+> **The mistake this nearly shipped, and the measurement that caught it.** The
+> first version of guarantee A compared the reachable *cell count* against the
+> walls-only count and deleted whatever sat on the frontier. But a prop standing
+> in an open room always costs a few cells simply by occupying them — so that
+> rule condemned every prop on the floor. `npm run measure:bunker` put lockable
+> containers per bunker at **1.4, down from 7.5**: it would have quietly emptied
+> the Vault Fragment economy while every traversability check reported success.
+> Connectivity, not area, is the right question. Both numbers are re-measurable;
+> neither was guessed.
+
+---
+
+## 7d. Fixed: the inventory grew a new fragment bar on every render
+
+**`[TODAY]`.** From the same session, with screenshots: the stash filled with
+dozens of identical `FRAGMENTS → OLD PAPER` bars, so burning an item meant
+scrolling past all of them — *"sampe2 aku harus scroll hanya untuk burn item di
+dalam game"*.
+
+`renderStashPanel()` does not empty its host. It removes children by an
+**explicit list of class names** and rebuilds those. The fragment bar (§5.1)
+shipped with a class that was never added to that list, so each of the sixteen
+call sites appended one more and nothing ever removed them. Reproduced exactly:
+**17 renders → 17 bars.**
+
+One line fixes it. `npm run test:inventory` drives the real panel through 17
+renders and fails on the pre-fix engine, so it is a regression test rather than
+a description of the fix.
+
+> **The rule this leaves behind, written in the code:** anything added to that
+> panel must be named in its removal list. A panel that clears itself by
+> enumeration will silently accumulate whatever it was not told about.
+
+The owner also asked whether burning should move out of the inventory entirely
+— *"atau ga buat menu terpisah saja di dibawah volume???"*. Open question, not
+a bug: the scrolling was this defect, not the layout. Worth revisiting on its
+own merits once the panel is behaving.
+
+---
+
+## 7e. Fixed: burning on the Rewards screen did not count toward contracts
+
+**`[TODAY]`.** *"kenapa burn items di menu rewards tidak terhitung juga ke
+daily????"* — because there are **two** ways to burn and only one of them is
+the engine. The in-run inventory dispatches `nullstate-items-burned`; the
+out-of-game Rewards screen posts to `/api/burn/record` directly and never runs
+`game.js`. The contract was credited from the engine, so it saw only the first.
+
+Both paths already pass through `/api/burn/record`, so the credit moved there —
+one call site that sees every burn, using a quantity the route has already
+validated, which makes it *harder* to inflate than the client report it
+replaced.
+
+Auditing that turned up the same mistake next door: `dailyContracts.ts` claimed
+container progress was credited server-side, and it was not — the engine was
+posting the count. It now rides on `/api/vault/fragments`, off the same POST
+that awards the fragment (one request per container, first open only).
+
+| Metric | Credited by | Client-authoritative? |
+|---|---|---|
+| `containers` | `/api/vault/fragments` | no |
+| `burns` | `/api/burn/record` | no |
+| `kills` | engine → `/api/contracts` | yes — the server has no view of combat |
+| `floors` | engine → `/api/contracts` | yes — same |
+
+Completion is still announced on every path: the two server-side routes return
+the contract state, the engine logs it through one shared `announceContracts()`,
+and the Rewards screen appends it to the burn confirmation it already shows.
+
 ---
 
 ## 8. Known bug: Save & Exit regenerates floors

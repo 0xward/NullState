@@ -65,20 +65,38 @@ const { chromium } = require('playwright-core'); const fs=require('fs'), path=re
       if(!g||!g.dun){ out.push({err:1}); continue }
       if(window.__STRIP_DECOR) g.decor.length = 0
       const d=g.dun, R=g.player.r||10
-      // Walk the floor on a half-tile lattice. A cell is standable if neither
-      // the tile grid nor a solid decor footprint blocks the player's body.
-      const solid=(x,y)=> d.isWall(x,y) || d.isWall(x+R,y) || d.isWall(x-R,y) || d.isWall(x,y+R) || d.isWall(x,y-R)
-                       || window.NS_solidDecorAt(x,y) || window.NS_solidDecorAt(x+R,y) || window.NS_solidDecorAt(x-R,y)
       const S=TILE/2, W=Math.ceil(d.pxW/S), H=Math.ceil(d.pxH/S)
       const key=(a,c)=>a+','+c
-      const start=[Math.round(g.player.x/S), Math.round(g.player.y/S)]
-      const seen=new Set([key(...start)]), q=[start]
-      while(q.length){ const [a,c]=q.pop()
-        for(const [da,dc] of [[1,0],[-1,0],[0,1],[0,-1]]){
-          const na=a+da, nc=c+dc; if(na<0||nc<0||na>W||nc>H) continue
-          const k=key(na,nc); if(seen.has(k)) continue
-          if(solid(na*S, nc*S)) continue
-          seen.add(k); q.push([na,nc]) } }
+      // Flood fill with a chosen decor list. Passing [] gives the region the
+      // WALLS alone allow, which is the yardstick everything else is measured
+      // against.
+      const fill=(list)=>{
+        const blocked=(x,y)=> d.isWall(x,y)||d.isWall(x+R,y)||d.isWall(x-R,y)||d.isWall(x,y+R)||d.isWall(x,y-R)
+          || list.some(o=>window.NS_decorBlocksPoint(o,x,y)||window.NS_decorBlocksPoint(o,x+R,y)||window.NS_decorBlocksPoint(o,x-R,y))
+        const seen=new Set([key(Math.round(g.player.x/S),Math.round(g.player.y/S))])
+        const q=[[Math.round(g.player.x/S),Math.round(g.player.y/S)]]
+        while(q.length){ const [a,c]=q.pop()
+          for(const [da,dc] of [[1,0],[-1,0],[0,1],[0,-1]]){
+            const na=a+da,nc=c+dc; if(na<0||nc<0||na>W||nc>H) continue
+            const k=key(na,nc); if(seen.has(k)) continue
+            if(blocked(na*S,nc*S)) continue
+            seen.add(k); q.push([na,nc]) } }
+        return seen }
+      const hard = g.decor.filter(o=>o.def&&(o.def.ambient||o.def.interactive))
+      const wallsOnly = fill([]), withHard = fill(hard), seen = fill(g.decor)
+      const wallReach = (set,x,y)=>{ const a=Math.round(x/S), c=Math.round(y/S)
+        for(let da=-2;da<=2;da++) for(let dc=-2;dc<=2;dc++) if(set.has(key(a+da,c+dc))) return true
+        return false }
+      // The property that actually matters, and the one the owner reported
+      // broken: a prop you CANNOT BREAK must never be what stops you reaching a
+      // room or a lockable container. Counting lost cells instead was the wrong
+      // question — a prop standing in a room legitimately occupies a few.
+      const wantRooms = d.rooms.map(rm=>[(rm.cx+0.5)*TILE,(rm.cy+0.5)*TILE])
+        .filter(([x,y])=>wallReach(wallsOnly,x,y))
+      const wantBoxes = g.decor.filter(o=>o.def&&o.def.interactive).map(o=>[o.x,o.y])
+        .filter(([x,y])=>wallReach(wallsOnly,x,y))
+      const sealedRooms = wantRooms.filter(([x,y])=>!wallReach(withHard,x,y)).length
+      const sealedBoxes = wantBoxes.filter(([x,y])=>!wallReach(withHard,x,y)).length
       // Same tolerance the engine's own guarantee uses: standing NEXT to the
       // lift counts. Its exact pixel is often wall-adjacent and unreachable for
       // a 14px body even on a perfectly walkable floor.
@@ -86,6 +104,7 @@ const { chromium } = require('playwright-core'); const fs=require('fs'), path=re
         for(let da=-2;da<=2;da++) for(let dc=-2;dc<=2;dc++) if(seen.has(key(a+da,c+dc))) return true
         return false }
       out.push({ depth:g.depth, cells:seen.size, stairs:reach(d.stairsPx.x,d.stairsPx.y),
+                 sealedRooms, sealedBoxes, boxes:wantBoxes.length,
                  stuck: seen.size<=4, rooms:d.rooms.length })
     }
     return out
@@ -95,12 +114,17 @@ const { chromium } = require('playwright-core'); const fs=require('fs'), path=re
   const ok=res.filter(r=>!r.err)
   const stuck=ok.filter(r=>r.stuck).length
   const noStairs=ok.filter(r=>!r.stairs).length
+  const badRooms=ok.filter(r=>r.sealedRooms>0), badBoxes=ok.filter(r=>r.sealedBoxes>0)
+  const totalBoxes=ok.reduce((s,r)=>s+r.boxes,0)
   console.log(`  sampel: ${ok.length}${bad?' (gagal '+bad+')':''}`)
   console.log(`  TERKURUNG total (≤4 sel): ${stuck}`)
   console.log(`  tangga TIDAK tercapai   : ${noStairs}  ← ini bug-nya`)
+  console.log(`  ruangan tersegel prop TAK BISA DIPECAH : ${badRooms.length} lantai`)
+  console.log(`  peti ber-OPEN tersegel prop tsb        : ${badBoxes.length} lantai`)
+  console.log(`  peti ber-OPEN yang selamat             : ${totalBoxes} (rata-rata ${(totalBoxes/ok.length).toFixed(1)}/lantai)`)
   const worst=ok.slice().sort((a,c)=>a.cells-c.cells).slice(0,5).map(r=>r.cells)
   console.log(`  5 sel-terjangkau terkecil: ${worst.join(', ')}`)
   if(noStairs) ok.filter(r=>!r.stairs).forEach(r=>console.log('    buntu di lantai '+r.depth+' ('+r.cells+' sel)'))
   fs.rmSync('public/__reach',{recursive:true,force:true})
-  await b.close(); process.exit(noStairs ? 1 : 0)
+  await b.close(); process.exit((noStairs || badRooms.length || badBoxes.length) ? 1 : 0)
 })().catch(e=>{try{fs.rmSync('public/__reach',{recursive:true,force:true})}catch{};console.error('ERROR',e.message);process.exit(2)})

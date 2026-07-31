@@ -3,6 +3,7 @@ import { getAdminDb } from '@/firebase-config'
 import { burnRecordBodySchema } from '@/lib/validation'
 import { normalizeWalletAddress } from '@/lib/vault-utils'
 import { getCurrentSeasonId } from '@/lib/web3-client'
+import { reportMetric } from '@/lib/server/dailyContracts'
 
 // =============================================
 // BURN RECORD — NullState Point (Phase 5.5 #8)
@@ -151,8 +152,41 @@ export async function POST(req: NextRequest) {
       totalRewards: (prevStats.totalRewards ?? 0) + totalValue,
     })
 
+    // Daily Contract credit (GAME-DESIGN.md §5.2) lives HERE rather than in the
+    // engine, because there are two ways to burn and only one of them is the
+    // engine: the in-run inventory dispatches nullstate-items-burned, and the
+    // out-of-game Rewards screen posts here directly. Crediting on the client
+    // covered the first and silently missed the second — the owner burned from
+    // Rewards and watched the contract not move.
+    //
+    // Both paths already funnel through this route, so this is the one place
+    // that sees every burn. It is also strictly better than the client report
+    // it replaces: the quantity is the one this route already validated and
+    // clamped, so it cannot be inflated from outside.
+    //
+    // Best-effort — a contract that fails to tick must never fail a burn the
+    // player has already been paid for.
+    // Reported back so the caller can SAY a contract finished. Crediting in
+    // silence is only half the fix: the owner's complaint was that burning from
+    // Rewards did nothing visible, and a reward the player is not told about is
+    // one they do not know they earned.
+    let contracts: { granted: string[]; labels: string[] } | undefined
+    try {
+      const state = await reportMetric(db, normalizedWallet, 'burns', itemCount)
+      if (state.granted.length) {
+        contracts = {
+          granted: state.granted,
+          labels: state.granted
+            .map((id) => state.contracts.find((c) => c.id === id)?.label)
+            .filter((l): l is string => !!l),
+        }
+      }
+    } catch (err) {
+      console.error('[burn/record] daily-contract credit failed (burn kept):', err)
+    }
+
     return NextResponse.json(
-      { success: true, burnId, totalValue, newBalance },
+      { success: true, burnId, totalValue, newBalance, contracts },
       { status: 201 }
     )
   } catch (error) {
