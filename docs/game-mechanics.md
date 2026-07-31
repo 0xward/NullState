@@ -172,12 +172,10 @@ When your HP drops critically low (or a boss is in range), trigger **NULL_STRIKE
 You can close anytime and come back to the same bunker, on the same floor,
 with everything you were carrying.
 
-> **Known limitation:** the *floor layout itself* is rebuilt when you return.
-> Come back to floor 3 and it is still floor 3 of the same bunker with all
-> your loot intact — but the rooms are laid out differently and its monsters
-> are back on their feet. Your weekly Old Paper and Golden Key are unaffected;
-> those are held per wallet on the server. Tracked in
-> [`GAME-DESIGN.md`](./GAME-DESIGN.md) §8.
+**And the same floor means the same floor.** The rooms are laid out exactly as
+you left them, you are standing where you stood, monsters you killed are still
+dead, containers you emptied are still empty, props you smashed are still
+broken, and the rooms you had lit stay lit.
 
 ---
 

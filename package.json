@@ -24,7 +24,8 @@
     "test:contracts": "node scripts/test-daily-contracts.js",
     "measure:bunker": "node scripts/measure-bunker.js",
     "test:traversable": "node scripts/test-floor-traversable.js",
-    "test:inventory": "node scripts/test-inventory-render.js"
+    "test:inventory": "node scripts/test-inventory-render.js",
+    "test:seeded": "node scripts/test-seeded-floors.js"
   },
   "dependencies": {
     "@celo/attribution-tags": "^0.3.0",

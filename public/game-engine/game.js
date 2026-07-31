@@ -576,6 +576,16 @@ function newGame(charKey, restoreSnapshot){
   refreshGoldenKeyWeeklyStatus();
   refreshPaperWeeklyStatus();
   refreshVaultFragments();
+  // The run's dungeon identity (GAME-DESIGN.md §8). Restored with the save so
+  // Continue returns to the same floors; fresh otherwise, so a new run — and a
+  // raid, which always starts one — gets a map it has not seen.
+  // enterSavedSession() sets act/cycle/abyss/raid BEFORE calling us, so the key
+  // compared here is the run we are actually about to play.
+  const _sameRun = !!(restoreSnapshot && restoreSnapshot.runSeed && restoreSnapshot.floorsKey === _runKey());
+  RUN_SEED = _sameRun ? (restoreSnapshot.runSeed >>> 0) : ((Math.random() * 4294967296) >>> 0);
+  PENDING_FLOORS = (_sameRun && restoreSnapshot.floors) ? Object.assign({}, restoreSnapshot.floors) : null;
+  RESUME_AT = (_sameRun && restoreSnapshot.at && typeof restoreSnapshot.at.x === 'number')
+    ? { depth: restoreSnapshot.depth || 1, x: restoreSnapshot.at.x, y: restoreSnapshot.at.y } : null;
   const cfg = HERO[charKey];
   const p = new Player(charKey, cfg);
   G = { player:p, dun:null, enemies:[], decor:[], particles:[], dmgNums:[], projectiles:[], rings:[],
@@ -697,10 +707,188 @@ function newGame(charKey, restoreSnapshot){
   descend(startDepth);
 }
 
+// ---- seeded floors: a saved run comes back to the SAME dungeon ------------
+//
+// GAME-DESIGN.md §8. Save & Exit persisted 14 fields but never `G.floors`, and
+// `dungeon.js` generates from bare `Math.random()` — so Continue rebuilt every
+// floor from scratch. The player returned to a different map with resurrected
+// monsters, refilled containers and whole props they had already smashed. It
+// reads as a broken game, and it quietly refunds XP, items and Glitch Shards.
+//
+// Two halves, and BOTH are needed — either alone fixes nothing:
+//
+//   1. THE LAYOUT IS A FUNCTION OF A SEED. One run seed, chosen at newGame()
+//      and saved with the run, plus the coordinates that identify a floor
+//      (cycle, act, abyss, depth). Same seed, same floor, forever — so the map
+//      itself costs zero bytes to persist.
+//
+//   2. WHAT THE PLAYER DID TO IT is a delta against that layout: which enemies
+//      died, which props broke, which containers were opened and what is still
+//      inside them, which rooms have been lit. Indices into the generated
+//      arrays, which is only sound BECAUSE of (1).
+//
+// WHY Math.random IS SWAPPED RATHER THAN THREADED. Randomness for one floor is
+// spread across four files — dungeon.js lays out rooms, game.js picks
+// archetypes and elites, props.js places and rolls decor, entities.js jitters
+// each enemy. The engine is loaded as plain <script> tags with no module
+// system (GAME-DESIGN.md rule 1), so there is no shared rng to import and
+// threading one through would mean touching every constructor. Generation is
+// synchronous and finishes inside one call, so swapping the global for exactly
+// that window is contained and reversible — the `finally` puts it back even if
+// generation throws.
+let RUN_SEED = 0;
+// Floor deltas from a restored save, consumed per depth as each floor is first
+// built. Null when this is a fresh run.
+let PENDING_FLOORS = null;
+// Where the player stood when they saved. Single-use, consumed by descend().
+let RESUME_AT = null;
+function _hash32(str){
+  let h = 2166136261;
+  for(let i = 0; i < str.length; i++){ h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return h >>> 0;
+}
+function _mulberry32(a){
+  return function(){
+    a = (a + 0x6D2B79F5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), 1 | t);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function _withSeed(seed, fn){
+  const real = Math.random;
+  Math.random = _mulberry32(seed >>> 0);
+  try { return fn(); } finally { Math.random = real; }
+}
+// WHICH RUN a set of floors belongs to. Saved with them and checked on
+// restore, because a snapshot does not always keep describing the run it was
+// taken from: the shell rewrites campaignActIndex/depth on it when a bunker is
+// cleared (so ENTER points at the NEXT bunker) and again when a raid finishes
+// (so the campaign resumes where the raid found it). Without this check, the
+// floor-1 delta from the bunker you just beat would replay into the bunker you
+// are about to start — monsters already dead, containers already emptied. The
+// array-length guard would catch most of those by luck; this catches them by
+// construction, for every caller, including ones written later.
+function _runKey(){
+  return campaignCycle + ':' + campaignActIndex + ':' + (abyssMode ? 'a' : 'c') + ':' + (RAID_MODE ? 'r' : '-');
+}
+function _floorSeed(depth){
+  return _hash32(RUN_SEED + ':' + _runKey() + ':' + depth);
+}
+
+// One loot slot, small enough to save. The item's name/rarity/icon/burn value
+// are all derivable from its id via NS_ITEMS.getItem(), exactly as the stash
+// already does — so only the id travels.
+function _serializeSlots(slots){
+  return (slots || []).map(s => ({
+    s: s.slotId, k: s.kind,
+    i: (s.item && s.item.id) || 0,
+    q: s.qty || 0, a: s.amt || 0,
+    t: !!s.taken,
+  }));
+}
+function _restoreSlots(raw){
+  const out = [];
+  for(const s of (raw || [])){
+    if(s.k === 'item'){
+      const it = window.NS_ITEMS && window.NS_ITEMS.getItem(Number(s.i));
+      if(!it) continue;                       // item table changed under us
+      out.push({ slotId: s.s, kind: 'item', item: it, qty: s.q || 1, taken: !!s.t });
+    } else {
+      out.push({ slotId: s.s, kind: s.k, amt: s.a || 0, taken: !!s.t });
+    }
+  }
+  return out;
+}
+
+// Everything the player changed about the floors they have seen. Called by
+// getSaveSnapshot, so the CURRENT floor reads from the live arrays (G.enemies /
+// G.decor) rather than the cache, which is only refreshed on descend().
+function serializeFloors(){
+  if(!G || !G.floors) return null;
+  const out = {};
+  // A campaign bunker is five floors, so this cap never bites there. The Null
+  // Abyss has no bottom, and a deep dive would otherwise grow this payload
+  // without limit — the floors furthest from the player are the ones least
+  // likely to be revisited, and they simply regenerate if they ever are.
+  const keys = Object.keys(G.floors)
+    .sort((a, b) => Math.abs(Number(a) - G.depth) - Math.abs(Number(b) - G.depth))
+    .slice(0, 12);
+  for(const key of keys){
+    const f = G.floors[key];
+    if(!f) continue;
+    const live = Number(key) === G.depth;
+    const enemies = (live ? G.enemies : f.enemies) || [];
+    const decor = (live ? G.decor : f.decor) || [];
+    const dead = [], broken = [], opened = {};
+    enemies.forEach((e, i) => { if(e && e.dead) dead.push(i); });
+    decor.forEach((o, i) => {
+      if(!o) return;
+      if(o.broken) broken.push(i);
+      if(o.opened) opened[i] = _serializeSlots(o.lootSlots);
+    });
+    const rooms = [];
+    const dr = (f.dun && f.dun.rooms) || [];
+    dr.forEach((r, i) => { if(r && r.visited) rooms.push(i); });
+    out[key] = {
+      // Lengths are the trust check. A delta is a list of INDICES, so it is
+      // only meaningful against the array it was taken from. Regeneration can
+      // legitimately differ — a Premium Sector cache appears only while that
+      // act's blueprint is owned, and ownership lives outside this save — so
+      // if the counts do not match on restore the delta is dropped rather than
+      // applied to the wrong props.
+      el: enemies.length, dl: decor.length,
+      c: !!f.cleared, v: !!f.visited, b: !!f.bossAlive,
+      dead, broken, opened, rooms,
+    };
+  }
+  return out;
+}
+
+// Applied to a freshly generated floor, once, the first time it is built.
+function _applyFloorDelta(depth, floor){
+  if(!PENDING_FLOORS) return;
+  const s = PENDING_FLOORS[depth] || PENDING_FLOORS[String(depth)];
+  if(!s) return;
+  delete PENDING_FLOORS[depth]; delete PENDING_FLOORS[String(depth)];
+
+  if(s.el !== floor.enemies.length || s.dl !== floor.decor.length){
+    // The layout no longer matches what was saved. Regenerating fresh is the
+    // old behaviour and is merely disappointing; applying the delta anyway
+    // would kill the wrong monsters and empty the wrong crates.
+    console.warn('[nullstate] floor ' + depth + ' changed shape since the save ('
+      + s.el + '/' + s.dl + ' -> ' + floor.enemies.length + '/' + floor.decor.length + ') — generated fresh');
+    return;
+  }
+
+  for(const i of (s.dead || [])){ const e = floor.enemies[i]; if(e){ e.dead = true; e.hp = 0; } }
+  for(const i of (s.broken || [])){ const o = floor.decor[i]; if(o){ o.broken = true; o.hp = 0; o.brokenT = 0; } }
+  for(const k of Object.keys(s.opened || {})){
+    const o = floor.decor[k];
+    if(!o) continue;
+    o.opened = true; o.openT = 0;
+    // Restored BEFORE anything can call rollLootSlots(), which memoises on
+    // this field — so a reopened container hands back exactly what was left in
+    // it and cannot be re-rolled for a second helping.
+    o.lootSlots = _restoreSlots(s.opened[k]);
+  }
+  for(const i of (s.rooms || [])){ const r = floor.dun.rooms[i]; if(r) r.visited = true; }
+  floor.cleared = !!s.c;
+  floor.visited = !!s.v;
+  floor.bossAlive = s.b !== undefined ? !!s.b : floor.bossAlive;
+  // A boss floor whose boss is already down must not re-arm the boss gate.
+  if(floor.bossAlive && floor.enemies.some(e => e.isBoss && e.dead)) floor.bossAlive = false;
+}
+
 function ensureFloor(depth){
   if(G.floors[depth]){
     return G.floors[depth];
   }
+  return _withSeed(_floorSeed(depth), () => _buildFloor(depth));
+}
+
+function _buildFloor(depth){
   const d = makeDungeon(depth);
   // v65 T5: build an enemy's `home` (room-guard bounds, px) from whatever
   // room its spawn point sits in. entities.js has always had the full
@@ -770,6 +958,10 @@ function ensureFloor(depth){
   // actually walk from the entrance to the lift. See _ensureFloorTraversable —
   // this is the fix for the owner's "stuck at the entrance" report.
   _ensureFloorTraversable(floor, d);
+  // Last: replay what the player already did to this floor, if they have been
+  // here before. Must run AFTER the traversability pass, which can delete
+  // props — the delta's indices are into the array as it is finally handed out.
+  _applyFloorDelta(depth, floor);
   G.floors[depth] = floor;
   return floor;
 }
@@ -1075,6 +1267,14 @@ function descend(toDepth){
   // backtracking doesn't feel like restarting the floor from its far entrance.
   const firstVisit = !floor.visited;
   placePlayerOnFloor(floor, firstVisit);
+  // A restored save resumes where the player actually stood, not at the lift.
+  // Only for the depth that was saved, only once, and only if the spot is
+  // still walkable — which it always is now that the floor regenerates
+  // identically, but checking costs nothing and a stuck player costs the run.
+  if(RESUME_AT && RESUME_AT.depth === G.depth){
+    const at = RESUME_AT; RESUME_AT = null;
+    if(!floor.dun.isWall(at.x, at.y) && !decorSolidAt(at.x, at.y)){ G.player.x = at.x; G.player.y = at.y; }
+  }
   if(!firstVisit){
     // Landing spot is near the lift, so avoid reopening the menu immediately
     // after changing floors. Walking away and back will still trigger it.
@@ -2818,10 +3018,6 @@ const WALL_H = 30;
 const _wallTexCache = {};
 function _wtHash(x,y){ let h=(x*374761393 + y*668265263)|0; h=Math.imul(h^(h>>>13),1274126177); return (h^(h>>>16))>>>0; }
 function _wtRGB(hx){ const n=parseInt(hx.slice(1),16); return [n>>16&255, n>>8&255, n&255]; }
-function _wtShade(rgb,f){
-  const c=v=>Math.max(0,Math.min(255,(v*f)|0));
-  return `rgb(${c(rgb[0])},${c(rgb[1])},${c(rgb[2])})`;
-}
 function wallTex(theme){
   const key = theme.key || 'default';
   if(_wallTexCache[key]) return _wallTexCache[key];
@@ -5589,6 +5785,23 @@ function onActBunkerCleared(){
   // become the player's resume point.
   if(RAID_MODE){
     const raidAct = campaignActIndex;
+    // The cached snapshot the shell is about to persist was taken DURING the
+    // raid (G is torn down below, so getSaveSnapshot falls back to this copy),
+    // and it still says raid:true.
+    //
+    // BUG THIS FIXES: enterSavedSession() restores RAID_MODE from that flag, so
+    // the next Continue resumed as a raid even though the raid was over — and
+    // clearing that bunker took this very branch again, firing raid-cleared and
+    // advancing nothing. The campaign silently stopped progressing.
+    //
+    // Same reasoning as the campaign fixup further down: the moment a snapshot
+    // stops describing the run it was taken from, the fields that only make
+    // sense inside that run have to go with it.
+    if(LAST_BUNKER_SNAPSHOT){
+      LAST_BUNKER_SNAPSHOT.raid = false;
+      LAST_BUNKER_SNAPSHOT.floors = null;
+      LAST_BUNKER_SNAPSHOT.at = null;
+    }
     showLoadingTransition(() => {
       G = null; resetInput();
       RAID_MODE = false;
@@ -5745,6 +5958,11 @@ function onOutdoorAdvanceToNextAct(){
       LAST_BUNKER_SNAPSHOT.campaignActIndex = campaignActIndex;
       LAST_BUNKER_SNAPSHOT.depth = 1;
       LAST_BUNKER_SNAPSHOT.maxDepthReached = 1;
+      // And the floors it describes belong to the bunker just finished, not the
+      // one this snapshot now points at. floorsKey would reject them on restore
+      // anyway; clearing them here keeps the payload small and says why.
+      LAST_BUNKER_SNAPSHOT.floors = null;
+      LAST_BUNKER_SNAPSHOT.at = null;
     }
     if(WORLDMAP_HUB){
       try{
@@ -5844,6 +6062,7 @@ window.__NS = { get G(){ return G; },
   // touches the local fragment cache; the next /api/vault/fragments read
   // overwrites it, so it can never desync the server's count.
   renderStashPanel,
+  get RUN_SEED(){ return RUN_SEED; },   // scripts/test-seeded-floors.js
   get VAULT_FRAG(){ return VAULT_FRAG; },
   setVaultFrag(v){ VAULT_FRAG = Object.assign({}, VAULT_FRAG, v); } };
 
@@ -6107,6 +6326,13 @@ function getSaveSnapshot(){
     // index — quietly moving the player's resume point to a bunker they had
     // already beaten.
     raid: !!RAID_MODE,
+    // GAME-DESIGN.md §8: the dungeon itself. `runSeed` regenerates every floor
+    // byte-identically; `floors` is what the player did to them. Without both,
+    // Continue rebuilt a different map with the monsters alive again.
+    runSeed: RUN_SEED,
+    floorsKey: _runKey(),
+    floors: serializeFloors(),
+    at: { x: Math.round(p.x), y: Math.round(p.y) },
     savedAt: Date.now(),
   };
   LAST_BUNKER_SNAPSHOT = snap;
