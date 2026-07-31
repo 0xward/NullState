@@ -60,7 +60,11 @@ export default function DailyStatusBar({ address, onCrafting }: DailyStatusBarPr
   // Shown once, on the visit that actually earned it. A reward the player is
   // never told about is a reward that does not retain anyone.
   const [streakGrant, setStreakGrant] = useState<string | null>(null)
-  const [showContracts, setShowContracts] = useState(false)
+  const [showPanel, setShowPanel] = useState(false)
+  // One instant everything daily rolls over. True since the audit put energy on
+  // the same 00:00 UTC boundary as contracts and the streak — before that the
+  // panel could not have shown a single countdown honestly.
+  const [resetAt, setResetAt] = useState<number | null>(null)
   // Drives the countdown. Cheap: one re-render every 30s, and only while a
   // craft is actually running (see the effect's guard).
   const [now, setNow] = useState(() => Date.now())
@@ -100,6 +104,11 @@ export default function DailyStatusBar({ address, onCrafting }: DailyStatusBarPr
         setContracts({ done: d.completed ?? 0, total: d.contracts.length })
         setContractList(d.contracts)
       }
+      // Either source is the same midnight; contracts answers it directly and
+      // energy carries it too, so whichever arrives is enough.
+      const reset = (typeof d?.nextResetAt === 'number' && d.nextResetAt)
+        || (typeof e?.resetAt === 'number' && e.resetAt) || null
+      if (reset) setResetAt(reset)
       if (s && typeof s.streak === 'number' && s.streak > 0) {
         const label = (r: { kind?: string; amount?: number; tier?: string } | null | undefined) =>
           !r ? '' : r.kind === 'point' ? `+${r.amount} Point`
@@ -125,19 +134,19 @@ export default function DailyStatusBar({ address, onCrafting }: DailyStatusBarPr
     return () => { alive = false }
   }, [address])
 
-  // The map's DAILY rail button opens this list too — it used to be a "SOON"
-  // placeholder for a feature that now exists.
+  // The map's DAILY rail button opens this panel — see the note above the
+  // panel's markup for why it is a panel now and not a strip.
   useEffect(() => {
-    const open = () => setShowContracts(true)
+    const open = () => setShowPanel(true)
     window.addEventListener('nullstate-open-contracts', open)
     return () => window.removeEventListener('nullstate-open-contracts', open)
   }, [])
 
   useEffect(() => {
-    if (craftDoneAt === null) return
+    if (craftDoneAt === null && !showPanel) return
     const id = window.setInterval(() => setNow(Date.now()), 30000)
     return () => window.clearInterval(id)
-  }, [craftDoneAt])
+  }, [craftDoneAt, showPanel])
 
   const chips: Chip[] = []
 
@@ -151,6 +160,9 @@ export default function DailyStatusBar({ address, onCrafting }: DailyStatusBarPr
       icon: last ? '★' : '🔥',
       label: `${streak.streak}`,
       tone: last ? 'ready' : 'amber',
+      // Every chip opens the panel. A bar where some chips are buttons and
+      // others are not is a bar the player has to learn.
+      onClick: () => { playUiSound('panel'); setShowPanel(true) },
       title: last
         ? `Day 7 — the big one. Come back tomorrow and the ladder starts again. Best: ${streak.best} days`
         : `${streak.streak}-day streak · tomorrow: ${streak.tomorrow}. Miss a day and it goes back to 1. Best: ${streak.best} days`,
@@ -181,7 +193,7 @@ export default function DailyStatusBar({ address, onCrafting }: DailyStatusBarPr
       // A count with no way to see what is being counted is a tease. Tapping
       // opens the list right here rather than sending the player to a screen —
       // three lines of text do not need a route.
-      onClick: () => { playUiSound('panel'); setShowContracts((v) => !v) },
+      onClick: () => { playUiSound('panel'); setShowPanel(true) },
       title: all
         ? "Today's contracts are all done — new ones at 00:00 UTC"
         : `${contracts.total - contracts.done} of today's contracts still open`,
@@ -194,6 +206,7 @@ export default function DailyStatusBar({ address, onCrafting }: DailyStatusBarPr
       icon: '◈',
       label: `${frag.have}/${frag.goal}`,
       tone: 'green',
+      onClick: () => { playUiSound('panel'); setShowPanel(true) },
       title: `Vault fragments toward the ${frag.label}. Open lockable containers to earn them.`,
     })
   }
@@ -206,7 +219,8 @@ export default function DailyStatusBar({ address, onCrafting }: DailyStatusBarPr
       tone: energy.total > 0 ? 'green' : 'amber',
       title: energy.total > 0
         ? `${energy.total} run${energy.total === 1 ? '' : 's'} left (${energy.free} free today)`
-        : 'Out of runs — the free allowance refills every 24h',
+        : 'Out of runs — the free allowance refills at 00:00 UTC',
+      onClick: () => { playUiSound('panel'); setShowPanel(true) },
     })
   }
 
@@ -224,15 +238,103 @@ export default function DailyStatusBar({ address, onCrafting }: DailyStatusBarPr
           <span aria-hidden="true">🔥</span> Day {streak.day} · {streakGrant}
         </button>
       )}
-      {showContracts && contractList.length > 0 && (
-        <div className="ns-hub-contracts" role="region" aria-label="Today's contracts">
-          <p className="ns-hub-contracts-head">Today · resets 00:00 UTC</p>
-          {contractList.map((c) => (
-            <div key={c.id} className={`ns-hub-contract${c.done ? ' is-done' : ''}`}>
-              <span className="ns-hub-contract-label">{c.done ? '✓ ' : ''}{c.label}</span>
-              <span className="ns-hub-contract-count">{Math.min(c.progress, c.target)}/{c.target}</span>
+      {/* THE DAILY PANEL.
+          Owner, watching someone use it: tapping the DAILY rail button made
+          something appear at the BOTTOM of the map, nowhere near the icon that
+          was pressed — "yang muncul malah di luar, bukan di dalam menu daily
+          itu sendiri". Every other rail button (Rewards, Pass, Bag, Shop,
+          Craft, Settings) opens a screen; DAILY poked a strip. It also showed
+          only the contracts, while the streak, fragments and energy — equally
+          daily — stayed as chips somewhere else. "Daily" was three places.
+
+          It is one place now. The chips stay on the bar because they are the
+          glance, and the thing at risk has to be visible without a tap; both
+          they and the rail button open THIS. */}
+      {showPanel && (
+        <div
+          className="ns-daily-scrim"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Daily"
+          onClick={() => { playUiSound('panel'); setShowPanel(false) }}
+        >
+          <div className="ns-daily-panel" onClick={(e) => e.stopPropagation()}>
+            <div className="ns-daily-head">
+              <span className="ns-daily-title">DAILY</span>
+              {/* ONE countdown for everything, which only became honest when
+                  energy moved onto the same 00:00 UTC boundary as the rest. */}
+              {resetAt !== null && (
+                <span className="ns-daily-reset">resets in {formatLeft(resetAt - now)}</span>
+              )}
+              <button
+                type="button" className="ns-daily-close" aria-label="Close"
+                onClick={() => { playUiSound('panel'); setShowPanel(false) }}
+              >✕</button>
             </div>
-          ))}
+
+            {streak && (
+              <section className="ns-daily-sec">
+                <h3 className="ns-daily-sech">🔥 Streak · day {streak.day} of 7</h3>
+                <div className="ns-daily-row">
+                  <span>{streak.streak} day{streak.streak === 1 ? '' : 's'} in a row</span>
+                  <span className="ns-daily-val">best {streak.best}</span>
+                </div>
+                {streak.tomorrow && (
+                  <p className="ns-daily-note">Tomorrow pays {streak.tomorrow}. Miss a day and it goes back to 1.</p>
+                )}
+              </section>
+            )}
+
+            {contractList.length > 0 && (
+              <section className="ns-daily-sec">
+                <h3 className="ns-daily-sech">◇ Contracts · {contracts?.done ?? 0}/{contractList.length} done</h3>
+                {contractList.map((c) => (
+                  <div key={c.id} className={`ns-daily-row${c.done ? ' is-done' : ''}`}>
+                    <span className="ns-daily-label">{c.done ? '✓ ' : ''}{c.label}</span>
+                    <span className="ns-daily-val">{Math.min(c.progress, c.target)}/{c.target}</span>
+                  </div>
+                ))}
+              </section>
+            )}
+
+            {frag && (
+              <section className="ns-daily-sec">
+                <h3 className="ns-daily-sech">◈ Vault fragments</h3>
+                <div className="ns-daily-row">
+                  <span className="ns-daily-label">Toward the {frag.label}</span>
+                  <span className="ns-daily-val">{frag.have}/{frag.goal}</span>
+                </div>
+                <p className="ns-daily-note">Open any lockable container to earn one. Resets with the week, not the day.</p>
+              </section>
+            )}
+
+            {energy && (
+              <section className="ns-daily-sec">
+                <h3 className="ns-daily-sech">⚡ Energy</h3>
+                <div className="ns-daily-row">
+                  <span className="ns-daily-label">{energy.total} run{energy.total === 1 ? '' : 's'} left</span>
+                  <span className="ns-daily-val">{energy.free} free</span>
+                </div>
+              </section>
+            )}
+
+            {craftDoneAt !== null && (
+              <section className="ns-daily-sec">
+                <h3 className="ns-daily-sech">⏳ Weapon craft</h3>
+                <button
+                  type="button" className="ns-daily-row ns-daily-tap"
+                  onClick={() => { playUiSound('panel'); setShowPanel(false); onCrafting() }}
+                >
+                  <span className="ns-daily-label">
+                    {craftDoneAt - now <= 0 ? 'Ready to collect' : 'Evolving'}
+                  </span>
+                  <span className="ns-daily-val">
+                    {craftDoneAt - now <= 0 ? 'OPEN ▸' : formatLeft(craftDoneAt - now)}
+                  </span>
+                </button>
+              </section>
+            )}
+          </div>
         </div>
       )}
     <div className="ns-hub-daily" role="status" aria-label="Today">

@@ -35,6 +35,7 @@
 // The snapshot is written once, first-writer-wins, and never rewritten.
 
 import { getCurrentSeasonId } from '@/lib/web3-client'
+import { getCurrentWeekIdString } from '@/lib/vault-utils'
 
 type AdminDb = NonNullable<ReturnType<typeof import('@/firebase-config').getAdminDb>>
 type AdminFs = NonNullable<ReturnType<typeof import('@/firebase-config').getAdminFirestore>>
@@ -204,6 +205,79 @@ export async function markSeasonPaid(db: AdminDb, seasonId: number, note?: strin
  * it — `npm run test:season` compares these strings against the script's own
  * argument parsing.
  */
+/**
+ * Delete finished daily/weekly buckets.
+ *
+ * These are keyed by day or week, so the reset works precisely BECAUSE the key
+ * changes — yesterday's bucket is already inert. Nothing read it, and nothing
+ * deleted it either: at a thousand daily players that is roughly 36 MB a year
+ * of rows that exist only to be scrolled past in the Firebase console.
+ *
+ * WHAT IS NOT PRUNED, AND WHY IT WOULD BE A BUG TO ADD IT. `/api/stats` counts
+ * LIFETIME totals out of `paperClaims`, `goldenKeyClaims` and `vaultCompleted`
+ * — every week, not just this one. Pruning those would silently shrink the
+ * public stats page, and the drop would look like players leaving rather than
+ * like rows being deleted. Only paths that nobody reads historically are listed
+ * below, and each was checked against every reader in the repo.
+ *
+ * KEEP is generous on purpose: this exists to stop unbounded growth, not to
+ * reclaim the last megabyte, and a too-eager prune during a timezone edge or a
+ * clock skew would delete a bucket somebody is still writing to.
+ */
+export const PRUNE_KEEP_DAYS = 30
+export const PRUNE_KEEP_WEEKS = 8
+
+/** Paths keyed by `YYYY-MM-DD`, safe to drop once the day is long past. */
+const DAILY_PRUNE = ['dailyContracts', 'dailyContractClaims', 'passPerkClaims']
+/** Paths keyed by ISO `YYYYWW`. */
+const WEEKLY_PRUNE = ['vaultFragments']
+
+/** Is `key` a bucket old enough to delete? Exported for the test. */
+export function isStaleDayKey(key: string, now: number, keepDays = PRUNE_KEEP_DAYS): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(key)) return false      // never touch a shape we do not recognise
+  const t = Date.parse(key + 'T00:00:00.000Z')
+  if (!Number.isFinite(t)) return false
+  return now - t > keepDays * 86400000
+}
+
+export function isStaleWeekKey(key: string, currentWeekId: string, keepWeeks = PRUNE_KEEP_WEEKS): boolean {
+  if (!/^\d{6}$/.test(key) || !/^\d{6}$/.test(currentWeekId)) return false
+  const year = Number(key.slice(0, 4)), week = Number(key.slice(4))
+  const cy = Number(currentWeekId.slice(0, 4)), cw = Number(currentWeekId.slice(4))
+  if (week < 1 || week > 53) return false
+  // Weeks elapsed, treating a year as 52 — off by one at a year boundary in the
+  // conservative direction (it keeps a week longer), which is the right way to
+  // be wrong when the alternative is deleting live data.
+  return (cy - year) * 52 + (cw - week) > keepWeeks
+}
+
+export async function prune(
+  db: AdminDb,
+  now = Date.now(),
+  currentWeekId = getCurrentWeekIdString(),
+): Promise<{ removed: string[] }> {
+  const removed: string[] = []
+  for (const root of DAILY_PRUNE) {
+    const snap = await db.ref(root).get()
+    if (!snap.exists()) continue
+    for (const key of Object.keys(snap.val() || {})) {
+      if (!isStaleDayKey(key, now)) continue
+      await db.ref(`${root}/${key}`).remove()
+      removed.push(`${root}/${key}`)
+    }
+  }
+  for (const root of WEEKLY_PRUNE) {
+    const snap = await db.ref(root).get()
+    if (!snap.exists()) continue
+    for (const key of Object.keys(snap.val() || {})) {
+      if (!isStaleWeekKey(key, currentWeekId)) continue
+      await db.ref(`${root}/${key}`).remove()
+      removed.push(`${root}/${key}`)
+    }
+  }
+  return { removed }
+}
+
 export function payoutCommands(snapshot: SeasonSnapshot): string[] {
   const w = snapshot.winners
   if (w.length < 3) return []

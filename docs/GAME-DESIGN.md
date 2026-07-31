@@ -370,12 +370,38 @@ Opening the app shows, above the ENTER button and without a tap:
 
 | Chip | Source | Shown when |
 |---|---|---|
+| **🔥 4** | `/api/streak` | once a streak exists |
 | **✦ WEAPON READY** / **⏳ 2h 14m** | `/api/weapons/craft` | a craft is running |
+| **◇ 1/3** | `/api/contracts` | always, once loaded |
 | **◈ 7/12** | `/api/vault/fragments` | something is still to earn |
 | **⚡ 4** | `/api/energy` | always, once loaded |
 
 It sits in the bottom bar's own container, in the path the eye already takes
-toward the only action on the screen — read rather than discovered.
+toward the only action on the screen — read rather than discovered. The streak
+goes first: it is the only number here the player can *lose*, and loss aversion
+needs the thing at risk in front of them.
+
+### The DAILY panel
+
+Tapping **any chip**, or the **DAILY** button on the left rail, opens one panel
+holding all of it — streak, contracts, fragments, energy, craft — with a single
+countdown to the next reset.
+
+**Why it is a panel.** Owner, watching it in use: *"itu sebuah menu yang kalo di
+klik yang muncul malah di luar, bukan di dalam menu daily itu sendiri."* The
+DAILY rail button used to dispatch an event that expanded a strip at the
+*bottom* of the map, nowhere near the icon pressed — while every other rail
+button (Rewards, Pass, Bag, Shop, Craft, Settings) opens a screen. And the strip
+showed only the contracts, while the streak, fragments and energy stayed as
+chips somewhere else. "Daily" was three places and one of them behaved unlike
+its neighbours.
+
+The chips stay on the bar because they are the *glance*, and what is at risk has
+to be visible without a tap. The panel is the *detail*, and there is one of it.
+
+**One countdown is only honest because of §9b.** Energy used to refill on a
+rolling 24h while contracts and the streak reset at 00:00 UTC; a single "resets
+in 1h 27m" would have been a lie for one of the three. They share a clock now.
 
 **Contracts and streak have no chip yet, on purpose.** They are in the build
 order and not built, and a chip showing a number nobody tracks is exactly how
@@ -936,21 +962,33 @@ still said "work out the top 3 and run these two commands". Rewritten around
 - `firebaseAuth.ts` reads as unreferenced to a naive grep but is loaded through
   `await import()` in three places. It is wired.
 
-### Known and deliberate
+### Also fixed, in the follow-up
 
-**Two clocks on one bar.** Energy refills on a **rolling 24 hours** from first
-use (`windowStart + windowHours`); contracts and the streak reset at **00:00
-UTC**. So a player who plays at 20:00 gets new contracts four hours later but
-waits until 20:00 the next day for energy. Defensible — energy is a pacing
-limiter, not a daily gift — but it is two different meanings of "a day" sitting
-side by side on the same status bar, and worth revisiting if players ask.
+**6. Two clocks on one bar.** Energy refilled on a **rolling 24 hours** from
+first use while contracts and the streak reset at **00:00 UTC** — so a player
+who played at 20:00 got new contracts four hours later and new energy
+twenty-four hours later, with nothing on screen explaining why. Energy is now on
+the UTC day too. `windowStart` keeps its name and type and holds the day it was
+spent against, so records written by the old code reset correctly on first read:
+no migration, and nobody gains or loses a run at the changeover. `windowHours`
+is deleted — nothing read it once the boundary moved, and a config value nothing
+reads is how `game-config.ts` became a liability.
 
-**Nothing prunes the daily/weekly buckets.** `dailyContracts/{dayId}`,
-`vaultFragments/{weekId}`, `passPerkClaims/{dayId}` and the claim records
-accumulate for every player, forever. Correctness is unaffected — the reset
-works precisely *because* the key changes — but at 1,000 daily players it is
-roughly 36 MB a year of dead rows. Not urgent; a monthly prune of buckets older
-than ~8 weeks would do it, and there is now a cron to hang it on.
+It is slightly more generous (play at 20:00, allowance back at midnight). A
+deliberate trade: the $1 refill sells to players who want more than five in one
+sitting, and that motivation is untouched. What it buys is one clock — and the
+DAILY panel can now show a single honest countdown for everything.
+
+**7. Nothing pruned the daily/weekly buckets.** `prune()` now runs on the same
+daily cron. It deletes `dailyContracts`, `dailyContractClaims`, `passPerkClaims`
+(>30 days) and `vaultFragments` (>8 weeks).
+
+It does **not** touch `paperClaims`, `goldenKeyClaims` or `vaultCompleted`,
+because `/api/stats` counts **lifetime** totals out of those three — pruning
+them would shrink the public stats page, and the drop would read as players
+leaving rather than as rows being deleted. There is a test for each of those
+three specifically. A key whose shape is not recognised is never stale, so a
+malformed bucket is left alone rather than guessed at.
 
 ---
 

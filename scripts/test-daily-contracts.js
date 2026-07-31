@@ -52,17 +52,30 @@ let fails=0; const ok=(l,c)=>{console.log((c?'  ✓ ':'  ✗ FAIL: ')+l); if(!c)
   ok('contracts chip reads 1/3', chips.some(c=>c.includes('1/3')))
   ok('contracts sits before fragments', chips.findIndex(c=>c.includes('1/3')) < chips.findIndex(c=>c.includes('5/8')))
 
-  ok('the list is closed until asked', (await page.$$('.ns-hub-contract')).length===0)
+  // The contracts used to expand as a strip above the bar. They are a section
+  // of the DAILY panel now — owner, watching it: tapping the DAILY icon made
+  // something appear at the far end of the screen from the icon pressed, and it
+  // showed only the contracts while the streak, fragments and energy lived
+  // elsewhere. One panel, and every chip opens it.
+  ok('the panel is closed until asked', (await page.$$('.ns-daily-panel')).length===0)
   await page.click('.ns-hub-chip:has-text("1/3")')
-  await page.waitForTimeout(300)
-  const rows=await page.$$eval('.ns-hub-contract',e=>e.map(x=>x.textContent.trim()))
-  ok('tapping opens all three ('+rows.length+')', rows.length===3)
+  await page.waitForSelector('.ns-daily-panel',{timeout:5000})
+  const rows=await page.$$eval('.ns-daily-row',e=>e.map(x=>x.textContent.trim()))
+  ok('the panel lists all three contracts', rows.filter(r=>/\d\/\d/.test(r)).length>=3, rows.join(' | '))
   ok('a finished one is ticked and marked done', rows.some(r=>r.includes('✓')) &&
-     (await page.$$('.ns-hub-contract.is-done')).length===1)
+     (await page.$$('.ns-daily-row.is-done')).length===1)
   ok('progress is shown per contract', rows.some(r=>/1\/3/.test(r)) && rows.some(r=>/2\/5/.test(r)))
-  await page.click('.ns-hub-chip:has-text("1/3")')
+  ok('and it shows ONE countdown for everything daily',
+     /resets in/.test(await page.textContent('.ns-daily-head')))
+  await page.click('.ns-daily-close')
   await page.waitForTimeout(300)
-  ok('tapping again closes it', (await page.$$('.ns-hub-contract')).length===0)
+  ok('the close button closes it', (await page.$$('.ns-daily-panel')).length===0)
+  // Tapping outside must close it too, or a panel over a map becomes a trap.
+  await page.click('.ns-hub-chip:has-text("1/3")')
+  await page.waitForSelector('.ns-daily-panel',{timeout:5000})
+  await page.click('.ns-daily-scrim',{position:{x:5,y:5}})
+  await page.waitForTimeout(300)
+  ok('tapping outside closes it', (await page.$$('.ns-daily-panel')).length===0)
 
   // Does the engine's reporter actually hit the route with a well-formed body?
   const posts=[]
@@ -89,9 +102,16 @@ let fails=0; const ok=(l,c)=>{console.log((c?'  ✓ ':'  ✗ FAIL: ')+l); if(!c)
   // now exists. It must open the same list.
   ok('the DAILY rail button no longer says SOON',
      !(await page.$$eval('.ns-hub-rail', e => e.map(x => x.textContent).join(' '))).includes('SOON'))
-  ok('the list is closed before tapping DAILY', (await page.$$('.ns-hub-contract')).length===0)
-  await page.click('.ns-hub-rail:has-text("Daily")'); await page.waitForTimeout(400)
-  ok('tapping DAILY opens the contracts', (await page.$$('.ns-hub-contract')).length===3)
+  ok('the panel is closed before tapping DAILY', (await page.$$('.ns-daily-panel')).length===0)
+  await page.click('.ns-hub-rail:has-text("Daily")')
+  await page.waitForSelector('.ns-daily-panel',{timeout:5000})
+  ok('tapping DAILY opens the panel', (await page.$$('.ns-daily-panel')).length===1)
+  // The whole point of the change: DAILY opens the DAILY things, not a strip
+  // holding one of them.
+  const head=await page.textContent('.ns-daily-panel')
+  ok('and the panel holds every daily thing, not just contracts ('+
+     ['Contracts','Energy'].filter(w=>head.includes(w)).join('+')+')',
+     head.includes('Contracts') && head.includes('Energy'))
   console.log(fails?`\n${fails} FAILED`:'\nall passed')
   await b.close(); process.exit(fails?1:0)
 })().catch(e=>{console.error('ERROR',e.message);process.exit(1)})

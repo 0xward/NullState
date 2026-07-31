@@ -126,8 +126,12 @@ for.
 Burning counts **wherever you burn** — in your stash mid-run, or from the
 Rewards screen between runs. Either way the contract moves.
 
-Tap the **◇** chip on the map — or the **DAILY** button on the left rail — to
-see today's list and how far along you are.
+Tap any chip on the map — or the **DAILY** button on the left rail — to open the
+**DAILY panel**: your streak, today's three contracts, your vault fragments,
+your energy and any running craft, with one countdown to the next reset.
+
+**Everything daily resets together at 00:00 UTC** — contracts, your streak, and
+your free energy.
 
 ---
 
