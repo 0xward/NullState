@@ -48,6 +48,40 @@ function formatLeft(ms: number): string {
   return m ? `${h}h ${m}m` : `${h}h`
 }
 
+// ─── The seven-day ladder, drawn ─────────────────────────────────────────────
+//
+// OWNER: "pop up daily nya jelek banget, kaya bukan game banget, streak nya
+// juga ga kaya game2 lain."
+//
+// He is describing a real and specific absence. Every shipped version of this
+// mechanic — and the write-ups of why it works say the same — puts all seven
+// rungs on screen AT ONCE, with what each one pays, so the player can see how
+// far they are from the big one. That visible distance is the mechanic. What we
+// had instead was a sentence ("day 3 of 7") and a number in a chip: the reward
+// existed, the progress existed, and neither was ever SHOWN. Nothing to look
+// at, nothing to want, nothing that reads as a game.
+//
+// So the panel opens on the ladder. Days already banked are stamped, today
+// glows, day 7 is visibly the prize, and the tile for every future day names
+// what it pays rather than making the player find out by waiting.
+
+type Reward = { kind: 'point'; amount: number } | { kind: 'shard'; tier: string; amount: number } | { kind: 'energy'; amount: number }
+
+// One glyph per currency, matching the chips the map already uses so the same
+// thing is never two symbols: ◆ Point, ◈ Glitch Shard, ⚡ energy.
+function rewardIcon(r: Reward): string {
+  return r.kind === 'point' ? '◆' : r.kind === 'shard' ? '◈' : '⚡'
+}
+function rewardAmount(r: Reward): string {
+  return r.kind === 'energy' ? `+${r.amount}` : String(r.amount)
+}
+function rewardWord(r: Reward): string {
+  return r.kind === 'point' ? 'Point' : r.kind === 'shard' ? `Shard ${String(r.tier || '').toUpperCase()}` : 'energy'
+}
+function describe(r: Reward | null | undefined): string {
+  return r ? `+${r.amount} ${rewardWord(r)}` : ''
+}
+
 export default function DailyStatusBar({ address, onCrafting }: DailyStatusBarProps) {
   const [energy, setEnergy] = useState<{ total: number; free: number } | null>(null)
   const [frag, setFrag] = useState<{ have: number; goal: number; label: string } | null>(null)
@@ -56,10 +90,16 @@ export default function DailyStatusBar({ address, onCrafting }: DailyStatusBarPr
   const [contractList, setContractList] = useState<
     { id: string; label: string; progress: number; target: number; done: boolean }[]
   >([])
-  const [streak, setStreak] = useState<{ streak: number; day: number; best: number; tomorrow: string } | null>(null)
+  const [streak, setStreak] = useState<{
+    streak: number; day: number; best: number; tomorrow: Reward | null
+    claimedToday: boolean; ladder: Reward[]; shield: number; shieldIn: number
+  } | null>(null)
   // Shown once, on the visit that actually earned it. A reward the player is
   // never told about is a reward that does not retain anyone.
   const [streakGrant, setStreakGrant] = useState<string | null>(null)
+  // True only on the visit that spent it, so the panel can say the streak was
+  // SAVED rather than letting the player think they never missed a day.
+  const [shieldUsed, setShieldUsed] = useState(false)
   const [showPanel, setShowPanel] = useState(false)
   // One instant everything daily rolls over. True since the audit put energy on
   // the same 00:00 UTC boundary as contracts and the streak — before that the
@@ -110,18 +150,35 @@ export default function DailyStatusBar({ address, onCrafting }: DailyStatusBarPr
         || (typeof e?.resetAt === 'number' && e.resetAt) || null
       if (reset) setResetAt(reset)
       if (s && typeof s.streak === 'number' && s.streak > 0) {
-        const label = (r: { kind?: string; amount?: number; tier?: string } | null | undefined) =>
-          !r ? '' : r.kind === 'point' ? `+${r.amount} Point`
-            : r.kind === 'shard' ? `+${r.amount} Shard ${String(r.tier || '').toUpperCase()}`
-            : `+${r.amount} energy`
-        setStreak({ streak: s.streak, day: s.day ?? 1, best: s.best ?? s.streak, tomorrow: label(s.tomorrow) })
+        setStreak({
+          streak: s.streak,
+          day: s.day ?? 1,
+          best: s.best ?? s.streak,
+          tomorrow: (s.tomorrow as Reward) ?? null,
+          claimedToday: !!s.claimedToday,
+          // The route has always sent the whole ladder; nothing rendered it.
+          ladder: Array.isArray(s.ladder) ? (s.ladder as Reward[]) : [],
+          shield: typeof s.shield === 'number' ? s.shield : 0,
+          shieldIn: typeof s.shieldIn === 'number' ? s.shieldIn : 0,
+        })
         // The energy chip is fetched in the same breath as this, so a streak
         // that just paid energy would otherwise show yesterday's number until
         // the next mount.
         if (s.granted?.kind === 'energy' && e && typeof e.total === 'number') {
           setEnergy({ total: e.total + (s.granted.amount || 0), free: e.freeRemaining ?? 0 })
         }
-        if (s.grantedLabel) setStreakGrant(s.grantedLabel)
+        if (s.shieldUsed) setShieldUsed(true)
+        if (s.grantedLabel) {
+          setStreakGrant(s.grantedLabel)
+          // OPEN IT. This is the visit that just paid the player something, and
+          // every game that runs this mechanic shows the reward rather than
+          // parking a note beside it — the note was there before and the owner
+          // still had no idea the ladder existed. Once per UTC day by
+          // construction: `grantedLabel` is non-null only on the single request
+          // that actually advanced the day, so a remount or a second tab
+          // reopens nothing.
+          setShowPanel(true)
+        }
       }
       if (c?.craft?.completesAt) {
         // Correct for client clock skew — the server's own clock is the one the
@@ -163,9 +220,16 @@ export default function DailyStatusBar({ address, onCrafting }: DailyStatusBarPr
       // Every chip opens the panel. A bar where some chips are buttons and
       // others are not is a bar the player has to learn.
       onClick: () => { playUiSound('panel'); setShowPanel(true) },
-      title: last
-        ? `Day 7 — the big one. Come back tomorrow and the ladder starts again. Best: ${streak.best} days`
-        : `${streak.streak}-day streak · tomorrow: ${streak.tomorrow}. Miss a day and it goes back to 1. Best: ${streak.best} days`,
+      // What is at stake depends on whether a shield is held, and saying "it
+      // goes back to 1" to a player who is protected would be a lie in the one
+      // place the mechanic is explained without opening anything.
+      title: (last
+        ? `Day 7 — the big one. Come back tomorrow and the ladder starts again.`
+        : `${streak.streak}-day streak · tomorrow: ${describe(streak.tomorrow)}.`)
+        + (streak.shield > 0
+          ? ' Your Streak Shield covers one missed day.'
+          : ' Miss a day and it goes back to 1.')
+        + ` Best: ${streak.best} days`,
     })
   }
 
@@ -272,37 +336,115 @@ export default function DailyStatusBar({ address, onCrafting }: DailyStatusBarPr
               >✕</button>
             </div>
 
-            {streak && (
+            {/* The one thing that happened the moment this opened. It goes at
+                the top, above the ladder, because "you just got paid" is the
+                reason the panel is on screen at all. */}
+            {streakGrant && (
+              <div className="ns-daily-claim">
+                <span className="ns-daily-claim-burst" aria-hidden="true" />
+                <span className="ns-daily-claim-day">DAY {streak?.day ?? 1} CLAIMED</span>
+                <span className="ns-daily-claim-amt">{streakGrant}</span>
+                <span className="ns-daily-claim-note">Already in your account — nothing to press.</span>
+              </div>
+            )}
+
+            {streak && streak.ladder.length > 0 && (
               <section className="ns-daily-sec">
-                <h3 className="ns-daily-sech">🔥 Streak · day {streak.day} of 7</h3>
-                <div className="ns-daily-row">
-                  <span>{streak.streak} day{streak.streak === 1 ? '' : 's'} in a row</span>
-                  <span className="ns-daily-val">best {streak.best}</span>
+                <h3 className="ns-daily-sech">
+                  <span className="ns-streak-flame" aria-hidden="true">🔥</span>
+                  Streak
+                  <span className="ns-daily-sech-val">{streak.streak} day{streak.streak === 1 ? '' : 's'}</span>
+                  <span className="ns-daily-sech-sub">best {streak.best}</span>
+                </h3>
+
+                {/* THE LADDER. All seven at once — see the note above rewardIcon. */}
+                <ol className="ns-streak-ladder">
+                  {streak.ladder.map((r, i) => {
+                    const dayNo = i + 1
+                    // Today is `streak.day`. Everything below it this cycle is
+                    // banked; today itself is only banked once the visit has
+                    // been registered, which on the very first render of the
+                    // day it has (the POST is what opened this panel).
+                    const banked = dayNo < streak.day || (dayNo === streak.day && streak.claimedToday)
+                    const isToday = dayNo === streak.day
+                    const jackpot = dayNo === streak.ladder.length
+                    return (
+                      <li
+                        key={dayNo}
+                        className={`ns-streak-day${banked ? ' is-done' : ''}${isToday ? ' is-today' : ''}${jackpot ? ' is-jackpot' : ''}`}
+                        aria-label={`Day ${dayNo}: ${describe(r)}${banked ? ' — collected' : isToday ? ' — today' : ''}`}
+                      >
+                        <span className="ns-streak-daynum">{jackpot ? '★7' : dayNo}</span>
+                        <span className={`ns-streak-ico is-${r.kind}`} aria-hidden="true">{rewardIcon(r)}</span>
+                        <span className="ns-streak-amt">{rewardAmount(r)}</span>
+                        {banked && <span className="ns-streak-tick" aria-hidden="true">✓</span>}
+                      </li>
+                    )
+                  })}
+                </ol>
+
+                <p className="ns-daily-note">
+                  {streak.day === streak.ladder.length && !streak.claimedToday
+                    ? <>Today is the big one — <b>{describe(streak.ladder[streak.ladder.length - 1])}</b>, exactly one weapon evolution.</>
+                    : streak.tomorrow
+                      ? <>Tomorrow pays <b>{describe(streak.tomorrow)}</b>. Day 7 pays {describe(streak.ladder[streak.ladder.length - 1])} — one full weapon evolution.</>
+                      : <>Day 7 pays {describe(streak.ladder[streak.ladder.length - 1])} — one full weapon evolution.</>}
+                </p>
+
+                {/* The shield. Said out loud, because a safety net nobody knows
+                    about protects the streak but not the player's nerve. */}
+                <div className={`ns-streak-shield${streak.shield > 0 ? ' is-ready' : ''}`}>
+                  <span className="ns-streak-shield-ico" aria-hidden="true">🛡</span>
+                  <span className="ns-streak-shield-txt">
+                    {shieldUsed
+                      ? <><b>Shield spent — your streak survived.</b> You missed a day and it held. Three days in a row earns the next one.</>
+                      : streak.shield > 0
+                        ? <><b>Streak Shield ready.</b> Miss one day and your streak survives it. Miss two and it is gone.</>
+                        : <><b>Streak Shield in {streak.shieldIn} day{streak.shieldIn === 1 ? '' : 's'}.</b> Three days in a row earns one — it covers a single missed day.</>}
+                  </span>
                 </div>
-                {streak.tomorrow && (
-                  <p className="ns-daily-note">Tomorrow pays {streak.tomorrow}. Miss a day and it goes back to 1.</p>
-                )}
               </section>
             )}
 
             {contractList.length > 0 && (
               <section className="ns-daily-sec">
-                <h3 className="ns-daily-sech">◇ Contracts · {contracts?.done ?? 0}/{contractList.length} done</h3>
-                {contractList.map((c) => (
-                  <div key={c.id} className={`ns-daily-row${c.done ? ' is-done' : ''}`}>
-                    <span className="ns-daily-label">{c.done ? '✓ ' : ''}{c.label}</span>
-                    <span className="ns-daily-val">{Math.min(c.progress, c.target)}/{c.target}</span>
-                  </div>
-                ))}
+                <h3 className="ns-daily-sech">
+                  <span aria-hidden="true">◇</span> Contracts
+                  <span className="ns-daily-sech-val">{contracts?.done ?? 0}/{contractList.length}</span>
+                </h3>
+                {contractList.map((c) => {
+                  const pct = Math.max(0, Math.min(100, Math.round((c.progress / Math.max(1, c.target)) * 100)))
+                  return (
+                    <div key={c.id} className={`ns-daily-task${c.done ? ' is-done' : ''}`}>
+                      <div className="ns-daily-row">
+                        <span className="ns-daily-label">{c.done ? '✓ ' : ''}{c.label}</span>
+                        <span className="ns-daily-val">{Math.min(c.progress, c.target)}/{c.target}</span>
+                      </div>
+                      {/* A bar, not a fraction. "12/30" is a fact; a bar four
+                          fifths of the way across is a reason to play. */}
+                      <span className="ns-daily-bar" aria-hidden="true">
+                        <span className="ns-daily-bar-fill" style={{ width: `${pct}%` }} />
+                      </span>
+                    </div>
+                  )
+                })}
               </section>
             )}
 
             {frag && (
               <section className="ns-daily-sec">
-                <h3 className="ns-daily-sech">◈ Vault fragments</h3>
-                <div className="ns-daily-row">
-                  <span className="ns-daily-label">Toward the {frag.label}</span>
-                  <span className="ns-daily-val">{frag.have}/{frag.goal}</span>
+                <h3 className="ns-daily-sech">
+                  <span aria-hidden="true">◈</span> Vault fragments
+                  <span className="ns-daily-sech-val">{frag.have}/{frag.goal}</span>
+                </h3>
+                <div className="ns-daily-task">
+                  <div className="ns-daily-row">
+                    <span className="ns-daily-label">Toward the {frag.label}</span>
+                    <span className="ns-daily-val">{frag.goal - frag.have} to go</span>
+                  </div>
+                  <span className="ns-daily-bar" aria-hidden="true">
+                    <span className="ns-daily-bar-fill is-frag" style={{ width: `${Math.min(100, Math.round((frag.have / Math.max(1, frag.goal)) * 100))}%` }} />
+                  </span>
                 </div>
                 <p className="ns-daily-note">Open any lockable container to earn one. Resets with the week, not the day.</p>
               </section>
@@ -310,7 +452,10 @@ export default function DailyStatusBar({ address, onCrafting }: DailyStatusBarPr
 
             {energy && (
               <section className="ns-daily-sec">
-                <h3 className="ns-daily-sech">⚡ Energy</h3>
+                <h3 className="ns-daily-sech">
+                  <span aria-hidden="true">⚡</span> Energy
+                  <span className="ns-daily-sech-val">{energy.total}</span>
+                </h3>
                 <div className="ns-daily-row">
                   <span className="ns-daily-label">{energy.total} run{energy.total === 1 ? '' : 's'} left</span>
                   <span className="ns-daily-val">{energy.free} free</span>

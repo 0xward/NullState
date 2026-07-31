@@ -13,6 +13,7 @@
 // readable and testable on its own (npm run test:migrate).
 
 import type { getAdminDb } from '@/firebase-config'
+import { SHIELD_EARN_AFTER } from '@/lib/server/loginStreak'
 
 type AdminDb = NonNullable<ReturnType<typeof getAdminDb>>
 
@@ -85,19 +86,30 @@ export async function migrateTimeBoxed(
   }
 
   // Login streak — the longer run wins.
-  const gStreak = (await db.ref(`loginStreak/${guest}`).get()).val() as
-    { streak?: number; best?: number; lastDayId?: string } | null
+  //
+  // The shield is merged separately and generously in BOTH directions: it is an
+  // earned protection, and connecting a wallet is not a reason to take one away
+  // from either side. Whichever record held one, the merged record holds one,
+  // and the earn-back threshold is the sooner of the two.
+  type StreakRow = { streak?: number; best?: number; lastDayId?: string; shield?: number; shieldAt?: number }
+  const gStreak = (await db.ref(`loginStreak/${guest}`).get()).val() as StreakRow | null
   if (gStreak && num(gStreak.streak) > 0) {
     await db.ref(`loginStreak/${wallet}`).transaction((cur: unknown) => {
-      const w = (cur || {}) as { streak?: number; best?: number; lastDayId?: string }
+      const w = (cur || {}) as StreakRow
+      const shield = Math.min(1, Math.max(num(w.shield), num(gStreak.shield)))
+      // 0 means "never written" on either side, and must not win a min().
+      const ats = [num(w.shieldAt), num(gStreak.shieldAt)].filter((n) => n > 0)
+      const shieldAt = ats.length ? Math.min(...ats) : SHIELD_EARN_AFTER
       if (num(w.streak) >= num(gStreak.streak)) {
         // Keep the wallet's run, but never lose the bigger trophy.
-        return { ...w, best: Math.max(num(w.best), num(gStreak.best)) }
+        return { ...w, best: Math.max(num(w.best), num(gStreak.best)), shield, shieldAt }
       }
       return {
         streak: num(gStreak.streak),
         best: Math.max(num(w.best), num(gStreak.best)),
         lastDayId: gStreak.lastDayId || '',
+        shield,
+        shieldAt,
       }
     })
     out.streak = num(gStreak.streak)

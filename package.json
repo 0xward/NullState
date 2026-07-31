@@ -35,7 +35,8 @@
     "test:season-routes": "node scripts/test-season-routes.js",
     "test:play": "node scripts/test-playthrough.js",
     "test:migrate": "node scripts/test-guest-migrate.js",
-    "test:vaultwin": "node scripts/test-vault-win.js"
+    "test:vaultwin": "node scripts/test-vault-win.js",
+    "test:campaign-end": "node scripts/test-campaign-end.js --serve"
   },
   "dependencies": {
     "@celo/attribution-tags": "^0.3.0",

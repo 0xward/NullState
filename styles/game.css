@@ -683,23 +683,114 @@
 
    A centred sheet rather than a full route: it is four short sections, and a
    route would cost a navigation each way for something read in five seconds. */
+/* ── ENDGAME (post-PROTOCOL ZERO) ─────────────────────────────────────────────
+   The Null Abyss and New Game+ used to live only on the engine's own title
+   screen, which with the world map on is reached exactly once — by finishing
+   the campaign — and cannot be left. They live on the map now. Purple because
+   in this game purple is the void: the Abyss theme, T3 shards, the vault's own
+   spark. See lib/campaignComplete.ts. */
+.ns-hub-endgame{
+  margin-top:18px; padding-top:14px;
+  border-top:1px solid rgba(180,107,255,.28);
+  display:flex; flex-direction:column; gap:7px;
+}
+.ns-hub-endgame-h{
+  margin:0 0 2px; text-align:center;
+  font-family:var(--font-mono),monospace; font-size:8.5px; font-weight:700;
+  letter-spacing:2.6px; color:#a06bd8;
+}
+.ns-hub-endgame-btn{
+  display:block; width:100%; text-align:left; cursor:pointer;
+  padding:9px 11px; min-height:44px;
+  background:linear-gradient(180deg,rgba(180,107,255,.16),rgba(180,107,255,.05));
+  box-shadow:inset 0 0 0 1px rgba(180,107,255,.5);
+  clip-path:polygon(9px 0,100% 0,100% calc(100% - 9px),calc(100% - 9px) 100%,0 100%,0 9px);
+  font-family:var(--font-mono),monospace;
+}
+.ns-hub-endgame-btn:active{ transform:translateY(1px); filter:brightness(1.2) }
+.ns-hub-endgame-name{
+  display:block; font-size:13px; font-weight:800; letter-spacing:2.2px; color:#e6d2ff;
+  text-shadow:0 0 12px rgba(180,107,255,.55);
+}
+.ns-hub-endgame-sub{
+  display:block; margin-top:3px; font-size:9px; line-height:1.5; color:#9a8bb5; letter-spacing:.2px;
+}
+
+/* The one-time reveal, on the first visit to the map after the ending. */
+.ns-hub-reveal{
+  position:relative; overflow:hidden;
+  width:100%; max-width:340px; max-height:86dvh; overflow-y:auto;
+  padding:18px 16px 16px; text-align:center;
+  background:linear-gradient(180deg,#1a0d2c 0%,#0a0714 40%,#07050f 100%);
+  box-shadow:inset 0 0 0 2px rgba(180,107,255,.6),0 16px 46px rgba(0,0,0,.75);
+  clip-path:polygon(16px 0,100% 0,100% calc(100% - 16px),calc(100% - 16px) 100%,0 100%,0 16px);
+  font-family:var(--font-mono),monospace;
+}
+.ns-hub-reveal-burst{
+  position:absolute; inset:-30% -10%; pointer-events:none;
+  background:conic-gradient(from 0deg,transparent 0deg,rgba(200,150,255,.14) 20deg,transparent 40deg,
+    rgba(200,150,255,.14) 60deg,transparent 80deg);
+  animation:nsRevealSpin 12s linear infinite;
+}
+@keyframes nsRevealSpin{ to{ transform:rotate(360deg) } }
+.ns-hub-reveal > *:not(.ns-hub-reveal-burst){ position:relative; z-index:1 }
+.ns-hub-reveal-kicker{ margin:0; font-size:8.5px; letter-spacing:3px; color:#a06bd8; font-weight:700 }
+.ns-hub-reveal-title{
+  margin:3px 0 10px; font-size:24px; font-weight:800; letter-spacing:3px; color:#efe2ff;
+  text-shadow:0 0 22px rgba(180,107,255,.7);
+}
+.ns-hub-reveal-body{ margin:0 0 9px; font-size:10.5px; line-height:1.6; color:#b4a6c8; text-align:left }
+.ns-hub-reveal-body b{ color:#e6d2ff }
+.ns-hub-reveal-foot{ margin:10px 0 0; font-size:9px; letter-spacing:.4px; color:#7d6e93 }
+.ns-hub-reveal-foot b{ color:#c3aee0 }
+.ns-hub-reveal-close{
+  margin-top:12px; width:100%; min-height:44px; cursor:pointer;
+  font-family:var(--font-mono),monospace; font-size:12px; font-weight:800; letter-spacing:2.4px;
+  color:#04140c; background:#39ff9a; border:3px solid #0a3d24;
+  box-shadow:inset 2px 2px 0 rgba(255,255,255,.4),0 0 18px rgba(57,255,154,.45);
+  clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px);
+}
+.ns-hub-reveal-close:active{ transform:translateY(1px) }
+@media (prefers-reduced-motion:reduce){ .ns-hub-reveal-burst{ animation:none; background:none } }
+
 .ns-daily-scrim{
   position:fixed; inset:0; z-index:60;
   display:flex; align-items:center; justify-content:center;
   padding:18px; background:rgba(2,7,5,.72); backdrop-filter:blur(2px);
 }
+/* The panel used to be a plain dark rectangle with rows of text in it, and the
+   owner's word for it was "jelek banget, kaya bukan game banget". It borrows
+   the game's own furniture now — the notched corners the map's ENTER button and
+   the rail icons are cut with, an inset bevel, and a faint scanline — so it
+   reads as part of the same object rather than a web dialog parked on top of
+   one. The clip-path is why there is no border-radius: the two cannot both
+   describe the same edge. */
 .ns-daily-panel{
-  width:100%; max-width:330px; max-height:82dvh; overflow-y:auto;
-  border:1px solid rgba(0,255,136,.3); border-radius:10px;
-  background:#04140c; box-shadow:0 12px 40px rgba(0,0,0,.6);
-  font-family:var(--font-mono),monospace; padding:12px 13px 14px;
+  position:relative;
+  width:100%; max-width:340px; max-height:84dvh; overflow-y:auto;
+  background:linear-gradient(180deg,#08221a 0%,#04140c 34%,#04120b 100%);
+  box-shadow:
+    inset 0 0 0 2px rgba(57,255,154,.42),
+    inset 3px 3px 0 rgba(255,255,255,.05),
+    0 14px 44px rgba(0,0,0,.72);
+  clip-path:polygon(14px 0,100% 0,100% calc(100% - 14px),calc(100% - 14px) 100%,0 100%,0 14px);
+  font-family:var(--font-mono),monospace; padding:13px 14px 16px;
 }
+/* Scanline. 3% opacity, and the difference between a panel and a screen. */
+.ns-daily-panel::before{
+  content:''; position:absolute; inset:0; pointer-events:none; z-index:0;
+  background:repeating-linear-gradient(180deg,rgba(160,255,210,.05) 0 1px,transparent 1px 3px);
+}
+.ns-daily-panel > *{ position:relative; z-index:1 }
 .ns-daily-head{
   display:flex; align-items:baseline; gap:8px;
   padding-bottom:9px; margin-bottom:4px;
   border-bottom:1px solid rgba(0,255,136,.16);
 }
-.ns-daily-title{ font-size:12px; font-weight:700; letter-spacing:3px; color:#39ff9a }
+.ns-daily-title{
+  font-size:13px; font-weight:800; letter-spacing:4px; color:#39ff9a;
+  text-shadow:0 0 12px rgba(57,255,154,.5);
+}
 .ns-daily-reset{ font-size:9px; letter-spacing:.5px; color:#5f8d78 }
 .ns-daily-close{
   margin-left:auto; width:26px; height:26px; flex:0 0 auto;
@@ -708,22 +799,161 @@
 }
 .ns-daily-close:active{ transform:translateY(1px) }
 
-.ns-daily-sec{ margin-top:11px }
+.ns-daily-sec{ margin-top:13px }
 .ns-daily-sech{
-  margin:0 0 5px; font-size:9px; letter-spacing:1.4px; text-transform:uppercase;
+  display:flex; align-items:center; gap:6px;
+  margin:0 0 7px; font-size:9px; letter-spacing:1.4px; text-transform:uppercase;
   color:#5f8d78; font-weight:700;
 }
+/* The section's own headline number, pulled out of the prose and given the
+   weight it deserves: "3 DAYS", "2/3", "11/18" is what the eye is looking for
+   when it lands on a heading. */
+.ns-daily-sech-val{
+  margin-left:auto; flex:0 0 auto;
+  font-size:11px; letter-spacing:1px; color:#ffd166; font-weight:800;
+}
+.ns-daily-sech-sub{ flex:0 0 auto; font-size:8.5px; letter-spacing:.6px; color:#3f6455; text-transform:none }
 .ns-daily-row{
   display:flex; justify-content:space-between; align-items:baseline; gap:10px;
   width:100%; padding:3px 0; font-size:11px; color:#cfeede; text-align:left;
 }
 .ns-daily-label{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
 .ns-daily-val{ flex:0 0 auto; font-weight:700; color:#ffd166 }
-.ns-daily-row.is-done{ color:#5f8d78 }
-.ns-daily-row.is-done .ns-daily-val{ color:#39ff9a }
+/* `is-done` moved onto the task WRAPPER when contracts gained progress bars —
+   the bar and the text both have to change, and they are siblings. The row
+   selector is kept alongside it because the fragment and energy sections still
+   render bare rows. */
+.ns-daily-row.is-done,
+.ns-daily-task.is-done .ns-daily-row{ color:#5f8d78 }
+.ns-daily-row.is-done .ns-daily-val,
+.ns-daily-task.is-done .ns-daily-val{ color:#39ff9a }
 .ns-daily-note{ margin:4px 0 0; font-size:9px; line-height:1.5; color:#4f7a68 }
 .ns-daily-tap{
   border:1px solid rgba(0,255,136,.22); border-radius:7px;
   background:rgba(0,255,136,.05); padding:6px 8px; cursor:pointer;
 }
 .ns-daily-tap:active{ transform:translateY(1px) }
+
+/* ── THE STREAK LADDER ───────────────────────────────────────────────────────
+   Seven tiles, all seven visible without scrolling on a 390px phone. The grid
+   is 7 equal columns rather than a flex row so the tiles cannot end up
+   different widths when one holds "150" and its neighbour holds "2" — an
+   uneven ladder does not read as a ladder. */
+.ns-streak-ladder{
+  display:grid; grid-template-columns:repeat(7,1fr); gap:3px;
+  margin:0 0 8px; padding:0; list-style:none;
+}
+.ns-streak-day{
+  position:relative;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px;
+  padding:5px 1px 4px; min-height:52px;
+  background:rgba(255,255,255,.03);
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.09);
+  clip-path:polygon(4px 0,100% 0,100% calc(100% - 4px),calc(100% - 4px) 100%,0 100%,0 4px);
+}
+.ns-streak-daynum{ font-size:7.5px; letter-spacing:.4px; color:#4f7a68; font-weight:700 }
+.ns-streak-ico{ font-size:12px; line-height:1 }
+.ns-streak-ico.is-point{ color:#ffd166 }
+.ns-streak-ico.is-shard{ color:#b46bff }
+.ns-streak-ico.is-energy{ color:#7ef0a6 }
+.ns-streak-amt{ font-size:9.5px; font-weight:800; color:#cfeede; line-height:1 }
+
+/* Banked. Dimmed and stamped — the past is settled, and it should not compete
+   with today for attention. */
+.ns-streak-day.is-done{ background:rgba(57,255,154,.09); box-shadow:inset 0 0 0 1px rgba(57,255,154,.3) }
+.ns-streak-day.is-done .ns-streak-ico,
+.ns-streak-day.is-done .ns-streak-amt{ opacity:.4 }
+.ns-streak-tick{
+  position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+  font-size:22px; font-weight:800; color:#39ff9a; opacity:.92;
+  text-shadow:0 0 10px rgba(57,255,154,.7),0 1px 2px #000;
+}
+
+/* Today. The only lit tile on the row. */
+.ns-streak-day.is-today{
+  background:linear-gradient(180deg,rgba(255,209,102,.24),rgba(255,209,102,.07));
+  box-shadow:inset 0 0 0 2px #ffd166,0 0 14px rgba(255,209,102,.35);
+  animation:nsStreakToday 2.2s ease-in-out infinite;
+}
+.ns-streak-day.is-today .ns-streak-daynum{ color:#ffd166 }
+.ns-streak-day.is-today .ns-streak-amt{ color:#fff5d8 }
+@keyframes nsStreakToday{ 0%,100%{ filter:brightness(1) } 50%{ filter:brightness(1.22) } }
+
+/* Day 7 is the destination, so it is drawn as one whether or not it is today.
+   A ladder whose top rung looks like every other rung has no top. */
+.ns-streak-day.is-jackpot{
+  background:linear-gradient(180deg,rgba(180,107,255,.2),rgba(180,107,255,.05));
+  box-shadow:inset 0 0 0 1px rgba(180,107,255,.6);
+}
+.ns-streak-day.is-jackpot .ns-streak-daynum{ color:#d2a6ff }
+.ns-streak-day.is-jackpot.is-today{
+  box-shadow:inset 0 0 0 2px #ffd166,0 0 18px rgba(255,209,102,.55);
+}
+
+/* The shield line. Green when held, muted while it is being earned. */
+.ns-streak-shield{
+  display:flex; align-items:flex-start; gap:7px; margin-top:8px;
+  padding:7px 9px;
+  background:rgba(255,255,255,.03);
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.1);
+  clip-path:polygon(6px 0,100% 0,100% calc(100% - 6px),calc(100% - 6px) 100%,0 100%,0 6px);
+}
+.ns-streak-shield.is-ready{
+  background:rgba(57,255,154,.08); box-shadow:inset 0 0 0 1px rgba(57,255,154,.42);
+}
+.ns-streak-shield-ico{ font-size:13px; line-height:1.3; flex:0 0 auto; filter:grayscale(1); opacity:.55 }
+.ns-streak-shield.is-ready .ns-streak-shield-ico{ filter:none; opacity:1 }
+.ns-streak-shield-txt{ font-size:9px; line-height:1.55; color:#7ba393 }
+.ns-streak-shield-txt b{ color:#cfeede; font-weight:700 }
+.ns-streak-shield.is-ready .ns-streak-shield-txt b{ color:#39ff9a }
+.ns-streak-flame{ font-size:11px; line-height:1 }
+
+/* ── PROGRESS BARS ──────────────────────────────────────────────────────── */
+.ns-daily-task{ margin-bottom:7px }
+.ns-daily-task:last-child{ margin-bottom:0 }
+.ns-daily-bar{
+  display:block; height:5px; margin-top:3px;
+  background:rgba(255,255,255,.07);
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.07);
+}
+.ns-daily-bar-fill{
+  display:block; height:100%;
+  background:linear-gradient(90deg,#1fae6a,#39ff9a);
+  box-shadow:0 0 8px rgba(57,255,154,.5);
+  transition:width .3s ease;
+}
+.ns-daily-bar-fill.is-frag{ background:linear-gradient(90deg,#7a3fd0,#b46bff); box-shadow:0 0 8px rgba(180,107,255,.5) }
+.ns-daily-task.is-done .ns-daily-bar-fill{ background:#39ff9a }
+
+/* ── "YOU JUST GOT PAID" ────────────────────────────────────────────────────
+   The banner at the top of the panel on the one visit per day that earned
+   something. Deliberately the same gold vocabulary as the vault win screen —
+   in this game, gold means real money arrived in your account. */
+.ns-daily-claim{
+  position:relative; overflow:hidden;
+  display:flex; flex-direction:column; align-items:center; gap:2px;
+  margin:10px 0 2px; padding:11px 10px 10px; text-align:center;
+  background:linear-gradient(180deg,rgba(255,209,102,.22),rgba(255,209,102,.05));
+  box-shadow:inset 0 0 0 2px rgba(255,209,102,.65);
+  clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px);
+}
+.ns-daily-claim-burst{
+  position:absolute; inset:-40% -10%; pointer-events:none;
+  background:conic-gradient(from 0deg,transparent 0deg,rgba(255,240,190,.16) 18deg,transparent 36deg,
+    rgba(255,240,190,.16) 54deg,transparent 72deg);
+  animation:nsClaimSpin 9s linear infinite;
+}
+@keyframes nsClaimSpin{ to{ transform:rotate(360deg) } }
+.ns-daily-claim > *:not(.ns-daily-claim-burst){ position:relative; z-index:1 }
+.ns-daily-claim-day{ font-size:8.5px; letter-spacing:2.4px; color:#c9a24a; font-weight:700 }
+.ns-daily-claim-amt{
+  font-size:19px; font-weight:800; letter-spacing:.5px; color:#ffe9a8; line-height:1.15;
+  text-shadow:0 0 16px rgba(255,209,102,.6);
+}
+.ns-daily-claim-note{ font-size:8.5px; letter-spacing:.3px; color:#a58a4e }
+
+@media (prefers-reduced-motion:reduce){
+  .ns-streak-day.is-today{ animation:none; filter:brightness(1.12) }
+  .ns-daily-claim-burst{ animation:none; background:none }
+  .ns-daily-bar-fill{ transition:none }
+}

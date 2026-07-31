@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAdminDb } from '@/firebase-config'
 import { normalizeWalletAddress } from '@/lib/vault-utils'
-import { readStreak, touchStreak, describeReward, STREAK_LADDER } from '@/lib/server/loginStreak'
+import {
+  readStreak, touchStreak, describeReward, STREAK_LADDER, SHIELD_EARN_AFTER,
+} from '@/lib/server/loginStreak'
 
 // Reads ?wallet on GET, so it can only ever be served on demand — declare it
 // dynamic or the build tries to prerender it and logs DYNAMIC_SERVER_USAGE.
@@ -38,6 +40,8 @@ const EMPTY = {
   claimedToday: false,
   today: STREAK_LADDER[0],
   tomorrow: STREAK_LADDER[1],
+  shield: 0,
+  shieldIn: SHIELD_EARN_AFTER,
 }
 
 function walletFrom(raw: string | null | undefined): string | null {
@@ -51,10 +55,10 @@ export async function GET(req: NextRequest) {
     if (!wallet) return NextResponse.json({ error: 'Invalid wallet' }, { status: 400 })
 
     const db = getAdminDb()
-    if (!db) return NextResponse.json({ ...EMPTY, ladder: STREAK_LADDER }, { status: 200 })
+    if (!db) return NextResponse.json({ ...EMPTY, ladder: STREAK_LADDER, shieldEarnAfter: SHIELD_EARN_AFTER }, { status: 200 })
 
     const state = await readStreak(db, wallet)
-    return NextResponse.json({ ...state, ladder: STREAK_LADDER }, { status: 200 })
+    return NextResponse.json({ ...state, ladder: STREAK_LADDER, shieldEarnAfter: SHIELD_EARN_AFTER }, { status: 200 })
   } catch (error) {
     console.error('[streak] GET error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
@@ -68,7 +72,7 @@ export async function POST(req: NextRequest) {
     if (!wallet) return NextResponse.json({ error: 'Invalid wallet' }, { status: 400 })
 
     const db = getAdminDb()
-    if (!db) return NextResponse.json({ ...EMPTY, granted: null, ladder: STREAK_LADDER }, { status: 200 })
+    if (!db) return NextResponse.json({ ...EMPTY, granted: null, ladder: STREAK_LADDER, shieldEarnAfter: SHIELD_EARN_AFTER }, { status: 200 })
 
     const state = await touchStreak(db, wallet)
     return NextResponse.json(
@@ -76,6 +80,7 @@ export async function POST(req: NextRequest) {
         ...state,
         grantedLabel: state.granted ? describeReward(state.granted) : null,
         ladder: STREAK_LADDER,
+        shieldEarnAfter: SHIELD_EARN_AFTER,
       },
       { status: 200 },
     )

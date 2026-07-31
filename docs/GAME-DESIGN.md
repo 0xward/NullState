@@ -299,8 +299,8 @@ rail button, which until now was a `SOON` badge promising exactly this feature
 
 ### 5.3 Login streak — `[TODAY]`
 
-Seven escalating days; breaking it resets to day 1. Loss aversion is the
-strongest retention force available and it costs nothing.
+Seven escalating days. Loss aversion is the strongest retention force available
+and it costs nothing.
 
 Half of this already existed: the Season Pass daily claim grants +1 energy and
 +3 t1 shards per UTC day — a login reward that was never framed as one, and
@@ -347,9 +347,59 @@ last day rather than sent, and the advance happens inside one RTDB transaction �
 so two tabs cannot both advance it or both be paid. A grant that throws still
 counts the day, because a re-claimable day is worse than one missed grant.
 
-Locked down by `npm run test:streak` (31 assertions against a stubbed RTDB —
+Locked down by `npm run test:streak` (52 assertions against a stubbed RTDB —
 the day boundaries cannot be tested in a browser without waiting for midnight)
-and `npm run test:streak-ui` (16 assertions in a real browser).
+and `npm run test:streak-ui` (43 assertions in a real browser).
+
+#### 5.3b The two things that made it a game — 2026-07-31
+
+> **Owner:** *"pop up daily nya jelek banget, kaya bukan game banget, streak nya
+> juga ga kaya game2 lain."*
+
+He is describing a real and specific absence, not a paint job. Everything above
+existed and worked; none of it was ever **shown**.
+
+**The ladder is on screen.** Every shipped version of this mechanic puts all
+seven rungs in front of the player at once, with what each one pays, because
+that visible distance to the big one *is* the mechanic. NullState had a
+sentence — "day 3 of 7" — and a number in a chip. The route had been sending the
+whole ladder since the day it shipped and nothing rendered it. It renders now:
+banked days stamped, today lit, day 7 drawn as the destination, and the DAILY
+panel **opens itself** on the one visit per UTC day that actually paid something
+(`grantedLabel` is non-null only on the request that advanced the day, so it can
+open at most once).
+
+**A missed day is forgiven, once.** "Back to 1" was the harshest version of this
+mechanic that shipped anywhere. Duolingo ran 600+ experiments on this single
+feature and landed on a freeze; the players offered one were measurably *more*
+likely to still be there a week later and *less* likely to lose the streak at
+all. A streak with no safety net does not build discipline, it manufactures the
+moment a player decides the thing they were building is gone.
+
+So: **one Streak Shield, earned by three days in a row.**
+
+- It covers exactly **one** missed day. Two and the streak is genuinely broken —
+  the tension has to still be real.
+- It costs the operator **nothing**: the missed rung is never paid. The ladder
+  is stepped *over*, not through, so a shielded week pays six rungs, not seven.
+- Spending it sets the next earn three days out, so protection is always
+  something the player is currently working for.
+- A brand-new player is unprotected for two days on purpose — the shield is
+  something you earn by showing the habit, which is what makes it worth telling
+  them about on day one.
+
+`SHIELD_EARN_AFTER` in `lib/server/loginStreak.ts`. The whole decision still
+happens inside the one transaction, and `readStreak` had to learn the same rule
+as `touchStreak`: a state the writer would honour but the reader calls broken
+shows the player a dead streak they have not actually lost.
+
+Sources for the research: [Beamable on daily login
+rewards](https://beamable.com/blog/inspiring-examples-of-daily-login-rewards-for-your-mobile-game),
+[MAF on retention](https://maf.ad/en/blog/daily-login-rewards-engagement-retention/),
+[Duolingo's streak mechanic
+deconstructed](https://duolingo.deconstructoroffun.com/mechanics/streaks),
+[UX Magazine on hot-streak design without
+shame](https://uxmag.com/articles/the-psychology-of-hot-streak-game-design-how-to-keep-players-coming-back-every-day-without-shame).
 
 ### 5.4 Surface the craft timer — `[TODAY]`
 
@@ -484,6 +534,43 @@ Locked down by `npm run test:vaultwin`, which found a real layout bug on the way
 in: the decorative flare is deliberately wider than the card and stuck 34px out
 of each side, pushing a 390px phone into horizontal scroll. Not something a
 screenshot would have shown.
+
+### 6c. …and where the win leaves you — `[TODAY]`
+
+> **Owner, the same session:** *"setelah buka vault itu aku masuk menu abbys,
+> menurut km itu hilangkan atau jangan?"*
+
+**Answer: not removed — moved.**
+
+Winning the campaign called `returnToTitleScreen()` unconditionally, which drops
+the player onto the engine's own title screen: DESCEND, NEW GAME+, THE NULL
+ABYSS. That screen was the game's home *before the world map existed*. With the
+map on (the default since the pre-listing audit), it is a **dead end** — the run
+teardown hides the HUD, so there is no Save & Exit, and nothing on it leads back
+to the map. Winning the game put the player somewhere they could not leave,
+seconds after being paid.
+
+The Abyss is not the problem. It is the completion reward, and with the map as
+the home screen it is one of only two modes that unlock at the end. The problem
+was **where the player was standing when they were offered it**.
+
+- The finale surfaces to the **world map**, like every other cleared bunker
+  (`finishCampaign()` → `nullstate-campaign-complete` → GameFlowManager). With
+  the hub off it still ends on the title screen, because there the title *is*
+  the home screen — that is the kill-switch path, not a bug.
+- **THE NULL ABYSS** and **NEW GAME+** live under `≡ MENU` on the map,
+  permanently, gated on the PROTOCOL ZERO flag the engine already writes
+  (`lib/campaignComplete.ts` reads the *same* key — two places deciding one
+  thing is exactly what rule 2 forbids).
+- A **one-time panel** on the first visit after the ending says what unlocked,
+  and says the thing the player most needs to know next: **Bunker 5 is how you
+  reach the vault every week from now on.**
+- All five bunkers read as **cleared** afterwards, not just four. There is no
+  "next" bunker after the campaign, so leaving one `active` would point at a
+  descent that does not exist.
+
+Locked down by `npm run test:campaign-end` — both halves, the engine's handoff
+and the map's response.
 
 ---
 
@@ -777,6 +864,47 @@ that awards the fragment (one request per container, first open only).
 Completion is still announced on every path: the two server-side routes return
 the contract state, the engine logs it through one shared `announceContracts()`,
 and the Rewards screen appends it to the burn confirmation it already shows.
+
+---
+
+## 7f. Burn history: seven days, and a rollup so nothing shrinks — `[TODAY]`
+
+> **Owner:** *"masalah history burn yang menumpuk, lebih baik tunjukan burn 7
+> hari terakhir, lalu hilangkan sisanya, dan jelaskan di bawahnya."*
+
+Right on both halves. A wallet that plays a season leaves hundreds of burn rows
+behind, each carrying its full item list, and the Rewards screen rendered **all
+of them** — so the useful part (*what did I burn today?*) sat on top of an
+unbounded wall of receipts, and `/api/player/profile` shipped the entire pile
+over the wire to draw it.
+
+These rows are a **log, not a ledger**. The Point was credited to
+`playerProfiles/{wallet}/nullstateTokenBalance` at the moment of the burn and has
+never been recomputed from here, so deleting an old row costs the player nothing
+they can spend.
+
+**What it would have cost, done naively**, is the two season totals shown above
+the list — both derived by summing the very array being trimmed. That is the
+same class of bug as the `paperClaims` note in the prune (§9b): the number
+quietly shrinks, and it reads as the player losing something rather than as rows
+being deleted.
+
+So nothing is simply dropped:
+
+- The list is cut to the **last 7 days**, server-side, so a season of receipts
+  never crosses the wire to be discarded on arrival.
+- The prune folds every older row into `burnRollup/{seasonId}/{wallet}` —
+  events, value, item count — **before** deleting it, in a transaction, with a
+  `prunedThrough` watermark so a crash between the two cannot double-count.
+- `/api/player/profile` adds the rollup back, so `totalBurnEvents` and
+  `totalBurnedValue` are byte-for-byte what they were.
+- A row with **no usable timestamp is never deleted**: one we cannot date is one
+  we cannot prove is stale, and the cost of keeping it is a line on a screen.
+- The screen **says so, underneath**, including how many earlier burns are not
+  shown and that every one of them was paid into the balance at the time.
+
+`BURN_HISTORY_DAYS` in `lib/server/seasonClose.ts`, alongside the other prune
+constants. Locked down by the burn block in `npm run test:season`.
 
 ---
 
