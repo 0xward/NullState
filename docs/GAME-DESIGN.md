@@ -108,7 +108,7 @@ more mode, not surgery.
 
 A live game needs an answer at every timescale. Miss one and the player falls
 out of the loop there. Layer 2 was empty, and that was the whole problem; it is
-now filled. Layer 4 is the one still half-broken (§9).
+now filled. Layer 4's three problems are resolved too (§9).
 
 ### Layer 1 — Session: "why play right now" — `[TODAY]`
 
@@ -131,10 +131,12 @@ correct code pays USDT on-chain immediately.
 
 This layer works mechanically. What is wrong is *how you get in*: pure luck.
 
-### Layer 4 — Seasonal: "why care this month" — `[CHANGE]`, half-broken
+### Layer 4 — Seasonal: "why care this month" — `[TODAY]`
 
-Season = `YYYYMM` UTC. Season Pass SBT, leaderboard, top-3 USDm bonus.
-Three real problems, §9.
+Season = `YYYYMM` UTC. Season Pass SBT, leaderboard, top-3 USDm bonus. Its
+three problems — two disagreeing leaderboards, a wholly manual payout, and
+three different "kills" numbers — are resolved in §9. The payout is still
+signed by hand, by design.
 
 ---
 
@@ -404,7 +406,7 @@ exists.
 | NullState Point | Daily→Weekly | Gear ratchet (faucet-only) | `[TODAY]` |
 | Vault Fragments | Daily→Weekly | **Connects daily play to money** | `[TODAY]` |
 | The Vault | Weekly | The jackpot | `[TODAY]` |
-| Leaderboard | Seasonal | Competition | `[CHANGE]` §9 |
+| Leaderboard | Seasonal | Competition | `[TODAY]` §9 |
 | Season Pass | Seasonal | Subscription | `[TODAY]` |
 | Referrals | Growth | Acquisition | `[TODAY]` |
 | Null Abyss | Endgame | Skill ceiling + season metric | `[TODAY]` |
@@ -785,29 +787,87 @@ engine.
 
 ---
 
-## 9. Known problems in the seasonal layer
+## 9. The seasonal layer
 
-**`[CHANGE]` Two leaderboards that disagree.**
-1. Firestore `leaderboard`, written client-side, sorted by **XP** — this is
-   what the player sees (`Leaderboard.tsx`).
-2. RTDB `leaderboards/{seasonId}` + the on-chain `getSeasonLeaderboard` —
-   this is what decides **who gets paid** (`/api/leaderboard`).
+### 9.1 One leaderboard — `[TODAY]`
 
-`LeaderboardDisplay.tsx`, which reads the second one, is **rendered
-nowhere**. So the ranking players see is not the ranking that pays. Pick
-one and delete the other.
+There were two, and they disagreed:
 
-**`[CHANGE]` The season bonus is entirely manual.** `seasonRewards`
-($20/$5/$3) in `game-config.ts` is read by nothing. Paying out requires the
-owner to run `scripts/deposit-reward.js` to push the top 3 on-chain *and*
-deposit the tokens, every month, by hand. No cron, no reminder. Miss it and
-the claim button is simply dead for every player.
+1. Firestore `leaderboard`, written client-side, sorted by **XP** — what the
+   player saw (`Leaderboard.tsx`).
+2. RTDB `leaderboards/{seasonId}` + the on-chain `getSeasonLeaderboard` — what
+   decided **who got paid**, surfaced by `LeaderboardDisplay.tsx`, which was
+   rendered **nowhere**.
 
-**`[CHANGE]` Three different "kills" numbers.** On-chain `kills` is
-structurally inaccurate — `executeAction()` takes a boolean, so a 40-kill
-run increments it by 1. Firestore `totalKills` is the real figure.
-`p.kills` is the live per-run counter. The code already admits this
-(`leaderboardService.ts:18-26`). Decide which one is canonical.
+So the ranking players competed on was not the ranking that paid, and nothing
+in the code said which was meant to win.
+
+**Owner decision: XP is canonical.** It is what players already see, it is
+cumulative and accurate, and the alternative rests on a number that cannot be
+right (see 9.3). `LeaderboardDisplay.tsx` and `/api/leaderboard` — its only
+consumer — are deleted. `lib/server/seasonClose.ts` is now the one place a
+season ranking is computed, and it reads XP.
+
+### 9.2 The season payout — `[TODAY]`, prepared automatically
+
+Paying the top-3 bonus meant the owner remembering to run
+`scripts/deposit-reward.js` twice, every month, from memory. Miss it and the
+claim button was dead for every player with no error anywhere to notice.
+
+**Owner decision: prepare automatically, the owner still signs.** Money keeps a
+human in the loop — no unattended transfer, and **no signer key on the server**.
+The deployer key owns both reward contracts and this repo is public; it stays on
+the owner's device. What is automated is everything up to the signature:
+
+| Step | Who |
+|---|---|
+| Detect the season has ended | cron, 01:00 UTC on the 1st (`vercel.json`) |
+| Compute and **freeze** the top 3 by XP | `/api/cron/season` |
+| Show that a payout is owed | `/stats`, and `GET /api/season/status` |
+| Hand over the exact commands to run | `payoutCommands()` |
+| **Sign and send** | **the owner** |
+| Mark it paid | `POST /api/season/status` |
+
+**Why the snapshot is frozen.** XP keeps moving after a season ends — it is
+cumulative and does not reset (9.3). Reading "the top 3" at payout time would
+give a different answer than at closing time, and the later it is read the more
+wrong it is. The write is a transaction that aborts if a snapshot exists, so a
+cron retry, a duplicate schedule or a manual `curl` can never re-rank winners
+the owner has already read.
+
+**No wallet is filtered out** of the ranking server-side. The owner reviews the
+list before signing — that review *is* the safeguard, and it is the whole reason
+the payout stayed manual. A hidden exclusion list would be a second policy
+nobody reads until it pays the wrong person.
+
+Both routes **fail closed**: without `CRON_SECRET` / `ADMIN_SECRET` they refuse
+rather than defaulting to open. Freezing a ranking is the one action here that
+cannot be undone.
+
+> **What "notify" means here, precisely.** There is no mail or push transport in
+> this repo, so nothing emails the owner. The notification is a *state that
+> looks wrong*: `/stats` shows "Winners frozen — payout pending" in amber until
+> `POST /api/season/status` marks it paid. That is a real improvement over a
+> claim button that silently does nothing, and it is not the same thing as an
+> alert. If a real channel is ever wanted, that is a separate piece of work.
+
+### 9.3 Which "kills" is canonical — `[TODAY]`, and it already was
+
+Three numbers existed:
+
+| | What it is |
+|---|---|
+| on-chain `kills` | **structurally wrong** — `executeAction()` takes a boolean, so a 40-kill run increments it by 1 |
+| Firestore `totalKills` | the real lifetime figure |
+| `p.kills` | the live per-run counter |
+
+**`totalKills` is canonical.** Verified rather than assumed: every place that
+shows a lifetime kill count already reads it —
+`leaderboardService.ts` resolves `data.totalKills ?? data.kills ?? 0` for both
+the leaderboard row and the profile, and the only other reader (`HudStatLine`)
+shows `p.kills`, which is correct because it is labelling the *current run*.
+**No UI reads the on-chain counter at all.** So this needed a decision recorded,
+not a code change — and the record is what was missing.
 
 ---
 
@@ -863,7 +923,7 @@ time.
 6. ~~§5.3 Login streak~~ — **shipped**
 7. ~~§7 Bunker differentiation (time vs risk)~~ — **shipped**
 8. ~~§8 Seeded dungeon → fixes Save & Exit~~ — **shipped**
-9. §9 Leaderboard consolidation + automated season payout
+9. ~~§9 Leaderboard consolidation + automated season payout~~ — **shipped**
 
 ---
 
