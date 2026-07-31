@@ -46,6 +46,10 @@ interface ProfileResponse {
     nullstateTokenBalance?: number
   }
   burns?: BurnRecord[]
+  /** How many days of history the list holds. See BURN_HISTORY_DAYS. */
+  burnHistoryDays?: number
+  /** Burns this season the list is NOT showing, because they fell outside it. */
+  burnsHidden?: number
 }
 
 interface StashItem {
@@ -224,6 +228,8 @@ export default function RewardsScreen({ onBack, address }: RewardsScreenProps) {
   )
 
   const burns = data?.burns ?? []
+  const historyDays = data?.burnHistoryDays ?? 7
+  const hiddenBurns = data?.burnsHidden ?? 0
   const tokenBalance = data?.summary?.nullstateTokenBalance ?? 0
 
   // --- Stablecoin claimable (live, on-chain) ---
@@ -345,6 +351,24 @@ export default function RewardsScreen({ onBack, address }: RewardsScreenProps) {
                 totalBurnedValue: (prev.summary?.totalBurnedValue ?? 0) + (payload.totalValue ?? selectedValue),
                 nullstateTokenBalance: payload.newBalance ?? tokenBalance + selectedValue,
               },
+              // Put it at the top of the list too. The totals moved and the list
+              // did not, which since the list gained a "N earlier burns are not
+              // shown" line reads as the burn having been filed away
+              // immediately — the one thing that note promises does not happen
+              // for seven days.
+              burns: [
+                {
+                  burnId: payload.burnId ?? `local_${Date.now()}`,
+                  wallet: address,
+                  items,
+                  itemCount: selectedCount,
+                  totalValue: payload.totalValue ?? selectedValue,
+                  txHash: null,
+                  timestamp: Date.now(),
+                  recordedAt: Date.now(),
+                },
+                ...(prev.burns ?? []),
+              ],
             }
           : prev
       )
@@ -701,12 +725,23 @@ export default function RewardsScreen({ onBack, address }: RewardsScreenProps) {
             {/* Burn history */}
             {!isLoading && (
               <section>
+                {/* Owner: "history burn yang menumpuk, lebih baik tunjukan burn
+                    7 hari terakhir, lalu hilangkan sisanya, dan jelaskan di
+                    bawahnya." The window is the server's (see BURN_HISTORY_DAYS)
+                    and is named in the heading rather than left as a surprise —
+                    a list that quietly stops at an unexplained point reads as
+                    data loss. */}
                 <h2 className="mb-2 flex items-center gap-1.5 font-mono text-xs font-bold uppercase tracking-[3px] text-[#e6c07a]">
-                  <GiReceiveMoney aria-hidden size={15} /> Burn History{burns.length ? ` (${burns.length})` : ''}
+                  <GiReceiveMoney aria-hidden size={15} /> Burn History
+                  <span className="font-normal tracking-[1.5px] text-[#9c7a4f]">
+                    · last {historyDays} days{burns.length ? ` (${burns.length})` : ''}
+                  </span>
                 </h2>
                 {burns.length === 0 ? (
                   <div className="rounded-lg border border-[#7a4f24]/40 bg-[#2b1a0d]/60 p-4 text-center font-mono text-[11px] text-[#9c7a4f]">
-                    No burns recorded yet this season.
+                    {hiddenBurns > 0
+                      ? `Nothing burned in the last ${historyDays} days. Earlier burns this season are counted in the totals above.`
+                      : 'No burns recorded yet this season.'}
                   </div>
                 ) : (
                   <div className="flex flex-col gap-2">
@@ -731,6 +766,24 @@ export default function RewardsScreen({ onBack, address }: RewardsScreenProps) {
                     ))}
                   </div>
                 )}
+
+                {/* The explanation the owner asked for, underneath. It has one
+                    job: make it obvious that nothing was taken. The Point from
+                    every burn was credited the instant it happened and lives in
+                    the balance — these rows were only ever the receipt. */}
+                <p className="mt-2.5 rounded-lg border border-[#7a4f24]/30 bg-[#2b1a0d]/40 px-3 py-2.5 font-mono text-[10px] leading-relaxed text-[#9c7a4f]">
+                  Only the last {historyDays} days are listed — older receipts are cleared so this
+                  screen stays readable.{' '}
+                  {hiddenBurns > 0 && (
+                    <>
+                      <span className="text-[#c9a76a]">{hiddenBurns} earlier burn{hiddenBurns === 1 ? '' : 's'}</span>{' '}
+                      this season {hiddenBurns === 1 ? 'is' : 'are'} not shown.{' '}
+                    </>
+                  )}
+                  <span className="text-[#c9a76a]">Nothing is lost:</span> every burn was paid into your
+                  NullState Point balance the moment you made it, and the season totals above still count
+                  all of them.
+                </p>
               </section>
             )}
           </div>

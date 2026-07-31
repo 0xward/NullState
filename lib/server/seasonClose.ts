@@ -227,6 +227,33 @@ export async function markSeasonPaid(db: AdminDb, seasonId: number, note?: strin
 export const PRUNE_KEEP_DAYS = 30
 export const PRUNE_KEEP_WEEKS = 8
 
+/**
+ * How much burn history a player is shown, and how much is kept.
+ *
+ * OWNER: "masalah history burn yang menumpuk, lebih baik tunjukan burn 7 hari
+ * terakhir, lalu hilangkan sisanya, dan jelaskan di bawahnya."
+ *
+ * He is right about both halves. A wallet that plays a season leaves hundreds of
+ * burn rows behind, every one of them carrying its full item list — and the
+ * Rewards screen rendered ALL of them, so the useful part (what did I burn
+ * today?) sat above an unbounded wall of receipts, and `/api/player/profile`
+ * shipped the whole pile over the wire to draw it.
+ *
+ * These rows are a LOG, not a ledger. The Point they paid was credited to
+ * `playerProfiles/{wallet}/nullstateTokenBalance` at the moment of the burn and
+ * has never been recomputed from here. So deleting an old row costs the player
+ * nothing they can spend.
+ *
+ * What it WOULD cost, if this were done naively, is the two season totals the
+ * Rewards screen shows above the list — both of which are derived by summing
+ * this exact array. That is the same class of bug the note above warns about
+ * for `paperClaims`: the number quietly shrinks, and it looks like the player
+ * lost something rather than like rows being deleted. So nothing is simply
+ * dropped — every pruned row is folded into `burnRollup/{seasonId}/{wallet}`
+ * first, and the profile route adds that back before it reports a total.
+ */
+export const BURN_HISTORY_DAYS = 7
+
 /** Paths keyed by `YYYY-MM-DD`, safe to drop once the day is long past. */
 const DAILY_PRUNE = ['dailyContracts', 'dailyContractClaims', 'passPerkClaims']
 /** Paths keyed by ISO `YYYYWW`. */
@@ -249,6 +276,88 @@ export function isStaleWeekKey(key: string, currentWeekId: string, keepWeeks = P
   // conservative direction (it keeps a week longer), which is the right way to
   // be wrong when the alternative is deleting live data.
   return (cy - year) * 52 + (cw - week) > keepWeeks
+}
+
+/** One burn row as `/api/burn/record` writes it — only the fields prune reads. */
+interface BurnRow { recordedAt?: number; timestamp?: number; totalValue?: number; itemCount?: number }
+
+/** When did this row happen? `recordedAt` is server-stamped; `timestamp` is not. */
+function burnAt(row: BurnRow | null | undefined): number {
+  const r = row?.recordedAt
+  if (typeof r === 'number' && Number.isFinite(r)) return r
+  const t = row?.timestamp
+  return typeof t === 'number' && Number.isFinite(t) ? t : 0
+}
+
+/**
+ * Is this burn row old enough to fold into the rollup and delete?
+ *
+ * A row with no usable timestamp returns FALSE and is kept. That direction is
+ * deliberate: a row we cannot date is a row we cannot prove is stale, and the
+ * cost of keeping one is a line on a screen, while the cost of deleting one is
+ * a receipt the player can never get back.
+ */
+export function isStaleBurn(row: unknown, now: number, keepDays = BURN_HISTORY_DAYS): boolean {
+  const at = burnAt(row as BurnRow)
+  if (at <= 0) return false
+  return now - at > keepDays * 86400000
+}
+
+/**
+ * Fold every burn row older than BURN_HISTORY_DAYS into a per-wallet aggregate,
+ * then delete it.
+ *
+ * The aggregate is additive and is the ONLY thing that must survive: the profile
+ * route reads it and adds the live rows on top, so `totalBurnEvents` and
+ * `totalBurnedValue` are exactly what they were before the prune ran. Written
+ * with a transaction because this is a running total and a lost update here is
+ * a permanently wrong number, not a retryable one.
+ *
+ * Rows are deleted only AFTER the rollup commits. Crashing between the two
+ * double-counts nothing — the rollup moved, the rows are still there, and the
+ * next run finds them again and folds a second time. That IS a real risk, so
+ * `prunedThrough` records the newest timestamp already folded and rows at or
+ * below it are skipped on a later pass.
+ */
+async function pruneBurnRecords(db: AdminDb, now: number, removed: string[]): Promise<void> {
+  const root = await db.ref('burnRecords').get()
+  if (!root.exists()) return
+  const seasons = (root.val() || {}) as Record<string, Record<string, Record<string, BurnRow>>>
+
+  for (const seasonId of Object.keys(seasons)) {
+    for (const wallet of Object.keys(seasons[seasonId] || {})) {
+      const rows = seasons[seasonId][wallet] || {}
+      const rollupRef = db.ref(`burnRollup/${seasonId}/${wallet}`)
+      const already = ((await rollupRef.get()).val() || {}) as { prunedThrough?: number }
+      const floor = typeof already.prunedThrough === 'number' ? already.prunedThrough : 0
+
+      const doomed = Object.keys(rows).filter((id) => isStaleBurn(rows[id], now) && burnAt(rows[id]) > floor)
+      if (!doomed.length) continue
+
+      let events = 0, value = 0, items = 0, newest = floor
+      for (const id of doomed) {
+        const row = rows[id]
+        events += 1
+        value += typeof row?.totalValue === 'number' && Number.isFinite(row.totalValue) ? row.totalValue : 0
+        items += typeof row?.itemCount === 'number' && Number.isFinite(row.itemCount) ? row.itemCount : 0
+        newest = Math.max(newest, burnAt(row))
+      }
+
+      await rollupRef.transaction((cur: unknown) => {
+        const c = (cur || {}) as { events?: number; value?: number; items?: number; prunedThrough?: number }
+        const n = (x: unknown) => (typeof x === 'number' && Number.isFinite(x) ? x : 0)
+        return {
+          events: n(c.events) + events,
+          value: n(c.value) + value,
+          items: n(c.items) + items,
+          prunedThrough: Math.max(n(c.prunedThrough), newest),
+        }
+      })
+
+      for (const id of doomed) await db.ref(`burnRecords/${seasonId}/${wallet}/${id}`).remove()
+      removed.push(`burnRecords/${seasonId}/${wallet} (${doomed.length})`)
+    }
+  }
 }
 
 export async function prune(
@@ -275,6 +384,7 @@ export async function prune(
       removed.push(`${root}/${key}`)
     }
   }
+  await pruneBurnRecords(db, now, removed)
   return { removed }
 }
 

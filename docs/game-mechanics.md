@@ -126,6 +126,11 @@ for.
 Burning counts **wherever you burn** — in your stash mid-run, or from the
 Rewards screen between runs. Either way the contract moves.
 
+The Rewards screen lists your **last 7 days** of burns and clears the older
+receipts, so the list stays readable instead of growing all season. Nothing is
+lost: the NullState Point from every burn was paid into your balance the moment
+you made it, and the season totals above the list still count all of them.
+
 Tap any chip on the map — or the **DAILY** button on the left rail — to open the
 **DAILY panel**: your streak, today's three contracts, your vault fragments,
 your energy and any running craft, with one countdown to the next reset.
@@ -154,7 +159,23 @@ No button to press: the reward lands the moment the map opens, and the **🔥**
 chip shows how many days you are on. After day 7 the ladder starts again, and
 your longest run is kept as a record.
 
-**Miss a day and it goes back to 1.**
+Open the **DAILY** panel and you can see the whole week at once — every rung and
+what it pays, the ones you have already banked stamped, and today lit up. On the
+visit that pays you, the panel opens by itself and leads with what you just got.
+
+### 🛡 The Streak Shield
+
+**Three days in a row earns you a Streak Shield.** Miss a day and it is spent for
+you automatically — your streak survives and carries on the next time you open
+the game. You do not get paid for the day you missed; you just do not lose
+everything for it.
+
+- One shield at a time. It covers **one** missed day, not two.
+- After it is spent, three more days in a row earns the next one.
+- **Miss two days, or miss one with no shield, and the streak goes back to 1.**
+
+The panel tells you which of those you are in — "Streak Shield ready", or how
+many days until the next one.
 
 ---
 
@@ -186,6 +207,22 @@ accepted. It can take a few seconds to appear in MiniPay.
 
 The popup waits for you. Tap **CONTINUE** when you are ready; nothing disappears
 on a timer.
+
+---
+
+### ⭐ After the campaign
+
+Beat all five bunkers and you land back on the **world map**, with a panel
+telling you what you have just unlocked. Every bunker stays open to **RAID** —
+and Bunker 5 is how you reach the vault every week from then on, so that is
+where the money is.
+
+Two new ways down appear under **≡ MENU**, and stay there:
+
+- **THE NULL ABYSS** — an endless descent with no bottom. Your deepest fall is
+  your rank this season, and death ends the run.
+- **NEW GAME+** — replay the campaign harder. Enemies gain +35% per cycle,
+  shards pay +25%, and you keep your level and your gear.
 
 ---
 

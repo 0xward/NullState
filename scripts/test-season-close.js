@@ -241,6 +241,74 @@ const W = (n) => '0x' + String(n).repeat(40).slice(0, 40)
     ok('pruning an empty database is harmless', removed.length === 0)
   }
 
+  // ── BURN HISTORY: seven days shown, the rest folded into a rollup ────────
+  // OWNER: "history burn yang menumpuk, lebih baik tunjukan burn 7 hari
+  // terakhir, lalu hilangkan sisanya." The trap is the pair of season totals
+  // the Rewards screen shows above the list, both of which used to be summed
+  // out of the very rows being deleted — the exact failure the paperClaims note
+  // above exists to prevent, one path over.
+  {
+    const DAY = 86400000
+    ok('the burn window is seven days', S.BURN_HISTORY_DAYS === 7)
+    ok('a burn from today is not stale', S.isStaleBurn({ recordedAt: NOW }, NOW) === false)
+    ok('nor one from six days ago', S.isStaleBurn({ recordedAt: NOW - 6 * DAY }, NOW) === false)
+    ok('but one from thirty days ago is', S.isStaleBurn({ recordedAt: NOW - 30 * DAY }, NOW) === true)
+    ok('a row with no usable date is KEPT, never guessed at',
+      S.isStaleBurn({}, NOW) === false && S.isStaleBurn(null, NOW) === false)
+    ok('and a client `timestamp` is accepted when the server stamp is missing',
+      S.isStaleBurn({ timestamp: NOW - 30 * DAY }, NOW) === true)
+
+    const db = makeDb({
+      burnRecords: {
+        202607: {
+          [W]: {
+            old1: { recordedAt: NOW - 40 * DAY, totalValue: 120, itemCount: 4 },
+            old2: { recordedAt: NOW - 9 * DAY, totalValue: 30, itemCount: 1 },
+            fresh: { recordedAt: NOW - 2 * DAY, totalValue: 55, itemCount: 2 },
+            undated: { totalValue: 7, itemCount: 1 },
+          },
+        },
+      },
+    })
+    await S.prune(db, NOW, '202631')
+    const left = db.tree.burnRecords['202607'][W]
+    ok('burns inside the window survive', !!left.fresh)
+    ok('burns outside it are gone', !left.old1 && !left.old2)
+    ok('an undated row is never deleted', !!left.undated)
+
+    const roll = db.tree.burnRollup['202607'][W]
+    ok('the deleted rows are folded into a rollup, not simply lost',
+      roll && roll.events === 2, JSON.stringify(roll))
+    ok('carrying their exact value, so the season total cannot shrink',
+      roll.value === 150, 'value=' + roll.value)
+    ok('and their item count', roll.items === 5, 'items=' + roll.items)
+
+    // Running twice must not double-count. This is the whole reason
+    // prunedThrough is stored.
+    await S.prune(db, NOW, '202631')
+    ok('a second prune adds nothing — the rollup is not double-counted',
+      db.tree.burnRollup['202607'][W].value === 150)
+
+    // A new old row appearing later still folds correctly.
+    db.tree.burnRecords['202607'][W].late = { recordedAt: NOW - 8 * DAY, totalValue: 10, itemCount: 1 }
+    await S.prune(db, NOW, '202631')
+    ok('a row that ages out later is folded on the next run',
+      db.tree.burnRollup['202607'][W].value === 160 && db.tree.burnRollup['202607'][W].events === 3,
+      JSON.stringify(db.tree.burnRollup['202607'][W]))
+
+    // Every season and wallet, not just the current one.
+    const multi = makeDb({
+      burnRecords: {
+        202606: { [W]: { a: { recordedAt: NOW - 60 * DAY, totalValue: 5, itemCount: 1 } } },
+        202607: { '0x9999999999999999999999999999999999999999': { b: { recordedAt: NOW - 60 * DAY, totalValue: 9, itemCount: 3 } } },
+      },
+    })
+    await S.prune(multi, NOW, '202631')
+    ok('past seasons are pruned too', multi.tree.burnRollup['202606'][W].value === 5)
+    ok('and every wallet, not only the caller',
+      multi.tree.burnRollup['202607']['0x9999999999999999999999999999999999999999'].value === 9)
+  }
+
   let failed = 0
   for (const t of results) {
     if (t.ok) console.log('  ✓ ' + t.name)

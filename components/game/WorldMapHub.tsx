@@ -6,6 +6,7 @@ import { maskAddress } from '@/lib/addressMask'
 import { PlayerProfile } from '@/lib/contract'
 import { loadGameSession, loadGameSessionDraft } from '@/lib/gameSessionService'
 import { readHighestAct } from '@/lib/campaignProgress'
+import { readCampaignComplete, takeEndgameReveal } from '@/lib/campaignComplete'
 import { bunkerProfile, riskPips, lengthNote } from '@/lib/constants/bunkers'
 import DailyStatusBar from './DailyStatusBar'
 import { useEquippedPortrait } from '@/lib/heroPortrait'
@@ -46,6 +47,19 @@ interface WorldMapHubProps {
    * what keeps the refill meaningful.
    */
   onRaid: (actIndex: number) => void
+  /**
+   * THE NULL ABYSS — the endless descent below Bunker 5, unlocked by finishing
+   * the campaign (GAME-DESIGN.md §3B).
+   *
+   * It lives here now because it had nowhere else to live. The engine's own
+   * title screen was the only door to it, and with this map as the home screen
+   * that screen is only ever reached by finishing the campaign — at which point
+   * the player is stranded on it, since it hides the HUD and leads nowhere.
+   * See lib/campaignComplete.ts.
+   */
+  onAbyss: () => void
+  /** NEW GAME+ (Null Cycles). Same unlock, same reason for being here. */
+  onCycle: () => void
   onLeaderboard: () => void
   onRewards: () => void
   onReferral: () => void
@@ -151,7 +165,7 @@ function RailBtn({
 }
 
 export default function WorldMapHub({
-  onContinueGame, onNewGame, onRaid, onLeaderboard, onRewards, onReferral,
+  onContinueGame, onNewGame, onRaid, onAbyss, onCycle, onLeaderboard, onRewards, onReferral,
   onMintPass, onMarketplace, onCrafting, onHowToPlay, onCharacter, onSettings,
   playerProfile, isLoadingProfile, profileSettled,
 }: WorldMapHubProps) {
@@ -203,6 +217,21 @@ export default function WorldMapHub({
   // load may still correct `currentAct` but must never move their selection.
   const userPicked = useRef(false)
 
+  // PROTOCOL ZERO. Read after mount, never during render: it comes from
+  // localStorage, which the server cannot see, and reading it inline would make
+  // the server HTML and the first client render disagree. Same discipline the
+  // how-to-play prompt below already follows.
+  const [campaignDone, setCampaignDone] = useState(false)
+  // The one-time "here is what you just unlocked" panel. The campaign ending
+  // used to be announced by dumping the player on a screen listing two modes
+  // with no explanation of either; this says what they are, once, on the map.
+  const [reveal, setReveal] = useState(false)
+  useEffect(() => {
+    const done = readCampaignComplete(address)
+    setCampaignDone(done)
+    if (done && takeEndgameReveal(address)) setReveal(true)
+  }, [address])
+
   useEffect(() => {
     if (!address) return
     let alive = true
@@ -249,8 +278,20 @@ export default function WorldMapHub({
     window.setTimeout(() => setToast(null), 2200)
   }
 
+  // Finishing the campaign has to make the LAST bunker read as beaten, and
+  // nothing else could say so: `currentAct` is a high-water mark clamped to the
+  // last act, so Bunker 5 sat on "active" forever and the button still said
+  // ENTER after the ending had rolled. It says RAID now — which is not cosmetic,
+  // because raiding Bunker 5 is how the weekly vault is reached for the whole
+  // rest of the player's time in the game.
+  //
+  // ALL five, not just the last one. There is no "next" bunker after the
+  // campaign, so leaving one of them "active" would point the player at a
+  // descent that does not exist — and a saved game lost or replaced after the
+  // ending would otherwise show a finished player a map with bunkers locked.
   const stateOf = (act: number): NodeState =>
-    act < currentAct ? 'cleared' : act === currentAct ? 'active' : 'locked'
+    campaignDone || act < currentAct ? 'cleared'
+      : act === currentAct ? 'active' : 'locked'
 
   const nodeByAct = (act: number) => NODES.find((n) => n.act === act)
   const sel = nodeByAct(selectedAct) ?? NODES[NODES.length - 1]
@@ -594,6 +635,46 @@ export default function WorldMapHub({
         </div>
       )}
 
+      {/* ── PROTOCOL ZERO: what finishing the campaign just unlocked ──
+          Shown once, on the first visit to the map after the ending. The old
+          behaviour was to drop the player onto a title screen with two new
+          buttons on it and no explanation of either — and no way back to the
+          map. This says what they are, offers them, and closes. */}
+      {reveal && (
+        <div
+          className="absolute inset-0 flex items-center justify-center"
+          style={{ zIndex: 30, background: 'rgba(3,7,5,.9)', padding: 20 }}
+          onClick={() => setReveal(false)}
+        >
+          <div className="ns-hub-reveal" onClick={(e) => e.stopPropagation()}>
+            <span className="ns-hub-reveal-burst" aria-hidden="true" />
+            <p className="ns-hub-reveal-kicker">CAMPAIGN COMPLETE</p>
+            <p className="ns-hub-reveal-title">PROTOCOL ZERO</p>
+            <p className="ns-hub-reveal-body">
+              All five bunkers are yours. Every one of them stays open — tap any of them
+              and the button reads <b>RAID</b>. <b>Bunker 5 is how you reach the vault
+              each week</b>, so that is where the money is.
+            </p>
+            <p className="ns-hub-reveal-body">Two new ways down have opened:</p>
+            <button type="button" className="ns-hub-endgame-btn" onClick={() => { playUiSound('reward'); setReveal(false); onAbyss() }}>
+              <span className="ns-hub-endgame-name">THE NULL ABYSS</span>
+              <span className="ns-hub-endgame-sub">No bottom. Your deepest fall is your rank this season — death ends the descent.</span>
+            </button>
+            <button type="button" className="ns-hub-endgame-btn" onClick={() => { playUiSound('reward'); setReveal(false); onCycle() }}>
+              <span className="ns-hub-endgame-name">NEW GAME+</span>
+              <span className="ns-hub-endgame-sub">Replay the campaign harder. Enemies +35% per cycle, shards +25%. You keep your level and your gear.</span>
+            </button>
+            <p className="ns-hub-reveal-foot">Both live under <b>≡ MENU</b> from now on.</p>
+            <button
+              type="button" className="ns-hub-reveal-close"
+              onClick={() => { playUiSound('panel'); setReveal(false) }}
+            >
+              BACK TO THE MAP
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ── ≡ MENU overlay ── */}
       {menuOpen && (
         <div
@@ -621,6 +702,24 @@ export default function WorldMapHub({
                 </button>
               ))}
             </nav>
+
+            {/* ENDGAME. Hidden entirely until the campaign is finished, and
+                permanent afterwards — this is the door the engine's title
+                screen used to be, and the reason the player is no longer sent
+                to that screen at all. */}
+            {campaignDone && (
+              <div className="ns-hub-endgame w-full">
+                <p className="ns-hub-endgame-h">PROTOCOL ZERO · ENDGAME</p>
+                <button type="button" className="ns-hub-endgame-btn" onClick={() => { playUiSound('reward'); setMenuOpen(false); onAbyss() }}>
+                  <span className="ns-hub-endgame-name">THE NULL ABYSS</span>
+                  <span className="ns-hub-endgame-sub">No bottom. Your deepest fall is your rank this season — death ends the descent.</span>
+                </button>
+                <button type="button" className="ns-hub-endgame-btn" onClick={() => { playUiSound('reward'); setMenuOpen(false); onCycle() }}>
+                  <span className="ns-hub-endgame-name">NEW GAME+</span>
+                  <span className="ns-hub-endgame-sub">Replay the campaign harder. Enemies +35% per cycle, shards +25%. You keep your level and your gear.</span>
+                </button>
+              </div>
+            )}
 
             {/* MiniPay requirement: Support / Terms / Privacy reachable here */}
             <div className="mt-6 flex items-center justify-center gap-3 flex-wrap">

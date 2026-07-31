@@ -13,6 +13,7 @@ import { readHighestAct, recordHighestAct, stashCampaignResume, takeCampaignResu
 import MainMenu from './MainMenu'
 import WorldMapHub from './WorldMapHub'
 import { useWorldMapHubFlag } from '@/lib/worldMapHubFlag'
+import { markCampaignComplete } from '@/lib/campaignComplete'
 import NewGameConfirmModal from './NewGameConfirmModal'
 import WelcomeGiftModal from './WelcomeGiftModal'
 
@@ -227,11 +228,40 @@ export default function GameFlowManager() {
       } catch { /* never block the return to the map on a save problem */ }
       setPhase('menu')
     }
+    // THE CAMPAIGN ENDS ON THE MAP, not on a screen with no exit.
+    //
+    // Owner, after the vault: "setelah buka vault itu aku masuk menu abbys."
+    // The finale used to hand the player to the engine's own title screen —
+    // the pre-map home screen — where the HUD is hidden, Save & Exit is gone
+    // and nothing leads back. See finishCampaign() in game.js.
+    //
+    // It saves exactly like an ordinary clear, with one difference: the act
+    // index is NOT advanced, because there is no Bunker 6. The map reads
+    // Bunker 5 as beaten off the PROTOCOL ZERO flag instead, which is also what
+    // makes it raidable — and raiding Bunker 5 is how the weekly vault is
+    // reached for the rest of the player's time in the game.
+    const onCampaignComplete = () => {
+      markCampaignComplete(address)
+      try {
+        const NSG = (window as { NullStateGame?: { getSaveSnapshot?: () => unknown } }).NullStateGame
+        const raw = NSG?.getSaveSnapshot?.() as Parameters<typeof saveGameSession>[1] | undefined
+        if (raw && address) {
+          const snap = { ...raw, depth: 1, maxDepthReached: 1 }
+          if (typeof snap.campaignActIndex === 'number') recordHighestAct(address, snap.campaignActIndex)
+          saveGameSessionDraft(address, snap)
+          saveGameSession(address, snap).catch(() => { /* draft already covers the map */ })
+        }
+      } catch { /* never block the return to the map on a save problem */ }
+      setPhase('menu')
+    }
+
     window.addEventListener('nullstate-bunker-cleared', onCleared)
     window.addEventListener('nullstate-raid-cleared', onRaidCleared)
+    window.addEventListener('nullstate-campaign-complete', onCampaignComplete)
     return () => {
       window.removeEventListener('nullstate-bunker-cleared', onCleared)
       window.removeEventListener('nullstate-raid-cleared', onRaidCleared)
+      window.removeEventListener('nullstate-campaign-complete', onCampaignComplete)
     }
   }, [useWorldMapHub, address])
 
@@ -395,6 +425,36 @@ export default function GameFlowManager() {
     goPlaying('game')
   }
 
+  // ── ENDGAME: The Null Abyss and New Game+ ────────────────────────────────
+  //
+  // The comment that used to sit here said these were "NOT menu entries" and
+  // were entered from the engine's post-campaign title screen. That was true,
+  // and it was the bug: with the world map on, that screen is reached only by
+  // finishing the campaign, hides the HUD, and has no way back to the map. The
+  // owner cracked the vault and found himself in it.
+  //
+  // Both are pure start modes the engine already understands (startAbyss /
+  // startCycle in game.js), so this is the same three lines handleRaid uses.
+  //
+  // Neither touches the saved campaign: startAbyss and startCycle both clear
+  // SAVED_SESSION and build their own run, and the map's own progress record
+  // (lib/campaignProgress.ts) is monotonic and separate. Nothing is stashed for
+  // the same reason a raid stashes — an abyss dive is not a bunker, so there is
+  // no act index it could write back.
+  const handleAbyss = () => {
+    setStartMode('abyss')
+    setRaidActIndex(null)
+    setIsNewRun(false)
+    goPlaying('game')
+  }
+
+  const handleCycle = () => {
+    setStartMode('cycle')
+    setRaidActIndex(null)
+    setIsNewRun(false)
+    goPlaying('game')
+  }
+
   // Where the player was headed when the sign-in screen interrupted them.
   // Whatever they choose there — sign in, use a wallet, or skip — they end up
   // here, so the prompt never changes where a tap was going to take them.
@@ -462,10 +522,11 @@ export default function GameFlowManager() {
     setPhase(pendingPhase.current)
   }
 
-  // New Game+ and The Null Abyss are NOT menu entries — they unlock and are
-  // entered from INSIDE the game (the post-campaign title screen the engine
-  // shows via returnToTitleScreen once PROTOCOL ZERO is reached). The Main
-  // Menu stays focused on New Game / Continue.
+  // New Game+ and The Null Abyss live on the WORLD MAP (under ≡ MENU, and in
+  // the one-time reveal the first time it opens after the ending) — see
+  // handleAbyss/handleCycle below. The classic MainMenu still routes them
+  // through the engine's title screen, which is fine there: with the hub off,
+  // that screen is the home screen and DESCEND is always on it.
 
   const handleNewGame = async () => {
     if (!address) {
@@ -614,6 +675,8 @@ export default function GameFlowManager() {
           onContinueGame={handleContinueGame}
           onNewGame={handleNewGame}
           onRaid={handleRaid}
+          onAbyss={handleAbyss}
+          onCycle={handleCycle}
           onLeaderboard={handleLeaderboardClick}
           onRewards={handleRewardsClick}
           onReferral={handleReferralClick}

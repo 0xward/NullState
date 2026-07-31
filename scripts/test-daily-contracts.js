@@ -62,8 +62,13 @@ let fails=0; const ok=(l,c)=>{console.log((c?'  ✓ ':'  ✗ FAIL: ')+l); if(!c)
   await page.waitForSelector('.ns-daily-panel',{timeout:5000})
   const rows=await page.$$eval('.ns-daily-row',e=>e.map(x=>x.textContent.trim()))
   ok('the panel lists all three contracts', rows.filter(r=>/\d\/\d/.test(r)).length>=3, rows.join(' | '))
+  // `is-done` sits on the task WRAPPER since contracts gained progress bars —
+  // the bar and the text both have to change state and they are siblings.
   ok('a finished one is ticked and marked done', rows.some(r=>r.includes('✓')) &&
-     (await page.$$('.ns-daily-row.is-done')).length===1)
+     (await page.$$('.ns-daily-task.is-done')).length===1)
+  // The bar is the point of the redesign: "12/30" is a fact, a bar four fifths
+  // across is a reason to play.
+  ok('every contract draws a progress bar', (await page.$$('.ns-daily-bar-fill')).length>=3)
   ok('progress is shown per contract', rows.some(r=>/1\/3/.test(r)) && rows.some(r=>/2\/5/.test(r)))
   ok('and it shows ONE countdown for everything daily',
      /resets in/.test(await page.textContent('.ns-daily-head')))

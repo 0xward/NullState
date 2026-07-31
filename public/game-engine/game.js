@@ -5885,7 +5885,7 @@ function onActBunkerCleared(){
       G = null; resetInput();
     }, () => {
       const act2 = CAMPAIGN[campaignActIndex];
-      cutscene(act2.postBunker, () => { showCampaignEpilogue(act2, returnToTitleScreen); });
+      cutscene(act2.postBunker, () => { showCampaignEpilogue(act2, finishCampaign); });
     }, 'RETURNING TO THE SURFACE…');
     return;
   }
@@ -5964,19 +5964,71 @@ function showCampaignEpilogue(act, onDone){
     done();
   });
 }
-// Tear the current run down and return to the in-game title screen with the
-// post-completion buttons revealed. Shared endpoint for the campaign finale
-// (onActBunkerCleared) — mirrors the tail of endAbyssRun.
-function returnToTitleScreen(){
+// Everything a finished run has to put away, with nothing said about where the
+// player goes next. Split out of returnToTitleScreen so the map path and the
+// title path cannot drift on what "the run is over" means.
+function _teardownRun(){
   const d=$('death'); if(d) d.classList.add('hidden');
   const lm=$('liftMenu'); if(lm) lm.classList.add('hidden');
   const vw=$('vaultWindow'); if(vw) vw.classList.add('hidden');
+  const vwin=$('vaultWinWindow'); if(vwin) vwin.classList.add('hidden');
   G = null; resetInput();
   $('hud').classList.add('hidden');
   if(atkBtn) atkBtn.classList.add('hidden');
+}
+// Tear the current run down and return to the in-game title screen with the
+// post-completion buttons revealed. Mirrors the tail of endAbyssRun.
+//
+// This is the CLASSIC-MENU ending now. With the world-map hub on (the default),
+// finishCampaign below surfaces to the map instead — see that function for why.
+function returnToTitleScreen(){
+  _teardownRun();
   const t=$('title'); if(t) t.classList.remove('hidden');
   const cb=$('cycleBtn'); if(cb && hasCompletedCampaign()){ cb.textContent='NEW GAME+ ('+toRoman(loadStoredCycle()+2)+') ▾'; cb.style.display=''; }
   const ab=$('abyssBtn'); if(ab && hasCompletedCampaign()){ ab.style.display=''; }
+}
+// THE END OF THE CAMPAIGN, with the world map on.
+//
+// OWNER, having just cracked the vault for real: "setelah buka vault itu aku
+// masuk menu abbys, menurut km itu hilangkan atau jangan?"
+//
+// He landed on the title screen above, because the finale called it
+// unconditionally — DESCEND, NEW GAME+, THE NULL ABYSS, and no way back. That
+// screen was the game's home before the map existed. With the map on it is a
+// DEAD END: _teardownRun hides the HUD, so there is no Save & Exit, and nothing
+// on it returns to the map. Winning the game put the player somewhere they
+// could not leave, holding a reward they had just been paid.
+//
+// The Abyss is not the problem and is not removed — it is the completion
+// reward, and with the map as the home screen it is one of the two modes that
+// only unlock here. The problem is WHERE the player is standing when they are
+// offered it. So the finale surfaces to the map like every other cleared
+// bunker, and the map is what holds the endgame from now on (see
+// lib/campaignComplete.ts and the ENDGAME entries in WorldMapHub).
+//
+// The snapshot fixup mirrors the ordinary clear exactly: the run is over, so
+// the floors it describes are gone and its depth must not become a resume
+// point. Bunker 5 stays the act index — there is no act 6 — and the map reads
+// it as CLEARED off the completion flag rather than off this number.
+function finishCampaign(){
+  if(!WORLDMAP_HUB){ returnToTitleScreen(); return; }
+  if(LAST_BUNKER_SNAPSHOT){
+    LAST_BUNKER_SNAPSHOT.depth = 1;
+    LAST_BUNKER_SNAPSHOT.maxDepthReached = 1;
+    LAST_BUNKER_SNAPSHOT.floors = null;
+    LAST_BUNKER_SNAPSHOT.at = null;
+    LAST_BUNKER_SNAPSHOT.raid = false;
+  }
+  _teardownRun();
+  try{
+    window.dispatchEvent(new CustomEvent('nullstate-campaign-complete', {
+      detail:{ clearedActIndex: campaignActIndex }
+    }));
+  }catch(e){
+    // No CustomEvent, or no listener attached: the title screen is still a
+    // real ending, and stranding the player on a blank canvas is not.
+    returnToTitleScreen();
+  }
 }
 function onOutdoorAdvanceToNextAct(){
   const finishedAct = CAMPAIGN[campaignActIndex];
@@ -6126,6 +6178,11 @@ window.__NS = { get G(){ return G; },
   // overwrites it, so it can never desync the server's count.
   renderStashPanel,
   openVaultWinPopup,                  // scripts/test-vault-win.js
+  // scripts/test-campaign-end.js — the finale must surface to the MAP with the
+  // hub on, and only fall back to the title screen without it. Exposed because
+  // reaching it for real means playing five bunkers.
+  finishCampaign,
+  setWorldMapHub(on){ WORLDMAP_HUB = !!on; },
   get RUN_SEED(){ return RUN_SEED; },   // scripts/test-seeded-floors.js
   get VAULT_FRAG(){ return VAULT_FRAG; },
   setVaultFrag(v){ VAULT_FRAG = Object.assign({}, VAULT_FRAG, v); } };

@@ -109,10 +109,14 @@ const d = (n) => Date.parse('2026-07-01T12:00:00Z') + n * DAY
   ok('but pays the day-1 rung again', s.granted.kind === 'point' && s.granted.amount === 80)
 
   // ── the break, which is the whole point ───────────────────────────────
+  // TWO days gone. The shield covers one, never two — so this is still a real
+  // break even though a shield was held (earned back at streak 3, above).
+  ok('a shield IS held after three days in a row', db.tree.loginStreak[W].shield === 1)
   s = await S.touchStreak(db, W, d(10))          // skipped d(8) and d(9)
-  ok('missing a day resets to 1', s.streak === 1, 'streak=' + s.streak)
+  ok('missing TWO days resets to 1 even holding a shield', s.streak === 1, 'streak=' + s.streak)
   ok('and pays day 1 again', s.granted.kind === 'point' && s.granted.amount === 80)
   ok('but the best is remembered', s.best === 8, 'best=' + s.best)
+  ok('the break also spends the shield — nothing survives a real break', s.shield === 0)
 
   // ── a read must never advance anything ────────────────────────────────
   const before = JSON.stringify(db.tree.loginStreak[W])
@@ -127,6 +131,62 @@ const d = (n) => Date.parse('2026-07-01T12:00:00Z') + n * DAY
   const r3 = await S.readStreak(db, W, d(13))
   ok('two days later the streak reads as broken', r3.streak === 0 && r3.day === 1,
     'streak=' + r3.streak + ' day=' + r3.day)
+
+  // ── THE SHIELD ────────────────────────────────────────────────────────
+  // The half of this the owner meant by "streak nya ga kaya game2 lain".
+  const sh = makeDb()
+  const V = '0x3333333333333333333333333333333333333333'
+  ok('shield earn threshold is three days', S.SHIELD_EARN_AFTER === 3)
+
+  let t = await S.touchStreak(sh, V, d(0))
+  ok('day 1 has NO shield — it is earned, not given', t.shield === 0)
+  ok('and the panel can say how far off it is', t.shieldIn === 2, 'shieldIn=' + t.shieldIn)
+  t = await S.touchStreak(sh, V, d(1))
+  ok('day 2 still has none', t.shield === 0 && t.shieldIn === 1, 'shieldIn=' + t.shieldIn)
+  t = await S.touchStreak(sh, V, d(2))
+  ok('THREE days in a row earns the shield', t.shield === 1)
+  ok('and it reads as held, not pending', t.shieldIn === 0)
+
+  // Miss exactly one day (d(3)), come back on d(4).
+  t = await S.touchStreak(sh, V, d(4))
+  ok('one missed day does NOT reset the streak when a shield is held', t.streak === 4, 'streak=' + t.streak)
+  ok('the caller is told the shield was spent, so the UI can say so', t.shieldUsed === true)
+  ok('the shield is gone', t.shield === 0)
+  ok('and comes back three days out, not immediately', t.shieldIn === 3, 'shieldIn=' + t.shieldIn)
+  ok('the missed rung is never paid — the ladder is stepped OVER, not through',
+    t.granted.kind === 'shard' && t.granted.amount === 3, JSON.stringify(t.granted))
+
+  // Total t1 check: a shielded week is worth strictly less than a perfect one.
+  // Days 2 and 4 paid shards (2 + 3); day 3's energy and day 1's Point are
+  // elsewhere. Day 3 of the calendar was skipped entirely.
+  ok('a shielded run pays fewer rungs than a perfect one', sh.tree.materials[V].t1 === 5,
+    't1=' + sh.tree.materials[V].t1)
+
+  // Miss one more, with nothing to spend this time.
+  t = await S.touchStreak(sh, V, d(6))
+  ok('a second missed day with no shield left DOES reset', t.streak === 1, 'streak=' + t.streak)
+  ok('and reports no shield spent', t.shieldUsed === false)
+
+  // A reader must agree with the writer about whether a streak is alive.
+  const sh2 = makeDb()
+  const U = '0x4444444444444444444444444444444444444444'
+  for (let i = 0; i <= 2; i++) await S.touchStreak(sh2, U, d(i))
+  const covered = await S.readStreak(sh2, U, d(4))      // one day missed, shield held
+  ok('READING a shielded gap reports the streak as alive, not broken',
+    covered.streak === 3, 'streak=' + covered.streak)
+  ok('and says today is day 4 of the ladder', covered.day === 4 && covered.claimedToday === false,
+    'day=' + covered.day)
+  const gone = await S.readStreak(sh2, U, d(5))          // two days missed
+  ok('a two-day gap still reads as broken', gone.streak === 0 && gone.shield === 0)
+
+  // A record written before the shield existed must not be punished for it.
+  const old = makeDb()
+  const O = '0x5555555555555555555555555555555555555555'
+  old.ref('loginStreak/' + O).transaction(() => ({ streak: 9, best: 9, lastDayId: '2026-07-05' }))
+  const migrated = await S.touchStreak(old, O, d(5))     // 2026-07-06, i.e. the next day
+  ok('a pre-shield record continues its streak', migrated.streak === 10, 'streak=' + migrated.streak)
+  ok('and is handed a shield straight away rather than starting the clock over',
+    migrated.shield === 1)
 
   // ── wallets are independent ───────────────────────────────────────────
   const W2 = '0x2222222222222222222222222222222222222222'
