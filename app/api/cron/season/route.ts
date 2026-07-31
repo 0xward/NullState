@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAdminDb, getAdminFirestore } from '@/firebase-config'
-import { prepareSeason, previousSeasonId, payoutCommands } from '@/lib/server/seasonClose'
+import { prepareSeason, previousSeasonId, payoutCommands, prune } from '@/lib/server/seasonClose'
 import { getCurrentSeasonId } from '@/lib/web3-client'
 
 export const dynamic = 'force-dynamic'
@@ -67,10 +67,23 @@ export async function GET(req: NextRequest) {
         + snapshot.winners.map((w) => `#${w.rank} ${w.wallet} (${w.xp} xp, $${w.rewardUsd})`).join(' · '))
     }
 
+    // Housekeeping rides on the same daily wake-up rather than a second cron:
+    // it is the only scheduled thing this app has, the work is idempotent, and
+    // a prune that fails must never stop a season being frozen — so it is
+    // caught and reported rather than thrown.
+    let pruned: string[] = []
+    try {
+      pruned = (await prune(db)).removed
+      if (pruned.length) console.log('[cron/season] pruned ' + pruned.length + ' finished buckets')
+    } catch (err) {
+      console.error('[cron/season] prune failed (season still frozen):', err)
+    }
+
     return NextResponse.json({
       seasonId,
       created,
       snapshot,
+      pruned: pruned.length,
       commands: payoutCommands(snapshot),
       note: created
         ? 'Season frozen. Run the commands above, then POST /api/season/status to mark it paid.'

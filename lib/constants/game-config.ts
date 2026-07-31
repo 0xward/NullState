@@ -59,14 +59,20 @@ export const GAME_CONFIG = {
   // sat in this file describing a cap nothing enforced until energy shipped —
   // and stayed there afterwards. Both are gone now; energy is the cap.
   // One energy = one fresh bunker entry (RunSession start). Continuing a
-  // saved run costs nothing. Owner decision (2026-07-19): 5 free runs per
-  // rolling 24h window, $1 refill grants +5 bonus runs, free runs do NOT
-  // roll over (bonus runs persist until spent — they were paid for).
+  // saved run costs nothing. Owner decision (2026-07-19): 5 free runs per day,
+  // $1 refill grants +5 bonus runs, free runs do NOT roll over (bonus runs
+  // persist until spent — they were paid for).
+  //
+  // The allowance resets at 00:00 UTC, the same instant Daily Contracts and the
+  // login streak do. It was a rolling 24h window until the audit in
+  // GAME-DESIGN.md §9b found that put two meanings of "a day" on one status bar.
+  // `windowHours` went with it: nothing read it once the boundary became the
+  // UTC day, and a config value nothing reads is how game-config.ts became a
+  // liability in the first place (see the header of this file).
   energy: {
     freeRunsPerDay: 5,
     refillPriceUSD: 1,
     refillRuns: 5,
-    windowHours: 24,
   },
 
   // Drop-Rate Elixir (Genius blueprint Phase 3, §2.6): a $1 consumable that

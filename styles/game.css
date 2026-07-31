@@ -674,21 +674,56 @@
 }
 .ns-hub-streak-note:active{ transform:translateY(1px); }
 
-/* Today's contracts, opened by tapping the ◇ chip. Three lines of text do not
-   need a route of their own, so this expands in place above the bar. */
-.ns-hub-contracts{
-  margin:0 2px 6px; padding:8px 10px; border-radius:8px;
-  border:1px solid rgba(0,255,136,.28); background:rgba(4,20,12,.94);
-  font-family:var(--font-mono),monospace;
+/* THE DAILY PANEL (GAME-DESIGN.md §5.5).
+   Replaces the strip that used to expand above the bar. Owner, watching it in
+   use: tapping the DAILY rail button made something appear at the far end of
+   the screen from the icon pressed, and it showed only the contracts while the
+   streak, fragments and energy lived elsewhere. Every other rail button opens a
+   screen; this one now opens a panel, and the panel holds everything daily.
+
+   A centred sheet rather than a full route: it is four short sections, and a
+   route would cost a navigation each way for something read in five seconds. */
+.ns-daily-scrim{
+  position:fixed; inset:0; z-index:60;
+  display:flex; align-items:center; justify-content:center;
+  padding:18px; background:rgba(2,7,5,.72); backdrop-filter:blur(2px);
 }
-.ns-hub-contracts-head{
-  margin:0 0 6px; font-size:9px; letter-spacing:1.5px; text-transform:uppercase; color:#5f8d78;
+.ns-daily-panel{
+  width:100%; max-width:330px; max-height:82dvh; overflow-y:auto;
+  border:1px solid rgba(0,255,136,.3); border-radius:10px;
+  background:#04140c; box-shadow:0 12px 40px rgba(0,0,0,.6);
+  font-family:var(--font-mono),monospace; padding:12px 13px 14px;
 }
-.ns-hub-contract{
+.ns-daily-head{
+  display:flex; align-items:baseline; gap:8px;
+  padding-bottom:9px; margin-bottom:4px;
+  border-bottom:1px solid rgba(0,255,136,.16);
+}
+.ns-daily-title{ font-size:12px; font-weight:700; letter-spacing:3px; color:#39ff9a }
+.ns-daily-reset{ font-size:9px; letter-spacing:.5px; color:#5f8d78 }
+.ns-daily-close{
+  margin-left:auto; width:26px; height:26px; flex:0 0 auto;
+  border:1px solid rgba(255,255,255,.14); border-radius:6px;
+  background:transparent; color:#8ea89d; font-size:12px; line-height:1; cursor:pointer;
+}
+.ns-daily-close:active{ transform:translateY(1px) }
+
+.ns-daily-sec{ margin-top:11px }
+.ns-daily-sech{
+  margin:0 0 5px; font-size:9px; letter-spacing:1.4px; text-transform:uppercase;
+  color:#5f8d78; font-weight:700;
+}
+.ns-daily-row{
   display:flex; justify-content:space-between; align-items:baseline; gap:10px;
-  padding:3px 0; font-size:11px; color:#cfeede;
+  width:100%; padding:3px 0; font-size:11px; color:#cfeede; text-align:left;
 }
-.ns-hub-contract-label{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
-.ns-hub-contract-count{ flex:0 0 auto; font-weight:700; color:#ffd166 }
-.ns-hub-contract.is-done{ color:#5f8d78 }
-.ns-hub-contract.is-done .ns-hub-contract-count{ color:#39ff9a }
+.ns-daily-label{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+.ns-daily-val{ flex:0 0 auto; font-weight:700; color:#ffd166 }
+.ns-daily-row.is-done{ color:#5f8d78 }
+.ns-daily-row.is-done .ns-daily-val{ color:#39ff9a }
+.ns-daily-note{ margin:4px 0 0; font-size:9px; line-height:1.5; color:#4f7a68 }
+.ns-daily-tap{
+  border:1px solid rgba(0,255,136,.22); border-radius:7px;
+  background:rgba(0,255,136,.05); padding:6px 8px; cursor:pointer;
+}
+.ns-daily-tap:active{ transform:translateY(1px) }

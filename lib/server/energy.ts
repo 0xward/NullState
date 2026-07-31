@@ -5,17 +5,46 @@
 //
 //   energy/{wallet} = { windowStart: number, usedFree: number, bonus: number }
 //
-// The free allowance lives in a rolling 24h window: the window starts on the
-// first spend after it lapses, and usedFree resets implicitly when the
-// window is stale (lazy reset — no cron needed). Purchased bonus runs are
-// NOT windowed: they were paid for, so they persist until spent.
+// The free allowance resets at 00:00 UTC, the same instant Daily Contracts and
+// the login streak reset. `windowStart` now holds the UTC day the allowance was
+// last spent against; a record from an earlier day is lazily reset on read, so
+// there is still no cron behind it.
+//
+// WHY THIS CHANGED (audit, GAME-DESIGN.md §9b). It used to be a ROLLING 24h
+// window opened by the first spend, which put two different meanings of "a day"
+// side by side on one status bar: the ◇ contracts chip and the 🔥 streak chip
+// rolled over at midnight while the ⚡ chip rolled over 24h after you happened
+// to press ENTER. A player who played at 20:00 got new contracts four hours
+// later and new energy twenty-four hours later, with nothing on screen
+// explaining why. One clock is worth more than the pacing the rolling window
+// bought — and a fixed reset is what a habit is built on, which is the entire
+// point of the daily layer.
+//
+// It is also slightly MORE generous: play at 20:00 and the allowance is back at
+// midnight rather than the following evening. That is a deliberate trade — the
+// $1 refill sells to players who want more than the free five in one sitting,
+// and that motivation is untouched.
+//
+// Purchased bonus runs are NOT dated: they were paid for, so they persist until
+// spent.
 //
 // All mutation goes through Realtime DB transactions so two concurrent
 // spend calls can never double-consume the same run.
 
 import { GAME_CONFIG } from '@/lib/constants/game-config'
+import { getCurrentDayIdString, getNextUtcMidnightMs } from '@/lib/vault-utils'
 
 export interface EnergyRecord {
+  /**
+   * The UTC day the free allowance was last spent against, as ms-since-epoch of
+   * that day's 00:00. Zero means "nothing spent yet".
+   *
+   * Kept as a number under the same field name on purpose: records written by
+   * the old rolling-window code hold a spend TIMESTAMP, and any timestamp from
+   * before today's midnight compares as an earlier day — so old records reset
+   * on first read exactly as intended, with no migration and no player losing
+   * or gaining a run at the changeover.
+   */
   windowStart: number
   usedFree: number
   bonus: number
@@ -30,8 +59,9 @@ export interface EnergyState {
 
 const CFG = GAME_CONFIG.energy
 
-export function windowMs(): number {
-  return CFG.windowHours * 60 * 60 * 1000
+/** 00:00 UTC of the day `now` falls in, as ms since epoch. */
+export function utcDayStart(now: number): number {
+  return Date.parse(getCurrentDayIdString(now) + 'T00:00:00.000Z')
 }
 
 /** Normalize a raw DB record (possibly null) against the current time. */
@@ -41,8 +71,11 @@ export function normalizeRecord(raw: Partial<EnergyRecord> | null, now: number):
     usedFree: typeof raw?.usedFree === 'number' ? raw.usedFree : 0,
     bonus: typeof raw?.bonus === 'number' ? raw.bonus : 0,
   }
-  if (now - rec.windowStart >= windowMs()) {
-    // stale window — free allowance replenished
+  // Anything stamped before today's midnight belongs to a finished day. This is
+  // also what silently migrates the old rolling-window records: they hold a
+  // spend timestamp, which is either from today (keep the count — the player
+  // already used those runs today) or from before it (reset, as it should).
+  if (rec.windowStart < utcDayStart(now)) {
     rec.windowStart = 0
     rec.usedFree = 0
   }
@@ -55,9 +88,9 @@ export function toState(rec: EnergyRecord, now: number): EnergyState {
     freeRemaining,
     bonus: rec.bonus,
     total: freeRemaining + rec.bonus,
-    // if the window hasn't started (nothing used), it would start on the
-    // next spend — report now+window so countdown UIs always have a value
-    resetAt: (rec.windowStart || now) + windowMs(),
+    // Always the next 00:00 UTC — the same instant the contracts chip and the
+    // streak chip are counting down to, which is the whole point.
+    resetAt: getNextUtcMidnightMs(now),
   }
 }
 
@@ -75,7 +108,9 @@ export async function spendOne(
     const rec = normalizeRecord(cur as Partial<EnergyRecord> | null, now)
     ok = false
     if (rec.usedFree < CFG.freeRunsPerDay) {
-      if (rec.windowStart === 0) rec.windowStart = now // window starts on first spend
+      // Stamp the DAY, not the moment. Writing `now` would still work today,
+      // but it would leave records that only look right by accident.
+      rec.windowStart = utcDayStart(now)
       rec.usedFree += 1
       ok = true
     } else if (rec.bonus > 0) {

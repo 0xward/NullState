@@ -34,8 +34,7 @@ const results = []
 const ok = (name, cond, detail) => results.push({ name, ok: !!cond, detail })
 
 // ── stubs: the RTDB tree and the Firestore query the module actually uses ───
-function makeDb() {
-  const tree = {}
+function makeDb(tree = {}) {
   const read = (p) => p.split('/').reduce((o, k) => (o == null ? undefined : o[k]), tree)
   const write = (p, v) => {
     const parts = p.split('/'); let o = tree
@@ -48,6 +47,11 @@ function makeDb() {
       return {
         async get() { const v = read(p); return { val: () => (v === undefined ? null : v), exists: () => v !== undefined } },
         async update(patch) { write(p, Object.assign({}, read(p) || {}, patch)) },
+        async remove() {
+          const parts = p.split('/')
+          const parent = parts.slice(0, -1).reduce((o, k) => (o == null ? undefined : o[k]), tree)
+          if (parent) delete parent[parts[parts.length - 1]]
+        },
         async transaction(fn) {
           const cur = read(p)
           const next = fn(cur === undefined ? null : cur)
@@ -185,6 +189,57 @@ const W = (n) => '0x' + String(n).repeat(40).slice(0, 40)
     withJunk.snapshot.winners.every((w) => /^0x[a-f0-9]{40}$/.test(w.wallet)),
     JSON.stringify(withJunk.snapshot.winners.map((w) => w.wallet)))
   ok('and the top 3 is still full', withJunk.snapshot.winners.length === 3)
+
+  // ── pruning finished buckets ──────────────────────────────────────────
+  // Added after the audit noted nothing ever deleted the daily/weekly rows.
+  // The dangerous mistake here is not leaving data behind, it is deleting the
+  // wrong data — /api/stats counts LIFETIME totals out of paperClaims,
+  // goldenKeyClaims and vaultCompleted, and pruning those would make the public
+  // page show players leaving when really rows were removed.
+  const NOW = Date.parse('2026-07-31T12:00:00Z')
+  ok('a bucket from today is never stale', S.isStaleDayKey('2026-07-31', NOW) === false)
+  ok('nor one from yesterday', S.isStaleDayKey('2026-07-30', NOW) === false)
+  ok('nor one just inside the keep window', S.isStaleDayKey('2026-07-02', NOW) === false)
+  ok('but one well past it is', S.isStaleDayKey('2026-05-01', NOW) === true)
+  ok('a key of an unrecognised shape is NEVER stale', S.isStaleDayKey('garbage', NOW) === false)
+  ok('and neither is an empty one', S.isStaleDayKey('', NOW) === false)
+  ok('this week is never stale', S.isStaleWeekKey('202631', '202631') === false)
+  ok('nor eight weeks back', S.isStaleWeekKey('202623', '202631') === false)
+  ok('but twenty weeks back is', S.isStaleWeekKey('202611', '202631') === true)
+  ok('a malformed week key is never stale', S.isStaleWeekKey('20263', '202631') === false)
+
+  {
+    const db = makeDb({
+      dailyContracts: { '2026-05-01': { [W]: { k: 1 } }, '2026-07-31': { [W]: { k: 2 } } },
+      dailyContractClaims: { '2026-05-01': { [W]: true } },
+      passPerkClaims: { '2026-05-01': { [W]: true } },
+      vaultFragments: { '202611': { [W]: 9 }, '202631': { [W]: 4 } },
+      // Everything below is read by /api/stats for lifetime totals.
+      paperClaims: { '202611': { [W]: { claimedAt: 1 } } },
+      goldenKeyClaims: { '202611': { [W]: { claimedAt: 1 } } },
+      vaultCompleted: { '202611': { [W]: { at: 1 } } },
+      playerProfiles: { [W]: { nullstateTokenBalance: 500 } },
+    })
+    const { removed } = await S.prune(db, NOW, '202631')
+    ok('finished daily buckets are removed', !db.tree.dailyContracts['2026-05-01'])
+    ok('today\'s bucket is untouched', !!db.tree.dailyContracts['2026-07-31'])
+    ok('finished weekly fragments are removed', !db.tree.vaultFragments['202611'])
+    ok('this week\'s fragments are untouched', db.tree.vaultFragments['202631'][W] === 4)
+    ok('claim gates and perk claims are pruned too',
+      !db.tree.dailyContractClaims['2026-05-01'] && !db.tree.passPerkClaims['2026-05-01'])
+    // The assertions that matter most.
+    ok('paperClaims are NEVER pruned — /api/stats counts them forever',
+      !!db.tree.paperClaims['202611'])
+    ok('nor goldenKeyClaims', !!db.tree.goldenKeyClaims['202611'])
+    ok('nor vaultCompleted', !!db.tree.vaultCompleted['202611'])
+    ok('nor anything that is not a dated bucket at all', !!db.tree.playerProfiles[W])
+    ok('and it reports what it removed', removed.length === 4, removed.join(', '))
+  }
+  {
+    const db = makeDb({})
+    const { removed } = await S.prune(db, NOW, '202631')
+    ok('pruning an empty database is harmless', removed.length === 0)
+  }
 
   let failed = 0
   for (const t of results) {
