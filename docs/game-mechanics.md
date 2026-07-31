@@ -8,13 +8,20 @@ of Bunker 5, "The Last Light".
 
 ### Bunker Progression
 
-| Bunker | Name | Enemies |
-|--------|------|---------|
-| 1 | The Treeline Bunker | Beginner |
-| 2 | The Sunken Field | Easy |
-| 3 | The Frostline Bunker | Medium |
-| 4 | The Hollow Market | Hard |
-| 5 | The Last Light | Very Hard — holds the Vault |
+Bunkers differ on two axes: **how dangerous** and **how long**.
+
+| Bunker | Name | Risk | Enemy HP | Shards | Length |
+|---|---|---|---|---|---|
+| 1 | The Treeline Bunker | ▰▱▱▱▱ | ×1.00 | T1 | — |
+| 2 | The Sunken Field | ▰▰▱▱▱ | ×1.20 | T1 | +15% |
+| 3 | The Frostline Bunker | ▰▰▰▱▱ | ×1.45 | T2 | +30% |
+| 4 | The Hollow Market | ▰▰▰▰▱ | ×1.70 | T2 | +55% |
+| 5 | The Last Light | ▰▰▰▰▰ | ×2.00 | T3 | +65% — holds the Vault |
+
+Later bunkers have bigger floors with more rooms, which means more enemies and
+more containers — so the longer run pays more. **Bunker 1 stays the short one**
+for when you have five minutes, and Bunker 5 is the only place T3 Glitch Shards
+drop. Every bunker's profile is shown on the map before you enter.
 
 **Cleared a bunker? It stays open.** Tap any bunker with a ✓ on the world map
 and the button reads **RAID** — you drop back in for a freshly generated run.

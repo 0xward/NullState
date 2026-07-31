@@ -65,12 +65,33 @@ function carveCells(g,r){
   g[r.y][r.cx]=1; g[r.y+1][r.cx]=1; g[wallY][r.cx]=1;         // north-door route
 }
 
-function tryMakeDungeon(depth){
-  const W = 42 + Math.min(depth*2, 22);
-  const H = 32 + Math.min(depth*2, 16);
+// How much bigger a floor gets per bunker (GAME-DESIGN.md §7, the TIME axis).
+//
+// MEASURED BEFORE THIS EXISTED: all five bunkers were the same floor, to within
+// noise. `npm run measure:acts` put bunker 5 at 1.00x the walkable area of
+// bunker 1, 0.95x the rooms and 0.93x the ENEMIES — the last bunker was very
+// slightly emptier than the first. Size depended only on `depth`, which runs
+// 1-5 inside every bunker, so the act never entered the arithmetic at all.
+//
+// That left "which bunker should I raid?" with no answer but the theme, and §7
+// names the axis it should have: time vs risk. Risk is the act hard-mode curve
+// in monster-config.js. This is time — later bunkers are physically longer to
+// walk, which also means more rooms, and rooms are what carry enemies and
+// containers, so effort and reward scale together without a second knob.
+//
+// Kept modest on purpose. MEASURED AFTER: bunker 5 is ~1.65x the walkable area
+// of bunker 1, with ~1.55x the enemies and ~1.5x the rooms. A MiniPay session is
+// 3-10 minutes on a mid-range phone, so bunker 1 stays the short option — which
+// is the whole point of an axis rather than a global difficulty bump.
+const ACT_SIZE = { w: 3, h: 2, rooms: 1 };
+
+function tryMakeDungeon(depth, act){
+  const a = Math.max(0, Math.min(4, act | 0));
+  const W = 42 + Math.min(depth*2, 22) + a*ACT_SIZE.w;
+  const H = 32 + Math.min(depth*2, 16) + a*ACT_SIZE.h;
   const g = Array.from({length:H},()=>new Array(W).fill(0));
   const rooms = [];
-  const target = 6 + Math.min(depth, 7);
+  const target = 6 + Math.min(depth, 7) + a*ACT_SIZE.rooms;
   let tries = 0;
 
   const tryPlace=(rw,rh)=>{
@@ -329,9 +350,9 @@ function tryMakeDungeon(depth){
   };
 }
 
-function makeDungeon(depth){
+function makeDungeon(depth, act){
   for(let attempt=0; attempt<25; attempt++){
-    const d = tryMakeDungeon(depth);
+    const d = tryMakeDungeon(depth, act);
     if(d) return d;
   }
   // Extremely unlikely fallback: a single big safe room rather than
