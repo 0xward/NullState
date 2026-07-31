@@ -119,6 +119,29 @@ see today's list and how far along you are.
 
 ---
 
+### 🔥 Login Streak
+
+Just opening the game counts. Every UTC day you show up moves your streak up
+one rung, and each rung pays more than the last:
+
+| Day | You get |
+|---|---|
+| 1 | 80 NullState Point |
+| 2 | 2 Glitch Shards |
+| 3 | +1 energy |
+| 4 | 3 Glitch Shards |
+| 5 | 150 NullState Point |
+| 6 | 4 Glitch Shards |
+| **7** | **8 Glitch Shards** — exactly one weapon evolution |
+
+No button to press: the reward lands the moment the map opens, and the **🔥**
+chip shows how many days you are on. After day 7 the ladder starts again, and
+your longest run is kept as a record.
+
+**Miss a day and it goes back to 1.**
+
+---
+
 ### 🧩 Vault Fragments — the guaranteed way to get them
 
 You are never left to luck. Every **lockable container** you open — the ones

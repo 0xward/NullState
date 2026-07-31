@@ -15,11 +15,9 @@ import { playUiSound } from '@/lib/uiSound'
 // already takes on the way to the only action on the screen, so it is read
 // rather than discovered.
 //
-// WHAT IS DELIBERATELY NOT HERE. The login streak is in the build order but
-// not built, so there is no chip for it. A placeholder showing a number nobody
-// is tracking is how game-config.ts happened — see rule 2 in GAME-DESIGN.md
-// §10. Chips appear when their system does; contracts got theirs the day they
-// shipped.
+// Every chip here is backed by a system that actually tracks the number it
+// shows — rule 2 in GAME-DESIGN.md §10, and the reason each one arrived on the
+// day its feature did rather than as a placeholder.
 //
 // Each chip hides itself when it has nothing true to say: no craft running, no
 // fragments left to earn, energy not yet loaded. With all three quiet the bar
@@ -58,6 +56,10 @@ export default function DailyStatusBar({ address, onCrafting }: DailyStatusBarPr
   const [contractList, setContractList] = useState<
     { id: string; label: string; progress: number; target: number; done: boolean }[]
   >([])
+  const [streak, setStreak] = useState<{ streak: number; day: number; best: number; tomorrow: string } | null>(null)
+  // Shown once, on the visit that actually earned it. A reward the player is
+  // never told about is a reward that does not retain anyone.
+  const [streakGrant, setStreakGrant] = useState<string | null>(null)
   const [showContracts, setShowContracts] = useState(false)
   // Drives the countdown. Cheap: one re-render every 30s, and only while a
   // craft is actually running (see the effect's guard).
@@ -72,12 +74,23 @@ export default function DailyStatusBar({ address, onCrafting }: DailyStatusBarPr
     // Every one of them degrades to "chip hidden" rather than an error state —
     // a status bar that can show an error is a status bar that can make the
     // home screen look broken.
+    // The streak is a POST because opening the app IS the event it records —
+    // there is nothing to tap and no claim step, matching the decision Daily
+    // Contracts already made. It is idempotent per UTC day, so a remount or a
+    // second tab costs nothing.
+    const streakReq = fetch('/api/streak', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ wallet: address }),
+    }).then((r) => (r.ok ? r.json() : null)).catch(() => null)
+
     Promise.all([
       j(`/api/energy?wallet=${encodeURIComponent(address)}`),
       j(`/api/vault/fragments?wallet=${encodeURIComponent(address)}`),
       j(`/api/weapons/craft?wallet=${encodeURIComponent(address)}`),
       j(`/api/contracts?wallet=${encodeURIComponent(address)}`),
-    ]).then(([e, f, c, d]) => {
+      streakReq,
+    ]).then(([e, f, c, d, s]) => {
       if (!alive) return
       if (e && typeof e.total === 'number') setEnergy({ total: e.total, free: e.freeRemaining ?? 0 })
       if (f && typeof f.fragments === 'number' && f.nextGoal) {
@@ -86,6 +99,20 @@ export default function DailyStatusBar({ address, onCrafting }: DailyStatusBarPr
       if (d && Array.isArray(d.contracts) && d.contracts.length) {
         setContracts({ done: d.completed ?? 0, total: d.contracts.length })
         setContractList(d.contracts)
+      }
+      if (s && typeof s.streak === 'number' && s.streak > 0) {
+        const label = (r: { kind?: string; amount?: number; tier?: string } | null | undefined) =>
+          !r ? '' : r.kind === 'point' ? `+${r.amount} Point`
+            : r.kind === 'shard' ? `+${r.amount} Shard ${String(r.tier || '').toUpperCase()}`
+            : `+${r.amount} energy`
+        setStreak({ streak: s.streak, day: s.day ?? 1, best: s.best ?? s.streak, tomorrow: label(s.tomorrow) })
+        // The energy chip is fetched in the same breath as this, so a streak
+        // that just paid energy would otherwise show yesterday's number until
+        // the next mount.
+        if (s.granted?.kind === 'energy' && e && typeof e.total === 'number') {
+          setEnergy({ total: e.total + (s.granted.amount || 0), free: e.freeRemaining ?? 0 })
+        }
+        if (s.grantedLabel) setStreakGrant(s.grantedLabel)
       }
       if (c?.craft?.completesAt) {
         // Correct for client clock skew — the server's own clock is the one the
@@ -113,6 +140,22 @@ export default function DailyStatusBar({ address, onCrafting }: DailyStatusBarPr
   }, [craftDoneAt])
 
   const chips: Chip[] = []
+
+  // First, and always visible once it exists. This is the one number on the bar
+  // the player can LOSE, and loss aversion only works if the thing at risk is
+  // in front of them — a streak they have to go looking for is not at stake.
+  if (streak) {
+    const last = streak.day === 7
+    chips.push({
+      key: 'streak',
+      icon: last ? '★' : '🔥',
+      label: `${streak.streak}`,
+      tone: last ? 'ready' : 'amber',
+      title: last
+        ? `Day 7 — the big one. Come back tomorrow and the ladder starts again. Best: ${streak.best} days`
+        : `${streak.streak}-day streak · tomorrow: ${streak.tomorrow}. Miss a day and it goes back to 1. Best: ${streak.best} days`,
+    })
+  }
 
   if (craftDoneAt !== null) {
     const left = craftDoneAt - now
@@ -171,6 +214,16 @@ export default function DailyStatusBar({ address, onCrafting }: DailyStatusBarPr
 
   return (
     <>
+      {streakGrant && streak && (
+        <button
+          type="button"
+          className="ns-hub-streak-note"
+          onClick={() => { playUiSound('panel'); setStreakGrant(null) }}
+          aria-label={`Day ${streak.day} streak reward: ${streakGrant}. Tap to dismiss.`}
+        >
+          <span aria-hidden="true">🔥</span> Day {streak.day} · {streakGrant}
+        </button>
+      )}
       {showContracts && contractList.length > 0 && (
         <div className="ns-hub-contracts" role="region" aria-label="Today's contracts">
           <p className="ns-hub-contracts-head">Today · resets 00:00 UTC</p>
