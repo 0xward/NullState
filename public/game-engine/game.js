@@ -889,7 +889,12 @@ function ensureFloor(depth){
 }
 
 function _buildFloor(depth){
-  const d = makeDungeon(depth);
+  // The act is passed explicitly rather than read off window inside dungeon.js:
+  // floor generation runs under a seeded Math.random (see _withSeed) and the
+  // seed already includes the act, so the two must agree on which act this is.
+  // The Null Abyss has no act — it scales on depth alone — so it generates at
+  // act 0 and gets its difficulty from its own depth curve.
+  const d = makeDungeon(depth, abyssMode ? 0 : campaignActIndex);
   // v65 T5: build an enemy's `home` (room-guard bounds, px) from whatever
   // room its spawn point sits in. entities.js has always had the full
   // playerInHome()/clampHome() guard mechanism, but NOTHING in game.js ever

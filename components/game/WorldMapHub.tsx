@@ -1,11 +1,12 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useWallet } from '@/lib/WalletProvider'
 import { maskAddress } from '@/lib/addressMask'
 import { PlayerProfile } from '@/lib/contract'
 import { loadGameSession, loadGameSessionDraft } from '@/lib/gameSessionService'
 import { readHighestAct } from '@/lib/campaignProgress'
+import { bunkerProfile, riskPips, lengthNote } from '@/lib/constants/bunkers'
 import DailyStatusBar from './DailyStatusBar'
 import { useEquippedPortrait } from '@/lib/heroPortrait'
 import { usePassSBT } from '@/hooks/usePassSBT'
@@ -198,6 +199,9 @@ export default function WorldMapHub({
   // ordered by screen position (top-first), so the two no longer line up.
   const [currentAct, setCurrentAct] = useState(0)
   const [selectedAct, setSelectedAct] = useState(0)
+  // Set the first time the player taps a bunker. After that, a late progress
+  // load may still correct `currentAct` but must never move their selection.
+  const userPicked = useRef(false)
 
   useEffect(() => {
     if (!address) return
@@ -214,7 +218,13 @@ export default function WorldMapHub({
       const maxAct = NODES.length - 1
       const highest = readHighestAct(address, act, maxAct)
       setCurrentAct(highest)
-      setSelectedAct((prev) => (prev > highest ? highest : prev))
+      // The clamp keeps the DEFAULT selection inside the player's progress. It
+      // must not survive a tap: `apply` runs twice — once from the instant
+      // localStorage draft and again when the Firestore copy lands, typically a
+      // network round trip later, which is exactly while the player is looking
+      // at the map. Without this guard, tapping a locked bunker to read what it
+      // holds snapped the selection back on its own, with no explanation.
+      setSelectedAct((prev) => (userPicked.current || prev <= highest ? prev : highest))
     }
     apply(loadGameSessionDraft(address)?.campaignActIndex)
     loadGameSession(address).then((s) => apply(s?.campaignActIndex)).catch(() => {})
@@ -251,6 +261,7 @@ export default function WorldMapHub({
   // map is the game (GAME-DESIGN.md §2), so every bunker you have beaten stays
   // open to raid for loot, shards and vault fragments. It costs one energy,
   // same as a first descent — said out loud here rather than discovered.
+  const profile = bunkerProfile(sel.act)
   const enterLabel = selState === 'active' ? (hasSave ? 'ENTER ▸' : 'START ▸')
     : selState === 'cleared' ? 'RAID ▸' : 'LOCKED'
   const subline = selState === 'active'
@@ -332,6 +343,7 @@ export default function WorldMapHub({
               <button
                 onClick={() => {
                   playUiSound(st === 'locked' ? 'denied' : 'tick')
+                  userPicked.current = true
                   setSelectedAct(n.act)
                 }}
                 aria-label={`${n.name} — ${st}`}
@@ -533,6 +545,22 @@ export default function WorldMapHub({
             {sel.name}
           </span>
           <span style={{ fontSize: 9, color: selState === 'locked' ? '#c9a24a' : '#8ea89d' }}>{subline}</span>
+          {/* What this bunker is FOR (GAME-DESIGN.md §7). With all five open,
+              "which one?" needs an answer, and until the time-vs-risk axis
+              existed there was none to give — every bunker was the same floor
+              with a different palette. Shown for locked ones too: knowing that
+              Bunker 5 is the only T3 source is a reason to keep going. */}
+          {profile && (
+            <span className="ns-hub-profile" title={`Risk ${profile.risk}/5 · enemies ${profile.hpMul}× HP, ${profile.dmgMul}× damage · Glitch Shards T${profile.shardTier}`}>
+              <span className="ns-hub-risk" aria-label={`Risk ${profile.risk} of 5`}>{riskPips(profile.risk)}</span>
+              <span className="ns-hub-dot">·</span>
+              <span className="ns-hub-tier">SHARD T{profile.shardTier}</span>
+              {lengthNote(profile) && (<><span className="ns-hub-dot">·</span><span>{lengthNote(profile)}</span></>)}
+            </span>
+          )}
+          {profile && selState !== 'locked' && (
+            <span className="ns-hub-pitch">{profile.pitch}</span>
+          )}
         </div>
         <button
           onClick={startRun}

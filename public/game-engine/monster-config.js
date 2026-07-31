@@ -33,8 +33,30 @@ const MONSTER_FLOOR_CONFIG = {
   // DMG x1.6, i.e. every enemy in Bunker 5 (all 5 floors of that act, not
   // just the boss floor) hits noticeably harder and takes twice the hits to
   // kill compared to the same floor number in an earlier bunker.
+  // Per-bunker difficulty — the RISK half of GAME-DESIGN.md §7's time-vs-risk
+  // axis. (The time half is ACT_SIZE in dungeon.js.)
+  //
+  // MEASURED BEFORE THIS CURVE EXISTED: only act 4 had an entry, so bunkers 1
+  // through 4 were mechanically IDENTICAL. Enemy stats scale on `depth`, which
+  // runs 1-5 inside every bunker, so a bunker-4 monster on floor 2 had exactly
+  // the stats of a bunker-1 monster on floor 2. The only thing that changed
+  // across those four bunkers was which archetypes could roll — variety, not
+  // difficulty. "Which bunker?" had no mechanical answer.
+  //
+  // The curve is gentle at the start and steep at the end, so the first raid a
+  // new player attempts is not harder than the campaign taught them it would
+  // be, while the last one earns its T3 shards.
+  //
+  // Act 4 is UNCHANGED at 2.0/1.3 — those numbers were tuned against a real
+  // problem (the Bunker 5 boss was one-shotting players; dmg came down from 1.6
+  // and the per-hit cap in game.js was the actual fix). Nothing here reopens
+  // that. The other four are new.
   actHardMode: {
-    4: { hpMul: 2.0, dmgMul: 1.3, label: 'THE LAST LIGHT — Hard Mode' }, // dmg 1.6 -> 1.3: Bunker 5 boss was one-shotting; the per-hit cap in game.js is the main fix, this just eases the spike
+    0: { hpMul: 1.00, dmgMul: 1.00, label: 'THE TREELINE BUNKER' },
+    1: { hpMul: 1.20, dmgMul: 1.05, label: 'THE SUNKEN FIELD' },
+    2: { hpMul: 1.45, dmgMul: 1.12, label: 'THE FROSTLINE BUNKER' },
+    3: { hpMul: 1.70, dmgMul: 1.20, label: 'THE HOLLOW MARKET' },
+    4: { hpMul: 2.00, dmgMul: 1.30, label: 'THE LAST LIGHT — Hard Mode' },
   },
 
   // ---- Game-feel knobs (used by effects.js) ----

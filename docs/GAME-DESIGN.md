@@ -77,7 +77,7 @@ The agreed shape:
 | After the campaign | **All five bunkers permanently open.** The map is home. |
 | Forever after | Daily and weekly loops run *inside* those bunkers. |
 
-**`[CHANGE]`** Cleared bunkers must become re-enterable. See §7.
+**`[TODAY]`** Cleared bunkers are re-enterable, and now differ from each other. See §7.
 
 ### Persistence: what actually needs to persist
 
@@ -469,18 +469,79 @@ skipped and the assertions passed against the untouched seeded draft. The
 engine stub and the "raid keeps what it earned" assertion exist to make that
 impossible to repeat.
 
-**Bunkers need a reason to choose between them — `[TARGET]`.** With all five
-open, "which one?" needs an answer, and today the only difference is theme
-and monster roster. The intended axis is **time vs risk**: bunker 1 short,
-easy, lower tier; bunker 5 long, hard, top tier. The scaling half-exists
-already (roster widens per act, `game.js:630`; enemy stats scale with
-depth) — what is missing is the player-facing reason to pick.
+**Bunkers now have a reason to choose between them — `[TODAY]`.**
 
-> **Open question:** how long is one bunker in real play? This cannot be
-> measured from a sandbox and it decides whether a separate short-raid mode
-> is needed. If a full 5-floor clear is over ~10 minutes, add a "raid one
-> floor and extract" option, because that is the shape a MiniPay session
-> actually has.
+### What was actually there before
+
+Not "the scaling half-exists already", which is what this section used to
+claim. Measured with `npm run measure:acts`, which mounts the real engine at
+every act:
+
+| | Bunker 5 vs Bunker 1 |
+|---|---|
+| walkable floor area | **1.00×** |
+| rooms | 0.95× |
+| enemies | **0.93×** |
+
+The last bunker was very slightly *emptier* than the first. Floor size came
+from `depth` alone, which runs 1–5 inside every bunker, so the act never
+entered the arithmetic. Worse, `actHardMode` had **one entry, for act 4** — so
+bunkers 1 through 4 were mechanically identical, since enemy stats also scale
+on depth. The only thing that changed across those four was which archetypes
+could roll: variety, not difficulty.
+
+"Which bunker?" had no mechanical answer to give.
+
+### The two axes, now real
+
+**Risk** — `actHardMode` in `monster-config.js` covers all five acts. Gentle at
+the start so a new player's first raid is not harder than the campaign taught
+them, steep at the end so the last bunker earns its T3 shards. Act 4 is
+unchanged at 2.0/1.3; those numbers were tuned against the boss one-shotting
+players and nothing here reopens that.
+
+**Time** — `ACT_SIZE` in `dungeon.js` adds width, height and one room per act.
+Rooms are what carry enemies and containers, so effort and reward scale
+together without a second knob.
+
+| Bunker | Risk | Enemy HP | Shards | Length |
+|---|---|---|---|---|
+| 1 · Treeline | ▰▱▱▱▱ | 1.00× | T1 | — |
+| 2 · Sunken Field | ▰▰▱▱▱ | 1.20× | T1 | +15% |
+| 3 · Frostline | ▰▰▰▱▱ | 1.45× | T2 | +30% |
+| 4 · Hollow Market | ▰▰▰▰▱ | 1.70× | T2 | +55% |
+| 5 · The Last Light | ▰▰▰▰▰ | 2.00× | T3 | +65% |
+
+Measured after: 1.65× the area of bunker 1, 1.55× the enemies. Deliberately
+modest — a MiniPay session is 3–10 minutes on a mid-range phone, so **bunker 1
+stays the short option**. That is the point of an axis rather than a global
+difficulty bump.
+
+### And the player can see it
+
+A difference nobody is shown is not a choice. The map's bottom bar now carries
+risk pips, shard tier and length under the bunker's name — on the way to the
+ENTER button, not somewhere to go looking for. Locked bunkers show it too:
+knowing Bunker 5 is the only T3 source is a reason to keep going.
+
+`lib/constants/bunkers.ts` holds what the map renders. **That file is the same
+shape as the `bunkers` block that made `game-config.ts` a liability**, so it is
+guarded differently: `npm run test:bunkers` mounts the engine, reads its own
+`actHardMode` and shard-tier rule, measures floor size per act, and fails if
+any number in the constants disagrees. The engine stays the source of truth.
+`npm run test:bunkers-ui` then checks it reaches the screen.
+
+> **Open question, still open:** how long is one bunker in *real play*? The
+> sandbox can measure rooms and enemies, not a person's minutes. If a full
+> 5-floor clear of Bunker 5 runs past ~10 minutes, add a "raid one floor and
+> extract" option — that is the shape a MiniPay session actually has.
+
+> **A bug this surfaced.** `apply()` in `WorldMapHub` runs twice — once from the
+> instant localStorage draft, again when the Firestore copy lands — and its
+> clamp (`prev > highest ? highest : prev`) ran both times. Tapping a locked
+> bunker to read what it holds snapped the selection back to your own bunker a
+> beat later, with no explanation. The clamp now applies only until the player
+> taps something.
 
 ---
 
@@ -800,7 +861,7 @@ time.
 
 **After the listing**
 6. ~~§5.3 Login streak~~ — **shipped**
-7. §7 Bunker differentiation (time vs risk)
+7. ~~§7 Bunker differentiation (time vs risk)~~ — **shipped**
 8. ~~§8 Seeded dungeon → fixes Save & Exit~~ — **shipped**
 9. §9 Leaderboard consolidation + automated season payout
 

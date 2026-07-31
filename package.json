@@ -27,7 +27,10 @@
     "test:inventory": "node scripts/test-inventory-render.js",
     "test:seeded": "node scripts/test-seeded-floors.js",
     "test:streak": "node scripts/test-login-streak.js",
-    "test:streak-ui": "node scripts/test-streak-ui.js"
+    "test:streak-ui": "node scripts/test-streak-ui.js",
+    "measure:acts": "node scripts/measure-bunkers-by-act.js",
+    "test:bunkers": "node scripts/test-bunker-profiles.js",
+    "test:bunkers-ui": "node scripts/test-bunker-profile-ui.js"
   },
   "dependencies": {
     "@celo/attribution-tags": "^0.3.0",

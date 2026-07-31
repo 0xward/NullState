@@ -642,6 +642,23 @@
 .ns-hub-chip.is-tappable:active{ transform:translateY(1px); }
 .ns-hub-daily-ico{ font-size:11px; line-height:1; }
 
+/* The selected bunker's profile — risk, shard tier, length (GAME-DESIGN.md §7).
+   Sits under the subline in the bottom bar, so the answer to "which bunker?" is
+   on the way to the ENTER button rather than somewhere the player has to go
+   looking for it. Values come from lib/constants/bunkers.ts, which is checked
+   against the engine by npm run test:bunkers. */
+.ns-hub-profile{
+  display:flex; gap:5px; align-items:baseline; flex-wrap:wrap;
+  margin-top:2px; font-size:9px; letter-spacing:.5px; color:#8ea89d;
+}
+.ns-hub-risk{ color:#ff9f6b; letter-spacing:1px; }
+.ns-hub-tier{ color:#b46bff; font-weight:700; }
+.ns-hub-dot{ color:#3d5a4c; }
+.ns-hub-pitch{
+  display:block; margin-top:2px; font-size:9px; letter-spacing:.3px;
+  color:#5f8d78; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+
 /* The login-streak reward, announced on the one visit that earned it
    (GAME-DESIGN.md §5.3). Deliberately not a modal: it must not stand between
    the player and the ENTER button they came for. It is a button only so it can
