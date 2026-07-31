@@ -8,18 +8,26 @@ export const dynamic = 'force-dynamic'
 // =============================================
 // SEASON CLOSE — the cron half of GAME-DESIGN.md §9
 //
-// GET /api/cron/season   (Vercel Cron, 01:00 UTC on the 1st of each month)
+// GET /api/cron/season   (Vercel Cron, 01:00 UTC every day)
 //
 // Freezes the ranking for the season that just ended, so the owner can pay it
 // without deciding anything. Writes ONE record — seasonSnapshots/{seasonId} —
 // and moves no money.
 //
+// WHY DAILY WHEN A SEASON ENDS MONTHLY. Because a monthly schedule fires ONCE
+// and has no retry: a deploy in progress, a Firebase blip or a cold-start
+// timeout on the 1st would leave the season unfrozen for a month — which is
+// exactly the "silently does nothing" failure this whole feature exists to
+// remove. Running daily makes a missed firing self-heal the next morning. On
+// every other day of the month the season is already frozen and this returns
+// `created: false` having written nothing, so the cost is one cheap request.
+//
 // WHY A GET. Vercel Cron issues GET requests and nothing else, and authenticates
 // them by sending `Authorization: Bearer $CRON_SECRET`. So the verb is not a
 // design choice; what makes it safe is that the work is idempotent by
 // construction: prepareSeason() aborts its write if a snapshot already exists,
-// so a re-run — a retry, a manual curl, a duplicate schedule — can never
-// re-rank winners the owner has already read.
+// so a re-run — a retry, a daily no-op, a manual curl — can never re-rank
+// winners the owner has already read.
 //
 // It fails CLOSED when CRON_SECRET is unset: an unauthenticated caller must not
 // be able to freeze a ranking early. Running it by hand is

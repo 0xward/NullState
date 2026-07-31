@@ -821,12 +821,18 @@ the owner's device. What is automated is everything up to the signature:
 
 | Step | Who |
 |---|---|
-| Detect the season has ended | cron, 01:00 UTC on the 1st (`vercel.json`) |
+| Detect the season has ended | cron, 01:00 UTC **daily** (`vercel.json`) |
 | Compute and **freeze** the top 3 by XP | `/api/cron/season` |
 | Show that a payout is owed | `/stats`, and `GET /api/season/status` |
 | Hand over the exact commands to run | `payoutCommands()` |
 | **Sign and send** | **the owner** |
 | Mark it paid | `POST /api/season/status` |
+
+**Why the cron runs daily for a monthly event.** A monthly schedule fires once
+and has no retry — a deploy in flight or a cold start on the 1st would leave the
+season unfrozen for a month, which is the exact "silently does nothing" failure
+this feature exists to remove. Daily makes a miss self-heal the next morning;
+every other day is a no-op that writes nothing.
 
 **Why the snapshot is frozen.** XP keeps moving after a season ends — it is
 cumulative and does not reset (9.3). Reading "the top 3" at payout time would
