@@ -305,23 +305,43 @@ let VAULT_FRAG = { loaded:false, fragments:0, nextGoal:null };
 // Kills are batched rather than sent one per corpse: a busy floor would
 // otherwise fire a request every second or so for a counter that only needs to
 // be roughly live. Flushed on floor clear, on death, and on unmount.
+//
+// ONLY KILLS AND FLOORS ARE REPORTED FROM HERE, because those are the only two
+// the server cannot see for itself. The other two moved server-side after the
+// owner burned items on the Rewards screen and watched the contract sit still:
+//
+//   burns      -> /api/burn/record. Burning happens BOTH in-run and on the
+//                 out-of-game Rewards screen, which never runs this file. That
+//                 route is the one place both paths pass through, and the count
+//                 it credits is the one it has already validated.
+//   containers -> /api/vault/fragments, off the same POST that awards the
+//                 fragment — one request per container, first open only.
+//
+// Both are strictly better than a client report: they cannot be inflated from
+// outside. What comes back is announced by announceContracts() below, so a
+// contract finished on either path still says so in the run log.
 let CONTRACT_KILLS = 0;
+// One place that turns a contract response into log lines, shared by every
+// route that can complete one.
+function announceContracts(data){
+  const granted = data && Array.isArray(data.granted) ? data.granted : [];
+  const list = data && Array.isArray(data.contracts) ? data.contracts : null;
+  if(!granted.length || !list) return;
+  for(const id of granted){
+    const c = list.find(x=>x.id===id); if(!c) continue;
+    const r = c.reward || {};
+    const paid = r.kind==='point' ? ('+'+r.amount+' NullState Point')
+               : r.kind==='shard' ? ('+'+r.amount+' Glitch Shard') : 'reward';
+    log('◆ CONTRACT COMPLETE — '+c.label+'. '+paid+'.', 'reward');
+  }
+}
 function reportContract(metric, amount){
   if(!WALLET_ADDRESS || !(amount > 0)) return;
   fetch('/api/contracts', {
     method:'POST', headers:{'Content-Type':'application/json'},
     body: JSON.stringify({ wallet: WALLET_ADDRESS, metric, amount })
-  }).then(r=>r.json()).then(data=>{
-    const granted = data && Array.isArray(data.granted) ? data.granted : [];
-    if(!granted.length || !data.contracts) return;
-    for(const id of granted){
-      const c = data.contracts.find(x=>x.id===id); if(!c) continue;
-      const r = c.reward || {};
-      const paid = r.kind==='point' ? ('+'+r.amount+' NullState Point')
-                 : r.kind==='shard' ? ('+'+r.amount+' Glitch Shard') : 'reward';
-      log('◆ CONTRACT COMPLETE — '+c.label+'. '+paid+'.', 'reward');
-    }
-  }).catch(()=>{ /* offline — the counter simply does not advance */ });
+  }).then(r=>r.json()).then(announceContracts)
+    .catch(()=>{ /* offline — the counter simply does not advance */ });
 }
 function flushContractKills(){
   if(CONTRACT_KILLS <= 0) return;
@@ -349,6 +369,10 @@ function creditVaultFragment(decor){
   }).then(r=>r.json()).then(data=>{
     if(!data || typeof data.fragments !== 'number') return;
     VAULT_FRAG = { loaded:true, fragments:data.fragments, nextGoal:data.nextGoal||null };
+    // This same request credits the 'containers' Daily Contract server-side.
+    // `granted` here means FRAGMENT grants, so the contract grants ride along
+    // under their own key rather than colliding with it.
+    announceContracts({ granted: data.contractsGranted, contracts: data.contracts });
     const granted = Array.isArray(data.granted) ? data.granted : [];
     if(granted.length && G){
       // Drop the granted item where the container stands, through the exact
@@ -798,13 +822,13 @@ function decorSolidAt(px, py){
 // sitting on the frontier of the reachable region and walk it again. That is
 // the minimal set that can be responsible, so it converges in a pass or two and
 // almost never removes more than one prop.
-function _floorReachable(floor, d, fromX, fromY, toX, toY){
+function _floorReachable(decorList, d, fromX, fromY){
   const R = 14;                 // Player.r — see entities.js
   const S = TILE / 2;           // half-tile lattice: fine enough for a 14px body
   const W = Math.ceil(d.pxW / S), H = Math.ceil(d.pxH / S);
   const blocked = (x, y) => {
     if(d.isWall(x, y) || d.isWall(x+R, y) || d.isWall(x-R, y) || d.isWall(x, y+R) || d.isWall(x, y-R)) return true;
-    for(const o of floor.decor){ if(decorBlocksPoint(o, x, y) || decorBlocksPoint(o, x+R, y) || decorBlocksPoint(o, x-R, y)) return true; }
+    for(const o of decorList){ if(decorBlocksPoint(o, x, y) || decorBlocksPoint(o, x+R, y) || decorBlocksPoint(o, x-R, y)) return true; }
     return false;
   };
   const seen = new Set(), stack = [[Math.round(fromX/S), Math.round(fromY/S)]];
@@ -821,44 +845,125 @@ function _floorReachable(floor, d, fromX, fromY, toX, toY){
       seen.add(k); stack.push([na, nc]);
     }
   }
-  // "Reached" means standing NEXT to the lift, not on its exact pixel. The
-  // stairs often sit against a wall, so the target cell itself can read as
-  // blocked for a 14px body — requiring it exactly reported floors as sealed
-  // that a player could walk perfectly well.
-  const ta = Math.round(toX/S), tc = Math.round(toY/S);
-  let ok = false;
-  for(let da = -2; da <= 2 && !ok; da++){
-    for(let dc = -2; dc <= 2 && !ok; dc++){
-      if(seen.has((ta+da) + ',' + (tc+dc))) ok = true;
+  return { seen, frontier, S };
+}
+// Everything in `decorList` that is standing on this region's frontier — the
+// candidate set for "what is holding this wall shut".
+function _propsOnFrontier(decorList, frontier, only){
+  const out = new Set();
+  for(const [fx, fy] of frontier){
+    for(let i = 0; i < decorList.length; i++){
+      const o = decorList[i];
+      if(_decorProtected(o)) continue;
+      if(only && !only(o)) continue;
+      // The SAME three probes _floorReachable used to decide the cell was
+      // blocked. Testing only the centre missed props blocking the player's
+      // left or right edge.
+      if(decorBlocksPoint(o, fx, fy) || decorBlocksPoint(o, fx+14, fy) || decorBlocksPoint(o, fx-14, fy)) out.add(i);
     }
   }
-  return { ok, frontier };
+  return out;
 }
+// "Reached" means standing NEXT to the lift, not on its exact pixel. The stairs
+// usually sit against a wall, so the target cell itself reads as blocked for a
+// 14px body — demanding it exactly reported walkable floors as sealed.
+function _reachesTarget(res, toX, toY){
+  const ta = Math.round(toX/res.S), tc = Math.round(toY/res.S);
+  for(let da = -2; da <= 2; da++){
+    for(let dc = -2; dc <= 2; dc++){ if(res.seen.has((ta+da) + ',' + (tc+dc))) return true; }
+  }
+  return false;
+}
+// Props the player can never remove. Owner, after playing: "jangan dekat lorong
+// untuk barang yang tidak bisa di pecahkan" — and that is exactly the
+// distinction that matters. A barrel in a doorway costs a moment because you
+// smash it. A cabinet or a scenery crate in the same doorway is a wall, because
+// hit() refuses damage for anything ambient or interactive (props.js).
+function _decorUnbreakable(o){ return !!(o && o.def && (o.def.ambient || o.def.interactive)); }
+function _decorProtected(o){ return !!(o && o.def && (o.def.isVaultDoor || o.def.isSealedCache || o.def.isPremiumCache)); }
+// Which props are SEALING `target` away from the region `r`?
+//
+// Flood a second region outward from the target, then intersect the two
+// regions' frontier props. A prop standing in the doorway between them is on
+// both frontiers; a prop minding its own business inside either region is on
+// one at most. Intersecting at the PROP level rather than the cell level
+// matters: a wide cabinet blocks three lattice cells in a row, and the start
+// side may touch only the first while the target side touches only the third.
+function _sealingProps(decorList, d, blockers, r, tx, ty, only){
+  const rt = _floorReachable(blockers, d, tx, ty);
+  const near = _propsOnFrontier(decorList, r.frontier, only);
+  const far = _propsOnFrontier(decorList, rt.frontier, only);
+  const both = new Set();
+  for(const i of near) if(far.has(i)) both.add(i);
+  return both;
+}
+
+// Two guarantees, in the order that matters.
+//
+// A. AN UNBREAKABLE PROP MUST NOT CUT ANYTHING OFF. The owner's report: props
+//    standing in doorways, and since a cabinet or a scenery crate cannot be
+//    destroyed (props.js hit() refuses damage for ambient and interactive)
+//    there is nothing to do but walk away — and what is behind them is often
+//    the lockable containers the weekly reward is made of. So every room, the
+//    lift, and every container the WALLS allow the player to reach must still
+//    be reachable once the unbreakables are placed.
+//
+//    "Cut off", not "cost area". The first version of this check compared the
+//    reachable cell COUNT against the walls-only count and deleted whatever sat
+//    on the frontier — but a prop standing in an open room always costs a few
+//    cells simply by occupying them, so that rule condemned every prop on the
+//    floor. Measured: interactive containers per bunker fell from 7.5 to 1.4,
+//    which would have quietly emptied the Vault Fragment economy. The test that
+//    caught it is scripts/test-floor-traversable.js; the count is from
+//    `npm run measure:bunker`.
+//
+// B. THE LIFT MUST BE REACHABLE with everything in place. Breakables are
+//    allowed to narrow a path — you can smash them — but not to seal the run.
 function _ensureFloorTraversable(floor, d){
   if(!d || !d.startPx || !d.stairsPx) return;
-  for(let pass = 0; pass < 12; pass++){
-    const r = _floorReachable(floor, d, d.startPx.x, d.startPx.y, d.stairsPx.x, d.stairsPx.y);
-    if(r.ok) return;
-    // Every prop touching the edge of where the player can currently get to.
-    // Vault doors and the sealed/premium caches are never removed — they are
-    // content, and they are placed inside rooms rather than in doorways.
-    const guilty = new Set();
-    for(const [fx, fy] of r.frontier){
-      for(let i = 0; i < floor.decor.length; i++){
-        const o = floor.decor[i];
-        if(o.def && (o.def.isVaultDoor || o.def.isSealedCache || o.def.isPremiumCache)) continue;
-        // The SAME three probes _floorReachable used to decide the cell was
-        // blocked. Testing only the centre missed props that were blocking the
-        // player's left or right edge, which left 2 floors in 100 still sealed
-        // after a pass that thought it had nothing to remove.
-        if(decorBlocksPoint(o, fx, fy) || decorBlocksPoint(o, fx+14, fy) || decorBlocksPoint(o, fx-14, fy)) guilty.add(i);
-      }
+
+  // What the walls THEMSELVES allow. Anything the bare floor plan cannot reach
+  // is a generator quirk, not a prop's fault, and chasing it would delete props
+  // forever without ever satisfying the check.
+  const base = _floorReachable([], d, d.startPx.x, d.startPx.y);
+  const fixed = [[d.stairsPx.x, d.stairsPx.y]];
+  for(const rm of (d.rooms || [])) fixed.push([(rm.cx + 0.5) * TILE, (rm.cy + 0.5) * TILE]);
+  const wanted = fixed.filter(([x, y]) => _reachesTarget(base, x, y));
+
+  // A — every room, the lift, and every container must survive the scenery.
+  for(let pass = 0; pass < 6; pass++){
+    const hard = floor.decor.filter(_decorUnbreakable);
+    const r = _floorReachable(hard, d, d.startPx.x, d.startPx.y);
+    const targets = wanted.concat(
+      floor.decor.filter(o => o.def && o.def.interactive)
+        .map(o => [o.x, o.y])
+        .filter(([x, y]) => _reachesTarget(base, x, y)));
+    const missed = targets.filter(([x, y]) => !_reachesTarget(r, x, y));
+    if(!missed.length) break;
+    let cut = false;
+    for(const [tx, ty] of missed){
+      const guilty = _sealingProps(floor.decor, d, hard, r, tx, ty, _decorUnbreakable);
+      if(!guilty.size) continue;              // sealed by a protected cache, or by the walls
+      floor.decor = floor.decor.filter((_, i) => !guilty.has(i));
+      cut = true;
+      break;                                   // re-measure; one door may open several
     }
-    if(!guilty.size) return;   // the walls themselves are the problem; nothing to remove
+    if(!cut) break;
+  }
+
+  // B — and the run must still be completable with the breakables in place.
+  for(let pass = 0; pass < 8; pass++){
+    const r = _floorReachable(floor.decor, d, d.startPx.x, d.startPx.y);
+    if(_reachesTarget(r, d.stairsPx.x, d.stairsPx.y)) return;
+    const guilty = _sealingProps(floor.decor, d, floor.decor, r, d.stairsPx.x, d.stairsPx.y, null);
+    if(!guilty.size) return;   // the walls themselves are the problem
     floor.decor = floor.decor.filter((_, i) => !guilty.has(i));
   }
 }
-if(typeof window !== 'undefined') window.NS_solidDecorAt = decorSolidAt;
+if(typeof window !== 'undefined'){ window.NS_solidDecorAt = decorSolidAt;
+  // Exposed for scripts/test-floor-traversable.js so the test measures with the
+  // engine's own footprint rather than a copy that can drift from it.
+  window.NS_decorBlocksPoint = decorBlocksPoint; }
 
 // Phase 8 — sealed/premium caches. Placement stays tile-grid safe (never in a
 // corridor/doorway), so the player-only footprint block above turns a cache
@@ -1506,8 +1611,9 @@ function onOpenButtonTap(){
       // Reaching this line at all means open() returned true, i.e. this is the
       // container's first and only open. The vault door and the sealed/premium
       // caches take the two branches above and never earn a fragment.
+      // Also ticks the 'containers' Daily Contract — server-side, inside
+      // /api/vault/fragments, off this very request. See announceContracts().
       creditVaultFragment(target);
-      reportContract('containers', 1);   // Daily Contracts §5.2
     }
   }, 450);
 }
@@ -4044,8 +4150,16 @@ function renderStashPanel(targetId, emptyId, opts){
   const host=$(targetId), empty=emptyId?$(emptyId):null;
   if(!host || !G) return;
   host.classList.remove('equip-mode');
+  // OWNER BUG: this panel clears itself by an explicit LIST of classes, not by
+  // emptying the host. The vault-fragment bar was added with a class that was
+  // not on that list, so nothing ever removed it and every re-render appended
+  // another one — sixteen call sites, one bar each, until the player's actual
+  // loot was pushed off the bottom of a scrolling panel and burning anything
+  // meant scrolling past dozens of identical bars.
+  //
+  // Anything added to this panel from now on MUST be named here too.
   host.querySelectorAll('.equip-row,.equip-slotline').forEach(n=>n.remove());
-  host.querySelectorAll('.inv-item').forEach(n=>n.remove());
+  host.querySelectorAll('.inv-item,.inv-frag').forEach(n=>n.remove());
   const keyCount = G.inventory.keys||0;
   const paperCount = G.inventory.paper||0;
   const itemEntries = Object.values(G.inventory.items||{});
@@ -4260,7 +4374,6 @@ function confirmBurn(){
   }
   G.burnQueue.clear();
   if(items.length){
-    reportContract('burns', items.reduce((a,i)=>a+(i.qty||1),0));   // Daily Contracts §5.2
     window.dispatchEvent(new CustomEvent('nullstate-items-burned', {
       detail: { wallet: WALLET_ADDRESS, items, totalValue: Math.round(totalValue), timestamp: Date.now() }
     }));
@@ -4477,7 +4590,6 @@ function burnSingleItem(itemId){
   const totalValue=entry.item.burnValue*entry.qty;
   delete G.inventory.items[itemId];
   G.burnQueue.delete(itemId);
-  reportContract('burns', entry.qty || 1);   // Daily Contracts §5.2
   window.dispatchEvent(new CustomEvent('nullstate-items-burned', {
     detail: { wallet: WALLET_ADDRESS, items, totalValue: Math.round(totalValue), timestamp: Date.now() }
   }));
@@ -5726,7 +5838,14 @@ window.__NS = { get G(){ return G; },
   onEnemyKilled, // debug-only: lets tests exercise act-completion without a full attack simulation
   get campaignActIndex(){ return campaignActIndex; },
   get campaignCycle(){ return campaignCycle; },      // Null Cycles — enemy scaling
-  get abyssMode(){ return abyssMode; } };            // Null Abyss — see below
+  get abyssMode(){ return abyssMode; },              // Null Abyss — see below
+  // Test seams for scripts/test-inventory-render.js, which drives the REAL
+  // stash panel rather than a copy that could drift from it. The setter only
+  // touches the local fragment cache; the next /api/vault/fragments read
+  // overwrites it, so it can never desync the server's count.
+  renderStashPanel,
+  get VAULT_FRAG(){ return VAULT_FRAG; },
+  setVaultFrag(v){ VAULT_FRAG = Object.assign({}, VAULT_FRAG, v); } };
 
 // ---- boot ----
 // Full-game asset load (every monster/decor/background sprite) kept as a

@@ -67,11 +67,18 @@ const ok = (l, c) => { console.log((c ? '  ✓ ' : '  ✗ FAIL: ') + l); if (!c)
   await page.waitForTimeout(2500)
 
   // ── the daily status bar ──
+  // Matched by their icon, not by position: this asserted chips[1] was the
+  // fragment chip until the Daily Contracts chip (◇) landed between them and
+  // shifted every index by one. A test that breaks when a chip is ADDED is
+  // testing the layout of the bar, which scripts/test-daily-contracts.js
+  // already owns; what matters here is that the raid flow leaves it intact.
   const chips = await page.$$eval('.ns-hub-chip', els => els.map(e => e.textContent.trim()))
-  ok('daily bar renders three chips', chips.length === 3)
-  ok('craft chip counts down (' + chips[0] + ')', /h/.test(chips[0] || ''))
-  ok('fragment chip shows 7/12 (' + chips[1] + ')', (chips[1] || '').includes('7/12'))
-  ok('energy chip shows 4 (' + chips[2] + ')', (chips[2] || '').includes('4'))
+  const chip = (icon) => chips.find(c => c.includes(icon)) || ''
+  ok('daily bar renders four chips (' + chips.join(' ') + ')', chips.length === 4)
+  ok('craft chip counts down (' + chip('⏳') + ')', /h|m/.test(chip('⏳')))
+  ok('contracts chip present (' + chip('◇') + ')', /\d\/\d/.test(chip('◇')))
+  ok('fragment chip shows 7/12 (' + chip('◈') + ')', chip('◈').includes('7/12'))
+  ok('energy chip shows 4 (' + chip('⚡') + ')', chip('⚡').includes('4'))
 
   // ── progress: the map must NOT have regressed, and 1-2 must be raidable ──
   const nodes = await page.$$('.ns-hub-node')

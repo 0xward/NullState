@@ -111,6 +111,9 @@ no claim button, no screen to visit. Typical asks: put down 30 enemies, secure
 One good session usually clears two of the three. The third is what tomorrow is
 for.
 
+Burning counts **wherever you burn** — in your stash mid-run, or from the
+Rewards screen between runs. Either way the contract moves.
+
 Tap the **◇** chip on the map — or the **DAILY** button on the left rail — to
 see today's list and how far along you are.
 

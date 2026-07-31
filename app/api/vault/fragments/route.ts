@@ -3,6 +3,7 @@ import { getAdminDb } from '@/firebase-config'
 import { walletAddressSchema, vaultFragmentBodySchema } from '@/lib/validation'
 import { normalizeWalletAddress, getCurrentWeekIdString } from '@/lib/vault-utils'
 import { creditFragment, readFragmentState, FRAGMENT_GOALS } from '@/lib/server/vault-fragments'
+import { reportMetric } from '@/lib/server/dailyContracts'
 
 // Reads ?wallet on GET, so it can only ever be served on demand — declare it
 // dynamic or the build tries to prerender it and logs DYNAMIC_SERVER_USAGE.
@@ -79,9 +80,39 @@ export async function POST(req: NextRequest) {
     const db = getAdminDb()
     if (!db) return NextResponse.json({ ...EMPTY(weekId), granted: [] }, { status: 200 })
 
-    const state = await creditFragment(db, weekId, normalizeWalletAddress(parsed.data.wallet))
+    const wallet = normalizeWalletAddress(parsed.data.wallet)
+    const state = await creditFragment(db, weekId, wallet)
+
+    // The 'containers' Daily Contract (GAME-DESIGN.md §5.2) counts exactly the
+    // same event this route already is: one POST per interactive container, the
+    // first time it is opened. Crediting it here rather than from the engine
+    // means the one metric the server CAN see is not taken on the client's
+    // word — which is what lib/server/dailyContracts.ts has always claimed
+    // about it, and was not true until now: the engine was posting the count
+    // itself to /api/contracts.
+    //
+    // Best-effort, like the burn route's credit: a contract that fails to tick
+    // must never cost the player the fragment they just earned.
+    // `contracts`/`contractsGranted` are shaped for game.js's announceContracts()
+    // so a contract finished by opening a container still says so in the run
+    // log, exactly as it did when the engine posted the count itself.
+    let contracts: unknown
+    let contractsGranted: string[] = []
+    try {
+      const day = await reportMetric(db, wallet, 'containers', 1)
+      contracts = day.contracts
+      contractsGranted = day.granted
+    } catch (err) {
+      console.error('[vault/fragments] daily-contract credit failed (fragment kept):', err)
+    }
+
     return NextResponse.json(
-      { ...state, goals: FRAGMENT_GOALS.map((g) => ({ key: g.key, threshold: g.threshold, label: g.label })) },
+      {
+        ...state,
+        goals: FRAGMENT_GOALS.map((g) => ({ key: g.key, threshold: g.threshold, label: g.label })),
+        contracts,
+        contractsGranted,
+      },
       { status: 200 },
     )
   } catch (error) {
