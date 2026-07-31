@@ -78,13 +78,32 @@ const ok = (name, cond, detail) => results.push({ name, ok: !!cond, detail })
         decor: g.decor.map(o => [o.type, Math.round(o.x), Math.round(o.y)]),
       })
     }
-    const base = { charKey: 'knight', campaignActIndex: 0, depth: 2, maxDepthReached: 2, xp: 500, level: 3,
+    const mkBase = (depth) => ({ charKey: 'knight', campaignActIndex: 0, depth, maxDepthReached: depth, xp: 500, level: 3,
       kills: 10, hp: 90, inventory: { keys: 0, relics: 0, shards: 0, items: {} },
-      goldenKeysRemaining: 1, paperRemaining: 1, savedAt: Date.now() }
+      goldenKeysRemaining: 1, paperRemaining: 1, savedAt: Date.now() })
+    const isBox = (o) => o.def && o.def.interactive && !o.def.isVaultDoor && !o.def.isSealedCache && !o.def.isPremiumCache
 
     // ── run 1: play a little, then save ──────────────────────────────────
-    mount(base)
-    let g = await waitG(); if (!g) return { err: 'engine never mounted' }
+    //
+    // Mount until the floor has a lockable container to open. A floor averages
+    // 1.6 of them, so one in several has none and the container assertions
+    // would fail at random — which is what the first version of this test did.
+    //
+    // The retry KEEPS the mounted instance rather than probing and remounting:
+    // every fresh mount draws a new RUN_SEED, so a probe's floor is not the
+    // floor the next mount builds. That subtlety is the whole reason the first
+    // fix for this flake did not work.
+    let g = null, depth = 2
+    for (let attempt = 0; attempt < 8; attempt++) {
+      NSG.unmount(); await sleep(40)
+      depth = (attempt % 5) + 1
+      mount(mkBase(depth))
+      g = await waitG()
+      if (g && g.decor.some(isBox)) break
+      g = null
+    }
+    if (!g) return { err: 'no mount in 8 tries produced a floor with a lockable container' }
+    const base = mkBase(depth)
     const layout1 = layout(g)
     const seed1 = window.__NS.RUN_SEED
 
@@ -93,7 +112,7 @@ const ok = (name, cond, detail) => results.push({ name, ok: !!cond, detail })
     for (const e of alive) { e.dead = true; e.hp = 0 }
     const breakable = g.decor.filter(o => !o.broken && !o.def.ambient && !o.def.interactive).slice(0, 3)
     for (const o of breakable) { o.broken = true; o.hp = 0 }
-    const box = g.decor.find(o => o.def && o.def.interactive && !o.def.isVaultDoor && !o.def.isSealedCache && !o.def.isPremiumCache)
+    const box = g.decor.find(isBox)
     let boxIdx = -1, slotsBefore = null
     if (box) {
       boxIdx = g.decor.indexOf(box)
@@ -109,7 +128,7 @@ const ok = (name, cond, detail) => results.push({ name, ok: !!cond, detail })
     const stood = { x: Math.round(g.player.x), y: Math.round(g.player.y) }
 
     const snap = NSG.getSaveSnapshot()
-    const savedFloor = snap.floors && (snap.floors['2'] || snap.floors[2])
+    const savedFloor = snap.floors && snap.floors[String(depth)]
 
     // ── run 2: continue from that save ───────────────────────────────────
     NSG.unmount(); await sleep(60)
@@ -137,7 +156,7 @@ const ok = (name, cond, detail) => results.push({ name, ok: !!cond, detail })
     // ── run 4: a delta whose shape no longer matches must be DROPPED ─────
     NSG.unmount(); await sleep(60)
     const tampered = JSON.parse(JSON.stringify(snap))
-    tampered.floors['2'].dl = tampered.floors['2'].dl + 1   // pretend a cache appeared
+    tampered.floors[String(depth)].dl = tampered.floors[String(depth)].dl + 1   // pretend a cache appeared
     mount(Object.assign({}, base, tampered))
     g = await waitG(); if (!g) return { err: 'engine never mounted for the mismatch run' }
     const afterMismatch = { dead: g.enemies.filter(e => e.dead).length, broken: g.decor.filter(o => o.broken).length }

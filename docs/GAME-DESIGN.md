@@ -106,9 +106,9 @@ more mode, not surgery.
 
 ## 3. The four time layers
 
-A live game needs an answer at every timescale. Miss one and the player
-falls out of the loop there. NullState today has layers 1, 3, and a broken
-4. **Layer 2 is empty, and that is the whole problem.**
+A live game needs an answer at every timescale. Miss one and the player falls
+out of the loop there. Layer 2 was empty, and that was the whole problem; it is
+now filled. Layer 4 is the one still half-broken (§9).
 
 ### Layer 1 — Session: "why play right now" — `[TODAY]`
 
@@ -119,9 +119,9 @@ Combat, procedural floors, loot rarity, the lift, containers — all shipped.
 
 This was the empty layer, and the whole problem. Energy (5/day) is a
 *limiter*, not a *reason* — you limit what people want more of, and there
-was nothing they wanted more of once the vault was claimed. Three of the
-four mechanics in §5 now fill it: Vault Fragments, Daily Contracts and the
-surfaced craft timer. Only the login streak (§5.3) is still open.
+was nothing they wanted more of once the vault was claimed. **All four
+mechanics in §5 now fill it**: Vault Fragments, Daily Contracts, the surfaced
+craft timer, and the login streak.
 
 ### Layer 3 — Weekly: "why care this week" — `[TODAY]`, needs §5.1
 
@@ -294,14 +294,59 @@ rail button, which until now was a `SOON` badge promising exactly this feature
 `reportContract()` in `game.js`, `DailyStatusBar.tsx`. Locked down by
 `npm run test:contracts`.
 
-### 5.3 Login streak — `[TARGET]`
+### 5.3 Login streak — `[TODAY]`
 
 Seven escalating days; breaking it resets to day 1. Loss aversion is the
 strongest retention force available and it costs nothing.
 
-Half of this already exists: the Season Pass daily claim grants +1 energy
-and +3 t1 shards per UTC day (`game-config.ts:50-51`) — a login reward that
-was never framed as one.
+Half of this already existed: the Season Pass daily claim grants +1 energy and
++3 t1 shards per UTC day — a login reward that was never framed as one, and
+only for pass holders. This is the version everyone gets, guests included.
+
+**Why it is separate from Daily Contracts.** Contracts answer *why play today*.
+They do not answer *why open this at all today*, and those are different
+questions. A player with ten spare minutes plays; a player with one spare
+minute opens the app or does not — and if they do not, what breaks is the
+habit, not the session.
+
+| Day | Pays |
+|---|---|
+| 1 | 80 NullState Point |
+| 2 | 2 Glitch Shards (t1) |
+| 3 | +1 energy |
+| 4 | 3 Glitch Shards (t1) |
+| 5 | 150 NullState Point |
+| 6 | 4 Glitch Shards (t1) |
+| **7** | **8 Glitch Shards (t1)** |
+
+**Why the ladder is shaped like this.** Every rung is t1 shards, energy or
+Point on purpose. Shard *tier* is act-gated — `_shardTierForAct()` drops t1 on
+acts 1–2, t2 on 3–4, t3 on act 5 — so paying a t2 shard would hand a new player
+a currency they cannot spend and did not earn.
+
+Day 7 is **8 t1 shards because `EVOLUTION_SHARD_COSTS[0]` is 8**: a full week is
+worth exactly one weapon evolution. That is the ratchet §4 asks for in so many
+words — *"the weapon is tier 3, so next week is faster"* — and it is a prize a
+player can name, which a scattering of shards is not.
+
+Sized against Daily Contracts (200–400 Point or 2–4 t1 for real work): a whole
+week of merely opening the app is worth roughly **one day of playing it**. That
+ordering is deliberate. Showing up should be rewarded; it must never out-earn
+showing up *and playing*.
+
+**No claim step**, matching the decision Daily Contracts already made — opening
+the app *is* the event. The chip sits first on the daily bar because it is the
+one number there the player can lose, and loss aversion only works when the
+thing at risk is in front of them.
+
+Trust: the day is the server's UTC day, the streak is derived from the stored
+last day rather than sent, and the advance happens inside one RTDB transaction —
+so two tabs cannot both advance it or both be paid. A grant that throws still
+counts the day, because a re-claimable day is worse than one missed grant.
+
+Locked down by `npm run test:streak` (31 assertions against a stubbed RTDB —
+the day boundaries cannot be tested in a browser without waiting for midnight)
+and `npm run test:streak-ui` (16 assertions in a real browser).
 
 ### 5.4 Surface the craft timer — `[TODAY]`
 
@@ -754,7 +799,7 @@ time.
 5. ~~Delete the dead blocks in `game-config.ts`~~ — **shipped**
 
 **After the listing**
-6. §5.3 Login streak
+6. ~~§5.3 Login streak~~ — **shipped**
 7. §7 Bunker differentiation (time vs risk)
 8. ~~§8 Seeded dungeon → fixes Save & Exit~~ — **shipped**
 9. §9 Leaderboard consolidation + automated season payout
