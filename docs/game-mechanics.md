@@ -177,6 +177,18 @@ with the week, along with everything else.
 
 ---
 
+### 🏆 When you crack it
+
+A popup tells you exactly what you won — **the amount and the token** — and that
+it has **already been sent to your wallet**. There is no claim button, because
+there is nothing to claim: the transfer happens on-chain the moment your code is
+accepted. It can take a few seconds to appear in MiniPay.
+
+The popup waits for you. Tap **CONTINUE** when you are ready; nothing disappears
+on a timer.
+
+---
+
 ## 🎮 Your Character
 
 You play as the **Knight** — the sole playable character.

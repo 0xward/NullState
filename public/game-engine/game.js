@@ -2175,8 +2175,11 @@ async function submitVaultCode(){
       A.levelup(); spark(G.player.x, G.player.y-30, '#b46bff', 40, 260);
       log(_paid ? 'Vault unlocked — reward claimed.' : 'Vault unlocked — reward pending pool funding.', 'reward');
       if(submitBtn){ submitBtn.textContent='DONE'; }
-      // A solved vault DOES finish the bunker (the reward loop is complete).
-      setTimeout(()=>finishBunkerFromVault(), 1400);
+      // THE WIN SCREEN. This used to be the line above and a 1.4s timer, which
+      // meant the one moment real money moves went by without naming the
+      // amount, the currency, or the fact that it transfers itself. The bunker
+      // now finishes when the PLAYER closes the popup, not on a timer.
+      openVaultWinPopup(data);
       return;
     } else if(data){
       const remaining = typeof data.attemptsRemaining==='number' ? data.attemptsRemaining : null;
@@ -2193,6 +2196,58 @@ async function submitVaultCode(){
     if(msg){ msg.textContent='Offline — could not reach the vault. Try again later.'; msg.className='vault-msg err'; }
   }
   if(submitBtn){ submitBtn.disabled=false; submitBtn.textContent='SUBMIT'; }
+}
+
+// ---- the vault win popup -----------------------------------------------
+//
+// Owner, after cracking a vault for real: "tidak ada pop up untuk user, pop up
+// menang usdt dan jumlahnya, dan penjelasan auto transfer."
+//
+// Three things it must say, because the player has no other way to learn any of
+// them: that they won, HOW MUCH and in WHAT, and that the money is already on
+// its way without a claim step. The last one matters most on MiniPay — a player
+// who does not know the transfer is automatic goes looking for a claim button
+// that does not exist, and concludes the game owes them money.
+//
+// It does not auto-dismiss. The bunker finishes when the player presses
+// CONTINUE, so nothing can pull the number off screen before it is read.
+function openVaultWinPopup(data){
+  const win = $('vaultWinWindow');
+  const paid = data && data.rewardStatus === 'paid';
+  const amountEl = $('vwinAmount'), noteEl = $('vwinNote'), txEl = $('vwinTx');
+
+  if(amountEl){
+    // The amount comes from the server, which read it off the vault contract
+    // right after the transfer. If that read failed it is absent — say "sent"
+    // rather than invent a figure, because a wrong number here is worse than
+    // no number.
+    const amt = (data && typeof data.amount === 'number' && isFinite(data.amount)) ? data.amount : null;
+    const tok = (data && typeof data.token === 'string' && data.token) ? data.token : 'USDT';
+    amountEl.textContent = paid
+      ? (amt !== null ? '+' + (Math.round(amt * 100) / 100) + ' ' + tok : 'Reward sent')
+      : 'Reward pending';
+  }
+  if(noteEl){
+    noteEl.innerHTML = paid
+      ? 'Sent straight to your wallet — <b>no claim needed</b>.<br>It may take a few seconds to show in MiniPay.'
+      : 'Your code was correct and the win is recorded. The transfer completes as soon as the reward pool is topped up — reopen the vault later and it finishes by itself.';
+  }
+  if(txEl){
+    const hash = data && typeof data.txHash === 'string' && data.txHash;
+    if(hash){
+      txEl.href = 'https://celoscan.io/tx/' + hash;
+      txEl.classList.remove('hidden');
+    } else {
+      txEl.classList.add('hidden');
+    }
+  }
+  if(win) win.classList.remove('hidden');
+  A.levelup();
+}
+function closeVaultWinPopup(){
+  const win = $('vaultWinWindow');
+  if(win) win.classList.add('hidden');
+  finishBunkerFromVault();
 }
 
 // ---- lift menu ----
@@ -6029,6 +6084,9 @@ function attach(){
   $('vaultClose').addEventListener('click', closeVaultWindow);
   { const vl=$('vaultLeave'); if(vl) vl.addEventListener('click', finishBunkerFromVault); }
   $('vaultSubmitBtn').addEventListener('click', submitVaultCode);
+  // CONTINUE on the win popup is what ends the bunker now — deliberately the
+  // only way out, so the amount cannot leave the screen before it is read.
+  { const vw=$('vwinClose'); if(vw) vw.addEventListener('click', closeVaultWinPopup); }
   // One delegated listener on the pad rather than twelve — the keys are static
   // markup in DungeonGame.tsx, so data-key is the only thing that varies.
   { const pad=$('vaultPad'); if(pad) pad.addEventListener('click', (e)=>{
@@ -6067,6 +6125,7 @@ window.__NS = { get G(){ return G; },
   // touches the local fragment cache; the next /api/vault/fragments read
   // overwrites it, so it can never desync the server's count.
   renderStashPanel,
+  openVaultWinPopup,                  // scripts/test-vault-win.js
   get RUN_SEED(){ return RUN_SEED; },   // scripts/test-seeded-floors.js
   get VAULT_FRAG(){ return VAULT_FRAG; },
   setVaultFrag(v){ VAULT_FRAG = Object.assign({}, VAULT_FRAG, v); } };
