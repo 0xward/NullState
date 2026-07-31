@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAdminDb } from '@/firebase-config'
+import { getCurrentWeekIdString, getCurrentDayIdString } from '@/lib/vault-utils'
+import { migrateTimeBoxed } from '@/lib/server/guestMigrate'
 
 // POST /api/guest/migrate
 // Body: { guestAddress: string, walletAddress: string }
@@ -17,6 +19,10 @@ import { getAdminDb } from '@/firebase-config'
 //     wallet keeps everything it already had, and gains anything the guest had.
 //   • Single-value slots (equipped gear, elixir) are only filled if the wallet
 //     doesn't already have its own value — real wallet data is never overwritten.
+//   • TIME-BOXED records (this week's Vault Fragments and item claims, today's
+//     contracts, the login streak) follow their own rules — see
+//     lib/server/guestMigrate.ts. They were missing entirely until an audit found
+//     that converting to a wallet wiped the week's progress toward USDT.
 // After a successful merge the guest's Realtime DB nodes are deleted so the
 // same progress can't be migrated twice.
 
@@ -136,6 +142,23 @@ export async function POST(req: NextRequest) {
       updates[paths.wStats] = get('gStats')
     }
 
+    // ── THIS WEEK'S AND TODAY'S PROGRESS ────────────────────────────────
+    //
+    // Found by audit, and it was the worst thing in this route: none of the
+    // time-boxed records moved. A guest who spent the week opening containers
+    // arrived at the wallet with ZERO Vault Fragments — losing the entire path
+    // to that week's USDT at the exact moment they converted. Connecting a
+    // wallet is the thing we most want them to do, and it was the thing that
+    // cost them the most.
+    //
+    // Each is keyed by the CURRENT week or day: older buckets are dead weight
+    // that resets on its own, and a guest with a streak or fragments from three
+    // weeks ago has nothing worth carrying.
+    const weekId = getCurrentWeekIdString()
+    const dayId = getCurrentDayIdString()
+    const timeBoxed = await migrateTimeBoxed(db, guest, wallet, weekId, dayId)
+    Object.assign(migrated, timeBoxed)
+
     if (Object.keys(updates).length) {
       await db.ref().update(updates)
     }
@@ -150,6 +173,11 @@ export async function POST(req: NextRequest) {
       db.ref(`blueprintsOwned/${guest}`).remove(),
       db.ref(`elixir/${guest}`).remove(),
       db.ref(`energy/${guest}`).remove(),
+      db.ref(`vaultFragments/${weekId}/${guest}`).remove(),
+      db.ref(`paperClaims/${weekId}/${guest}`).remove(),
+      db.ref(`goldenKeyClaims/${weekId}/${guest}`).remove(),
+      db.ref(`dailyContracts/${dayId}/${guest}`).remove(),
+      db.ref(`loginStreak/${guest}`).remove(),
     ])
 
     return NextResponse.json({ success: true, migrated })

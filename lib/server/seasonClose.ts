@@ -42,6 +42,16 @@ type AdminFs = NonNullable<ReturnType<typeof import('@/firebase-config').getAdmi
 /** What the top 3 are paid, in whole dollars. Mirrors the on-chain rank rewards. */
 export const RANK_REWARDS_USD = [20, 5, 3] as const
 
+/**
+ * Which token funds the season pool.
+ *
+ * USDT, per OWNER-RUNBOOK.md's monthly commands and rewards-system.md ("all
+ * game rewards pay out in USDT"). GAME-DESIGN.md §3 said USDm, which was stale
+ * and is corrected — two of the three docs agreed and the runbook is the one
+ * that actually gets executed.
+ */
+export const SEASON_PAYOUT_TOKEN = 'USDT'
+
 export interface SeasonWinner {
   rank: 1 | 2 | 3
   wallet: string
@@ -202,6 +212,12 @@ export function payoutCommands(snapshot: SeasonSnapshot): string[] {
     `node scripts/deposit-reward.js update-leaderboard --season ${snapshot.seasonId}`
       + ` --p1 ${w[0].wallet} --p2 ${w[1].wallet} --p3 ${w[2].wallet}`
       + ` --s1 ${w[0].xp} --s2 ${w[1].xp} --s3 ${w[2].xp}`,
-    `node scripts/deposit-reward.js season-deposit --season ${snapshot.seasonId} --amount ${total}`,
+    // --token is NOT optional: resolveToken() in that script dies with
+    // "missing --token" when it is absent, so the first version of this line
+    // handed the owner a command that failed on paste — the exact thing the
+    // comment above swears this must never do. USDT because that is what
+    // OWNER-RUNBOOK.md and rewards-system.md both specify for season bonuses.
+    `node scripts/deposit-reward.js season-deposit --season ${snapshot.seasonId}`
+      + ` --token ${SEASON_PAYOUT_TOKEN} --amount ${total}`,
   ]
 }
