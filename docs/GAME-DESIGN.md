@@ -100,7 +100,7 @@ new engine entry point. `mount({ startMode })` already accepts
 `'new' | 'continue' | 'cycle' | 'abyss'` (`game.js:5442-5452`); this is one
 more mode, not surgery.
 
-**Mid-run save fidelity — `[CHANGE]`, separate concern.** See §8.
+**Mid-run save fidelity — `[TODAY]`, separate concern.** Fixed; see §8.
 
 ---
 
@@ -610,44 +610,72 @@ and the Rewards screen appends it to the burn confirmation it already shows.
 
 ---
 
-## 8. Known bug: Save & Exit regenerates floors
+## 8. Fixed: Save & Exit no longer regenerates floors
 
-**`[CHANGE]`.** Real, and worth writing down because it looks like the
-persistence question but is a separate defect.
+**`[TODAY]`.** It used to. `getSaveSnapshot()` persisted 14 fields — act,
+depth, maxDepthReached, xp/level/kills/hp, equipment, inventory, weekly run
+caps — but **not `G.floors`**, and `dungeon.js` generated from bare
+`Math.random()` with no seed, so the same floor could not be reproduced at all.
 
-`getSaveSnapshot()` (`game.js:5581-5621`) persists 14 fields — act, depth,
-maxDepthReached, xp/level/kills/hp, equipment, inventory, weekly run-caps —
-but **not `G.floors`**. `applyRestoredState()` (`game.js:305-343`) does not
-restore it either. Both verified line by line.
+Save & Exit on floor 3 → Continue → `ensureFloor(3)` found an empty cache and
+built a **new** floor: different layout, monsters back on their feet, looted
+containers refilled, smashed props whole. At risk were XP, ordinary items
+(→ NullState Point via burn) and Glitch Shards, which are also sold at $1 per
+5. Never at risk: the weekly Paper and Golden Key, guarded both by the saved
+run caps and by the server's 1-per-wallet-per-week records.
 
-So: Save & Exit on floor 3 → Continue → `ensureFloor(3)` finds an empty
-cache → `makeDungeon(3)` builds a **new** floor. Killed monsters are alive,
-looted containers are lootable, smashed props are whole, and the layout is
-different — `dungeon.js` uses bare `Math.random()` with no seed, so the same
-floor cannot be reproduced at all.
+### The fix, in two halves
 
-**Not at risk:** the weekly Paper and Golden Key. Guarded twice — the run
-caps are saved, *and* the server enforces 1 per wallet per week. The USDT
-reward cannot be farmed through this.
+Either half alone fixes nothing.
 
-**At risk:** XP, ordinary items (→ NullState Point via burn), and Glitch
-Shards. The last one has real revenue impact, since shards are also sold at
-$1 per 5.
+**1. The layout is a pure function of a seed.** One `runSeed` is chosen at
+`newGame()` and saved with the run; a floor's seed is
+`hash(runSeed, cycle, act, abyss, depth)`. Same seed, same floor, forever — so
+the map itself costs **zero bytes** to persist.
 
-**Severity: medium, and mostly about feel.** A player who saves mid-bunker
-and returns to a different map with resurrected monsters concludes the game
-is broken. The economic leak is real but small, and partly damped by
-`clearGameSession()` consuming the save on load (single-use by design —
-`gameSessionService.ts:11-14`).
+**2. What the player did to it is a delta** against that layout: which enemies
+died, which props broke, which containers were opened and what is still inside
+them, which rooms are lit. Indices into the generated arrays — sound only
+*because* of (1).
 
-> Not verified empirically — this is read from source, not reproduced in a
-> running game. How *exploitable* it is remains an educated guess.
+Measured: **2.6 KB** for a whole five-floor bunker with every prop smashed and
+every container opened. Firestore's limit is 1 MB.
 
-**Fix:** seed the generator — `seed = hash(wallet, cycle, actIndex, depth)`
-— and persist only the deltas (which enemies died, which containers opened,
-which loot slots taken). A few KB instead of hundreds. Lower priority than
-everything in §5: this annoys players who save mid-run, while §5 decides
-whether they come back at all.
+### Why `Math.random` is swapped rather than threaded
+
+Randomness for one floor is spread across four files — `dungeon.js` lays out
+rooms, `game.js` picks archetypes and elites, `props.js` places and rolls
+decor, `entities.js` jitters each enemy. The engine is plain `<script>` tags
+with no module system (rule 1, §10), so there is no shared rng to import and
+threading one would mean touching every constructor. Generation is synchronous
+and finishes inside one call, so the global is swapped for exactly that window
+and restored in a `finally`.
+
+### Two guards, both of which earned their place
+
+**A snapshot does not always keep describing the run it was taken from.** The
+shell rewrites `campaignActIndex`/`depth` on it when a bunker is cleared (so
+ENTER points at the *next* bunker) and again when a raid finishes (so the
+campaign resumes where the raid left it). Replaying the old floors into the new
+bunker would start it with the monsters already dead and the containers already
+emptied. So the save records a `floorsKey` — cycle, act, abyss, raid — and the
+delta is dropped unless it still matches.
+
+**Regeneration can legitimately differ.** A Premium Sector cache appears only
+while that act's blueprint is owned, and ownership lives outside this save. So
+each floor stores the array lengths its indices were taken from; a mismatch
+drops the delta rather than killing the wrong monsters.
+
+> **A pre-existing bug this surfaced.** The snapshot written when a raid
+> finishes was cached *during* the raid, so it still said `raid: true`.
+> `enterSavedSession()` restores `RAID_MODE` from that flag — so the next
+> Continue resumed as a raid, and clearing that bunker took the raid branch
+> again, fired `nullstate-raid-cleared`, and advanced nothing. **The campaign
+> silently stopped progressing.** Fixed in the same place the campaign path
+> already fixed up its own snapshot, for the same reason.
+
+Locked down by `npm run test:seeded` (15 assertions), which fails on the old
+engine.
 
 ---
 
@@ -728,7 +756,7 @@ time.
 **After the listing**
 6. §5.3 Login streak
 7. §7 Bunker differentiation (time vs risk)
-8. §8 Seeded dungeon → fixes Save & Exit
+8. ~~§8 Seeded dungeon → fixes Save & Exit~~ — **shipped**
 9. §9 Leaderboard consolidation + automated season payout
 
 ---

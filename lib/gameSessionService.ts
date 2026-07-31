@@ -16,6 +16,25 @@
 import { doc, getDoc, setDoc, deleteDoc } from 'firebase/firestore'
 import { db } from './firebase'
 
+/**
+ * What the player did to one floor, as a delta against the layout `runSeed`
+ * regenerates. Indices into the generated enemy/decor arrays — see
+ * `serializeFloors()` in game.js and GAME-DESIGN.md §8. `el`/`dl` are the array
+ * lengths the delta was taken from; the engine drops the delta rather than
+ * applying it if regeneration produces different counts.
+ */
+export interface FloorDelta {
+  el: number
+  dl: number
+  c: boolean
+  v: boolean
+  b: boolean
+  dead: number[]
+  broken: number[]
+  opened: Record<string, Array<{ s: string; k: string; i: number; q: number; a: number; t: boolean }>>
+  rooms: number[]
+}
+
 export interface GameSessionSnapshot {
   charKey: string
   campaignActIndex: number
@@ -28,6 +47,12 @@ export interface GameSessionSnapshot {
   inventory: { keys: number; relics: number; shards: number; items?: Record<string, number> }
   goldenKeysRemaining: number
   savedAt: number
+  /** Seeds every floor of this run. Absent on saves written before §8. */
+  runSeed?: number
+  /** Per-depth deltas, keyed by depth. Absent on saves written before §8. */
+  floors?: Record<string, FloorDelta> | null
+  /** Where the player stood, so Continue resumes there and not at the lift. */
+  at?: { x: number; y: number }
 }
 
 function docRef(walletAddress: string) {
