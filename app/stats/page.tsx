@@ -7,6 +7,23 @@ import Link from 'next/link'
 // (celopedia-skill → minipay-requirements.md §8). No wallet needed — it reads
 // aggregated numbers from /api/stats (Firebase-backed) and renders them.
 
+// GAME-DESIGN.md §9. The season bonus is paid by hand, on purpose — the owner
+// signs it and no deployer key lives on the server. What is automated is the
+// preparation, and this is the half that makes a FORGOTTEN payout visible:
+// "closed, winners frozen, not yet paid" is a state a person can see, where
+// before it was a claim button that silently did nothing.
+interface SeasonStatus {
+  currentSeasonId: number
+  lastClosedSeasonId: number
+  awaitingPayout: boolean
+  snapshot: {
+    seasonId: number
+    preparedAt: number
+    paidAt: number | null
+    winners: { rank: number; wallet: string; username: string; xp: number; rewardUsd: number }[]
+  } | null
+}
+
 interface StatsPayload {
   generatedAt: number
   players: {
@@ -158,6 +175,18 @@ export default function StatsPage() {
   const [data, setData] = useState<StatsPayload | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [vitals, setVitals] = useState<Vitals | null>(null)
+  const [season, setSeason] = useState<SeasonStatus | null>(null)
+
+  // Season payout state (GAME-DESIGN.md §9). Independent of /api/stats for the
+  // same reason as the vitals: one endpoint failing must cost one card.
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/season/status')
+      .then(r => (r.ok ? r.json() : null))
+      .then(j => { if (!cancelled && j && !j.error) setSeason(j) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [])
 
   // Fetched independently of /api/stats: a PostHog outage must cost one card,
   // not the whole page. Failure here is swallowed on purpose.
@@ -373,6 +402,41 @@ export default function StatsPage() {
               <Stat label="Golden Keys" value={fmt(data.economy.goldenKeys)} accent="#f2cd82" />
               <Stat label="Old Papers" value={fmt(data.economy.papers)} accent="#d9b877" />
             </Section>
+
+            {season?.snapshot && (
+              <section className="mb-8">
+                {/* The `//` prefix matches the other section headers. Written
+                    as a string so it does not read as a JSX comment — the
+                    literal form is what react/jsx-no-comment-textnodes flags,
+                    and this section should not add to that count. */}
+                <div className="mb-3 font-mono text-[10px] tracking-[4px] uppercase text-null-green">
+                  {'// '}Season {season.snapshot.seasonId} · top 3
+                </div>
+                <div className="rounded-md border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)] p-4">
+                  <div className="mb-3 font-mono text-[10px] uppercase tracking-[2px]"
+                    style={{ color: season.awaitingPayout ? '#f2cd82' : '#7ef0a6' }}>
+                    {season.awaitingPayout
+                      ? '● Winners frozen — payout pending'
+                      : `✓ Paid ${season.snapshot.paidAt ? new Date(season.snapshot.paidAt).toLocaleDateString() : ''}`}
+                  </div>
+                  {season.snapshot.winners.map((w) => (
+                    <div key={w.rank} className="flex items-baseline justify-between gap-3 py-1 font-mono text-[11px]">
+                      <span className="min-w-0 truncate text-null-white">
+                        <span className="text-null-muted">#{w.rank}</span>{' '}
+                        {w.username || `${w.wallet.slice(0, 6)}…${w.wallet.slice(-4)}`}
+                      </span>
+                      <span className="shrink-0 text-null-muted">{fmt(w.xp)} XP</span>
+                      <span className="shrink-0" style={{ color: '#7ef0a6' }}>${w.rewardUsd}</span>
+                    </div>
+                  ))}
+                  <p className="mt-3 font-mono text-[9px] leading-relaxed text-null-muted">
+                    Ranked by XP — the same leaderboard players see. The ranking is frozen when the season closes,
+                    because XP keeps accumulating afterwards. Payouts are signed by hand, so this shows whether one
+                    is still owed.
+                  </p>
+                </div>
+              </section>
+            )}
 
             <p className="mt-2 font-mono text-[9px] leading-relaxed text-null-muted">
               Live figures aggregated from NullState’s off-chain database (game activity + recorded on-chain

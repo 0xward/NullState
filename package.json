@@ -30,7 +30,9 @@
     "test:streak-ui": "node scripts/test-streak-ui.js",
     "measure:acts": "node scripts/measure-bunkers-by-act.js",
     "test:bunkers": "node scripts/test-bunker-profiles.js",
-    "test:bunkers-ui": "node scripts/test-bunker-profile-ui.js"
+    "test:bunkers-ui": "node scripts/test-bunker-profile-ui.js",
+    "test:season": "node scripts/test-season-close.js",
+    "test:season-routes": "node scripts/test-season-routes.js"
   },
   "dependencies": {
     "@celo/attribution-tags": "^0.3.0",
