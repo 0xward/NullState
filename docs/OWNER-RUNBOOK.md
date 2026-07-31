@@ -39,18 +39,64 @@ is always safe (it accumulates).
 
 Season id = `YYYYMM` (e.g. July 2026 → `202607`).
 
+**You no longer work out the top 3 yourself.** A cron freezes the ranking the
+moment the season ends (GAME-DESIGN.md §9) and hands you the exact commands.
+Money still needs your signature — no deployer key lives on the server.
+
+### 1. Open the payout status
+
+```
+https://<your-host>/api/season/status
+```
+
+It answers with the frozen top 3 **and a `commands` array** — the two lines
+below, already filled in with the right addresses, scores and amount. Paste
+them; do not retype them.
+
+`/stats` shows the same thing in amber — **"Winners frozen — payout pending"** —
+until step 3. If you ever see that line lingering, a payout is owed.
+
+### 2. Run what it gives you
+
 ```bash
-# 1. Publish the top-3 winners on-chain
+# 1. Publish the top-3 winners on-chain (from `commands[0]`)
 node scripts/deposit-reward.js update-leaderboard --season 202607 \
   --p1 0x.. --p2 0x.. --p3 0x.. --s1 120 --s2 90 --s3 70
 
-# 2. Set rank amounts (if changing) and fund the pool (amount ≥ r1+r2+r3)
-node scripts/deposit-reward.js season-rewards --token USDT --r1 20 --r2 5 --r3 3
+# 2. Fund the pool (from `commands[1]`; amount is already r1+r2+r3)
 node scripts/deposit-reward.js season-deposit --season 202607 --token USDT --amount 28
+
+# Only if you are CHANGING the prize amounts — not needed monthly:
+node scripts/deposit-reward.js season-rewards --token USDT --r1 20 --r2 5 --r3 3
 ```
 
-The next season (`YYYYMM`) starts automatically. Announce winners on
-Telegram/Twitter for retention.
+**Check the three addresses before signing.** Nothing is filtered out
+server-side on purpose — your review is the safeguard, which is why the payout
+was never automated end to end.
+
+### 3. Mark it paid
+
+```bash
+curl -X POST https://<your-host>/api/season/status \
+  -H "Content-Type: application/json" \
+  -H "x-admin-secret: $ADMIN_SECRET" \
+  -d '{"seasonId":202607,"note":"<tx hash>"}'
+```
+
+This only sets a flag — it cannot move money or change who won. `/stats` turns
+green and stops nagging.
+
+The next season starts automatically. Announce winners on Telegram/Twitter for
+retention.
+
+> **Setup, once:** `CRON_SECRET` and `ADMIN_SECRET` in the Vercel environment
+> (`openssl rand -hex 32` each). Neither is a key and neither can spend
+> anything. Until they are set the routes refuse and nothing is frozen — see
+> `.env.example`.
+>
+> **If a month is ever missed**, the cron runs daily and will freeze it on the
+> next run. To force one: `curl -H "Authorization: Bearer $CRON_SECRET"
+> https://<your-host>/api/cron/season`
 
 ## 🔧 As needed
 

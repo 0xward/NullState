@@ -133,7 +133,7 @@ This layer works mechanically. What is wrong is *how you get in*: pure luck.
 
 ### Layer 4 — Seasonal: "why care this month" — `[TODAY]`
 
-Season = `YYYYMM` UTC. Season Pass SBT, leaderboard, top-3 USDm bonus. Its
+Season = `YYYYMM` UTC. Season Pass SBT, leaderboard, top-3 USDT bonus. Its
 three problems — two disagreeing leaderboards, a wholly manual payout, and
 three different "kills" numbers — are resolved in §9. The payout is still
 signed by hand, by design.
@@ -874,6 +874,83 @@ the leaderboard row and the profile, and the only other reader (`HudStatLine`)
 shows `p.kills`, which is correct because it is labelling the *current run*.
 **No UI reads the on-chain counter at all.** So this needed a decision recorded,
 not a code change — and the record is what was missing.
+
+---
+
+## 9b. Audit, 2026-07-31 — does it all hang together?
+
+A whole-system pass over everything, not just recent work: every API route
+traced to a caller, every RTDB path to its writers and readers, every number in
+the player-facing docs checked against the code that produces it.
+
+**Six things were wrong.** Five are fixed here; one is a standing limitation
+with a number attached.
+
+### Fixed
+
+**1. Converting to a wallet threw the week away.** `/api/guest/migrate` moved
+Point, materials, gear, tiers, blueprints and elixir — and **none** of the
+time-boxed records. A guest who spent the week opening containers arrived at
+their new wallet with **zero Vault Fragments**, losing the whole path to that
+week's USDT at the exact moment they converted. The login streak, today's
+contracts and the weekly item claims went the same way.
+
+Now in `lib/server/guestMigrate.ts`, with a rule per record rather than one
+blanket policy — fragments **add**, claims **fill** (so the week's cap survives
+and no second Old Paper is granted), contracts take the **max** (summing would
+pay a free contract for converting), streak keeps the **longer run** and the
+bigger best-ever. `npm run test:migrate`.
+
+**2. The season payout command I generated did not run.** `payoutCommands()`
+emitted `season-deposit` without `--token`, and `resolveToken()` in
+`deposit-reward.js` *dies* rather than defaulting — so the second line handed to
+the owner failed on paste. The whole point of preparing automatically is that
+paying is a paste. Fixed, and the test now checks **both** commands against that
+script's own argument validation instead of only the first.
+
+**3. `game-mechanics.md` said Common items cannot be burned.** They can, for
+1–5 Point. Nothing in the engine, the Rewards screen or the burn route filters
+them. Table corrected.
+
+**4. Two docs disagreed on the season token.** §3 said USDm; `OWNER-RUNBOOK.md`
+and `rewards-system.md` both say USDT, and the runbook is what gets executed.
+§3 corrected, and the token is now a named constant the generated command reads.
+
+**5. The runbook did not know about its own automation.** `OWNER-RUNBOOK.md`
+still said "work out the top 3 and run these two commands". Rewritten around
+`/api/season/status`, the `/stats` indicator and the mark-paid call.
+
+**Also deleted:** 8 files, 519 lines, all verified unreferenced —
+`USDmDisplay`, `GameUI`, `TokenBalanceWidget`, `CustomCursor`,
+`LiveStatsTicker`, `SectionDivider`, `useScrollReveal`, and
+`/api/vault/status`, which had no caller left. Lint baseline 34 → 33.
+
+### Verified correct
+
+- The money path connects end to end: fragments → `paperClaims` /
+  `goldenKeyClaims` → the exact records `/api/vault/submit` gates on.
+- Every number in `game-mechanics.md` matches its source. Rarity odds compute to
+  58.8 / 26.5 / 10.6 / 3.5 / 0.6 against a documented 59 / 26 / 11 / 3.5 / 0.6;
+  burn ranges, fragment thresholds, the streak ladder, the bunker table and
+  5 free runs/day all agree with code.
+- `firebaseAuth.ts` reads as unreferenced to a naive grep but is loaded through
+  `await import()` in three places. It is wired.
+
+### Known and deliberate
+
+**Two clocks on one bar.** Energy refills on a **rolling 24 hours** from first
+use (`windowStart + windowHours`); contracts and the streak reset at **00:00
+UTC**. So a player who plays at 20:00 gets new contracts four hours later but
+waits until 20:00 the next day for energy. Defensible — energy is a pacing
+limiter, not a daily gift — but it is two different meanings of "a day" sitting
+side by side on the same status bar, and worth revisiting if players ask.
+
+**Nothing prunes the daily/weekly buckets.** `dailyContracts/{dayId}`,
+`vaultFragments/{weekId}`, `passPerkClaims/{dayId}` and the claim records
+accumulate for every player, forever. Correctness is unaffected — the reset
+works precisely *because* the key changes — but at 1,000 daily players it is
+roughly 36 MB a year of dead rows. Not urgent; a monthly prune of buckets older
+than ~8 weeks would do it, and there is now a cron to hang it on.
 
 ---
 

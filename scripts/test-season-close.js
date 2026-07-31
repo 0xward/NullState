@@ -151,7 +151,23 @@ const W = (n) => '0x' + String(n).repeat(40).slice(0, 40)
   ok('publish carries the winners in order',
     publish.indexOf(W(1)) < publish.indexOf(W(2)) && publish.indexOf(W(2)) < publish.indexOf(W(3)))
   ok('publish carries their scores', /--s1 9000/.test(publish) && /--s3 5000/.test(publish))
-  ok('fund command totals the three prizes ($28)', /season-deposit/.test(cmds[1]) && /--amount 28/.test(cmds[1]))
+  // The fund command got the same treatment as the publish one only after an
+  // audit found it BROKEN: it omitted --token, and resolveToken() in that
+  // script dies with "missing --token" rather than defaulting — so the second
+  // line handed to the owner failed the moment it was pasted. Checking one
+  // command's flags and not the other is how that survived being "tested".
+  const fund = cmds[1]
+  ok('fund command names the right subcommand', /season-deposit/.test(fund))
+  ok('fund command totals the three prizes ($28)', /--amount 28/.test(fund))
+  ok('deposit-reward.js REQUIRES --token (it dies without one)',
+    /function resolveToken/.test(cli) && /missing --token/.test(cli))
+  ok('so the fund command passes --token', /--token \w+/.test(fund), fund.match(/--token \w+/)?.[0])
+  ok('and --season', /--season \d{6}/.test(fund))
+  // Every flag season-deposit validates must be present. Same source-of-truth
+  // check as the publish command: read the script, do not trust memory.
+  for (const flag of ['season', 'token', 'amount']) {
+    ok(`season-deposit still reads args.${flag}`, cli.includes('args.' + flag))
+  }
 
   // ── a thin leaderboard must not produce a half payout ─────────────────
   const thin = makeDb()

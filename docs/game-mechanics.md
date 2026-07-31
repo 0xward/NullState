@@ -91,13 +91,18 @@ keep-the-better roll to everything for 30 minutes.
 
 Each item has a hidden burn value (random within its rarity range):
 
-| Rarity | Burn Value (NullState Point) | Can Burn? |
-|--------|-----------|----------|
-| Common | N/A | ❌ NO |
-| Uncommon | 10 - 50 | ✅ YES |
-| Rare | 50 - 150 | ✅ YES |
-| Epic | 150 - 350 | ✅ YES |
-| Legendary | 350 - 500 | ✅ YES |
+| Rarity | Burn Value (NullState Point) |
+|--------|-----------|
+| Common | 1 - 5 |
+| Uncommon | 10 - 50 |
+| Rare | 50 - 150 |
+| Epic | 150 - 350 |
+| Legendary | 350 - 500 |
+
+**Everything burns except the two special items below.** This table used to say
+Common could not be burned; it can, for 1-5 Point — `items.js` gives it a burn
+value and nothing in the engine, the Rewards screen or the burn route filters it
+out. Corrected after an audit checked the claim against the code.
 
 > Burn values are **NullState Point** (off-chain, faucet-only in-game currency — spendable on Marketplace "Swap" purchases, not withdrawable/real money), not USDT. See `docs/rewards-system.md` and `public/game-engine/items.js` for the source of truth.
 

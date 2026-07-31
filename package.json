@@ -33,7 +33,8 @@
     "test:bunkers-ui": "node scripts/test-bunker-profile-ui.js",
     "test:season": "node scripts/test-season-close.js",
     "test:season-routes": "node scripts/test-season-routes.js",
-    "test:play": "node scripts/test-playthrough.js"
+    "test:play": "node scripts/test-playthrough.js",
+    "test:migrate": "node scripts/test-guest-migrate.js"
   },
   "dependencies": {
     "@celo/attribution-tags": "^0.3.0",
