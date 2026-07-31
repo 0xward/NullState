@@ -33,7 +33,18 @@ import { getServerAttributionSuffix } from '@/lib/attribution-tag'
 // Give the route real headroom so both txs can confirm in one request.
 export const maxDuration = 60
 
-type PayoutResult = { rewardStatus: 'paid' | 'pending'; txHash: string | null }
+// `amount`/`token` are what was ACTUALLY paid, read back off the vault contract
+// straight after the transfer. They were already being computed and written to
+// vaultCompleted for the Rewards history — and then thrown away instead of
+// returned, so the one screen where the money moves could not name it. The
+// player saw "Reward sent to your wallet", with no figure and no currency, for
+// 1.4 seconds. See openVaultWinPopup() in game.js.
+type PayoutResult = {
+  rewardStatus: 'paid' | 'pending'
+  txHash: string | null
+  amount?: number
+  token?: string
+}
 
 // Best-effort on-chain finalize: make sure this week's code is stored on-chain
 // (backend signer is authorized), then pay the winner. NEVER throws — a failure
@@ -122,7 +133,7 @@ async function finalizeVaultPayout(params: {
       txHash: hash,
       ...(paidAmount !== undefined ? { amount: paidAmount, token: paidToken } : {}),
     })
-    return { rewardStatus: 'paid', txHash: hash }
+    return { rewardStatus: 'paid', txHash: hash, amount: paidAmount, token: paidToken }
   } catch (payErr) {
     // Correct code, but the on-chain payout couldn't complete (RPC hiccup,
     // gas, timeout). The player keeps their CORRECT result; the reward stays
@@ -194,11 +205,19 @@ export async function POST(req: NextRequest) {
     // fast tx). This self-heals a stuck reward the instant the player re-opens
     // the vault, without spending an attempt or re-validating the code.
     if (solvedSnap.exists()) {
-      const solved = solvedSnap.val() as { txHash?: string | null } | null
+      const solved = solvedSnap.val() as { txHash?: string | null; amount?: number; token?: string } | null
       const alreadyPaid = !!(solved && typeof solved.txHash === 'string' && solved.txHash.length > 0)
       if (alreadyPaid) {
         return NextResponse.json(
-          { success: true, isCorrect: true, rewardStatus: 'paid', message: 'Vault already unlocked for this week', attemptsRemaining: 0, txHash: solved!.txHash },
+          {
+            success: true, isCorrect: true, rewardStatus: 'paid',
+            message: 'Vault already unlocked for this week',
+            attemptsRemaining: 0, txHash: solved!.txHash,
+            // Stamped at payout time. Re-opening a solved vault should show the
+            // same figure it showed when it was won, not a fresh contract read
+            // that may have changed since.
+            amount: solved!.amount, token: solved!.token,
+          },
           { status: 200 },
         )
       }
@@ -213,6 +232,7 @@ export async function POST(req: NextRequest) {
             ? 'Correct code! Reward sent.'
             : 'Correct code! Your reward is being finalized — reopen the vault in a moment to claim it.',
           txHash: finalize.txHash,
+          amount: finalize.amount, token: finalize.token,
         },
         { status: 200 },
       )
@@ -237,6 +257,8 @@ export async function POST(req: NextRequest) {
 
     let txHash: string | null = null
     let rewardStatus: 'paid' | 'pending' | 'none' = isCorrect ? 'pending' : 'none'
+    let paidAmount: number | undefined
+    let paidToken: string | undefined
 
     if (isCorrect) {
       // Record the win immediately — independent of the payout.
@@ -249,6 +271,8 @@ export async function POST(req: NextRequest) {
       const finalize = await finalizeVaultPayout({ weekId, walletAddress, normalizedWallet, expectedCode, db })
       txHash = finalize.txHash
       rewardStatus = finalize.rewardStatus
+      paidAmount = finalize.amount
+      paidToken = finalize.token
     }
 
     return NextResponse.json(
@@ -264,6 +288,8 @@ export async function POST(req: NextRequest) {
               : 'Correct code! Your reward is being finalized — reopen the vault in a moment to claim it.')
           : 'Wrong code. Try again.',
         txHash,
+        amount: paidAmount,
+        token: paidToken,
       },
       { status: 200 },
     )

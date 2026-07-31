@@ -1194,3 +1194,49 @@
    set's own frame plate, so all four controls are the same kind of object.
    The interim green MusicButton copy that stood in for sound is gone — it was
    a stand-in for a missing asset, not a design. */
+
+/* ─── THE VAULT WIN ────────────────────────────────────────────────────────
+   Owner, after cracking one for real: "tidak ada pop up untuk user, pop up
+   menang usdt dan jumlahnya, dan penjelasan auto transfer."
+
+   This is the only screen in the game where real money moves, and it used to
+   be one line inside the code panel that vanished after 1.4 seconds. It gets
+   the weight now: gold rather than the vault's purple, the amount as the
+   largest text on screen, and the auto-transfer said plainly — a player who
+   does not know the transfer is automatic goes hunting for a claim button that
+   does not exist and concludes they were not paid.
+
+   It does not auto-dismiss; CONTINUE is the only way out. */
+.ns-game-root #vaultWinWindow{background:rgba(3,6,5,.9);backdrop-filter:blur(4px);
+  align-items:center;justify-content:center;padding:18px 14px;}
+.ns-game-root .vwin-inner{position:relative;max-width:340px;width:100%;
+  /* Clips the decorative flare below, which is deliberately wider than the
+     card. Without this it stuck 34px out of each side and pushed a 390px
+     phone into horizontal scroll — caught by the overflow assertion in
+     scripts/test-vault-win.js, not by looking at it. */
+  overflow:hidden;
+  border:1px solid rgba(255,209,102,.5);border-radius:10px;padding:26px 20px 20px;
+  color:#f6efe0;font-family:var(--font-mono),monospace;text-align:center;
+  background-color:#0c0a05;
+  background-image:
+    radial-gradient(circle at 50% 0%, rgba(255,209,102,.20) 0%, transparent 58%),
+    linear-gradient(180deg, rgba(28,22,8,.95), rgba(6,5,3,.97));
+  box-shadow:0 24px 60px rgba(0,0,0,.75), inset 0 0 44px rgba(255,190,60,.12);
+  animation:ns-fadeUp .32s ease;}
+/* A single soft flare behind the number rather than confetti: it has to read
+   on a mid-range phone in daylight, and it must not cost a frame. */
+.ns-game-root .vwin-burst{position:absolute;inset:-30% -10% auto -10%;height:150px;pointer-events:none;
+  background:radial-gradient(ellipse at 50% 60%, rgba(255,209,102,.30), transparent 68%);
+  animation:ns-vwinPulse 2.6s ease-in-out infinite;}
+@keyframes ns-vwinPulse{0%,100%{opacity:.65}50%{opacity:1}}
+.ns-game-root .vwin-title{position:relative;font-family:var(--font-cinzel),serif;font-weight:700;
+  font-size:clamp(15px,3.6vw,19px);letter-spacing:3px;color:#ffd166;
+  text-shadow:0 0 20px rgba(255,209,102,.55);margin-bottom:10px;}
+.ns-game-root .vwin-amount{position:relative;font-weight:800;
+  font-size:clamp(30px,9vw,44px);line-height:1.05;letter-spacing:1px;color:#fff6dd;
+  text-shadow:0 0 26px rgba(255,209,102,.6);margin-bottom:12px;word-break:break-word;}
+.ns-game-root .vwin-note{position:relative;font-size:12px;line-height:1.6;color:#cbb98f;margin-bottom:14px;}
+.ns-game-root .vwin-note b{color:#ffd166;}
+.ns-game-root .vwin-tx{position:relative;display:inline-block;margin-bottom:14px;
+  font-size:11px;letter-spacing:.4px;color:#9fd8bd;text-decoration:underline;}
+.ns-game-root .vwin-btn{position:relative;width:100%;}

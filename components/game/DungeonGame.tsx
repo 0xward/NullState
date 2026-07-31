@@ -1288,6 +1288,31 @@ export default function DungeonGame({ playerProfile, setPlayerUsername, isNewRun
           </div>
         </div>
 
+        {/* THE WIN. Owner, after actually cracking a vault: "tidak ada pop up
+            untuk user, pop up menang usdt dan jumlahnya, dan penjelasan auto
+            transfer."
+
+            He was right, and it was the worst gap in the game. The single
+            moment real money moves — the entire reason this game exists — was
+            one line of text inside the code panel reading "Reward sent to your
+            wallet", with NO amount, NO currency, and no explanation that the
+            transfer is automatic. It then disappeared 1.4 seconds later when
+            the bunker auto-finished. The server had already read the exact
+            amount and token off the contract to stamp the Rewards history, and
+            simply did not return them.
+
+            Nothing here auto-dismisses. The player closes it. */}
+        <div id="vaultWinWindow" className="overlay hidden">
+          <div className="vwin-inner">
+            <div className="vwin-burst" aria-hidden="true" />
+            <div className="vwin-title">VAULT CRACKED</div>
+            <div id="vwinAmount" className="vwin-amount" />
+            <div id="vwinNote" className="vwin-note" />
+            <a id="vwinTx" className="vwin-tx hidden" target="_blank" rel="noopener noreferrer">View the transaction ↗</a>
+            <button id="vwinClose" className="big-btn vwin-btn">CONTINUE</button>
+          </div>
+        </div>
+
         {/* Item zoom overlay — opened by tapping a slot in #invPanel (stash,
             shows BURN) or the LOOT side of #containerWindow (container slot,
             shows TAKE). Only one of the two action buttons is ever visible

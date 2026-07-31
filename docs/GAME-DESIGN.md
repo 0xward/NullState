@@ -127,7 +127,8 @@ craft timer, and the login streak.
 
 The Vault. One shared 4-digit code per ISO week (Monday 00:00 UTC), Old
 Paper carries the code, Golden Key opens the door, 3 attempts per wallet,
-correct code pays USDT on-chain immediately.
+correct code pays USDT on-chain immediately — and **says so**, on a popup that
+names the amount and the token and stays until the player dismisses it (§6b).
 
 This layer works mechanically. What is wrong is *how you get in*: pure luck.
 
@@ -448,6 +449,41 @@ must stay free to operate — that is why layer 2 pays progress, not money.
 **NG+ changes meaning.** Once the map is the game, NEW GAME+ stops being
 "replay to reach the vault again" and becomes purely an optional difficulty
 tier. Nobody should ever be forced through it to reach a weekly reward.
+
+---
+
+## 6b. The win — `[TODAY]`
+
+**Owner, after cracking a vault for real:** *"tidak ada pop up untuk user, pop
+up menang usdt dan jumlahnya, dan penjelasan auto transfer."*
+
+He was right, and it was the worst gap in the game. The one moment real money
+moves — the entire reason this game exists — was a single line inside the code
+panel reading *"Reward sent to your wallet"*, with **no amount, no currency**,
+and nothing saying the transfer is automatic. Then the bunker auto-finished
+**1.4 seconds later** and took it off screen.
+
+The server had already read the exact amount and token off the vault contract,
+to stamp the Rewards history, and simply **did not return them**. So the data
+was there the whole time; the screen just never got it.
+
+Three things the popup has to say, because the player has no other way to learn
+any of them:
+
+| | Why |
+|---|---|
+| **How much, and in what** | the largest text on the screen |
+| **It is already sent, no claim** | the MiniPay failure mode is hunting for a claim button that does not exist and concluding you were not paid |
+| **It may take a few seconds** | so a wallet that has not updated yet is not read as a loss |
+
+**Nothing auto-dismisses.** CONTINUE is what ends the bunker now, so the number
+cannot leave the screen before it is read. A pending payout says *pending* and
+**never invents a figure** — a wrong number here is worse than no number.
+
+Locked down by `npm run test:vaultwin`, which found a real layout bug on the way
+in: the decorative flare is deliberately wider than the card and stuck 34px out
+of each side, pushing a 390px phone into horizontal scroll. Not something a
+screenshot would have shown.
 
 ---
 
