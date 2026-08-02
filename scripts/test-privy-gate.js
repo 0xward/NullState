@@ -90,6 +90,45 @@ ok('adopting runs once, not on every Privy re-render',
 // is what the `!privyGateOn &&` shape guarantees.
 ok('the old sign-in screen is off when the gate is on, and only then',
   /if \(!privyGateOn && shouldOfferSignIn\(\)\) \{/.test(flow))
+
+// ── THE TWO BUGS THE OWNER FOUND, PINNED SO THEY CANNOT COME BACK ───────────
+//
+// 1. PLACEMENT. The gate shipped BELOW `phase === 'menu'`, and 'menu' is what
+//    renders the world map. So the login could not appear until something moved
+//    the phase off it, and it turned up AFTER the map — owner: *"harusnya
+//    sebelum user membuka maps."* Order in the file IS the behaviour here,
+//    because these are sequential early returns.
+ok('the gate renders BEFORE the map, not after it',
+  flow.indexOf('if (showPrivyGate)') > 0 &&
+  flow.indexOf('if (showPrivyGate)') < flow.indexOf("if (phase === 'menu')"))
+
+// 2. STYLING. The first version used class names this app does not define
+//    (`ns-signin-card`, `ns-signin-sub`), so it rendered as unstyled text on a
+//    black rectangle — owner: *"halaman login nya jelek banget."* Nothing
+//    caught it: tsc does not know about CSS, and check:cssvars only checks
+//    custom properties. This does: every ns- class the gate names must actually
+//    be declared in the stylesheet it imports.
+{
+  const css = fs.readFileSync(path.join(__dirname, '..', 'styles', 'signin.css'), 'utf8')
+  const used = [...gate.matchAll(/className="([^"]+)"/g)]
+    .flatMap((m) => m[1].split(/\s+/))
+    .filter((c) => c.startsWith('ns-'))
+  const missing = [...new Set(used)].filter((c) => !new RegExp('\\.' + c + '[\\s,{:.]').test(css))
+  ok('every class the gate uses is really declared in signin.css',
+    missing.length === 0, missing.join(', ') || `${new Set(used).size} classes`)
+}
+
+// 3. The three methods are on the SCREEN, not hidden behind one button that
+//    opens a modal to ask the question this screen exists to ask.
+for (const [label, re] of [
+  ['Google', /Continue with Google/],
+  ['email', /Continue with email/],
+  ['wallet', /I already have a wallet/],
+]) ok(`${label} is offered as its own button`, re.test(gate))
+ok('and each button opens Privy narrowed to that one method',
+  /login\(\{ loginMethods: \[method\] \}\)/.test(gate))
+ok('the wallet button still avoids the phrase MiniPay bans',
+  !/connect\s+(a|an|the|your|my)?\s*wallet/i.test(gate))
 ok('Privy is a real dependency, not an aspiration',
   !!JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'))
     .dependencies['@privy-io/react-auth'])
