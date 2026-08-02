@@ -108,14 +108,60 @@ the payout is pending.
 The next season starts automatically. Announce winners on Telegram/Twitter for
 retention.
 
-> **Setup, once:** `CRON_SECRET` and `ADMIN_SECRET` in the Vercel environment
-> (`openssl rand -hex 32` each). Neither is a key and neither can spend
-> anything. Until they are set the routes refuse and nothing is frozen — see
-> `.env.example`.
->
 > **If a month is ever missed**, the cron runs daily and will freeze it on the
 > next run. To force one: `curl -H "Authorization: Bearer $CRON_SECRET"
 > https://<your-host>/api/cron/season`
+
+### Setup, once: `CRON_SECRET` and `ADMIN_SECRET`
+
+Until both are set, the two routes above **refuse** and nothing is frozen — see
+`.env.example`. Neither is a key, and neither can spend anything.
+
+This ran on `openssl rand -hex 32` for a while, which is fine on a laptop and
+not much help on a phone — which is where this project is actually operated
+from.
+
+**Any of these, in order of least effort:**
+
+| Where | How |
+|---|---|
+| A password manager | Generator → length **48+**, **symbols OFF** (letters and digits only) |
+| Termux (you have Node already) | `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` |
+| Termux with openssl | `pkg install openssl-tool` then `openssl rand -hex 32` |
+
+Run it **twice** — two different values, one per variable.
+
+**Symbols off is not fussiness.** These get pasted into an HTTP header and into
+a shell command, and `$`, backtick, quotes and `\` misbehave in both. Hex from
+the Node or openssl line is `0-9a-f` only, so it is safe by construction.
+
+**Never a website that generates it for you** — the site sees the value. And
+never in the repo: it is public.
+
+**Then, in Vercel:** Settings → Environment Variables → add each one to
+**Production** → Deployments → newest → ⋯ → **Redeploy**.
+
+That last step is not optional. A new environment variable does not reach a
+deployment that is already running, and the symptom is identical to never
+having set it.
+
+The name must be **exactly** `CRON_SECRET`. Vercel Cron only sends
+`Authorization: Bearer <value>` when the variable has that name; misspell it and
+the cron still fires, is rejected every time, and nothing tells you.
+
+**Check it worked, from a phone browser** — open
+`https://<your-host>/api/cron/season`:
+
+| Response | Meaning |
+|---|---|
+| `{"error":"CRON_SECRET is not configured"}` | not set, or not redeployed yet |
+| `{"error":"Unauthorized"}` | ✅ **working** — the route found your secret and correctly refused a browser that has no token |
+
+`Unauthorized` is the answer you want. `ADMIN_SECRET` has no browser test (it is
+a POST); it proves itself on the step-3 `curl` above.
+
+**If one ever leaks**, generate a new one, replace it in Vercel, redeploy. That
+is the whole recovery — no money is at risk either way.
 
 ## 🔧 As needed
 
