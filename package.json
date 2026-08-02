@@ -42,7 +42,8 @@
     "test:seasonxp": "node scripts/test-season-xp.js",
     "test:exit-streak": "node scripts/test-exit-streak.js",
     "test:privy": "node scripts/test-privy-gate.js --serve",
-    "test:kills": "node scripts/test-leaderboard-writes.js"
+    "test:kills": "node scripts/test-leaderboard-writes.js",
+    "test:proploot": "node scripts/test-prop-loot.js"
   },
   "overrides": {
     "permissionless": {

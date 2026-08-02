@@ -14,9 +14,33 @@
      facing 'left'  = against the right wall  (9 o'clock, side profile)
    ============================================================ */
 const DECOR_TYPES = {
+  // ---- what a loot entry means -------------------------------------------
+  //   ['hp',   n, w]  heal n
+  //   ['xp',   n, w]  n experience
+  //   ['item', t, w]  one item from the library, rolled at TIER t (1-3)
+  //   ['food', t, w]  one EDIBLE item (NS_MARKET.FOOD_RANGES). t is unused for
+  //                   now — food has no rarity bias, see rollFoodDrop()
+  //   ['relic'|'gshard'|'goldkey'|'paper', n, w]
+  //   ['none',  0, w]  nothing
+  //
+  // OWNER: *"Lootingan food ko skrg kaya gaada ya?"* Two separate reasons, and
+  // only one of them was a tuning problem:
+  //
+  //   1. applyLoot() in game.js had no `item` branch at all, so every item roll
+  //      from a SMASHED prop (nine types) played the sound, logged "— loot!"
+  //      and gave nothing. Food is the edible ~16% of the same item library, so
+  //      a broken item path took food with it. Fixed there.
+  //   2. Even working, food arrived only as a sixth of an item roll, and the
+  //      props a player smashes most had no item roll at all. So the props that
+  //      hold PROVISIONS — pails, barrels, crates, shelves, bedding, the herb
+  //      pot — now drop food directly, at ~20-26%.
+  //
+  // Weight is taken from `none` first and `xp` second. The hp/relic/gshard
+  // economies are deliberately untouched: this was meant to add food, not to
+  // quietly make every prop richer.
   // ---- breakable decorations: smash them for loot ----
   vase:     { hp:1, w:24, h:38, label:'Glazed Vase',     loot:[['hp',6,50],['xp',12,32],['relic',1,4],['none',0,14]] },
-  pot:      { hp:1, w:30, h:30, label:'Herb Pot',        loot:[['hp',8,58],['xp',10,26],['none',0,16]] },
+  pot:      { hp:1, w:30, h:30, label:'Herb Pot',        loot:[['hp',8,50],['xp',10,22],['food',1,22],['none',0,6]] },
   barrel:   { hp:2, w:30, h:40, label:'Old Barrel',      loot:[['xp',18,45],['hp',10,35],['none',0,20]] },
   // Owner, again, and about the LOOTABLE crate this time (the earlier pass at
   // the same complaint only resized the ambient crate stacks at the bottom of
@@ -26,7 +50,7 @@ const DECOR_TYPES = {
   // drawScale in Decor.draw(). 1.3x brings the drawn crate to ~44px, in line
   // with the scenery around it, and w/h below are the matching footprint so
   // the collision circle and contact shadow still fit what is on screen.
-  crate:    { hp:2, w:44, h:44, drawScale:1.3, label:'Supply Crate', loot:[['xp',22,45],['hp',8,25],['item',1,20],['none',0,10]] },
+  crate:    { hp:2, w:44, h:44, drawScale:1.3, label:'Supply Crate', loot:[['xp',22,36],['hp',8,20],['item',1,20],['food',1,24]] },
   cabinet_s:{ hp:2, w:34, h:46, label:'Forgotten Archive', loot:[['hp',14,26],['xp',24,24],['item',2,30],['relic',1,10]], interactive:true, containerMaterial:'wood', northOnly:true }, // owner: cabinets/safes hug the NORTH wall only
   wardrobe: { hp:3, w:48, h:64, label:'Rotten Armoire',  loot:[['hp',32,24],['xp',55,24],['item',2,32]], interactive:true, containerMaterial:'wood_rotten', northOnly:true },
   // ---- ancient ornaments: break them for XP, CELO, or rare relics ----
@@ -42,21 +66,21 @@ const DECOR_TYPES = {
   chest:    { hp:2, w:42, h:34, label:'Lost Cache',      loot:[['relic',1,15],['item',3,35],['xp',60,15],['hp',30,10]], interactive:true, containerMaterial:'iron', northOnly:true },
   // ---- v75 sprite decor (user-supplied 4-direction art, /sprites/decor2) ----
   safe:     { hp:2, w:40, h:44, label:'Rusted Strongbox', loot:[['relic',1,18],['item',3,32],['xp',55,18],['hp',26,12]], interactive:true, containerMaterial:'iron', northOnly:true },
-  table_w:  { hp:1, w:36, h:30, label:'Wooden Table',     loot:[['xp',14,45],['hp',8,25],['none',0,30]] },
+  table_w:  { hp:1, w:36, h:30, label:'Wooden Table',     loot:[['xp',14,40],['hp',8,22],['food',1,20],['none',0,18]] },
   bench:    { hp:2, w:52, h:26, label:'Waiting Bench',    loot:[['xp',16,45],['hp',8,25],['none',0,30]], northOnly:true },
   // ---- v80 LPC sprite props (18 new PNGs in /sprites/decor2, cut from the
   // Liberated Pixel Cup contest tilesets — Sharm, Janna, Skyler R. Collady,
   // Lanea Zimmerman et al., CC-BY-SA 3.0 / GPL 3.0, see decor2/CREDITS.md).
   // Owner request: maps felt empty — more breakable & lootable dressing.
   // ---- breakables ----
-  oak_barrel:   { hp:2, w:30, h:40, label:'Oak Barrel',      loot:[['xp',16,42],['hp',10,34],['item',1,8],['none',0,16]] },
-  barrel_stack: { hp:3, w:46, h:56, label:'Barrel Stack',    loot:[['xp',26,42],['hp',14,30],['item',1,14],['none',0,14]] },
-  bucket:       { hp:1, w:22, h:24, label:'Wooden Pail',     loot:[['hp',6,50],['xp',8,26],['none',0,24]] },
-  bucket_water: { hp:1, w:22, h:24, label:'Water Pail',      loot:[['hp',12,62],['xp',6,18],['none',0,20]] },
+  oak_barrel:   { hp:2, w:30, h:40, label:'Oak Barrel',      loot:[['xp',16,34],['hp',10,28],['item',1,8],['food',1,24],['none',0,6]] },
+  barrel_stack: { hp:3, w:46, h:56, label:'Barrel Stack',    loot:[['xp',26,34],['hp',14,24],['item',1,14],['food',2,24],['none',0,4]] },
+  bucket:       { hp:1, w:22, h:24, label:'Wooden Pail',     loot:[['hp',6,44],['xp',8,22],['food',1,20],['none',0,14]] },
+  bucket_water: { hp:1, w:22, h:24, label:'Water Pail',      loot:[['hp',12,52],['xp',6,14],['food',1,26],['none',0,8]] },
   boulder:      { hp:2, w:32, h:30, label:'Fallen Boulder',  loot:[['xp',14,45],['hp',6,20],['relic',1,4],['gshard',1,7],['none',0,31]] },
-  hay_pile:     { hp:1, w:44, h:50, label:'Straw Bedding',   loot:[['hp',8,44],['xp',10,28],['item',1,8],['none',0,20]] },
+  hay_pile:     { hp:1, w:44, h:50, label:'Straw Bedding',   loot:[['hp',8,36],['xp',10,22],['item',1,8],['food',1,26],['none',0,8]] },
   chalice:      { hp:1, w:26, h:40, label:'Ritual Chalice',  loot:[['relic',1,16],['xp',24,38],['hp',10,22],['gshard',1,10],['none',0,24]] },
-  basin:        { hp:1, w:30, h:26, label:'Wash Basin',      loot:[['hp',10,52],['xp',10,24],['none',0,24]] },
+  basin:        { hp:1, w:30, h:26, label:'Wash Basin',      loot:[['hp',10,46],['xp',10,20],['food',1,20],['none',0,14]] },
   // Owner: this one read as a framed photograph on the wall — "delete it,
   // put another lootable thing there instead". Same call they made about
   // plaque_coin, and for the same reason: a picture frame is not something a
@@ -84,10 +108,10 @@ const DECOR_TYPES = {
   // saved floor built before this change breaks on load.
   plaque_coin:  { hp:2, w:29, h:22, label:'Gold Chest', loot:[['relic',1,16],['item',3,34],['xp',55,20],['hp',24,14],['gshard',1,16]], interactive:true, containerMaterial:'iron', northOnly:true },
   skull_heap:   { hp:1, w:32, h:16, label:'Skull Heap',      loot:[['xp',12,44],['relic',1,7],['hp',6,20],['gshard',1,8],['none',0,29]] },
-  cot:          { hp:2, w:26, h:56, label:'Rotten Cot',      loot:[['hp',12,36],['xp',14,30],['item',1,12],['none',0,22]], northOnly:true },
+  cot:          { hp:2, w:26, h:56, label:'Rotten Cot',      loot:[['hp',12,32],['xp',14,26],['item',1,12],['food',1,18],['none',0,12]], northOnly:true },
   // ---- interactive containers (opened via OPEN button, like cabinet_s) ----
   footlocker:     { hp:2, w:34, h:30, label:'Iron Footlocker', loot:[['item',2,32],['xp',30,26],['hp',16,20],['relic',1,10]], interactive:true, containerMaterial:'iron', northOnly:true }, // boxy, front-view-only art: keep on the top wall so it never faces the wrong way on a side wall (owner: "lemari di W/E menghadap S/N")
-  shelf_stocked:  { hp:2, w:52, h:52, label:'Stocked Shelf',   loot:[['item',1,34],['hp',14,26],['xp',22,26],['relic',1,6]], interactive:true, containerMaterial:'wood', northOnly:true },
+  shelf_stocked:  { hp:2, w:52, h:52, label:'Stocked Shelf',   loot:[['item',1,30],['food',2,24],['hp',14,20],['xp',22,20],['relic',1,6]], interactive:true, containerMaterial:'wood', northOnly:true },
   dresser:        { hp:2, w:48, h:40, label:'Old Dresser',     loot:[['item',1,30],['xp',20,28],['hp',12,26],['relic',1,6]], interactive:true, containerMaterial:'wood', northOnly:true },
   cabinet_ornate: { hp:2, w:46, h:52, label:'Ornate Cabinet',  loot:[['item',2,30],['xp',26,26],['hp',14,22],['relic',1,10]], interactive:true, containerMaterial:'wood', northOnly:true },
   // ---- Bunker 5 "THE LAST LIGHT" weekly Vault door (Phase 5.5 #9C/#10) ----
