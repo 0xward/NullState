@@ -113,7 +113,7 @@ type GamePhase = 'menu' | 'sign-in' | 'username-setup' | 'character-select' | 'g
  * All player progress is stored ON-CHAIN via the contract.
  */
 export default function GameFlowManager() {
-  const { address, isConnected, realAddress, isGuest, isMiniPay, connect } = useWallet()
+  const { address, isConnected, realAddress, isGuest, isMiniPay, walletReady, connect } = useWallet()
   const {
     playerProfile,
     isLoading: isLoadingProfile,
@@ -535,6 +535,35 @@ export default function GameFlowManager() {
   // Skippable, per the owner's choice: a player who declines plays as a guest
   // exactly as before. Declining is remembered, so it asks once and not again.
   const [gateDone, setGateDone] = useState(false)
+
+  // ── THE MINIPAY FLASH, AND WHY WAITING WAS THE WRONG FIX ──────────────────
+  //
+  // OWNER, testing inside MiniPay: *"masih sempet muncul halaman loginnya,
+  // meskipun sekedip langsung hilang."* He is right that it matters — a screen
+  // between the player and the game is exactly what MiniPay's listing rules
+  // reject, and "only for a moment" is not a defence.
+  //
+  // The cause was timing, not logic. `isMiniPay` is read from window.ethereum
+  // inside WagmiIsland, and lib/Web3Providers.tsx mounts that island on
+  // requestIdleCallback with a 1500ms ceiling — so the bridge served its
+  // default `isMiniPay: false` to a MiniPay player for up to a second and a
+  // half, and shouldOfferSignIn() answered "yes, ask them".
+  //
+  // The obvious fix — hold the gate until `walletReady` — was written, measured
+  // and thrown away. It works, but it costs the thing this screen exists for:
+  //
+  //     inside MiniPay   gate never appeared (0 of 165 polls over 5s)  ✓
+  //     outside          map at 50ms, gate at 1272ms                   ✗
+  //
+  // A login that lands on top of a map the player has already been looking at
+  // for a second IS the bug he reported the first time. So the wait is gone and
+  // the guarantee moved into lib/privyGateFlag.ts, which reads MiniPay straight
+  // off window.ethereum and needs nothing mounted — correct on the very first
+  // render, and re-checked for a beat afterwards in case injection is late.
+  //
+  // `walletReady` stays in the destructure above deliberately unused by this
+  // rule: shouldOfferSignIn()'s own `!isMiniPay` is the third guard, and it
+  // arrives when wagmi does.
   const showPrivyGate = privyGateOn && !gateDone && shouldOfferSignIn()
 
   // The identity work itself lives in lib/useAccountActions — Settings needs
