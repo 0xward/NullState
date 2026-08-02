@@ -21,6 +21,19 @@ paid by direct transfer instead.
 
 ---
 
+### Season vs All-Time
+
+The in-game Leaderboard has two tabs, and only one of them pays:
+
+| Tab | Ranked by | Pays |
+|---|---|---|
+| **SEASON** | XP earned **this month** — everyone starts at zero on the 1st | ✅ the 35 USDT above |
+| **ALL-TIME** | career XP, which never resets | — a record, not a prize |
+
+This split exists because career XP is cumulative: ranking a season by it made
+every month a re-run of the first, and meant a player joining later could never
+win. See `GAME-DESIGN.md` §9.2c.
+
 ## 📊 Scoring Formula
 
 Your **seasonal score** is calculated from 5 metrics:

@@ -63,19 +63,34 @@ function makeDb(tree = {}) {
     },
   }
 }
-function makeFs(rows) {
+// Two collections now, because the payout moved off the career board.
+//   `leaderboard`                              -> career XP (the fallback)
+//   `seasonLeaderboard/{seasonId}/players`     -> XP earned in that season
+// `seasonRowsBySeason` is keyed by season id so a test can hand one season rows
+// and another none, which is the case the fallback exists for.
+function makeFs(careerRows, seasonRowsBySeason = {}) {
+  const queryOver = (rows) => {
+    const state = { rows: (rows || []).slice() }
+    const api = {
+      orderBy(field, dir) {
+        state.rows.sort((a, b) => (dir === 'desc' ? b[field] - a[field] : a[field] - b[field]))
+        return api
+      },
+      limit(n) { state.rows = state.rows.slice(0, n); return api },
+      async get() { return { docs: state.rows.map((r) => ({ id: r.walletAddress, data: () => r })) } },
+    }
+    return api
+  }
   return {
-    collection() {
-      const state = { rows: rows.slice() }
-      const api = {
-        orderBy(field, dir) {
-          state.rows.sort((a, b) => (dir === 'desc' ? b[field] - a[field] : a[field] - b[field]))
-          return api
-        },
-        limit(n) { state.rows = state.rows.slice(0, n); return api },
-        async get() { return { docs: state.rows.map((r) => ({ id: r.walletAddress, data: () => r })) } },
+    collection(name) {
+      if (name === 'seasonLeaderboard') {
+        return {
+          doc(seasonId) {
+            return { collection() { return queryOver(seasonRowsBySeason[String(seasonId)]) } }
+          },
+        }
       }
-      return api
+      return queryOver(careerRows)
     },
   }
 }
@@ -244,6 +259,67 @@ const W = (n) => '0x' + String(n).padStart(2, '0').repeat(20)
   const directTotal = direct.reduce((t, c) => t + Number((c.match(/--amount (\S+)/) || [])[1] || 0), 0)
   ok('on-chain pool + direct sends = the $35 the snapshot promises',
     28 + directTotal === 35, '28 + ' + directTotal)
+
+  // ── THE PAYOUT MUST READ THE SEASON BOARD, NOT THE CAREER ONE ─────────
+  //
+  // Owner: "pertimbangan rank skrg sudah bagus belum? mengingat hanya dari xp?"
+  // It was not: XP is cumulative, so the season prize was being paid off an
+  // all-time board. July's winner would have opened August 5,926 XP ahead on
+  // work that was finished, and a September joiner could never have won.
+  {
+    // Career order and season order are deliberately OPPOSITE, so a test that
+    // silently kept reading `leaderboard` cannot pass.
+    const career = [
+      { walletAddress: W(1), username: 'veteran', xp: 90000 },   // months of accumulation
+      { walletAddress: W(2), username: 'rookie', xp: 300 },
+    ]
+    const seasonRows = [
+      { walletAddress: W(2), username: 'rookie', xp: 4000 },     // actually played THIS month
+      { walletAddress: W(1), username: 'veteran', xp: 10 },      // opened the app, did nothing
+    ]
+    const sdb = makeDb()
+    const snap = await S.prepareSeason(sdb, makeFs(career, { 202608: seasonRows }), 202608)
+    ok('the winner is who played THIS season, not who has the biggest career',
+      snap.snapshot.winners[0].username === 'rookie', snap.snapshot.winners[0].username)
+    ok('and the career leader ranks below them on 10 season XP',
+      snap.snapshot.winners[1].username === 'veteran' && snap.snapshot.winners[1].xp === 10,
+      JSON.stringify(snap.snapshot.winners.map((w) => [w.username, w.xp])))
+    ok('the frozen XP is the SEASON figure, not the career one',
+      snap.snapshot.winners[0].xp === 4000, String(snap.snapshot.winners[0].xp))
+  }
+  {
+    // A player who opened the app and never played has a season row of 0. They
+    // are not a winner — a $1 prize for logging in would be paid to everyone.
+    const zdb = makeDb()
+    const snap = await S.prepareSeason(zdb, makeFs(
+      [{ walletAddress: W(3), username: 'idle', xp: 500 }],
+      { 202608: [{ walletAddress: W(3), username: 'idle', xp: 0 }] },
+    ), 202608)
+    ok('a zero-XP season row is not treated as a season result',
+      snap.snapshot.winners.length === 1 && snap.snapshot.winners[0].xp === 500,
+      JSON.stringify(snap.snapshot.winners.map((w) => [w.username, w.xp])))
+  }
+  {
+    // Seasons that closed BEFORE this existed have no season rows at all. They
+    // must keep producing the answer they produced at the time — an empty top
+    // 10 for July would read as "nobody won" rather than "this predates it".
+    const fdb = makeDb()
+    const snap = await S.prepareSeason(fdb, makeFs(rows, {}), 202605)
+    ok('a season with no season rows falls back to the career board',
+      snap.snapshot.winners.length === 10 && snap.snapshot.winners[0].username === 'alpha',
+      String(snap.snapshot.winners.length))
+  }
+  {
+    // And the fallback must be per-season: August having rows cannot make July
+    // read August's.
+    const mdb = makeDb()
+    const snap = await S.prepareSeason(mdb, makeFs(rows, {
+      202608: [{ walletAddress: W(9), username: 'august-only', xp: 999 }],
+    }), 202607)
+    ok('one season\'s rows never leak into another\'s snapshot',
+      !snap.snapshot.winners.some((w) => w.username === 'august-only'),
+      snap.snapshot.winners.map((w) => w.username).join(','))
+  }
 
   // ── a thin leaderboard must not produce a half payout ─────────────────
   const thin = makeDb()
