@@ -90,7 +90,7 @@ export default function MainMenu({
   const hasSave = !!playerProfile?.isRegistered
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col items-center overflow-y-auto ns-fade-in">
+    <div className="ns-home-root fixed inset-0 z-50 flex flex-col items-center overflow-y-auto ns-fade-in">
       {/* Blurred dungeon background (pre-processed asset, no live CSS blur) */}
       <div
         className="fixed inset-0 pointer-events-none"

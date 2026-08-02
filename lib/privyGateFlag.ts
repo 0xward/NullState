@@ -89,6 +89,22 @@ export function readPrivyGateFlag(): boolean {
  * loads nothing: the gate appears a frame later on the rare deployment that
  * enables it, and never flickers on the normal path.
  */
+/**
+ * Clears the mark the inline script in app/game/layout.tsx puts on <html> to
+ * hide the prerendered home screen. Safe to call any number of times.
+ *
+ * Two callers, and both are needed. PrivyGate lifts it once the gate has
+ * actually painted — the gate is its own full-screen backdrop, so the sheet has
+ * nothing left to hide. GameFlowManager lifts it the moment it turns out the
+ * gate is NOT coming after all, which is the case the script cannot decide for
+ * itself: whether an injected wallet is about to connect is not knowable until
+ * wagmi has mounted.
+ */
+export function liftGateVeil() {
+  if (typeof document === 'undefined') return
+  document.documentElement.removeAttribute('data-ns-gate')
+}
+
 export function usePrivyGateFlag(): boolean {
   const [on, setOn] = useState(false)
   useEffect(() => {

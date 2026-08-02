@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { PrivyProvider, usePrivy, useLoginWithOAuth } from '@privy-io/react-auth'
-import { privyAppId } from '@/lib/privyGateFlag'
+import { privyAppId, liftGateVeil } from '@/lib/privyGateFlag'
 import { GoogleMark, MailMark, WalletMark } from './SignInMarks'
 import '@/styles/signin.css'
 
@@ -61,6 +61,12 @@ function GateInner({ onAuthenticated, onSkip }: PrivyGateProps) {
   const { initOAuth } = useLoginWithOAuth()
   const [busy, setBusy] = useState<Method | null>(null)
   const adopted = useRef(false)
+
+  // This screen is its own full-screen backdrop, so the sheet the inline script
+  // laid over the prerendered map has nothing left to hide. Lifting it here
+  // rather than in the layout is what makes the handover seamless: the sheet
+  // goes only once something is definitely drawn on top of it.
+  useEffect(() => { liftGateVeil() }, [])
 
   // Privy restores an existing session asynchronously. Someone who already
   // linked an account must not be asked again — that is the same rule the

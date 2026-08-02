@@ -51,6 +51,8 @@ async function serve() {
 const flag = fs.readFileSync(path.join(__dirname, '..', 'lib', 'privyGateFlag.ts'), 'utf8')
 const flow = fs.readFileSync(path.join(__dirname, '..', 'components', 'game', 'GameFlowManager.tsx'), 'utf8')
 const gate = fs.readFileSync(path.join(__dirname, '..', 'components', 'game', 'PrivyGate.tsx'), 'utf8')
+const layout = fs.readFileSync(path.join(__dirname, '..', 'app', 'game', 'layout.tsx'), 'utf8')
+const gamecss = fs.readFileSync(path.join(__dirname, '..', 'styles', 'game.css'), 'utf8')
 
 ok('the gate is OFF unless the env var says exactly "1"',
   /const ENV_ON = process\.env\.NEXT_PUBLIC_PRIVY_GATE === '1'/.test(flag))
@@ -87,6 +89,40 @@ ok('and the flag reads MiniPay straight off window.ethereum, needing nothing mou
 // the flag is re-read for the same 1500ms ceiling wagmi gets — one way only.
 ok('and it keeps re-checking briefly, in case the provider is injected late',
   /setInterval\(\(\) => \{/.test(flag) && /if \(!readPrivyGateFlag\(\)\) \{ setOn\(false\)/.test(flag))
+
+// ── THE VEIL ────────────────────────────────────────────────────────────────
+//
+// The map is in the PRERENDERED HTML, so it paints before any JavaScript runs
+// and was visible under the gate for ~0.5s. Only something that runs earlier
+// than React can fix that, so an inline script marks <html> before first paint.
+//
+// Measured, three ways:
+//   inside MiniPay            no mark, home visible 102ms   (untouched)
+//   new player outside        mark 144→509ms, home NEVER visible, gate 547ms
+//   returning (skipped once)  no mark, home visible 95ms    (no black screen)
+ok('MiniPay is the FIRST thing the inline script checks',
+  /if\(window\.ethereum&&window\.ethereum\.isMiniPay\)return;/.test(layout) &&
+  layout.indexOf('isMiniPay)return') < layout.indexOf("getItem('nullstate-auth-address')"))
+ok('a player who already has an account or skipped once is never veiled',
+  /getItem\('nullstate-auth-address'\)\)return;/.test(layout) &&
+  /getItem\('nullstate-signin-skipped'\)==='1'\)return;/.test(layout))
+// An overlay ELEMENT was the first attempt and Next's hydration deleted it at
+// 261ms, 600ms before the gate could cover anything. An attribute React never
+// rendered survives that reconciliation.
+ok('it marks <html> rather than appending a node hydration would delete',
+  /setAttribute\('data-ns-gate','1'\)/.test(layout) && !/appendChild/.test(layout))
+ok('and lifts itself after 3s even if React never arrives',
+  /setTimeout\(function\(\)\{h\.removeAttribute\('data-ns-gate'\)\},3000\)/.test(layout))
+ok('the stylesheet hides the home screen while that mark is set',
+  /html\[data-ns-gate\] \.ns-home-root \{ visibility: hidden \}/.test(gamecss))
+// visibility, not display/removal: the map's image request must survive, or a
+// player who skips the gate pays for it twice.
+ok('by visibility, so the map image is not fetched twice',
+  !/html\[data-ns-gate\][^\n]*display: *none/.test(gamecss))
+ok('the gate lifts it once it has painted',
+  /useEffect\(\(\) => \{ liftGateVeil\(\) \}, \[\]\)/.test(gate))
+ok('and the flow manager lifts it the moment the gate turns out not to be coming',
+  /if \(walletReady && !showPrivyGate\) liftGateVeil\(\)/.test(flow))
 
 // The query override must not be an escape hatch INTO MiniPay.
 ok('and no ?privy=1 can force a login screen into MiniPay',
@@ -200,6 +236,10 @@ ok('Privy is a real dependency, not an aspiration',
     const body = (await page.textContent('body')) || ''
     ok('and is not shown the gate', !/KEEP YOUR RUN/.test(body))
     ok('nothing threw', errs.length === 0, errs.slice(0, 2).join(' | ') || 'clean')
+    // The veil must not fire on the default path either — a black screen for a
+    // gate that is never coming is worse than the flash it was fixing.
+    ok('and the home screen is never veiled with the flag off',
+      !(await page.evaluate(() => document.documentElement.hasAttribute('data-ns-gate'))))
     await page.context().close()
   }
 
