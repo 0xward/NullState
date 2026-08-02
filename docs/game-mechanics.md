@@ -111,7 +111,7 @@ out. Corrected after an audit checked the claim against the code.
 - 🔑 **Golden Key (Legendary)** - Cannot burn. Opens the sealed vault door in Bunker 5.
 - **Both stay in your stash.** They carry between bunkers and survive a Save & Exit — you do not lose them when a run ends. Each is capped at **one per wallet per week** (server-enforced, resets Monday 00:00 UTC).
 
-### 📋 Daily Contracts
+### 📋 Daily Missions
 
 Three objectives every day, reset at **00:00 UTC**. Everyone gets the same
 three, so you can compare with a friend.
@@ -124,7 +124,7 @@ One good session usually clears two of the three. The third is what tomorrow is
 for.
 
 Burning counts **wherever you burn** — in your stash mid-run, or from the
-Rewards screen between runs. Either way the contract moves.
+Rewards screen between runs. Either way the mission moves.
 
 The Rewards screen lists your **last 7 days** of burns and clears the older
 receipts, so the list stays readable instead of growing all season. Nothing is
@@ -132,10 +132,10 @@ lost: the NullState Point from every burn was paid into your balance the moment
 you made it, and the season totals above the list still count all of them.
 
 Tap any chip on the map — or the **DAILY** button on the left rail — to open the
-**DAILY panel**: your streak, today's three contracts, your vault fragments,
+**DAILY panel**: your streak, today's three missions, your vault fragments,
 your energy and any running craft, with one countdown to the next reset.
 
-**Everything daily resets together at 00:00 UTC** — contracts, your streak, and
+**Everything daily resets together at 00:00 UTC** — missions, your streak, and
 your free energy.
 
 ---

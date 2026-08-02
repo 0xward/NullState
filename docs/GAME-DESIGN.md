@@ -241,7 +241,18 @@ and the Key falls mid-week — the arc in §4.
 **Why this is the top priority:** it fixes the dead-end, the unlucky-week
 churn, and the empty day 2 — with one mechanic, at zero cost.
 
-### 5.2 Daily Contracts — `[TODAY]`
+### 5.2 Daily Missions — `[TODAY]`
+
+> **Naming, 2026-08-02.** Owner: *"ko contract sih namanya? kenapa engga mission
+> aja? bahasanya bukan game banget kalo contracts."* The player-facing word is
+> **MISSIONS**; the module, the route (`/api/contracts`) and the RTDB paths keep
+> `contract` because renaming stored keys is a live-data migration that buys the
+> player nothing. He is right, but not for the reason given — in English game
+> vocabulary "Contracts" is at home (Warzone, Hunt: Showdown, Cyberpunk all use
+> it). It fails on the **audience**: *kontrak* in Indonesian means an employment
+> or rental agreement, paperwork, with none of the mercenary connotation.
+> *Misi* is a direct cognate. Same divergence as `nullstateTokenBalance` holding
+> "NullState Point" — do not "fix" it.
 
 Three objectives, reset 00:00 UTC, drawn deterministically from a six-entry
 pool by a hash of the day id — so everyone gets the same three that day, no

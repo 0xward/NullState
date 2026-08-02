@@ -1,3 +1,23 @@
+// ─── ON THE NAME ─────────────────────────────────────────────────────────────
+//
+// OWNER: *"ko contract sih namanya? kenapa engga mission aja? bahasanya bukan
+// game banget kalo contracts."*
+//
+// The player-facing word is **MISSIONS**. This file, the route (`/api/contracts`),
+// the RTDB paths (`dailyContracts`, `dailyContractClaims`) and the engine's
+// `reportContract()` all still say "contract", and that is DELIBERATE — renaming
+// stored keys is a live-data migration, and it would buy the player nothing.
+//
+// He is right, though the reason is not the one he gave. In English game
+// vocabulary "Contracts" is perfectly at home — Warzone, Hunt: Showdown and
+// Cyberpunk all use it for exactly this. It fails on the audience: this game's
+// community is Indonesian, and *kontrak* there means an employment or rental
+// agreement — paperwork, not a job from an underworld broker. *Misi* is a
+// direct cognate, understood instantly, and is game vocabulary worldwide.
+//
+// So do NOT "fix" the inconsistency by renaming these keys. The divergence is
+// the decision. Same shape as `nullstateTokenBalance` holding "NullState Point".
+
 // Daily Contracts — the reason to open the app on a Tuesday.
 //
 // GAME-DESIGN.md §5.2, layer 2 of the four time layers. Vault Fragments answer

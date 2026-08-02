@@ -259,8 +259,8 @@ export default function DailyStatusBar({ address, onCrafting }: DailyStatusBarPr
       // three lines of text do not need a route.
       onClick: () => { playUiSound('panel'); setShowPanel(true) },
       title: all
-        ? "Today's contracts are all done — new ones at 00:00 UTC"
-        : `${contracts.total - contracts.done} of today's contracts still open`,
+        ? "Today's missions are all done — new ones at 00:00 UTC"
+        : `${contracts.total - contracts.done} of today's missions still open`,
     })
   }
 
@@ -409,7 +409,7 @@ export default function DailyStatusBar({ address, onCrafting }: DailyStatusBarPr
             {contractList.length > 0 && (
               <section className="ns-daily-sec">
                 <h3 className="ns-daily-sech">
-                  <span aria-hidden="true">◇</span> Contracts
+                  <span aria-hidden="true">◇</span> Missions
                   <span className="ns-daily-sech-val">{contracts?.done ?? 0}/{contractList.length}</span>
                 </h3>
                 {contractList.map((c) => {

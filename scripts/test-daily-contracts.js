@@ -114,9 +114,15 @@ let fails=0; const ok=(l,c)=>{console.log((c?'  ✓ ':'  ✗ FAIL: ')+l); if(!c)
   // The whole point of the change: DAILY opens the DAILY things, not a strip
   // holding one of them.
   const head=await page.textContent('.ns-daily-panel')
-  ok('and the panel holds every daily thing, not just contracts ('+
-     ['Contracts','Energy'].filter(w=>head.includes(w)).join('+')+')',
-     head.includes('Contracts') && head.includes('Energy'))
+  // MISSIONS, not "Contracts". Owner: "kenapa engga mission aja? bahasanya
+  // bukan game banget kalo contracts". The code, the API route and the RTDB
+  // paths all still say `contracts` on purpose — renaming stored keys would be
+  // a live-data migration for zero player benefit — so this asserts the word
+  // the PLAYER reads, which is the only one that was ever wrong.
+  ok('and the panel holds every daily thing, not just missions ('+
+     ['Missions','Energy'].filter(w=>head.includes(w)).join('+')+')',
+     head.includes('Missions') && head.includes('Energy'))
+  ok('the player-facing word is MISSIONS, never Contracts', !head.includes('Contracts'))
   console.log(fails?`\n${fails} FAILED`:'\nall passed')
   await b.close(); process.exit(fails?1:0)
 })().catch(e=>{console.error('ERROR',e.message);process.exit(1)})
