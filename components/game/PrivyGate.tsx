@@ -1,18 +1,27 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { PrivyProvider, usePrivy } from '@privy-io/react-auth'
+import { PrivyProvider, usePrivy, useLoginWithOAuth } from '@privy-io/react-auth'
 import { privyAppId } from '@/lib/privyGateFlag'
+import { GoogleMark, MailMark, WalletMark } from './SignInMarks'
 import '@/styles/signin.css'
 
-// ─── One button that is both a wallet and a Google login ─────────────────────
+// ─── Wallet and Google, on one screen ────────────────────────────────────────
 //
-// OWNER: *"aku mau ada koneksi wallet barengan dengan login google, muncul
-// setelah loading/splash pertama, pake privy aja."*
+// OWNER: *"harusnya langsung munculkan Login gmail, email, wallet."*
 //
-// Privy's own modal does both in one flow, which is the whole reason it is here:
-// the screen it replaces had three buttons (Google, email, wallet) and made the
-// player choose a mechanism before they knew what any of them were for.
+// The first version had ONE button that opened Privy's modal and let the player
+// choose inside it. That was wrong twice over. It hid the three things the
+// screen exists to offer behind a press — a player who wants Google cannot see
+// that Google is on offer — and it also shipped with class names this app's
+// stylesheet does not define (`ns-signin-card`, `ns-signin-sub`), so it rendered
+// as unstyled text on a black rectangle. Both are fixed here by using the SAME
+// markup and the SAME stylesheet as SignInScreen: the bracket frame, the plate
+// fill, the white Google button, the bevelled clips.
+//
+// Each button opens Privy's modal already narrowed to one method, so the choice
+// is made HERE, on a screen that looks like the game, and Privy only handles the
+// mechanics of the method that was chosen.
 //
 // ── WHY THIS FILE EXISTS AT ALL, RATHER THAN A PROVIDER AT THE ROOT ─────────
 //
@@ -24,7 +33,9 @@ import '@/styles/signin.css'
 //
 // So the provider is mounted HERE, inside a component that is itself lazily
 // imported, and only rendered when the gate is on. With the flag off — the
-// default, and the state this ships in — nothing in this file is downloaded.
+// default — nothing in this file is downloaded.
+
+type Method = 'google' | 'email' | 'wallet'
 
 interface PrivyGateProps {
   /**
@@ -47,7 +58,8 @@ interface PrivyGateProps {
 /** The inner half: everything that needs the Privy context. */
 function GateInner({ onAuthenticated, onSkip }: PrivyGateProps) {
   const { ready, authenticated, user, login } = usePrivy()
-  const [busy, setBusy] = useState(false)
+  const { initOAuth } = useLoginWithOAuth()
+  const [busy, setBusy] = useState<Method | null>(null)
   const adopted = useRef(false)
 
   // Privy restores an existing session asynchronously. Someone who already
@@ -67,48 +79,107 @@ function GateInner({ onAuthenticated, onSkip }: PrivyGateProps) {
     )
   }, [ready, authenticated, user, onAuthenticated])
 
-  const start = useCallback(() => {
-    setBusy(true)
-    try {
-      // Privy owns the modal from here: Google, email and wallet all live
-      // inside it, so there is no second choice to present.
-      login()
-    } finally {
-      // The modal is Privy's, so there is no promise to await — clear the
-      // pending state once it has been asked to open, or a dismissed modal
-      // would leave the button stuck.
-      setTimeout(() => setBusy(false), 1200)
-    }
+  const start = useCallback((method: Method) => {
+    setBusy(method)
+    // Narrowed to the one method the player pressed. Privy's modal would
+    // otherwise re-ask the question this screen just answered.
+    login({ loginMethods: [method] })
+    // The modal belongs to Privy, so there is no promise to await. Clear the
+    // pending state shortly after it has been asked to open, or a dismissed
+    // modal would leave the button stuck reading "Opening…" forever.
+    setTimeout(() => setBusy(null), 1500)
   }, [login])
+
+  // ── GOOGLE SKIPS PRIVY'S SCREEN ENTIRELY ──────────────────────────────────
+  //
+  // OWNER: *"itu kalo aku klik google, ga muncul 2x pop up kan? layar privy
+  // juga maksudku."* It did. `login({loginMethods:['google']})` opens Privy's
+  // modal showing a single Google button — the same question this screen just
+  // asked, asked again — and only then hands off to Google.
+  //
+  // initOAuth goes straight to Google with no Privy UI at all, so the tap on
+  // "Continue with Google" is the last thing before Google's own account
+  // chooser. It is a full-page redirect rather than a popup, which is also the
+  // right shape on a phone: popups are what mobile browsers block.
+  //
+  // Privy marks the hook @experimental, so it cannot be the only path. If it
+  // throws, this falls back to the modal — one extra screen is a worse login,
+  // an unrecoverable one is no login at all.
+  const startGoogle = useCallback(async () => {
+    setBusy('google')
+    try {
+      await initOAuth({ provider: 'google' })
+    } catch {
+      login({ loginMethods: ['google'] })
+      setTimeout(() => setBusy(null), 1500)
+    }
+    // No success branch clears `busy` on purpose: the page is navigating to
+    // Google, and a button that flips back to "Continue with Google" while the
+    // redirect is in flight invites a second tap.
+  }, [initOAuth, login])
+
+  const disabled = !ready || busy !== null
 
   return (
     <div className="ns-signin-root">
-      <div className="ns-signin-card">
-        <p className="ns-signin-kicker">// SAVE YOUR PROGRESS</p>
-        <h1 className="ns-signin-title">KEEP YOUR RUN</h1>
-        <p className="ns-signin-sub">
+      <div className="ns-signin-orb" aria-hidden="true" />
+
+      <div className="ns-signin-panel">
+        {/* Corner brackets, the same device the world map uses to mark a
+            selected bunker. They are what stops this reading as a web form
+            dropped into a game. */}
+        <span className="ns-signin-frame" aria-hidden="true" />
+
+        <div className="ns-signin-kicker">{'// SAVE YOUR PROGRESS'}</div>
+
+        <h2 className="ns-signin-title">KEEP YOUR RUN</h2>
+
+        <p className="ns-signin-lede">
           Your run lives in this browser only. Sign in and it follows you anywhere.
         </p>
 
-        <button
-          type="button"
-          onClick={start}
-          disabled={!ready || busy}
-          className="ns-signin-btn ns-signin-btn-primary"
-        >
-          <span>{!ready ? 'Loading…' : busy ? 'Opening…' : 'Sign in'}</span>
-        </button>
+        <div className="ns-signin-stack">
+          <button
+            type="button"
+            onClick={startGoogle}
+            disabled={disabled}
+            className="ns-signin-btn is-google"
+          >
+            <span className="ns-signin-ico"><GoogleMark /></span>
+            <span>{busy === 'google' ? 'Opening…' : 'Continue with Google'}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => start('email')}
+            disabled={disabled}
+            className="ns-signin-btn"
+          >
+            <span className="ns-signin-ico"><MailMark /></span>
+            <span>{busy === 'email' ? 'Opening…' : 'Continue with email'}</span>
+          </button>
+
+          {/* Never the phrase check:copy bans — and this screen is never shown
+              inside MiniPay anyway. It also says the true thing: this button is
+              for people who ALREADY have one, not an instruction to go get one. */}
+          <button
+            type="button"
+            onClick={() => start('wallet')}
+            disabled={disabled}
+            className="ns-signin-btn"
+          >
+            <span className="ns-signin-ico"><WalletMark /></span>
+            <span>{busy === 'wallet' ? 'Opening…' : 'I already have a wallet'}</span>
+          </button>
+        </div>
 
         <button type="button" onClick={onSkip} className="ns-signin-skip">
           Skip for now →
         </button>
 
         <p className="ns-signin-foot">
-          {/* Deliberately not the phrase MiniPay's copy rules ban — and this
-              screen is never shown inside MiniPay anyway. It describes what the
-              player gets, not the machinery they have to operate. */}
-          Signing in saves your name and progress across devices. Buying items and
-          claiming rewards needs an account — you can add one later.
+          An account saves your name and progress across devices. Buying items and
+          claiming rewards needs a wallet — you can add one later.
         </p>
       </div>
     </div>
@@ -127,8 +198,8 @@ export default function PrivyGate(props: PrivyGateProps) {
     <PrivyProvider
       appId={appId}
       config={{
-        // Both, in one modal — that is the entire point of the change.
-        loginMethods: ['google', 'wallet', 'email'],
+        // All three, so each button's narrowed call has something to narrow to.
+        loginMethods: ['google', 'email', 'wallet'],
         appearance: { theme: 'dark', accentColor: '#39ff9a' },
         // An embedded wallet for anyone who arrives without one, so a Google
         // sign-in still ends with an address the rewards system can pay.

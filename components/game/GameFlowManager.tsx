@@ -701,6 +701,38 @@ export default function GameFlowManager() {
     setPhase('settings')
   }
 
+  // ── THE PRIVY GATE, AHEAD OF EVERYTHING ───────────────────────────────────
+  //
+  // Above `phase === 'menu'` on purpose, and it was BELOW it in the first
+  // version — which is the whole bug the owner hit: the map is what 'menu'
+  // renders, so the gate could not appear until something moved the phase off
+  // it, and the login turned up AFTER the world map instead of before it.
+  //
+  // OWNER: *"harusnya sebelum user membuka maps, jd di awal banget persis
+  // setelah user klik Play game di landing page."*
+  //
+  // Nothing else may render first. This is the first screen of the session.
+  if (showPrivyGate) {
+    return (
+      <PrivyGate
+        onAuthenticated={async (uid, label) => {
+          // Through the SAME adopt() the Firebase screen uses: derive an
+          // address from the id, carry the guest's progress onto it, store the
+          // identity. Nothing about Privy is special here — adopt() only ever
+          // wanted a stable id, and this is one. Without this the screen's own
+          // promise ("it follows you anywhere") would be false.
+          try {
+            await acct.adopt(uid, label)
+          } finally {
+            // Even a failed migration must not trap the player on this screen.
+            setGateDone(true)
+          }
+        }}
+        onSkip={() => { acct.rememberSkipped(); setGateDone(true) }}
+      />
+    )
+  }
+
   // PHASE: MENU
   if (phase === 'menu') {
     // Same props for both — the hub is a drop-in swap for the classic menu.
@@ -742,29 +774,8 @@ export default function GameFlowManager() {
   }
 
   // PHASE: SIGN IN — offered once, before the name, and only to the players
-  // who have nothing keeping their progress. See shouldOfferSignIn().
-  // Ahead of every other phase: this is the first thing after the splash.
-  if (showPrivyGate) {
-    return (
-      <PrivyGate
-        onAuthenticated={async (uid, label) => {
-          // Through the SAME adopt() the Firebase screen uses: derive an
-          // address from the id, carry the guest's progress onto it, store the
-          // identity. Nothing about Privy is special here — adopt() only ever
-          // wanted a stable id, and this is one. Without this the screen's own
-          // promise ("it follows you anywhere") would be false.
-          try {
-            await acct.adopt(uid, label)
-          } finally {
-            // Even a failed migration must not trap the player on this screen.
-            setGateDone(true)
-          }
-        }}
-        onSkip={() => { acct.rememberSkipped(); setGateDone(true) }}
-      />
-    )
-  }
-
+  // who have nothing keeping their progress. See shouldOfferSignIn(). Off
+  // entirely while the Privy gate is on; see goPlaying().
   if (phase === 'sign-in') {
     return (
       <SignInScreen
