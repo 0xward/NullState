@@ -65,6 +65,32 @@ ok('and the component refuses to mount the provider without one',
 // carrying a second condition, so `!isMiniPay` cannot drift out of it.
 ok('the gate is gated on shouldOfferSignIn(), not a second copy of the rule',
   /const showPrivyGate = privyGateOn && !gateDone && shouldOfferSignIn\(\)/.test(flow))
+
+// ── THE MINIPAY FLASH ───────────────────────────────────────────────────────
+//
+// The rule was right and the TIMING was wrong. `isMiniPay` comes from wagmi,
+// and wagmi mounts on requestIdleCallback with a 1500ms ceiling — so inside
+// MiniPay the bridge answered `isMiniPay: false` for up to a second and a half
+// and the gate rendered. Owner: *"masih sempet muncul halaman loginnya."*
+//
+// Holding the gate until wagmi reported was written, measured and thrown away:
+// it kept MiniPay clean but put the map on screen at 50ms and the login at
+// 1272ms, which is the ORIGINAL complaint wearing a different hat. The
+// guarantee lives in a synchronous read instead, so the gate still renders on
+// the first paint.
+ok('the gate does NOT wait for wagmi — that fix cost the placement',
+  !/gateArmed/.test(flow))
+ok('and the flag reads MiniPay straight off window.ethereum, needing nothing mounted',
+  /if \(isMiniPayNow\(\)\) return false/.test(flag) &&
+  /ethereum\?: \{ isMiniPay\?: boolean \}/.test(flag))
+// Injection a moment late is the one way a synchronous read can be wrong, so
+// the flag is re-read for the same 1500ms ceiling wagmi gets — one way only.
+ok('and it keeps re-checking briefly, in case the provider is injected late',
+  /setInterval\(\(\) => \{/.test(flag) && /if \(!readPrivyGateFlag\(\)\) \{ setOn\(false\)/.test(flag))
+
+// The query override must not be an escape hatch INTO MiniPay.
+ok('and no ?privy=1 can force a login screen into MiniPay',
+  flag.indexOf('if (isMiniPayNow()) return false') < flag.indexOf("get('privy')"))
 ok('and shouldOfferSignIn still starts with !isMiniPay',
   /!isMiniPay && !realAddress && !getStoredAuthAddress\(\) && !hasSkippedSignIn\(\)/.test(flow))
 ok('the SDK is dynamically imported, never in the initial chunk',

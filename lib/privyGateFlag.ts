@@ -40,7 +40,33 @@ export function privyAppId(): string | null {
   return typeof id === 'string' && id.trim() ? id.trim() : null
 }
 
+/**
+ * MiniPay, read straight off the injected provider.
+ *
+ * A DELIBERATE second copy of a rule that already lives at the call site, and
+ * safe to duplicate because it is one-way: it can only ever turn the gate OFF.
+ * If the two ever disagree, the disagreement costs a MiniPay player nothing and
+ * a non-MiniPay player one screen they were going to see anyway.
+ *
+ * It exists because the authoritative check goes through wagmi, and wagmi is
+ * mounted on an idle callback with a 1500ms ceiling (lib/Web3Providers.tsx).
+ * This one needs nothing mounted — MiniPay injects window.ethereum before the
+ * page's own scripts run — so it is right from the very first render, which is
+ * precisely the window in which the gate was flashing.
+ */
+function isMiniPayNow(): boolean {
+  if (typeof window === 'undefined') return false
+  try {
+    return !!(window as unknown as { ethereum?: { isMiniPay?: boolean } }).ethereum?.isMiniPay
+  } catch {
+    return false
+  }
+}
+
 export function readPrivyGateFlag(): boolean {
+  // Before anything else, including the query-string override. There is no
+  // argument for a URL that can force a login screen into MiniPay.
+  if (isMiniPayNow()) return false
   // No app id means Privy cannot initialise. Fall back rather than render a
   // login screen that can never log anyone in.
   if (!privyAppId()) return false
@@ -65,6 +91,27 @@ export function readPrivyGateFlag(): boolean {
  */
 export function usePrivyGateFlag(): boolean {
   const [on, setOn] = useState(false)
-  useEffect(() => { setOn(readPrivyGateFlag()) }, [])
+  useEffect(() => {
+    setOn(readPrivyGateFlag())
+    // ── Re-checked for a beat, then never again ──────────────────────────────
+    //
+    // The gate renders on the first paint, which is the whole point: waiting
+    // for wagmi put the world map on screen 1.2s BEFORE the login, which is the
+    // bug this feature was reported for in the first place.
+    //
+    // Rendering that early means trusting a synchronous read of
+    // window.ethereum, and the one way that read can be wrong is a provider
+    // injected a moment late. So it is re-run for 1.5s — the same ceiling
+    // lib/Web3Providers.tsx gives wagmi — and any MiniPay that turns up inside
+    // that window switches the gate off within a frame instead of leaving it up
+    // until wagmi mounts. It only ever flips ON→OFF; nothing here can turn the
+    // gate on for somebody it was off for.
+    let n = 0
+    const id = setInterval(() => {
+      if (!readPrivyGateFlag()) { setOn(false); clearInterval(id) }
+      if (++n >= 15) clearInterval(id)
+    }, 100)
+    return () => clearInterval(id)
+  }, [])
   return on
 }
