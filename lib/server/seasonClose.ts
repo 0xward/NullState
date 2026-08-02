@@ -76,6 +76,19 @@ export interface SeasonWinner {
   username: string
   xp: number
   rewardUsd: number
+  /**
+   * Where this prize can actually be sent, or null when there is nowhere.
+   *
+   * `wallet` is the player's KEY, and for a signed-in player that key is
+   * SHA-256 of their account id — an address with no private key anywhere in
+   * the world. It can receive USDT and can never release it, so paying it
+   * destroys the prize rather than delaying it. Resolved once, at freeze time,
+   * and stored in the snapshot so the answer cannot drift between the review
+   * and the transfer.
+   */
+  payout?: string | null
+  /** How that answer was reached — see resolvePayout(). */
+  payable?: 'wallet' | 'embedded' | 'none' | 'unknown'
 }
 
 export interface SeasonSnapshot {
@@ -170,6 +183,41 @@ export function toWinners(rows: Array<{ wallet: string; username: string; xp: nu
   }))
 }
 
+/**
+ * Can this winner be paid, and where?
+ *
+ * Reads the one record that knows: players/{id}, written by /api/player/seen.
+ *
+ *   wallet    they connected a real wallet. Pay the wallet.
+ *   embedded  a signed-in player with a Privy embedded wallet. Pay THAT, never
+ *             the derived key they are ranked under.
+ *   none      a signed-in or guest player with no wallet anywhere. There is no
+ *             address to pay. Somebody has to ask them for one.
+ *   unknown   recorded before `kind` existed, or never recorded at all. NOT the
+ *             same as safe: it means nobody has checked.
+ *
+ * The distinction between `none` and `unknown` is the entire point. Treating
+ * unknown as unpayable would strand legitimate winners who predate this field;
+ * treating none as payable destroys money. They get different treatment in
+ * payoutCommands() for exactly that reason.
+ */
+export async function resolvePayout(
+  db: AdminDb,
+  wallet: string,
+): Promise<{ payout: string | null; payable: NonNullable<SeasonWinner['payable']> }> {
+  let rec: { kind?: string | null; payout?: string | null } | null = null
+  try {
+    rec = (await db.ref(`players/${wallet.toLowerCase()}`).get()).val()
+  } catch {
+    // A read failure is not evidence of anything. Say so rather than guessing.
+    return { payout: null, payable: 'unknown' }
+  }
+  if (rec?.payout) return { payout: String(rec.payout).toLowerCase(), payable: 'embedded' }
+  if (rec?.kind === 'wallet') return { payout: wallet.toLowerCase(), payable: 'wallet' }
+  if (rec?.kind === 'account' || rec?.kind === 'guest') return { payout: null, payable: 'none' }
+  return { payout: null, payable: 'unknown' }
+}
+
 /** Read-only status. Never writes, so any screen can poll it. */
 export async function readSeasonStatus(db: AdminDb, now = Date.now()): Promise<SeasonStatus> {
   const currentSeasonId = getCurrentSeasonId(new Date(now))
@@ -206,9 +254,16 @@ export async function prepareSeason(
   // reason the payout stayed manual. A server-side exclusion list would be a
   // second, invisible policy that nobody reads until it pays the wrong person.
   const rows = await readTopByXp(fs, seasonId)
+  // Resolved HERE, while the ranking is being frozen, and stored with it. If it
+  // were resolved when the commands are generated instead, the owner could
+  // review a list on Monday and pay a different one on Tuesday because somebody
+  // signed in over the weekend.
+  const winners = await Promise.all(
+    toWinners(rows).map(async (w) => ({ ...w, ...(await resolvePayout(db, w.wallet)) })),
+  )
   const snapshot: SeasonSnapshot = {
     seasonId,
-    winners: toWinners(rows),
+    winners,
     preparedAt: Date.now(),
     paidAt: null,
   }
@@ -454,33 +509,89 @@ export function payoutCommands(snapshot: SeasonSnapshot): string[] {
   // The contract needs exactly three addresses. Fewer than three ranked players
   // is not a payout that can be prepared, on-chain or off.
   if (w.length < ONCHAIN_RANKS) return []
+
+  // Where each prize can actually go. `payout` was resolved when the ranking
+  // was frozen; a snapshot taken before that field existed has neither, and
+  // falls back to the old behaviour of paying the ranked address — which is
+  // exactly what the warnings below are for.
+  const dest = (x: SeasonWinner) => x.payout || x.wallet
+  const unpayable = w.filter((x) => x.payable === 'none')
+  const unchecked = w.filter((x) => x.payable === 'unknown' || x.payable === undefined)
+
+  const lines: string[] = []
+
+  // ── The warnings come FIRST, because they change what you should run ───────
+  //
+  // A prize sent to a signed-in player's ranked address is DESTROYED, not
+  // delayed: that address is SHA-256 of their account id and no private key for
+  // it exists anywhere. So a winner with nowhere to be paid does not get a
+  // command — they get a name to contact.
+  if (unpayable.length) {
+    lines.push('# ⚠ NO ADDRESS — do NOT pay these, the money would be destroyed:')
+    for (const x of unpayable) {
+      lines.push(`#   rank ${x.rank}  ${x.username}  $${x.rewardUsd}`
+        + `  (ranked as ${x.wallet}, which is an account key, not a wallet)`)
+    }
+    lines.push('#   Ask each of them for a wallet address, then pay by hand.')
+  }
+  if (unchecked.length) {
+    lines.push('# ⚠ UNVERIFIED — ranked before payout addresses were recorded.')
+    lines.push('#   The commands below pay their ranked address. Check with each')
+    lines.push('#   of them that it is a wallet they control BEFORE running it:')
+    for (const x of unchecked) {
+      lines.push(`#   rank ${x.rank}  ${x.username}  ${x.wallet}`)
+    }
+  }
+
   const onchain = w.slice(0, ONCHAIN_RANKS)
   const direct = w.slice(ONCHAIN_RANKS)
-  // Only what the POOL pays. Funding it with the whole $35 would leave the
-  // seven tail prizes sitting in a contract that has no way to release them.
-  const total = onchain.reduce((s, x) => s + x.rewardUsd, 0)
-  return [
-    // FIRST, and the reason it exists: this is what makes the contract agree
-    // with RANK_REWARDS_USD. `setRankRewards` is global rather than per-season,
-    // so re-sending unchanged figures is a cheap no-op — and the one time it is
-    // NOT a no-op is the time it would otherwise have paid the wrong amount.
-    // See the note on RANK_REWARDS_USD for the drift this closes.
-    `node scripts/deposit-reward.js season-rewards --token ${SEASON_PAYOUT_TOKEN}`
-      + ` --r1 ${RANK_REWARDS_USD[0]} --r2 ${RANK_REWARDS_USD[1]} --r3 ${RANK_REWARDS_USD[2]}`,
-    `node scripts/deposit-reward.js update-leaderboard --season ${snapshot.seasonId}`
-      + ` --p1 ${w[0].wallet} --p2 ${w[1].wallet} --p3 ${w[2].wallet}`
-      + ` --s1 ${w[0].xp} --s2 ${w[1].xp} --s3 ${w[2].xp}`,
-    // --token is NOT optional: resolveToken() in that script dies with
-    // "missing --token" when it is absent, so the first version of this line
-    // handed the owner a command that failed on paste — the exact thing the
-    // comment above swears this must never do. USDT because that is what
-    // OWNER-RUNBOOK.md and rewards-system.md both specify for season bonuses.
-    `node scripts/deposit-reward.js season-deposit --season ${snapshot.seasonId}`
-      + ` --token ${SEASON_PAYOUT_TOKEN} --amount ${total}`,
-    // Ranks 4-10. One transfer each, because the contract has nowhere to put
-    // them. Ordered by rank so the list reads like the leaderboard it came from.
-    ...direct.map((x) =>
-      `node scripts/deposit-reward.js pay --token ${SEASON_PAYOUT_TOKEN}`
-      + ` --to ${x.wallet} --amount ${x.rewardUsd}   # rank ${x.rank}`),
-  ]
+
+  // The top three are paid by the CONTRACT, which holds the money until the
+  // winner claims it. A winner who cannot sign can never claim, so funding the
+  // pool for them locks the deposit away with no way to release it — worse
+  // than a failed transfer, because the money is already gone from the
+  // treasury. The whole on-chain half is withheld until that is resolved.
+  const blockedOnchain = onchain.filter((x) => x.payable === 'none')
+  if (blockedOnchain.length) {
+    lines.push('#')
+    lines.push('# ⛔ ON-CHAIN PAYOUT WITHHELD.'
+      + ` Rank ${blockedOnchain.map((x) => x.rank).join(', ')} cannot claim:`)
+    lines.push('#   the reward contract pays by CLAIM, and an account key cannot')
+    lines.push('#   sign one. Depositing would lock the pool with no way out.')
+    lines.push('#   Get a wallet address from them, re-freeze, and run this again.')
+  } else {
+    const total = onchain.reduce((s, x) => s + x.rewardUsd, 0)
+    lines.push(
+      // FIRST, and the reason it exists: this is what makes the contract agree
+      // with RANK_REWARDS_USD. `setRankRewards` is global rather than
+      // per-season, so re-sending unchanged figures is a cheap no-op — and the
+      // one time it is NOT a no-op is the time it would otherwise have paid the
+      // wrong amount. See the note on RANK_REWARDS_USD for the drift this closes.
+      `node scripts/deposit-reward.js season-rewards --token ${SEASON_PAYOUT_TOKEN}`
+        + ` --r1 ${RANK_REWARDS_USD[0]} --r2 ${RANK_REWARDS_USD[1]} --r3 ${RANK_REWARDS_USD[2]}`,
+      `node scripts/deposit-reward.js update-leaderboard --season ${snapshot.seasonId}`
+        + ` --p1 ${dest(w[0])} --p2 ${dest(w[1])} --p3 ${dest(w[2])}`
+        + ` --s1 ${w[0].xp} --s2 ${w[1].xp} --s3 ${w[2].xp}`,
+      // --token is NOT optional: resolveToken() in that script dies with
+      // "missing --token" when it is absent, so the first version of this line
+      // handed the owner a command that failed on paste. USDT because that is
+      // what OWNER-RUNBOOK.md and rewards-system.md both specify.
+      `node scripts/deposit-reward.js season-deposit --season ${snapshot.seasonId}`
+        + ` --token ${SEASON_PAYOUT_TOKEN} --amount ${total}`,
+    )
+  }
+
+  // Ranks 4-10. One transfer each, because the contract has nowhere to put
+  // them. Ordered by rank so the list reads like the leaderboard it came from,
+  // and the ones with nowhere to go are simply absent — they are named in the
+  // warning block instead.
+  for (const x of direct) {
+    if (x.payable === 'none') continue
+    lines.push(`node scripts/deposit-reward.js pay --token ${SEASON_PAYOUT_TOKEN}`
+      + ` --to ${dest(x)} --amount ${x.rewardUsd}   # rank ${x.rank}`
+      + (x.payout && x.payout !== x.wallet ? ' (embedded wallet)' : ''))
+  }
+
+  return lines
 }
+

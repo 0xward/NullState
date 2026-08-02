@@ -18,7 +18,7 @@ import { getAdminDb } from '@/firebase-config'
 //
 // This route writes one small node per player and nothing else:
 //
-//   players/{id} = { firstSeen, lastSeen, guest }
+//   players/{id} = { firstSeen, lastSeen, guest, kind, payout }
 //
 // `firstSeen` is written once and never overwritten, so the acquisition date
 // survives every later visit. `lastSeen` moves every session, which finally
@@ -30,6 +30,26 @@ import { getAdminDb } from '@/firebase-config'
 // wallet by shape alone — so until now "24 players" could not be split into
 // people and duplicate browsers. It cannot classify ids recorded before today,
 // but from here the distinction is kept.
+//
+// `kind` exists because `guest` cannot answer the only question that costs
+// money. It is written from useWallet's isGuest, which is FALSE for a player
+// signed into an account — WalletProvider stops minting a guest id once an
+// account address exists — so a key that is SHA-256 of a uid, with no private
+// key anywhere in the world, was recorded as indistinguishable from a real
+// wallet. Send USDT to one of those and it is destroyed, not delayed.
+//
+//   wallet   a real wallet. Can receive and can spend.
+//   account  a signed-in player's derived key. Can receive, can NEVER spend.
+//   guest    a random local id. Same, and it dies with localStorage.
+//
+// `payout` is the way out for the middle case: Privy gives a Google/email
+// player an embedded wallet they actually control, and that address is where a
+// prize can go. Absent for everyone who signed in before this shipped, which is
+// why lib/server/seasonClose.ts treats "unknown" as a person to ask rather than
+// an address to try.
+//
+// Both are additive. Nothing already stored changes meaning, and `guest` keeps
+// being written exactly as before so /api/stats is untouched.
 //
 // No authentication, on purpose, and it is safe not to have any: the route
 // writes only three fields under a caller-supplied id, moves no value, grants
@@ -50,6 +70,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid id' }, { status: 400 })
     }
     const guest = body?.guest === true
+    // Anything unrecognised is recorded as unknown rather than guessed at. A
+    // wrong `kind` here is a wrong answer to "can this player be paid".
+    const rawKind = String(body?.kind || '')
+    const kind = rawKind === 'wallet' || rawKind === 'account' || rawKind === 'guest'
+      ? rawKind
+      : null
+    const rawPayout = String(body?.payout || '').toLowerCase()
+    const payout = /^0x[a-f0-9]{40}$/.test(rawPayout) ? rawPayout : null
 
     const db = getAdminDb()
     if (!db) return NextResponse.json({ error: 'Server storage unavailable' }, { status: 500 })
@@ -58,10 +86,17 @@ export async function POST(req: NextRequest) {
     const ref = db.ref(`players/${id}`)
     // A transaction rather than a read-then-write: two tabs opening at once
     // must not race each other into overwriting firstSeen.
-    const res = await ref.transaction((cur: { firstSeen?: number } | null) => ({
+    const res = await ref.transaction((cur: {
+      firstSeen?: number; kind?: string | null; payout?: string | null
+    } | null) => ({
       firstSeen: cur?.firstSeen || now,
       lastSeen: now,
       guest,
+      // Kept rather than overwritten when this request does not know. A player
+      // who opens the game in a second browser, signed out, must not erase the
+      // payout address their signed-in session recorded.
+      kind: kind ?? cur?.kind ?? null,
+      payout: payout ?? cur?.payout ?? null,
     }))
 
     const val = res.snapshot?.val() as { firstSeen?: number } | null

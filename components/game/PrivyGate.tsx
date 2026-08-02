@@ -50,7 +50,17 @@ interface PrivyGateProps {
    * signature for, which is exactly the two-layer split lib/authIdentity.ts
    * describes — account keys identify, they never authorise.
    */
-  onAuthenticated: (uid: string, label?: string | null) => void | Promise<void>
+  onAuthenticated: (
+    uid: string,
+    label?: string | null,
+    /**
+     * The embedded wallet Privy creates for a player who arrived without one.
+     * A REAL address with a real key the player controls, which is the only
+     * thing a season prize can be sent to — the derived account address above
+     * is a hash of the id and can receive money but never release it.
+     */
+    payoutAddress?: string | null,
+  ) => void | Promise<void>
   /** "Skip for now" — the player declines and plays as a guest. */
   onSkip: () => void
 }
@@ -82,6 +92,7 @@ function GateInner({ onAuthenticated, onSkip }: PrivyGateProps) {
     void onAuthenticated(
       user.id,
       user.google?.email ?? user.email?.address ?? user.wallet?.address ?? null,
+      user.wallet?.address ?? null,
     )
   }, [ready, authenticated, user, onAuthenticated])
 

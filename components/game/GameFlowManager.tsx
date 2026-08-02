@@ -7,7 +7,7 @@ import { useContractPlayer } from '@/lib/useContractPlayer'
 import { PlayerProfile, LeaderboardEntry } from '@/lib/contract'
 import { loadGameSession, loadGameSessionDraft, clearGameSession, saveGameSession, saveGameSessionDraft } from '@/lib/gameSessionService'
 import { migrateGuestProgress, getStoredGuestId } from '@/lib/guestMigration'
-import { getStoredAuthAddress, hasSkippedSignIn } from '@/lib/authIdentity'
+import { getStoredAuthAddress, hasSkippedSignIn, storePayoutAddress, getStoredPayoutAddress } from '@/lib/authIdentity'
 import { useAccountActions } from '@/lib/useAccountActions'
 import { readHighestAct, recordHighestAct, stashCampaignResume, takeCampaignResume } from '@/lib/campaignProgress'
 import MainMenu from './MainMenu'
@@ -113,7 +113,7 @@ type GamePhase = 'menu' | 'sign-in' | 'username-setup' | 'character-select' | 'g
  * All player progress is stored ON-CHAIN via the contract.
  */
 export default function GameFlowManager() {
-  const { address, isConnected, realAddress, isGuest, isMiniPay, walletReady, connect } = useWallet()
+  const { address, isConnected, realAddress, isGuest, isSignedIn, isMiniPay, walletReady, connect } = useWallet()
   const {
     playerProfile,
     isLoading: isLoadingProfile,
@@ -292,9 +292,20 @@ export default function GameFlowManager() {
     fetch('/api/player/seen', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ wallet: address, guest: !!isGuest }),
+      body: JSON.stringify({
+        wallet: address,
+        guest: !!isGuest,
+        // `guest` alone cannot answer the only question that costs money.
+        // isGuest is false for an ACCOUNT player — see WalletProvider, where
+        // guestAddress is not minted once an account address exists — so a
+        // hash-derived key that can never release a transfer was recorded as
+        // indistinguishable from a real wallet. `kind` says which it is.
+        kind: realAddress ? 'wallet' : isSignedIn ? 'account' : 'guest',
+        // And where a prize could actually go, when there is such a place.
+        payout: getStoredPayoutAddress(),
+      }),
     }).catch(() => { /* a missed count is not worth a single visible failure */ })
-  }, [address, isGuest])
+  }, [address, isGuest, realAddress, isSignedIn])
 
   // If wallet disconnects, go back to menu
   useEffect(() => {
@@ -754,13 +765,16 @@ export default function GameFlowManager() {
   if (showPrivyGate) {
     return (
       <PrivyGate
-        onAuthenticated={async (uid, label) => {
+        onAuthenticated={async (uid, label, payoutAddress) => {
           // Through the SAME adopt() the Firebase screen uses: derive an
           // address from the id, carry the guest's progress onto it, store the
           // identity. Nothing about Privy is special here — adopt() only ever
           // wanted a stable id, and this is one. Without this the screen's own
           // promise ("it follows you anywhere") would be false.
           try {
+            // The embedded wallet FIRST, so that even a failed migration leaves
+            // the player with somewhere a prize could be sent.
+            storePayoutAddress(payoutAddress)
             await acct.adopt(uid, label)
           } finally {
             // Even a failed migration must not trap the player on this screen.

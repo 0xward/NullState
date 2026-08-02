@@ -111,6 +111,9 @@ export function clearAuthIdentity() {
     window.localStorage.removeItem(UID_KEY)
     window.localStorage.removeItem(ADDR_KEY)
     window.localStorage.removeItem(LABEL_KEY)
+    // The payout address belonged to that account's embedded wallet. Leaving it
+    // behind would offer the next player's prize to the last player's wallet.
+    window.localStorage.removeItem('nullstate-payout-address')
   } catch {
     /* ignore */
   }
@@ -139,5 +142,45 @@ export function rememberSignInSkipped() {
     window.localStorage.setItem(SKIPPED_KEY, '1')
   } catch {
     /* ignore */
+  }
+}
+
+// ─── The address that can actually receive money ─────────────────────────────
+//
+// The account address above is a KEY, not a wallet: it is SHA-256 of a uid, and
+// nobody holds its private key. That is fine for saving progress and fatal for
+// paying a prize — USDT sent there is gone, not "stuck".
+//
+// Privy hands a Google/email player a real embedded wallet on sign-in, which
+// they can control and export. That address is recorded here so the season
+// payout has somewhere to send the prize. It is deliberately NOT used as the
+// player's key: keying on it would give account-level access to an address the
+// app cannot verify a signature for, and would break every save already stored
+// under the derived address.
+//
+// Empty for a plain guest, and for anyone who signed in before this existed.
+// The season code treats "no payout address" as a name to ask, never as an
+// address to try.
+
+const PAYOUT_KEY = 'nullstate-payout-address'
+
+export function getStoredPayoutAddress(): string | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const a = window.localStorage.getItem(PAYOUT_KEY)
+    return a && ADDRESS_RE.test(a) ? a.toLowerCase() : null
+  } catch {
+    return null
+  }
+}
+
+export function storePayoutAddress(address: string | null | undefined) {
+  if (typeof window === 'undefined') return
+  try {
+    if (address && ADDRESS_RE.test(address)) {
+      window.localStorage.setItem(PAYOUT_KEY, address.toLowerCase())
+    }
+  } catch {
+    /* private mode — the payout address is re-read from Privy on next sign-in */
   }
 }

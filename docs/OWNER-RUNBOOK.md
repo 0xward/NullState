@@ -83,10 +83,43 @@ node scripts/deposit-reward.js pay --token USDT --to 0x.. --amount 1   # rank 4
 # … through rank 10
 ```
 
-**Check every address before signing.** Nothing is filtered out server-side on
-purpose — your review is the safeguard, which is why the payout was never
-automated end to end. The `pay` command is a plain transfer out of your own
-wallet and cannot be undone.
+### Lines starting with `#` are for you, not for pasting
+
+A player who signs in with Google is ranked under an address derived from their
+account id — SHA-256 of it. That address can RECEIVE money and can never send
+it, because no private key for it exists anywhere. USDT paid there is destroyed,
+not delayed.
+
+So the list now tells you three things before it tells you anything else:
+
+```
+# ⚠ NO ADDRESS — do NOT pay these, the money would be destroyed:
+#   rank 4  Rondo  $1  (ranked as 0x…, which is an account key, not a wallet)
+#   Ask each of them for a wallet address, then pay by hand.
+```
+No command is generated for them at all. Ask them for a wallet and send it
+yourself.
+
+```
+# ⛔ ON-CHAIN PAYOUT WITHHELD. Rank 2 cannot claim:
+```
+The contract pays by **claim**, and someone who cannot sign can never claim. If
+a podium winner has no wallet, funding the pool locks your deposit in a contract
+with no way out — so the whole on-chain half is withheld until you have an
+address from them. Ranks 4-10 still pay normally; one blocked winner does not
+stop the rest.
+
+```
+# ⚠ UNVERIFIED — ranked before payout addresses were recorded.
+```
+These are paid at their ranked address, as before. Unknown is not the same as
+safe: it means nobody has checked. Confirm with them that it is a wallet they
+control before you run the line.
+
+**Check every address before signing.** Nothing is filtered out server-side
+beyond the destroyed-money case above — your review is the safeguard, which is
+why the payout was never automated end to end. The `pay` command is a plain
+transfer out of your own wallet and cannot be undone.
 
 ### 3. Mark it paid
 

@@ -169,10 +169,19 @@ const W = (n) => '0x' + String(n).padStart(2, '0').repeat(20)
     (await S.markSeasonPaid(db, 209912)) === null)
 
   // ── the handover: the commands must actually run ──────────────────────
-  const cmds = S.payoutCommands(first.snapshot)
+  const all = S.payoutCommands(first.snapshot)
+  // Comment lines are guidance for the owner, not things to paste. They are
+  // asserted on their own further down; the runnable half is what these check.
+  const notes = all.filter((c) => c.startsWith('#'))
+  const cmds = all.filter((c) => !c.startsWith('#'))
   // 3 on-chain + one direct transfer per rank 4-10 = 10.
   ok('ten commands: three on-chain, seven direct transfers', cmds.length === 10,
     String(cmds.length))
+  // These winners have no players/ record at all, which is what every player
+  // ranked before payout addresses existed looks like. Unknown is NOT treated
+  // as safe — the commands still run, but the owner is told to check first.
+  ok('winners with no record are flagged UNVERIFIED, not silently paid',
+    notes.some((n) => /UNVERIFIED/.test(n)), notes[0] || 'none')
   const cli = fs.readFileSync(path.join(__dirname, 'deposit-reward.js'), 'utf8')
   // deposit-reward.js validates args.p1..p3 and args.s1..s3 for
   // update-leaderboard, and args.season/args.amount for season-deposit. If it
@@ -342,6 +351,83 @@ const W = (n) => '0x' + String(n).padStart(2, '0').repeat(20)
   // must not cost rank 10 their dollar.
   ok('and all ten places are still filled', withJunk.snapshot.winners.length === 10,
     String(withJunk.snapshot.winners.length))
+
+  // ── THE PRIZE THAT WOULD HAVE BEEN DESTROYED ──────────────────────────
+  //
+  // A signed-in player is ranked under SHA-256 of their account id. That
+  // address can receive USDT and can never release it: no private key for it
+  // exists anywhere in the world. Paying it does not delay the prize, it
+  // destroys it — and nothing distinguished that address from a real wallet,
+  // because /api/player/seen recorded isGuest, which is FALSE for an account.
+  //
+  // players/{id}.kind is what tells them apart, and .payout is the way out for
+  // a Privy player who has an embedded wallet they actually control.
+  {
+    const W = (n) => '0x' + String(n).padStart(2, '0').repeat(20)
+    const tenRows = Array.from({ length: 10 }, (_, i) => ({
+      walletAddress: W(i + 1), username: 'P' + (i + 1), xp: 1000 - i * 10,
+    }))
+    const db = makeDb({
+      players: {
+        // rank 1: a real wallet. Pays itself.
+        [W(1)]: { kind: 'wallet' },
+        // rank 2: signed in, WITH an embedded wallet. Pays the wallet, never
+        // the key they are ranked under.
+        [W(2)]: { kind: 'account', payout: '0x' + 'ab'.repeat(20) },
+        // rank 3: signed in with nowhere to be paid. This is the one that
+        // used to burn money.
+        [W(3)]: { kind: 'account' },
+        // rank 4: a guest. Same problem, smaller prize.
+        [W(4)]: { kind: 'guest' },
+        // rank 5: has an embedded wallet too, out in the direct-transfer tail.
+        [W(5)]: { kind: 'account', payout: '0x' + 'cd'.repeat(20) },
+      },
+    })
+    const { snapshot } = await S.prepareSeason(db, makeFs(tenRows), 202610)
+    const by = (r) => snapshot.winners.find((w) => w.rank === r)
+
+    ok('a real wallet resolves to itself', by(1).payable === 'wallet' && by(1).payout === W(1))
+    ok('an account with an embedded wallet resolves to the WALLET, not the key',
+      by(2).payable === 'embedded' && by(2).payout === '0x' + 'ab'.repeat(20))
+    ok('an account with no wallet resolves to nowhere', by(3).payable === 'none' && by(3).payout === null)
+    ok('so does a guest', by(4).payable === 'none')
+    ok('and a player with no record at all is UNKNOWN, not assumed payable',
+      by(6).payable === 'unknown')
+    // Frozen INTO the snapshot: the list reviewed on Monday must be the list
+    // paid on Tuesday, even if somebody signs in over the weekend.
+    ok('the answer is stored with the ranking, not recomputed later',
+      typeof by(1).payout === 'string' && typeof by(3).payable === 'string')
+
+    const out = S.payoutCommands(snapshot)
+    const notes = out.filter((c) => c.startsWith('#'))
+    const runs = out.filter((c) => !c.startsWith('#'))
+
+    // THE HEADLINE: no transfer may be generated to an address that cannot
+    // release it.
+    ok('no command pays the account key of rank 3',
+      !runs.some((c) => c.includes(W(3))), runs.filter((c) => c.includes(W(3))).join(' | '))
+    ok('nor the guest at rank 4', !runs.some((c) => c.includes(W(4))))
+    ok('and both are named so the owner can go and ask them',
+      notes.some((n) => /NO ADDRESS/.test(n)) &&
+      notes.some((n) => /rank 3/.test(n)) && notes.some((n) => /rank 4/.test(n)))
+
+    // The contract pays by CLAIM. A winner who cannot sign can never claim, so
+    // funding the pool for them locks the deposit away — worse than a failed
+    // transfer, because the treasury has already paid.
+    ok('the on-chain half is withheld when a podium winner cannot claim',
+      !runs.some((c) => /season-deposit/.test(c)) && !runs.some((c) => /update-leaderboard/.test(c)))
+    ok('and it says why, in words the owner can act on',
+      notes.some((n) => /WITHHELD/.test(n)) && notes.some((n) => /claim/i.test(n)))
+
+    // The tail still pays everyone who CAN be paid — a blocked winner must not
+    // take the others down with them.
+    ok('rank 5 is still paid, at their embedded wallet',
+      runs.some((c) => c.includes('0x' + 'cd'.repeat(20)) && /--amount 1/.test(c)))
+    ok('and the line says it went to the embedded wallet, not the ranked key',
+      runs.some((c) => c.includes('0x' + 'cd'.repeat(20)) && /embedded wallet/.test(c)))
+    ok('ranks 6-10 are unaffected',
+      [6, 7, 8, 9, 10].every((r) => runs.some((c) => c.includes(W(r)))))
+  }
 
   // ── pruning finished buckets ──────────────────────────────────────────
   // Added after the audit noted nothing ever deleted the daily/weekly rows.
