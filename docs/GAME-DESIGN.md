@@ -1082,6 +1082,67 @@ transfer, and a **Last season** section built from the public
 
 > Owner: *"tampilkan juga di leaderboard musim lalu."*
 
+#### 9.2c The season is ranked by the season — 2026-08-02
+
+> **Owner:** *"menurutmu pertimbangan rank skrg sudah bagus belum? mengingat
+> hanya dari xp?"*
+
+No, and not for the reason it looks like. The metric was not the problem —
+**the window was.**
+
+XP is cumulative and never resets (9.3). So ranking a *season* by it produced an
+**all-time board that merely paid out monthly**. The July snapshot shows exactly
+what that costs: 8,581 / 2,655 / 1,972. First place opened August **5,926 XP
+ahead of second**, earned in a month that was already over and already paid for.
+
+The consequence that actually matters is not unfairness at the top, it is the
+door: **a player joining in September could never have won.** They start at zero
+against months of accumulation, while the app advertises "top 10 earn USDT" to
+them on the way in. A leaderboard that closes permanently to newcomers is worse
+than one with no prize at all, and it silently undoes §9.2b — widening the prize
+to ten places is pointless if the order of those ten places is frozen.
+
+**The spec was right the whole time.** `rewards-system.md` has said *"Rankings
+are by experience (XP) earned **during the season**"* since it was written. The
+code read career XP. This is rule 2 (§10) in its most expensive form: not a
+config nobody reads, but a documented promise nobody implemented.
+
+**The shape of the fix.** A season score is a DELTA — career XP now, minus
+career XP when the season started for that wallet.
+
+- `leaderboard/{wallet}` gains `seasonId` + `seasonBaseXp`; on any write where
+  the stored season is not the current one, the baseline becomes `doc.xp` — the
+  career total as of the last write, which by definition was last season. **Not**
+  the incoming figure, which would discard whatever was earned before the first
+  sync of the month.
+- `seasonLeaderboard/{seasonId}/players/{wallet}` mirrors XP earned this season.
+  Its own collection, so the read is a plain single-field `orderBy` needing no
+  composite index, and each month is partitioned automatically.
+- Season kills ride the **same delta** `recordRunKills` already computes — the
+  hard part (not double-counting a Revive that keeps `p.kills` climbing) is
+  solved once, in one place, or the two totals drift.
+- `readTopByXp` reads the season collection and **falls back to the career
+  board when a season has no rows**, so every season that closed before this
+  existed keeps producing the answer it produced at the time. A silent empty
+  top 10 for July would read as "nobody won".
+- At rollout every doc has no `seasonId`, so the first write baselines each
+  player at their current career total and **everyone starts level**. No
+  backfill.
+
+Career XP is untouched and still ranks the **ALL-TIME** tab. Rondo does not lose
+the 8,581; it just stops being the reason he wins next month too.
+
+The arithmetic lives in `lib/seasonXp.ts` — Firebase-free on purpose, because it
+decides who gets paid and that deserves a test that needs neither a browser nor
+a database (`npm run test:seasonxp`).
+
+**Still open, and stated rather than guessed.** Ranking by XP still means
+ranking by *time spent*, with no weighting for risk — so grinding Bunker 1 is
+optimal, which fights the risk/length axes §7 introduced. And energy is
+purchasable ($1 = 5 runs), so XP is buyable; at a $20 first prize that is
+plausibly +EV. Neither is addressed here. Both are smaller than the window
+problem and both are cheaper to fix once the window is right.
+
 > **What "notify" means here, precisely.** There is no mail or push transport in
 > this repo, so nothing emails the owner. The notification is a *state that
 > looks wrong*: `/stats` shows "Winners frozen — payout pending" in amber until

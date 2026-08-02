@@ -1,11 +1,13 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { GiMedal } from 'react-icons/gi'
 import { LeaderboardEntry } from '@/lib/contract'
 import {
   PAID_RANKS, ONCHAIN_RANKS, SEASON_POOL_USD, SEASON_PAYOUT_TOKEN, rewardForRank,
 } from '@/lib/constants/seasonRewards'
+import { getSeasonLeaderboard } from '@/lib/leaderboardService'
+import { currentSeasonId, seasonLabel, seasonNumberOf } from '@/lib/season'
 
 // What the frozen season snapshot looks like coming out of /api/season/status.
 // That route is public on purpose: who won a finished season, and whether they
@@ -17,12 +19,10 @@ interface SeasonStatusResponse {
   snapshot?: { seasonId: number; winners: SeasonWinnerRow[]; paidAt: number | null } | null
 }
 
-const seasonLabel = (id: number | undefined) => {
-  if (!id || !Number.isFinite(id)) return ''
-  const y = Math.floor(id / 100), m = id % 100
-  if (m < 1 || m > 12) return String(id)
-  return new Date(Date.UTC(y, m - 1, 1)).toLocaleString(undefined, { month: 'long', year: 'numeric', timeZone: 'UTC' })
-}
+// `seasonLabel` lives in lib/season.ts — a second copy here was one more place
+// for "which month is it" to drift, which is the exact mistake that module was
+// pulled out to prevent.
+const monthOf = (id: number | undefined) => (id ? seasonLabel(id) ?? String(id) : '')
 
 interface LeaderboardProps {
   onBack: () => void
@@ -55,6 +55,28 @@ export default function Leaderboard({
   // this is a live board and a season that has not closed yet is the normal
   // case, not a failure.
   const [season, setSeason] = useState<SeasonStatusResponse | null>(null)
+
+  // ── WHICH BOARD ARE WE LOOKING AT ─────────────────────────────────────────
+  //
+  // Owner: *"pertimbangan rank skrg sudah bagus belum? mengingat hanya dari
+  // xp?"* — it was not, because career XP never resets, so the season prize was
+  // being paid off an all-time board. It is paid off xp earned WITHIN the
+  // season now (lib/leaderboardService.ts).
+  //
+  // SEASON is the default tab, and deliberately so: it is the one the money
+  // follows, and a player looking at a board they cannot win is worse than a
+  // player looking at no board. All-time stays a tab away, because eight
+  // thousand career XP is a real thing somebody did.
+  const [tab, setTab] = useState<'season' | 'all'>('season')
+  const [seasonRows, setSeasonRows] = useState<LeaderboardEntry[] | null>(null)
+  const liveSeasonId = useMemo(() => currentSeasonId(), [])
+  useEffect(() => {
+    let alive = true
+    getSeasonLeaderboard(100)
+      .then((rows) => { if (alive) setSeasonRows(rows) })
+      .catch(() => { if (alive) setSeasonRows([]) })
+    return () => { alive = false }
+  }, [])
   useEffect(() => {
     let alive = true
     fetch('/api/season/status')
@@ -65,8 +87,9 @@ export default function Leaderboard({
   }, [])
 
   useEffect(() => {
+    const source = tab === 'season' ? (seasonRows ?? []) : entries
     // Sort by XP descending, assign ranks
-    const sorted = [...entries]
+    const sorted = [...source]
       .sort((a, b) => b.xp - a.xp)
       .map((entry, index) => ({
         ...entry,
@@ -74,7 +97,7 @@ export default function Leaderboard({
       }))
     setDisplayEntries(sorted)
     setVisibleCount(PAGE_SIZE) // reset pagination whenever entries change
-  }, [entries])
+  }, [entries, seasonRows, tab])
 
   const visibleEntries = displayEntries.slice(0, visibleCount)
   const hasMore = visibleCount < displayEntries.length
@@ -145,8 +168,50 @@ export default function Leaderboard({
           </button>
         </div>
 
+        {/* SEASON | ALL-TIME.
+            Two different questions with two different answers, and until now
+            the screen only ever showed the second one while the prize was
+            described in terms of the first. */}
+        <div className="mb-4 flex gap-2 font-mono" role="tablist" aria-label="Leaderboard scope">
+          {([
+            { key: 'season' as const, label: `SEASON ${seasonNumberOf(liveSeasonId) ?? ''}`.trim(), sub: monthOf(Number(liveSeasonId)) },
+            { key: 'all' as const, label: 'ALL-TIME', sub: 'career XP' },
+          ]).map((t) => {
+            const on = tab === t.key
+            return (
+              <button
+                key={t.key}
+                role="tab"
+                aria-selected={on}
+                onClick={() => setTab(t.key)}
+                className="flex-1 min-h-11 px-3 py-2 text-left transition-colors"
+                style={{
+                  fontSize: 11, letterSpacing: '1.5px',
+                  color: on ? '#04140c' : 'rgba(255,255,255,.62)',
+                  background: on ? 'var(--null-green, #00ff88)' : 'rgba(255,255,255,.04)',
+                  border: on ? '1px solid var(--null-green, #00ff88)' : '1px solid rgba(255,255,255,.14)',
+                  clipPath: 'polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px)',
+                }}
+              >
+                <span className="block font-bold">{t.label}</span>
+                <span className="block" style={{ fontSize: 8.5, letterSpacing: '.5px', opacity: on ? 0.75 : 0.6 }}>
+                  {t.sub}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+
+        {/* One line saying which of the two the money follows. Without it the
+            tabs are just two lists and the player has to guess which counts. */}
+        <p className="mb-4 font-mono text-[9.5px] leading-relaxed text-null-muted">
+          {tab === 'season'
+            ? <>Ranked by XP earned <b className="text-null-green">this season</b> — everyone starts each month at zero. This is the board the prize is paid from.</>
+            : <>Ranked by <b>career XP</b>, which never resets. A record of everything you have ever done — the season prize is paid from the SEASON board.</>}
+        </p>
+
         {/* Loading state */}
-        {isLoading && (
+        {isLoading && tab === 'all' && (
           <div className="flex items-center justify-center py-12">
             <div className="text-center">
               <div className="text-null-green font-mono text-sm mb-4 animate-pulse">
@@ -169,7 +234,7 @@ export default function Leaderboard({
         )}
 
         {/* Table (grid-based, fits narrow mobile widths without horizontal scroll) */}
-        {!isLoading && displayEntries.length > 0 && (
+        {displayEntries.length > 0 && (
           <div className="font-mono">
             {/* Header row */}
             <div
@@ -180,9 +245,11 @@ export default function Leaderboard({
               <span>USERNAME</span>
               <span className="text-right">XP</span>
               <span className="text-right">KILL</span>
-              {/* The reward replaces LVL. A level is a number about the past;
-                  the prize is the reason the row above you matters. */}
-              <span className="text-right">PRIZE</span>
+              {/* PRIZE on the season board — a level is a number about the
+                  past, the prize is why the row above you matters. On ALL-TIME
+                  it goes back to LVL, because a career rank wins nothing and
+                  putting "$20" beside it would be a straight lie. */}
+              <span className="text-right">{tab === 'season' ? 'PRIZE' : 'LVL'}</span>
             </div>
 
             {/* Rows */}
@@ -215,15 +282,19 @@ export default function Leaderboard({
                   <span className="text-right text-null-red">{entry.kills}</span>
                   {/* Blank, not "$0", outside the prize. A zero reads as a prize
                       that was won and lost; nothing reads as a line to climb to. */}
-                  <span
-                    className="text-right font-bold"
-                    style={{ color: rewardForRank(entry.rank) ? '#7ef0a6' : 'rgba(255,255,255,.18)' }}
-                    title={rewardForRank(entry.rank)
-                      ? `Rank ${entry.rank} pays $${rewardForRank(entry.rank)} ${SEASON_PAYOUT_TOKEN} when the season ends`
-                      : `Only the top ${PAID_RANKS} are paid`}
-                  >
-                    {rewardForRank(entry.rank) ? `$${rewardForRank(entry.rank)}` : '–'}
-                  </span>
+                  {tab === 'season' ? (
+                    <span
+                      className="text-right font-bold"
+                      style={{ color: rewardForRank(entry.rank) ? '#7ef0a6' : 'rgba(255,255,255,.18)' }}
+                      title={rewardForRank(entry.rank)
+                        ? `Rank ${entry.rank} pays $${rewardForRank(entry.rank)} ${SEASON_PAYOUT_TOKEN} when the season ends`
+                        : `Only the top ${PAID_RANKS} are paid`}
+                    >
+                      {rewardForRank(entry.rank) ? `$${rewardForRank(entry.rank)}` : '–'}
+                    </span>
+                  ) : (
+                    <span className="text-right text-null-green">{entry.level}</span>
+                  )}
                 </div>
               )
             })}
@@ -245,16 +316,26 @@ export default function Leaderboard({
           </div>
         )}
 
-        {/* Empty state */}
-        {!isLoading && displayEntries.length === 0 && (
+        {/* Empty state. On the SEASON tab early in the month this is the normal
+            case, not a fault — and it is the most inviting the board ever gets,
+            so it says so rather than apologising. */}
+        {displayEntries.length === 0 && !(isLoading && tab === 'all') && (
           <div className="flex items-center justify-center py-12">
             <div className="text-center">
               <p className="text-null-muted font-mono text-sm mb-4">
-                // no players on leaderboard yet
+                {tab === 'season' && seasonRows === null
+                  ? '// loading this season…'
+                  : tab === 'season'
+                    ? '// nobody has scored this season yet'
+                    : '// no players on leaderboard yet'}
               </p>
-              <p className="text-null-green text-xs font-mono">
-                be the first to register and climb the ranks!
-              </p>
+              {!(tab === 'season' && seasonRows === null) && (
+                <p className="text-null-green text-xs font-mono">
+                  {tab === 'season'
+                    ? 'one run puts you at the top of the board.'
+                    : 'be the first to register and climb the ranks!'}
+                </p>
+              )}
             </div>
           </div>
         )}
@@ -279,7 +360,8 @@ export default function Leaderboard({
               Season prize · ${SEASON_POOL_USD} {SEASON_PAYOUT_TOKEN}
             </p>
             <p className="text-[10px] leading-relaxed text-null-muted">
-              The top {PAID_RANKS} by XP are paid when the season ends:{' '}
+              The top {PAID_RANKS} by <b style={{ color: '#7ef0a6' }}>XP earned this season</b> are paid
+              when it ends:{' '}
               <b style={{ color: '#7ef0a6' }}>$20 / $5 / $3</b> for the podium, and{' '}
               <b style={{ color: '#7ef0a6' }}>$1</b> each for ranks {ONCHAIN_RANKS + 1}–{PAID_RANKS}.
             </p>
@@ -289,8 +371,8 @@ export default function Leaderboard({
               is nothing to claim, because the reward contract only holds three places.
             </p>
             <p className="mt-2 text-[9px] leading-relaxed text-null-muted">
-              Ranking is frozen the moment the season closes. XP keeps counting after that, so the
-              board you see now and the board that pays are only the same thing until then.
+              Every player starts each season at zero — career XP is a separate board and does not
+              carry over. The ranking is frozen the moment the season closes.
             </p>
           </div>
         )}
@@ -304,7 +386,7 @@ export default function Leaderboard({
           <div className="mt-8">
             <div className="mb-3 flex items-baseline justify-between gap-3">
               <h3 className="font-mono text-[10px] font-bold uppercase tracking-[3px] text-null-blue">
-                Last season · {seasonLabel(season.snapshot.seasonId ?? season.lastClosedSeasonId)}
+                Last season · {monthOf(season.snapshot.seasonId ?? season.lastClosedSeasonId)}
               </h3>
               <span
                 className="shrink-0 font-mono text-[9px] uppercase tracking-[1px]"

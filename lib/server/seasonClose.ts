@@ -110,26 +110,54 @@ function snapshotRef(db: AdminDb, seasonId: number) {
   return db.ref(`seasonSnapshots/${seasonId}`)
 }
 
-/**
- * Read the top players by XP straight out of the collection the player-facing
- * leaderboard is built from, so the two can never disagree.
- *
- * `limit` OVERSHOOTS the number of places actually paid, so a malformed or
- * missing wallet address in the top rows cannot leave the snapshot one winner
- * short. The default is double PAID_RANKS: every row that fails the address
- * check below is a paid place that would otherwise go unfilled, and reading
- * twenty documents costs nothing.
- */
-export async function readTopByXp(fs: AdminFs, limit = PAID_RANKS * 2): Promise<Array<{ wallet: string; username: string; xp: number }>> {
-  const snap = await fs.collection('leaderboard').orderBy('xp', 'desc').limit(limit).get()
-  return snap.docs.map((d) => {
-    const v = d.data() as Record<string, unknown>
+function mapRows(docs: Array<{ id: string; data: () => unknown }>) {
+  return docs.map((d) => {
+    const v = (d.data() || {}) as Record<string, unknown>
     return {
       wallet: String(v.walletAddress || d.id || '').toLowerCase(),
       username: String(v.username || ''),
       xp: typeof v.xp === 'number' && Number.isFinite(v.xp) ? Math.max(0, Math.floor(v.xp)) : 0,
     }
   }).filter((e) => /^0x[a-f0-9]{40}$/.test(e.wallet))
+}
+
+/**
+ * Read the top players for `seasonId`, out of the same collection the
+ * player-facing season board is built from — so the ranking players compete on
+ * and the ranking that pays can never disagree.
+ *
+ * ── WHY THIS IS NO LONGER `leaderboard` ─────────────────────────────────────
+ *
+ * That collection holds CAREER xp, which is cumulative and never resets. Paying
+ * a season off it made every month a re-run of the first one: July's winner
+ * began August 5,926 XP ahead on work that was already over, and a player
+ * joining in September could never have won at all. `seasonLeaderboard` holds
+ * xp earned WITHIN the season (see lib/leaderboardService.ts).
+ *
+ * FALLS BACK to the career board when a season has no rows — which is true of
+ * every season that closed before this existed. A closed season must keep
+ * producing the answer it produced at the time; silently returning an empty
+ * top 10 for July would read as "nobody won" rather than "this predates the
+ * change".
+ *
+ * `limit` OVERSHOOTS the number of places actually paid, so a malformed or
+ * missing wallet address in the top rows cannot leave the snapshot one winner
+ * short. The default is double PAID_RANKS: every row that fails the address
+ * check is a paid place that would otherwise go unfilled, and reading twenty
+ * documents costs nothing.
+ */
+export async function readTopByXp(
+  fs: AdminFs,
+  seasonId: number,
+  limit = PAID_RANKS * 2,
+): Promise<Array<{ wallet: string; username: string; xp: number }>> {
+  const seasonSnap = await fs
+    .collection('seasonLeaderboard').doc(String(seasonId)).collection('players')
+    .orderBy('xp', 'desc').limit(limit).get()
+  const rows = mapRows(seasonSnap.docs).filter((r) => r.xp > 0)
+  if (rows.length) return rows
+  const career = await fs.collection('leaderboard').orderBy('xp', 'desc').limit(limit).get()
+  return mapRows(career.docs)
 }
 
 export function toWinners(rows: Array<{ wallet: string; username: string; xp: number }>): SeasonWinner[] {
@@ -177,7 +205,7 @@ export async function prepareSeason(
   // before signing anything — that review IS the safeguard, and it is the whole
   // reason the payout stayed manual. A server-side exclusion list would be a
   // second, invisible policy that nobody reads until it pays the wrong person.
-  const rows = await readTopByXp(fs)
+  const rows = await readTopByXp(fs, seasonId)
   const snapshot: SeasonSnapshot = {
     seasonId,
     winners: toWinners(rows),

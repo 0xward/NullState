@@ -11,6 +11,46 @@ import {
 } from 'firebase/firestore'
 import { db } from './firebase'
 import { LeaderboardEntry } from './contract'
+import { currentSeasonId } from './season'
+// The arithmetic that decides who gets paid lives in its own Firebase-free
+// module so it can be tested directly — see lib/seasonXp.ts.
+import { seasonBaseline } from './seasonXp'
+
+// ─── THE SEASON BOARD, AND WHY IT HAD TO EXIST ───────────────────────────────
+//
+// OWNER: *"menurutmu pertimbangan rank skrg sudah bagus belum? mengingat hanya
+// dari xp?"*
+//
+// The honest answer was no, and not for the reason it looks like. XP is
+// CUMULATIVE and never resets (GAME-DESIGN.md §9.3) — so ranking a *season* by
+// it produced an all-time board that happened to pay out monthly. July's
+// winner opened August already 5,926 XP ahead of second place, earned in a
+// month that was over. Nobody joining in September could ever have won: they
+// start at zero against players with months of accumulation behind them.
+//
+// That is a leaderboard which closes to newcomers permanently, while the app
+// advertises "top 10 earn USDT" to every one of them.
+//
+// So the money now follows XP EARNED DURING THE SEASON. Career XP is untouched
+// and still ranks the all-time board — Rondo does not lose the 8,581, it just
+// stops being the reason he wins next month too.
+//
+// ── HOW THE BASELINE IS TAKEN ───────────────────────────────────────────────
+//
+// `leaderboard/{wallet}` carries `seasonId` + `seasonBaseXp`. On any write, if
+// the stored season is not the current one, the baseline becomes `data.xp` —
+// the career total as of the LAST write, which by definition was last season.
+// Not the incoming figure: that would silently discard whatever the player
+// earned before their first sync of the month.
+//
+// At rollout every existing doc has no `seasonId`, so the first write baselines
+// each player at their current career total and everyone starts the season on
+// zero. That is exactly the desired migration, and it needs no backfill.
+const seasonKey = () => String(currentSeasonId())
+
+const seasonPlayerRef = (seasonId: string, wallet: string) =>
+  doc(db, 'seasonLeaderboard', seasonId, 'players', wallet)
+
 
 interface LeaderboardDoc {
   walletAddress: string
@@ -33,6 +73,10 @@ interface LeaderboardDoc {
   // reset between deaths within the same continuous play session (a
   // Revive keeps counting from where it left off) — see recordRunKills.
   lastRecordedKills?: number
+  /** Which season `seasonBaseXp` / `seasonBaseKills` were taken for. */
+  seasonId?: string
+  /** Career xp at the moment this season started, for this wallet. */
+  seasonBaseXp?: number
   updatedAt: number
 }
 
@@ -51,14 +95,37 @@ export async function updateLeaderboardEntry(
 ): Promise<void> {
   try {
     const normalizedAddr = walletAddress.toLowerCase()
-    const record = {
-      walletAddress: normalizedAddr,
-      username,
-      xp,
-      level,
-      updatedAt: Date.now(),
-    }
-    await setDoc(doc(db, 'leaderboard', normalizedAddr), record, { merge: true })
+    const seasonId = seasonKey()
+    const ref = doc(db, 'leaderboard', normalizedAddr)
+    // A transaction now, because the season baseline is a decision that has to
+    // see what is already stored. This is also the write that USUALLY takes the
+    // baseline: it fires from fetchPlayerProfile() when the app opens, i.e.
+    // before the first run of the month.
+    await runTransaction(db, async (tx) => {
+      const snap = await tx.get(ref)
+      const data = (snap.exists() ? snap.data() : {}) as Partial<LeaderboardDoc>
+      // max(), matching recordRunProgress: career xp reads as "best ever
+      // reached", so a New Game (which legitimately restarts at 0 XP) can never
+      // erase it — and can never drive season xp negative either.
+      const careerXp = Math.max(data.xp ?? 0, xp)
+      const base = seasonBaseline(data, careerXp, seasonId)
+      tx.set(ref, {
+        walletAddress: normalizedAddr,
+        username,
+        xp: careerXp,
+        level: Math.max(data.level ?? 1, level),
+        seasonId,
+        seasonBaseXp: base,
+        updatedAt: Date.now(),
+      }, { merge: true })
+      tx.set(seasonPlayerRef(seasonId, normalizedAddr), {
+        walletAddress: normalizedAddr,
+        username,
+        xp: Math.max(0, careerXp - base),
+        level: Math.max(data.level ?? 1, level),
+        updatedAt: Date.now(),
+      }, { merge: true })
+    })
   } catch (err) {
     // Never let leaderboard sync failures break gameplay
     console.error('[leaderboard] Failed to update entry:', err)
@@ -112,6 +179,22 @@ export async function recordRunKills(
         },
         { merge: true }
       )
+      // Season kills ride the SAME delta — the hard part (not double-counting a
+      // Revive that keeps p.kills climbing) is already solved above, and
+      // solving it twice is how the two totals would drift apart.
+      const seasonId = seasonKey()
+      const seasonRef = seasonPlayerRef(seasonId, normalizedAddr)
+      const seasonSnap = await tx.get(seasonRef)
+      const seasonPrev = (seasonSnap.exists() ? seasonSnap.data() : {}) as { kills?: number }
+      tx.set(
+        seasonRef,
+        {
+          walletAddress: normalizedAddr,
+          kills: (seasonPrev.kills ?? 0) + delta,
+          updatedAt: Date.now(),
+        },
+        { merge: true }
+      )
     })
   } catch (err) {
     console.error('[leaderboard] Failed to record run kills:', err)
@@ -146,11 +229,28 @@ export async function recordRunProgress(
       const data = (snap.exists() ? snap.data() : {}) as Partial<LeaderboardDoc>
       const nextXp = Math.max(data.xp ?? 0, xp)
       const nextLevel = Math.max(data.level ?? 1, level)
+      const seasonId = seasonKey()
+      const base = seasonBaseline(data, nextXp, seasonId)
       tx.set(
         ref,
         {
           walletAddress: normalizedAddr,
           xp: nextXp,
+          level: nextLevel,
+          seasonId,
+          seasonBaseXp: base,
+          updatedAt: Date.now(),
+        },
+        { merge: true }
+      )
+      // The season mirror. `username` is deliberately absent: this write can
+      // happen mid-run with no name in hand, and merging an undefined over a
+      // real one would blank the row. updateLeaderboardEntry owns the name.
+      tx.set(
+        seasonPlayerRef(seasonId, normalizedAddr),
+        {
+          walletAddress: normalizedAddr,
+          xp: Math.max(0, nextXp - base),
           level: nextLevel,
           updatedAt: Date.now(),
         },
@@ -187,8 +287,52 @@ export async function getLeaderboardEntry(
 }
 
 /**
- * Fetch the top N players by XP directly from Firestore.
- * Replaces the old on-chain event-log scanning approach.
+ * The board that PAYS: top N by XP earned during `seasonId` (default: the
+ * season running right now).
+ *
+ * A plain single-field `orderBy` on a subcollection, so it needs no composite
+ * index — which is half the reason the season lives in its own collection
+ * rather than as extra fields on the all-time doc.
+ *
+ * Falls back to nothing rather than to the all-time board on failure: showing
+ * career totals under a "SEASON" heading would be a wrong answer presented as
+ * a right one, and this is the screen the prize is decided on.
+ */
+export async function getSeasonLeaderboard(
+  topN: number = 100,
+  seasonId: string = String(currentSeasonId()),
+): Promise<LeaderboardEntry[]> {
+  try {
+    const q = query(
+      collection(db, 'seasonLeaderboard', seasonId, 'players'),
+      orderBy('xp', 'desc'),
+      limit(topN),
+    )
+    const snap = await getDocs(q)
+    return snap.docs.map((d, index) => {
+      const data = d.data() as LeaderboardDoc
+      return {
+        rank: index + 1,
+        walletAddress: data.walletAddress,
+        username: data.username,
+        xp: data.xp ?? 0,
+        level: data.level ?? 1,
+        kills: data.totalKills ?? data.kills ?? 0,
+      }
+    })
+  } catch (err) {
+    console.error('[leaderboard] Failed to fetch season leaderboard:', err)
+    return []
+  }
+}
+
+/**
+ * Fetch the top N players by CAREER XP directly from Firestore.
+ *
+ * This is the all-time board now, not the one the season bonus is paid from —
+ * see the note at the top of this file. It is still worth showing: a player who
+ * spent months building 8,581 XP should not have that quietly stop existing
+ * because the prize moved to a fairer metric.
  */
 export async function getLeaderboard(topN: number = 100): Promise<LeaderboardEntry[]> {
   try {
