@@ -43,6 +43,11 @@
     "test:exit-streak": "node scripts/test-exit-streak.js",
     "test:privy": "node scripts/test-privy-gate.js --serve"
   },
+  "overrides": {
+    "permissionless": {
+      "ox": "^0.14.0"
+    }
+  },
   "dependencies": {
     "@celo/attribution-tags": "^0.3.0",
     "@privy-io/react-auth": "^3.36.1",

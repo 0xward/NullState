@@ -84,6 +84,12 @@ ok('the account is keyed on Privy\'s user id, not a wallet address',
   /onAuthenticated\(\s*user\.id,/.test(gate))
 ok('adopting runs once, not on every Privy re-render',
   /adopted\.current = true/.test(gate))
+
+// With the gate on, the OLD Google/email screen is off — it would be a second
+// way to make the same account. With the flag off it returns untouched, which
+// is what the `!privyGateOn &&` shape guarantees.
+ok('the old sign-in screen is off when the gate is on, and only then',
+  /if \(!privyGateOn && shouldOfferSignIn\(\)\) \{/.test(flow))
 ok('Privy is a real dependency, not an aspiration',
   !!JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'))
     .dependencies['@privy-io/react-auth'])

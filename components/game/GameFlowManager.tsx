@@ -480,7 +480,19 @@ export default function GameFlowManager() {
    * unreachable and most guests never pass through New Game anyway.
    */
   const goPlaying = (next: GamePhase) => {
-    if (shouldOfferSignIn()) {
+    // OWNER: *"halaman login google email yg lama matikan aja, fungsi yg lama
+    // juga kan sebenernya sama aja kaya fungsi privy skrg."* He is right — both
+    // end in the same derived account address, so with the gate on this screen
+    // would be a SECOND way to make the same account, using a different
+    // mechanism, asked at a different moment.
+    //
+    // Stated as a condition rather than left to fall out of the skip flag. It
+    // already could not appear (the gate stores an identity or remembers the
+    // skip, and both make shouldOfferSignIn() false), but "cannot happen
+    // because of a side effect three functions away" is how a screen comes
+    // back. With the flag off this line does nothing and the old screen returns
+    // exactly as it was.
+    if (!privyGateOn && shouldOfferSignIn()) {
       pendingPhase.current = next
       setPhase('sign-in')
       return
