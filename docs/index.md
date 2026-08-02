@@ -35,6 +35,7 @@ Welcome to **NullState** — a prove-you-exist game on Celo where every move cos
 | Season Rank 1 | 20 USDT | 1x/month |
 | Season Rank 2 | 5 USDT | 1x/month |
 | Season Rank 3 | 3 USDT | 1x/month |
+| Season Rank 4–10 | 1 USDT each | 1x/month |
 | **Total Potential** | **~10 USDT/month** | - |
 
 ---

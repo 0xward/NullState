@@ -1000,7 +1000,7 @@ season ranking is computed, and it reads XP.
 
 ### 9.2 The season payout — `[TODAY]`, prepared automatically
 
-Paying the top-3 bonus meant the owner remembering to run
+Paying the season bonus meant the owner remembering to run
 `scripts/deposit-reward.js` twice, every month, from memory. Miss it and the
 claim button was dead for every player with no error anywhere to notice.
 
@@ -1012,7 +1012,7 @@ the owner's device. What is automated is everything up to the signature:
 | Step | Who |
 |---|---|
 | Detect the season has ended | cron, 01:00 UTC **daily** (`vercel.json`) |
-| Compute and **freeze** the top 3 by XP | `/api/cron/season` |
+| Compute and **freeze** the top 10 by XP | `/api/cron/season` |
 | Show that a payout is owed | `/stats`, and `GET /api/season/status` |
 | Hand over the exact commands to run | `payoutCommands()` |
 | **Sign and send** | **the owner** |
@@ -1039,6 +1039,48 @@ nobody reads until it pays the wrong person.
 Both routes **fail closed**: without `CRON_SECRET` / `ADMIN_SECRET` they refuse
 rather than defaulting to open. Freezing a ranking is the one action here that
 cannot be undone.
+
+#### 9.2b Ten places, and the three the contract can reach — 2026-07-31
+
+**Owner: `$20 / $5 / $3`, then `$1` each down to rank 10. $35 a month.**
+
+Paying ten instead of three is a change of shape, not just of size. A three-deep
+prize means everyone outside the podium is playing for nothing they can name,
+and by mid-month the ranking is usually settled — so the reward stops motivating
+exactly the players who are still playing. A tail of $1 places gives 8th place
+something to defend and 11th something to reach, for $7 a month.
+
+**The contract only knows three.** `NullStateRewardV3` takes `address[3]` in
+`updateLeaderboard` and `setRankRewards(r1, r2, r3)`. Ranks 4–10 therefore
+cannot be claimed in-app **at all**, and redeploying to widen it is out of scope.
+They are paid by direct ERC-20 transfer — which is what the owner already does
+in practice — through a new `pay` subcommand on the treasury CLI.
+
+`payoutCommands()` emits all ten lines, in order, and the pool is funded with
+**$28, not $35**: depositing the tail would strand $7 in a contract with no way
+to release it. Emitting only the podium commands would have been the dangerous
+version — they look complete, they succeed, and seven people are silently paid
+nothing.
+
+**A drift this closed.** `docs/TREASURY-OPS.md` records the on-chain rank
+rewards being set to `$1 / $0.60 / $0.40` on 2026-07-22 while
+`RANK_REWARDS_USD` said `$20 / $5 / $3`. `setRankRewards` is what
+`claimSeasonBonus` pays from, so `/stats` and the frozen snapshot were promising
+a first-place finisher twenty dollars the contract would have paid one for.
+Nothing caught it because nothing could: the constant is a **mirror** of
+on-chain state, and a mirror never compared to the chain is just a second,
+quieter source of truth — rule 2 (§10) one layer out. `season-rewards` is now
+`commands[0]` of every payout, so paying re-syncs them by construction.
+
+**And the board says what it is worth.** The prize table lived only in
+`seasonClose.ts` and on `/stats`, an operator page — so the players competing
+for it could not see it. It moved to `lib/constants/seasonRewards.ts` (no
+firebase-admin, so a client component can import it) and the in-game Leaderboard
+now shows a **PRIZE** column per rank, the split between claim and direct
+transfer, and a **Last season** section built from the public
+`GET /api/season/status` snapshot — including whether it has been paid.
+
+> Owner: *"tampilkan juga di leaderboard musim lalu."*
 
 > **What "notify" means here, precisely.** There is no mail or push transport in
 > this repo, so nothing emails the owner. The notification is a *state that

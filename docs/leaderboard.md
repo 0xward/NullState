@@ -4,15 +4,20 @@
 
 Every month, players compete on a **global leaderboard** ranked by a hybrid scoring system.
 
-### Top 3 Rewards
+### Top 10 Rewards
 
-| Rank | Reward | Claim |
-|------|--------|-------|
-| 🥇 **1st** | **20 USDT** | After owner deposits |
-| 🥈 **2nd** | **5 USDT** | After owner deposits |
-| 🥉 **3rd** | **3 USDT** | After owner deposits |
+| Rank | Reward | How it reaches you |
+|------|--------|--------------------|
+| 🥇 **1st** | **20 USDT** | Claim in Rewards (needs that season's Pass) |
+| 🥈 **2nd** | **5 USDT** | Claim in Rewards (needs that season's Pass) |
+| 🥉 **3rd** | **3 USDT** | Claim in Rewards (needs that season's Pass) |
+| **4th – 10th** | **1 USDT** each | Sent directly to your wallet, no claim |
 
-**Total**: 28 USDT distributed monthly to top 3 players
+**Total**: 35 USDT distributed monthly across the top 10.
+
+The reward contract holds exactly three places (`updateLeaderboard` takes
+`address[3]`), which is why only the podium has a claim button — ranks 4–10 are
+paid by direct transfer instead.
 
 ---
 
@@ -142,8 +147,8 @@ Rank 4: Dave (No reward)
 - Top 3 determined
 
 **Days 32-39**: Claim period (7 days after season)
-- Owner deposits 28 USDT to reward pool
-- Top 3 players can claim bonuses
+- Owner deposits 28 USDT to the reward pool (the podium's share)
+- Top 3 players can claim bonuses; ranks 4–10 are transferred the remaining 7 USDT directly
 - Rankings reset for new month
 
 **Day 1 of next month**: Season reset

@@ -80,7 +80,11 @@ function makeFs(rows) {
   }
 }
 
-const W = (n) => '0x' + String(n).repeat(40).slice(0, 40)
+// Two digits, repeated. The old one-digit version ('0x' + String(n).repeat(40))
+// collided the moment the fixture grew past nine players: W(1) and W(11) are
+// both forty 1s, so ranks 1 and 11 shared a wallet and every ordering assertion
+// below would have been reading the wrong row.
+const W = (n) => '0x' + String(n).padStart(2, '0').repeat(20)
 
 ;(async () => {
   // ── the season arithmetic ─────────────────────────────────────────────
@@ -89,35 +93,46 @@ const W = (n) => '0x' + String(n).repeat(40).slice(0, 40)
     String(S.previousSeasonId(202601)))
 
   // ── freezing ──────────────────────────────────────────────────────────
-  const rows = [
-    { walletAddress: W(1), username: 'alpha', xp: 9000 },
-    { walletAddress: W(2), username: 'bravo', xp: 7000 },
-    { walletAddress: W(3), username: 'charlie', xp: 5000 },
-    { walletAddress: W(4), username: 'delta', xp: 3000 },
-  ]
+  // Twelve, so the fixture is deeper than the ten places that are paid — the
+  // eleventh and twelfth exist to prove the cut is real.
+  const NAMES = ['alpha', 'bravo', 'charlie', 'delta', 'echo', 'foxtrot',
+    'golf', 'hotel', 'india', 'juliet', 'kilo', 'lima']
+  const rows = NAMES.map((username, i) => ({
+    walletAddress: W(i + 1), username, xp: 9000 - i * 500,
+  }))
   const db = makeDb()
   const first = await S.prepareSeason(db, makeFs(rows), 202607)
   ok('the first run freezes the season', first.created === true)
-  ok('three winners, in XP order',
-    first.snapshot.winners.map((w) => w.username).join(',') === 'alpha,bravo,charlie',
+  ok('winners are in XP order',
+    first.snapshot.winners.slice(0, 4).map((w) => w.username).join(',') === 'alpha,bravo,charlie,delta',
     first.snapshot.winners.map((w) => w.username).join(','))
-  ok('ranks are 1,2,3', first.snapshot.winners.map((w) => w.rank).join(',') === '1,2,3')
-  ok('rewards are $20/$5/$3', first.snapshot.winners.map((w) => w.rewardUsd).join(',') === '20,5,3')
+  ok('ranks start at 1,2,3', first.snapshot.winners.slice(0, 3).map((w) => w.rank).join(',') === '1,2,3')
+  // Owner, 2026-07-31: 20/5/3 then $1 down to rank 10. Asserted LITERALLY, not
+  // read back off RANK_REWARDS_USD — a test that derives its expectation from
+  // the same constant it is checking passes no matter what that constant
+  // becomes, which for a money figure is worse than having no test.
+  ok('ten places are paid, not three', first.snapshot.winners.length === 10,
+    String(first.snapshot.winners.length))
+  ok('rewards are 20/5/3 then $1 to rank 10',
+    first.snapshot.winners.map((w) => w.rewardUsd).join(',') === '20,5,3,1,1,1,1,1,1,1',
+    first.snapshot.winners.map((w) => w.rewardUsd).join(','))
+  ok('ranks run 1..10 with no gaps',
+    first.snapshot.winners.map((w) => w.rank).join(',') === '1,2,3,4,5,6,7,8,9,10')
+  ok('the month costs $35 in total',
+    first.snapshot.winners.reduce((t, w) => t + w.rewardUsd, 0) === 35)
   ok('it is not marked paid', first.snapshot.paidAt === null)
 
   // ── the property that matters most ────────────────────────────────────
   // XP does not reset between seasons, so re-reading later gives a different
   // answer. The frozen snapshot must win.
   const movedOn = [
-    { walletAddress: W(4), username: 'delta', xp: 99000 },   // played on after the season
-    { walletAddress: W(1), username: 'alpha', xp: 9000 },
-    { walletAddress: W(2), username: 'bravo', xp: 7000 },
-    { walletAddress: W(3), username: 'charlie', xp: 5000 },
+    { walletAddress: W(12), username: 'lima', xp: 99000 },   // played on after the season
+    ...rows.slice(0, 11),
   ]
   const second = await S.prepareSeason(db, makeFs(movedOn), 202607)
   ok('a second run changes nothing', second.created === false)
   ok('and the winners are still the ones frozen at closing time',
-    second.snapshot.winners.map((w) => w.username).join(',') === 'alpha,bravo,charlie',
+    second.snapshot.winners.slice(0, 4).map((w) => w.username).join(',') === 'alpha,bravo,charlie,delta',
     second.snapshot.winners.map((w) => w.username).join(','))
 
   // ── status ────────────────────────────────────────────────────────────
@@ -140,13 +155,35 @@ const W = (n) => '0x' + String(n).repeat(40).slice(0, 40)
 
   // ── the handover: the commands must actually run ──────────────────────
   const cmds = S.payoutCommands(first.snapshot)
-  ok('two commands: publish, then fund', cmds.length === 2)
+  // 3 on-chain + one direct transfer per rank 4-10 = 10.
+  ok('ten commands: three on-chain, seven direct transfers', cmds.length === 10,
+    String(cmds.length))
   const cli = fs.readFileSync(path.join(__dirname, 'deposit-reward.js'), 'utf8')
   // deposit-reward.js validates args.p1..p3 and args.s1..s3 for
   // update-leaderboard, and args.season/args.amount for season-deposit. If it
   // ever renames those, the pasted command breaks silently — so assert against
   // the script's own source rather than against memory.
-  const publish = cmds[0]
+  // FIRST COMMAND: the one that makes the chain agree with RANK_REWARDS_USD.
+  //
+  // It exists because the two had already drifted and nothing could catch it:
+  // TREASURY-OPS.md records the rank rewards actually set on-chain as
+  // $1/$0.60/$0.40, while this file said $20/$5/$3 — so /stats and the frozen
+  // snapshot promised a first-place finisher twenty dollars the contract would
+  // never have paid. A mirror of on-chain state that is never compared to the
+  // chain is just a second, quieter source of truth.
+  const setAmounts = cmds[0]
+  ok('the first command sets the on-chain rank rewards', /season-rewards/.test(setAmounts))
+  ok('with the SAME figures this module promises (' + setAmounts.match(/--r1.*/)?.[0] + ')',
+    /--r1 20 --r2 5 --r3 3/.test(setAmounts))
+  ok('and names the token, which that subcommand also requires',
+    /--token \w+/.test(setAmounts))
+  for (const flag of ['r1', 'r2', 'r3']) {
+    ok(`deposit-reward.js still reads --${flag}`, cli.includes('args.' + flag))
+  }
+  ok('season-rewards is a real subcommand of the script', /case 'season-rewards'/.test(cli))
+
+  const publish = cmds[1]
+  const onchainWallets = first.snapshot.winners.slice(0, 3).map((x) => x.wallet)
   ok('publish command names the right subcommand', /update-leaderboard/.test(publish))
   for (const flag of ['p1', 'p2', 'p3', 's1', 's2', 's3']) {
     ok(`deposit-reward.js still reads --${flag}`, cli.includes('args.' + flag))
@@ -154,15 +191,22 @@ const W = (n) => '0x' + String(n).repeat(40).slice(0, 40)
   }
   ok('publish carries the winners in order',
     publish.indexOf(W(1)) < publish.indexOf(W(2)) && publish.indexOf(W(2)) < publish.indexOf(W(3)))
-  ok('publish carries their scores', /--s1 9000/.test(publish) && /--s3 5000/.test(publish))
+  ok('publish carries their scores', /--s1 9000/.test(publish) && /--s3 8000/.test(publish))
   // The fund command got the same treatment as the publish one only after an
   // audit found it BROKEN: it omitted --token, and resolveToken() in that
   // script dies with "missing --token" rather than defaulting — so the second
   // line handed to the owner failed the moment it was pasted. Checking one
   // command's flags and not the other is how that survived being "tested".
-  const fund = cmds[1]
+  const fund = cmds[2]
   ok('fund command names the right subcommand', /season-deposit/.test(fund))
-  ok('fund command totals the three prizes ($28)', /--amount 28/.test(fund))
+  // The pool must cover exactly what the three commands above promise. If the
+  // amounts change and this does not, the third-place finisher is the one who
+  // finds out.
+  // The pool funds ONLY what the pool can pay. Depositing the full $35 would
+  // strand $7 in a contract with no way to release it — updateLeaderboard has
+  // three slots and ranks 4-10 are not in them.
+  ok('fund command totals the three ON-CHAIN prizes ($28), not all ten ($35)',
+    /--amount 28\b/.test(fund), fund.match(/--amount \S+/)?.[0])
   ok('deposit-reward.js REQUIRES --token (it dies without one)',
     /function resolveToken/.test(cli) && /missing --token/.test(cli))
   ok('so the fund command passes --token', /--token \w+/.test(fund), fund.match(/--token \w+/)?.[0])
@@ -173,11 +217,41 @@ const W = (n) => '0x' + String(n).repeat(40).slice(0, 40)
     ok(`season-deposit still reads args.${flag}`, cli.includes('args.' + flag))
   }
 
+  // ── RANKS 4-10: the contract cannot pay them, so something must ───────
+  //
+  // updateLeaderboard takes address[3]. Emitting the podium commands alone
+  // would have been the dangerous version — they look complete, they succeed,
+  // and seven people are silently paid nothing.
+  const direct = cmds.slice(3)
+  ok('one direct transfer per unpaid rank', direct.length === 7, String(direct.length))
+  ok('each is the pay subcommand', direct.every((c) => /deposit-reward\.js pay /.test(c)))
+  ok('`pay` is a real subcommand of the script', /case 'pay'/.test(cli))
+  for (const flag of ['to', 'amount', 'token']) {
+    ok(`pay still reads args.${flag}`, cli.includes('args.' + flag))
+    ok(`and every generated line passes --${flag}`, direct.every((c) => c.includes('--' + flag + ' ')))
+  }
+  ok('they carry ranks 4 through 10, in order',
+    direct.map((c) => (c.match(/# rank (\d+)/) || [])[1]).join(',') === '4,5,6,7,8,9,10',
+    direct.map((c) => (c.match(/# rank (\d+)/) || [])[1]).join(','))
+  ok('each sends exactly $1', direct.every((c) => /--amount 1\b/.test(c)))
+  ok('to the right wallets, in rank order',
+    direct.every((c, i) => c.includes(first.snapshot.winners[i + 3].wallet)))
+  ok('and no podium wallet is paid twice',
+    direct.every((c) => !onchainWallets.some((wal) => c.includes(wal))))
+  // What the three on-chain commands promise plus what the seven direct ones
+  // send must equal the month's stated cost. This is the assertion that fails
+  // if any of the three numbers above drifts on its own.
+  const directTotal = direct.reduce((t, c) => t + Number((c.match(/--amount (\S+)/) || [])[1] || 0), 0)
+  ok('on-chain pool + direct sends = the $35 the snapshot promises',
+    28 + directTotal === 35, '28 + ' + directTotal)
+
   // ── a thin leaderboard must not produce a half payout ─────────────────
   const thin = makeDb()
   const small = await S.prepareSeason(thin, makeFs(rows.slice(0, 2)), 202605)
   ok('two players yield two winners, not three padded ones', small.snapshot.winners.length === 2)
   ok('and no commands are offered for an incomplete top 3', S.payoutCommands(small.snapshot).length === 0)
+  ok('two players are still paid their own ranks',
+    small.snapshot.winners.map((w) => w.rewardUsd).join(',') === '20,5')
 
   // ── malformed rows are dropped, not paid ──────────────────────────────
   const dirty = makeDb()
@@ -188,7 +262,10 @@ const W = (n) => '0x' + String(n).repeat(40).slice(0, 40)
   ok('a malformed wallet never becomes a winner',
     withJunk.snapshot.winners.every((w) => /^0x[a-f0-9]{40}$/.test(w.wallet)),
     JSON.stringify(withJunk.snapshot.winners.map((w) => w.wallet)))
-  ok('and the top 3 is still full', withJunk.snapshot.winners.length === 3)
+  // The overshoot in readTopByXp exists for exactly this: a junk row at the top
+  // must not cost rank 10 their dollar.
+  ok('and all ten places are still filled', withJunk.snapshot.winners.length === 10,
+    String(withJunk.snapshot.winners.length))
 
   // ── pruning finished buckets ──────────────────────────────────────────
   // Added after the audit noted nothing ever deleted the daily/weekly rows.
