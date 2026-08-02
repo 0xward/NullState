@@ -40,21 +40,38 @@ import { getCurrentWeekIdString } from '@/lib/vault-utils'
 type AdminDb = NonNullable<ReturnType<typeof import('@/firebase-config').getAdminDb>>
 type AdminFs = NonNullable<ReturnType<typeof import('@/firebase-config').getAdminFirestore>>
 
-/** What the top 3 are paid, in whole dollars. Mirrors the on-chain rank rewards. */
-export const RANK_REWARDS_USD = [20, 5, 3] as const
-
-/**
- * Which token funds the season pool.
- *
- * USDT, per OWNER-RUNBOOK.md's monthly commands and rewards-system.md ("all
- * game rewards pay out in USDT"). GAME-DESIGN.md §3 said USDm, which was stale
- * and is corrected — two of the three docs agreed and the runbook is the one
- * that actually gets executed.
- */
-export const SEASON_PAYOUT_TOKEN = 'USDT'
+// The prize table lives in `lib/constants/seasonRewards.ts` and is re-exported
+// here so every existing importer of this module keeps working.
+//
+// It moved out because the LEADERBOARD needs it too — the owner asked for the
+// prize to be shown on the board players are competing on — and a client
+// component cannot import this file without dragging firebase-admin along.
+// Copying the numbers across would have made a second source of truth for a
+// figure that is a promise of real money.
+//
+// ── THIS NUMBER IS A PROMISE, AND IT HAD ALREADY DRIFTED ────────────────────
+//
+// `docs/TREASURY-OPS.md` records rank rewards actually set on-chain to $1 /
+// $0.60 / $0.40 on 2026-07-22, while this file said $20/$5/$3 — and
+// `setRankRewards` is what `claimSeasonBonus` pays from. So `/stats` and the
+// frozen snapshot were promising a first-place finisher twenty dollars the
+// contract would have paid one for. Nothing caught it because nothing could: a
+// mirror of on-chain state that is never compared to the chain is just a
+// second, quieter source of truth — rule 2 in GAME-DESIGN.md §10, one layer out.
+//
+// `payoutCommands()` now emits the `season-rewards` line that sets these exact
+// figures on-chain as the FIRST command of the payout, so running the commands
+// in order makes the chain agree with this file by construction.
+export {
+  RANK_REWARDS_USD, PAID_RANKS, ONCHAIN_RANKS, SEASON_PAYOUT_TOKEN, SEASON_POOL_USD,
+} from '@/lib/constants/seasonRewards'
+import {
+  RANK_REWARDS_USD, PAID_RANKS, ONCHAIN_RANKS, SEASON_PAYOUT_TOKEN,
+} from '@/lib/constants/seasonRewards'
 
 export interface SeasonWinner {
-  rank: 1 | 2 | 3
+  /** 1-based position. 1..PAID_RANKS. */
+  rank: number
   wallet: string
   username: string
   xp: number
@@ -97,10 +114,13 @@ function snapshotRef(db: AdminDb, seasonId: number) {
  * Read the top players by XP straight out of the collection the player-facing
  * leaderboard is built from, so the two can never disagree.
  *
- * `limit` overshoots the three that are paid, so a malformed or missing wallet
- * address in the top rows cannot leave the snapshot with two winners.
+ * `limit` OVERSHOOTS the number of places actually paid, so a malformed or
+ * missing wallet address in the top rows cannot leave the snapshot one winner
+ * short. The default is double PAID_RANKS: every row that fails the address
+ * check below is a paid place that would otherwise go unfilled, and reading
+ * twenty documents costs nothing.
  */
-export async function readTopByXp(fs: AdminFs, limit = 10): Promise<Array<{ wallet: string; username: string; xp: number }>> {
+export async function readTopByXp(fs: AdminFs, limit = PAID_RANKS * 2): Promise<Array<{ wallet: string; username: string; xp: number }>> {
   const snap = await fs.collection('leaderboard').orderBy('xp', 'desc').limit(limit).get()
   return snap.docs.map((d) => {
     const v = d.data() as Record<string, unknown>
@@ -113,8 +133,8 @@ export async function readTopByXp(fs: AdminFs, limit = 10): Promise<Array<{ wall
 }
 
 export function toWinners(rows: Array<{ wallet: string; username: string; xp: number }>): SeasonWinner[] {
-  return rows.slice(0, 3).map((r, i) => ({
-    rank: (i + 1) as 1 | 2 | 3,
+  return rows.slice(0, PAID_RANKS).map((r, i) => ({
+    rank: i + 1,
     wallet: r.wallet,
     username: r.username,
     xp: r.xp,
@@ -157,7 +177,7 @@ export async function prepareSeason(
   // before signing anything — that review IS the safeguard, and it is the whole
   // reason the payout stayed manual. A server-side exclusion list would be a
   // second, invisible policy that nobody reads until it pays the wrong person.
-  const rows = await readTopByXp(fs, 10)
+  const rows = await readTopByXp(fs)
   const snapshot: SeasonSnapshot = {
     seasonId,
     winners: toWinners(rows),
@@ -388,11 +408,37 @@ export async function prune(
   return { removed }
 }
 
+/**
+ * The exact lines the owner runs, split the way the contract forces them to be.
+ *
+ * RANKS 1-3 go through `NullStateRewardV3`: publish the podium, fund the pool,
+ * and the winners claim in-app. RANKS 4-10 **cannot** — `updateLeaderboard`
+ * takes `address[3]` and there is no fourth slot to put anyone in. They are
+ * paid by direct ERC-20 transfer, one line each, through the `pay` subcommand.
+ *
+ * Emitting the podium commands alone would have been the dangerous version:
+ * they look complete, they succeed, and seven people are silently paid nothing.
+ * So the direct sends are part of the same list, and the fund amount covers
+ * only the three the pool actually pays.
+ */
 export function payoutCommands(snapshot: SeasonSnapshot): string[] {
   const w = snapshot.winners
-  if (w.length < 3) return []
-  const total = w.reduce((s, x) => s + x.rewardUsd, 0)
+  // The contract needs exactly three addresses. Fewer than three ranked players
+  // is not a payout that can be prepared, on-chain or off.
+  if (w.length < ONCHAIN_RANKS) return []
+  const onchain = w.slice(0, ONCHAIN_RANKS)
+  const direct = w.slice(ONCHAIN_RANKS)
+  // Only what the POOL pays. Funding it with the whole $35 would leave the
+  // seven tail prizes sitting in a contract that has no way to release them.
+  const total = onchain.reduce((s, x) => s + x.rewardUsd, 0)
   return [
+    // FIRST, and the reason it exists: this is what makes the contract agree
+    // with RANK_REWARDS_USD. `setRankRewards` is global rather than per-season,
+    // so re-sending unchanged figures is a cheap no-op — and the one time it is
+    // NOT a no-op is the time it would otherwise have paid the wrong amount.
+    // See the note on RANK_REWARDS_USD for the drift this closes.
+    `node scripts/deposit-reward.js season-rewards --token ${SEASON_PAYOUT_TOKEN}`
+      + ` --r1 ${RANK_REWARDS_USD[0]} --r2 ${RANK_REWARDS_USD[1]} --r3 ${RANK_REWARDS_USD[2]}`,
     `node scripts/deposit-reward.js update-leaderboard --season ${snapshot.seasonId}`
       + ` --p1 ${w[0].wallet} --p2 ${w[1].wallet} --p3 ${w[2].wallet}`
       + ` --s1 ${w[0].xp} --s2 ${w[1].xp} --s3 ${w[2].xp}`,
@@ -403,5 +449,10 @@ export function payoutCommands(snapshot: SeasonSnapshot): string[] {
     // OWNER-RUNBOOK.md and rewards-system.md both specify for season bonuses.
     `node scripts/deposit-reward.js season-deposit --season ${snapshot.seasonId}`
       + ` --token ${SEASON_PAYOUT_TOKEN} --amount ${total}`,
+    // Ranks 4-10. One transfer each, because the contract has nowhere to put
+    // them. Ordered by rank so the list reads like the leaderboard it came from.
+    ...direct.map((x) =>
+      `node scripts/deposit-reward.js pay --token ${SEASON_PAYOUT_TOKEN}`
+      + ` --to ${x.wallet} --amount ${x.rewardUsd}   # rank ${x.rank}`),
   ]
 }

@@ -82,13 +82,19 @@ Rate: 6,000 NullState Point ≈ $1 of Marketplace gear.
 
 ### Leaderboard Rankings
 
-Each month, the top 3 players by **combined score** earn bonus USDT:
+Each month, the **top 10 players by XP** earn bonus USDT — **35 USDT** in total.
 
-| Rank | Reward | Distribution |
-|------|--------|---------------|
-| 🥇 1st | 20 USDT | Instant transfer |
-| 🥈 2nd | 5 USDT | Instant transfer |
-| 🥉 3rd | 3 USDT | Instant transfer |
+| Rank | Reward | How you get it |
+|------|--------|----------------|
+| 🥇 1st | 20 USDT | Claim in Rewards |
+| 🥈 2nd | 5 USDT | Claim in Rewards |
+| 🥉 3rd | 3 USDT | Claim in Rewards |
+| 4th – 10th | 1 USDT each | **Sent to your wallet** |
+
+**Why the top 3 claim and the rest do not.** The reward contract holds exactly
+three places (`updateLeaderboard` takes `address[3]`), so ranks 4–10 have no
+claim to make — the owner transfers those directly instead. Same money, one
+fewer step, and no Season Pass needed for them.
 
 ### How Rankings Work
 
@@ -103,6 +109,10 @@ exactly what counts.
   bonus pool**, the top 3 claim from Rewards → Claim Rewards in-app.
 - Claiming requires holding that season's Season Pass. There is no
   claim deadline — a past season's bonus stays claimable.
+- **Ranks 4–10 have nothing to claim.** Their 1 USDT is sent straight to the
+  wallet on the frozen leaderboard, with no Pass requirement.
+- The final standings, and whether they have been paid, are shown at the bottom
+  of the in-game **Leaderboard** under *Last season*.
 
 ---
 

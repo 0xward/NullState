@@ -39,9 +39,14 @@ is always safe (it accumulates).
 
 Season id = `YYYYMM` (e.g. July 2026 → `202607`).
 
-**You no longer work out the top 3 yourself.** A cron freezes the ranking the
+**You no longer work out the winners yourself.** A cron freezes the ranking the
 moment the season ends (GAME-DESIGN.md §9) and hands you the exact commands.
 Money still needs your signature — no deployer key lives on the server.
+
+**Ten places are paid: $20 / $5 / $3, then $1 each down to rank 10 — $35 a
+month.** The reward contract holds exactly three (`updateLeaderboard` takes
+`address[3]`), so ranks 4–10 are **direct transfers**, one command each. That
+split is not a preference; there is no fourth slot to put anyone in.
 
 ### 1. Open the payout status
 
@@ -49,9 +54,9 @@ Money still needs your signature — no deployer key lives on the server.
 https://<your-host>/api/season/status
 ```
 
-It answers with the frozen top 3 **and a `commands` array** — the two lines
-below, already filled in with the right addresses, scores and amount. Paste
-them; do not retype them.
+It answers with the frozen top 10 **and a `commands` array** — every line below,
+already filled in with the right addresses, scores and amounts. Paste them in
+order; do not retype them.
 
 `/stats` shows the same thing in amber — **"Winners frozen — payout pending"** —
 until step 3. If you ever see that line lingering, a payout is owed.
@@ -59,20 +64,29 @@ until step 3. If you ever see that line lingering, a payout is owed.
 ### 2. Run what it gives you
 
 ```bash
-# 1. Publish the top-3 winners on-chain (from `commands[0]`)
+# commands[0] — make the contract's amounts match what the app promises.
+# Cheap no-op when nothing changed; the one time it is NOT a no-op is the time
+# it would otherwise have paid the wrong figure. Run it, don't skip it.
+node scripts/deposit-reward.js season-rewards --token USDT --r1 20 --r2 5 --r3 3
+
+# commands[1] — publish the podium on-chain so they can claim
 node scripts/deposit-reward.js update-leaderboard --season 202607 \
   --p1 0x.. --p2 0x.. --p3 0x.. --s1 120 --s2 90 --s3 70
 
-# 2. Fund the pool (from `commands[1]`; amount is already r1+r2+r3)
+# commands[2] — fund the pool. $28: the podium's share ONLY. Depositing all $35
+# would strand $7 in a contract with no way to release it.
 node scripts/deposit-reward.js season-deposit --season 202607 --token USDT --amount 28
 
-# Only if you are CHANGING the prize amounts — not needed monthly:
-node scripts/deposit-reward.js season-rewards --token USDT --r1 20 --r2 5 --r3 3
+# commands[3..9] — ranks 4-10, one transfer each. These are the seven the
+# contract cannot pay. Skipping them pays seven people nothing, silently.
+node scripts/deposit-reward.js pay --token USDT --to 0x.. --amount 1   # rank 4
+# … through rank 10
 ```
 
-**Check the three addresses before signing.** Nothing is filtered out
-server-side on purpose — your review is the safeguard, which is why the payout
-was never automated end to end.
+**Check every address before signing.** Nothing is filtered out server-side on
+purpose — your review is the safeguard, which is why the payout was never
+automated end to end. The `pay` command is a plain transfer out of your own
+wallet and cannot be undone.
 
 ### 3. Mark it paid
 
@@ -84,7 +98,12 @@ curl -X POST https://<your-host>/api/season/status \
 ```
 
 This only sets a flag — it cannot move money or change who won. `/stats` turns
-green and stops nagging.
+green and stops nagging, and the in-game **Leaderboard** shows the season under
+*Last season* as ✓ Paid instead of ● Payout pending.
+
+**Do it even if you paid by hand.** A direct transfer moves the money but leaves
+no record the app can see, so without this flag every player is still being told
+the payout is pending.
 
 The next season starts automatically. Announce winners on Telegram/Twitter for
 retention.

@@ -275,13 +275,13 @@ Your profile tracks:
 - **Enemies Killed** — a lifetime total, not a per-run one
 - **NullState Point Balance** — from burning items; spendable on Marketplace gear
 - **Glitch Shards** (t1/t2/t3) — banked at the end of each bunker, spent on weapon evolution
-- **Leaderboard rank** — computed from XP
+- **Leaderboard rank** — computed from XP. The top 10 at season end share **35 USDT**: $20/$5/$3 for the podium, $1 each for ranks 4-10
 
 Your **stablecoin reward history** (vault wins and season bonuses actually
 paid out) lives on the Rewards screen rather than the profile.
 
 Level, XP and kills are **cumulative and do not reset** between seasons. What
-is seasonal is the Season Pass and the monthly top-3 bonus.
+is seasonal is the Season Pass and the monthly top-10 bonus.
 
 ---
 

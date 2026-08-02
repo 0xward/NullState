@@ -73,18 +73,34 @@ Just make sure the backend wallet holds a little CELO for that gas.
 
 Season id = `YYYYMM` (e.g. July 2026 → `202607`).
 
-```bash
-# 1. Set the top-3 bonus amounts
-node scripts/deposit-reward.js season-rewards --token USDT --r1 0.20 --r2 0.10 --r3 0.05
+Ten places are paid — **$20 / $5 / $3, then $1 each to rank 10 ($35/month)** —
+but the contract holds only three. `updateLeaderboard` takes `address[3]`, so
+ranks 4–10 are direct transfers. `/api/season/status` generates all of these
+filled in; the shapes are here for reference.
 
-# 2. Fund the season pool (amount must be >= r1+r2+r3)
-node scripts/deposit-reward.js season-deposit --season 202607 --token USDT --amount 0.50
+```bash
+# 1. Set the top-3 bonus amounts (must match RANK_REWARDS_USD in the app)
+node scripts/deposit-reward.js season-rewards --token USDT --r1 20 --r2 5 --r3 3
+
+# 2. Fund the season pool with the PODIUM's share only ($28, not $35).
+#    The other $7 never enters the contract — it cannot come back out.
+node scripts/deposit-reward.js season-deposit --season 202607 --token USDT --amount 28
 
 # 3. AT SEASON END — publish the winners so they can claim
 node scripts/deposit-reward.js update-leaderboard --season 202607 \
   --p1 0xWINNER1 --p2 0xWINNER2 --p3 0xWINNER3 \
   --s1 <score1> --s2 <score2> --s3 <score3>
+
+# 4. Ranks 4-10 — a plain transfer each, from your own wallet. No contract
+#    involved, and no way to undo one.
+node scripts/deposit-reward.js pay --token USDT --to 0xRANK4 --amount 1
 ```
+
+> **Historical note.** The ledger below records the rank rewards being set to
+> $1 / $0.60 / $0.40 on 2026-07-22 while the app's `RANK_REWARDS_USD` said
+> $20 / $5 / $3 — so `/stats` promised a figure `claimSeasonBonus` would not have
+> paid. Step 1 is now emitted as `commands[0]` of every payout so the two are
+> re-synced by the act of paying.
 
 `--s1/--s2/--s3` are the winners' Abyss depth/scores (for display on-chain),
 not money. Get them from the Abyss leaderboard.
