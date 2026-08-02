@@ -123,7 +123,7 @@ export default function HowToPlayScreen({ onBack }: HowToPlayScreenProps) {
         {/* The Loop — four cadences.
             DAILY was missing entirely, from a game whose entire retention is
             daily: energy is what ends every session, the streak is what should
-            start the next one, and contracts are what a session is FOR. A help
+            start the next one, and missions are what a session is FOR. A help
             screen that skips all three explains the game a player is not
             actually playing. */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-10">
@@ -142,7 +142,7 @@ export default function HowToPlayScreen({ onBack }: HowToPlayScreenProps) {
               streak survives it. Miss two and it resets.
             </p>
             <p>
-              <span className="text-null-white font-semibold">3 Daily Contracts</span> reset with the day and pay{' '}
+              <span className="text-null-white font-semibold">3 Daily Missions</span> reset with the day and pay{' '}
               <Tag kind="point" /> and shards the moment you finish them — no claim button.
             </p>
           </LoopCard>

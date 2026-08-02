@@ -332,7 +332,7 @@ function announceContracts(data){
     const r = c.reward || {};
     const paid = r.kind==='point' ? ('+'+r.amount+' NullState Point')
                : r.kind==='shard' ? ('+'+r.amount+' Glitch Shard') : 'reward';
-    log('◆ CONTRACT COMPLETE — '+c.label+'. '+paid+'.', 'reward');
+    log('◆ MISSION COMPLETE — '+c.label+'. '+paid+'.', 'reward');
   }
 }
 function reportContract(metric, amount){

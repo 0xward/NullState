@@ -373,13 +373,13 @@ export default function RewardsScreen({ onBack, address }: RewardsScreenProps) {
           : prev
       )
       setSel({})
-      // Burning here counts toward the Daily Contracts exactly as burning
+      // Burning here counts toward the Daily Missions exactly as burning
       // in-run does — /api/burn/record credits both paths. Say so when one
       // finishes, or the player has no way to know it happened off this screen.
       const done: string[] = Array.isArray(payload.contracts?.labels) ? payload.contracts.labels : []
       setBurnMsg({
         text: `Burned ${selectedCount} item(s) — +${Math.round(payload.totalValue ?? selectedValue)} Point`
-          + (done.length ? ` · ◆ Contract complete: ${done.join(', ')}` : ''),
+          + (done.length ? ` · ◆ Mission complete: ${done.join(', ')}` : ''),
         kind: 'ok',
       })
       loadProfile()
