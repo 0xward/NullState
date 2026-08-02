@@ -1,0 +1,152 @@
+#!/usr/bin/env node
+/**
+ * test-privy-gate.js — temporary scaffolding that must stay invisible.
+ *
+ * OWNER, 2026-08-02: *"untuk user non minipay, aku mau ada koneksi wallet
+ * barengan dengan login google … pake privy aja … tp ini hanya untuk user dan
+ * penjurian talent.app saja muncul nya … selebihnya jgn pernah tampilkan untuk
+ * user minipay, karena ini sementara saja."*
+ *
+ * Three promises, and breaking any one of them costs real players:
+ *
+ *   1. OFF BY DEFAULT. A judging-period feature that ships enabled becomes
+ *      permanent by forgetting. With no NEXT_PUBLIC_PRIVY_GATE and no app id,
+ *      nothing changes for anybody.
+ *   2. NEVER INSIDE MINIPAY. MiniPay resolves an address with zero clicks and
+ *      its listing rules reject a screen between the player and the game. The
+ *      flag must not be able to switch that off.
+ *   3. NEVER DOWNLOADED WHEN OFF. @privy-io/react-auth is a large SDK. If it
+ *      landed in the initial chunk, every MiniPay player would pay for a screen
+ *      they can never see — on the connections least able to afford it.
+ *
+ * The browser half runs the DEFAULT path, which is the one every real player is
+ * on today. The gate itself cannot be rendered here: it needs a Privy app id,
+ * which is a credential this sandbox does not have and must not invent. What
+ * that leaves untested is Privy's own modal — stated plainly rather than
+ * implied by a passing run.
+ *
+ *   npm run build
+ *   node scripts/test-privy-gate.js --serve
+ */
+const { chromium } = require('playwright-core')
+const { spawn } = require('child_process')
+const fs = require('fs'), path = require('path')
+const SERVE = process.argv.includes('--serve')
+const PORT = Number(process.env.PORT || 3191)
+const BASE = SERVE ? `http://127.0.0.1:${PORT}` : (process.env.BASE_URL || 'http://127.0.0.1:3178')
+let fails = 0, server = null
+const ok = (l, c, d) => { console.log((c ? '  ✓ ' : '  ✗ FAIL: ') + l + (d !== undefined ? ' (' + d + ')' : '')); if (!c) fails++ }
+const clean = () => { if (server) { try { process.kill(-server.pid) } catch {} server = null } }
+
+async function serve() {
+  server = spawn('npx', ['next', 'start', '-p', String(PORT)], { stdio: 'ignore', detached: true })
+  for (let i = 0; i < 60; i++) {
+    await new Promise((r) => setTimeout(r, 500))
+    try { if ((await fetch(`${BASE}/game`)).ok) return } catch { /* not up */ }
+  }
+  throw new Error('server did not come up')
+}
+
+// ── the guarantees, asserted where they live ────────────────────────────────
+const flag = fs.readFileSync(path.join(__dirname, '..', 'lib', 'privyGateFlag.ts'), 'utf8')
+const flow = fs.readFileSync(path.join(__dirname, '..', 'components', 'game', 'GameFlowManager.tsx'), 'utf8')
+const gate = fs.readFileSync(path.join(__dirname, '..', 'components', 'game', 'PrivyGate.tsx'), 'utf8')
+
+ok('the gate is OFF unless the env var says exactly "1"',
+  /const ENV_ON = process\.env\.NEXT_PUBLIC_PRIVY_GATE === '1'/.test(flag))
+ok('the hook seeds FALSE, so the default render loads nothing',
+  /useState\(false\)/.test(flag))
+ok('no app id means the gate is off, not a login that cannot complete',
+  /if \(!privyAppId\(\)\) return false/.test(flag))
+ok('and the component refuses to mount the provider without one',
+  /if \(!appId\) return null/.test(gate))
+
+// THE MINIPAY GUARANTEE. The gate reuses shouldOfferSignIn() rather than
+// carrying a second condition, so `!isMiniPay` cannot drift out of it.
+ok('the gate is gated on shouldOfferSignIn(), not a second copy of the rule',
+  /const showPrivyGate = privyGateOn && !gateDone && shouldOfferSignIn\(\)/.test(flow))
+ok('and shouldOfferSignIn still starts with !isMiniPay',
+  /!isMiniPay && !realAddress && !getStoredAuthAddress\(\) && !hasSkippedSignIn\(\)/.test(flow))
+ok('the SDK is dynamically imported, never in the initial chunk',
+  /const PrivyGate = dynamic\(\(\) => import\('\.\/PrivyGate'\), \{ ssr: false \}\)/.test(flow))
+ok('skipping is remembered, so it asks once and not again',
+  /onSkip=\{\(\) => \{ acct\.rememberSkipped\(\); setGateDone\(true\) \}\}/.test(flow))
+
+// The screen promises the run "follows you anywhere". That is only true if
+// signing in actually keys the save on the account — through the SAME adopt()
+// the Firebase screen uses, which migrates guest progress before storing the
+// identity. A gate that merely closed itself would be a lie on the glass.
+ok('signing in adopts the account rather than just closing the screen',
+  /await acct\.adopt\(uid, label\)/.test(flow))
+ok('and it cannot strand the player if the migration throws',
+  /\} finally \{[\s\S]{0,200}setGateDone\(true\)/.test(flow))
+ok('the account is keyed on Privy\'s user id, not a wallet address',
+  /onAuthenticated\(\s*user\.id,/.test(gate))
+ok('adopting runs once, not on every Privy re-render',
+  /adopted\.current = true/.test(gate))
+ok('Privy is a real dependency, not an aspiration',
+  !!JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'))
+    .dependencies['@privy-io/react-auth'])
+
+;(async () => {
+  if (SERVE) await serve()
+  const b = await chromium.launch({ executablePath: process.env.CHROME_PATH || '/opt/pw-browsers/chromium', args: ['--no-sandbox'] })
+
+  // ── the DEFAULT path: what every real player gets today ────────────────
+  {
+    const page = await (await b.newContext({ viewport: { width: 390, height: 844 } })).newPage()
+    const chunks = []
+    page.on('request', (r) => { const u = r.url(); if (/\.js(\?|$)/.test(u)) chunks.push(u) })
+    const errs = []
+    page.on('pageerror', (e) => errs.push(e.message.slice(0, 120)))
+    for (const [u, j] of [
+      ['**/api/energy?**', { freeRemaining: 5, bonus: 0, total: 5, resetAt: Date.now() + 3.6e6 }],
+      ['**/api/vault/fragments?**', { fragments: 0, nextGoal: null }],
+      ['**/api/weapons/craft?**', { craft: null, serverNow: Date.now() }],
+      ['**/api/contracts?**', { completed: 0, contracts: [] }],
+      ['**/api/streak', { streak: 0, best: 0, day: 1, claimedToday: false, granted: null, ladder: [] }],
+      ['**/api/season/status', { snapshot: null, commands: [] }],
+    ]) page.route(u, (r) => r.fulfill({ json: j }))
+
+    await page.goto(BASE + '/game', { waitUntil: 'domcontentloaded' })
+    await page.waitForSelector('.ns-hub-map', { timeout: 60000 })
+    await page.waitForTimeout(4000)
+
+    ok('with the flag off, a brand-new player lands on the MAP as before',
+      !!(await page.$('.ns-hub-map')))
+    const body = (await page.textContent('body')) || ''
+    ok('and is not shown the gate', !/KEEP YOUR RUN/.test(body))
+    ok('nothing threw', errs.length === 0, errs.slice(0, 2).join(' | ') || 'clean')
+    await page.context().close()
+  }
+
+  // ── forcing it on WITHOUT an app id must fall back, not break ───────────
+  {
+    const page = await (await b.newContext({ viewport: { width: 390, height: 844 } })).newPage()
+    const errs = []
+    page.on('pageerror', (e) => errs.push(e.message.slice(0, 120)))
+    for (const [u, j] of [
+      ['**/api/energy?**', { freeRemaining: 5, bonus: 0, total: 5, resetAt: Date.now() + 3.6e6 }],
+      ['**/api/vault/fragments?**', { fragments: 0, nextGoal: null }],
+      ['**/api/weapons/craft?**', { craft: null, serverNow: Date.now() }],
+      ['**/api/contracts?**', { completed: 0, contracts: [] }],
+      ['**/api/streak', { streak: 0, best: 0, day: 1, claimedToday: false, granted: null, ladder: [] }],
+      ['**/api/season/status', { snapshot: null, commands: [] }],
+    ]) page.route(u, (r) => r.fulfill({ json: j }))
+
+    await page.goto(BASE + '/game?privy=1', { waitUntil: 'domcontentloaded' })
+    await page.waitForSelector('.ns-hub-map', { timeout: 60000 }).catch(() => {})
+    await page.waitForTimeout(4000)
+    // A deployment that turns the flag on and forgets the credential must get
+    // the ordinary game, not a login screen that can never log anyone in.
+    ok('?privy=1 with no app id falls back to the map rather than a dead screen',
+      !!(await page.$('.ns-hub-map')))
+    ok('and still throws nothing', errs.length === 0, errs.slice(0, 2).join(' | ') || 'clean')
+    await page.context().close()
+  }
+
+  await b.close(); clean()
+  console.log(fails ? `  ${fails} GAGAL` : '  semua lolos')
+  console.log('  NOTE: Privy\'s own modal is NOT covered — it needs an app id this sandbox has none of.')
+  process.exit(fails ? 1 : 0)
+})().catch((e) => { clean(); console.error('ERROR', e.message); process.exit(2) })

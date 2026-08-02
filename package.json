@@ -40,10 +40,12 @@
     "test:season-ui": "node scripts/test-season-rewards-ui.js --serve",
     "test:pass-cards": "node scripts/test-season-pass-cards.js --serve",
     "test:seasonxp": "node scripts/test-season-xp.js",
-    "test:exit-streak": "node scripts/test-exit-streak.js"
+    "test:exit-streak": "node scripts/test-exit-streak.js",
+    "test:privy": "node scripts/test-privy-gate.js --serve"
   },
   "dependencies": {
     "@celo/attribution-tags": "^0.3.0",
+    "@privy-io/react-auth": "^3.36.1",
     "@tanstack/react-query": "5.101.0",
     "@wagmi/core": "2.22.1",
     "clsx": "2.1.1",
