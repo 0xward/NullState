@@ -120,8 +120,33 @@ export default function HowToPlayScreen({ onBack }: HowToPlayScreenProps) {
           <span className="flex items-center gap-2"><Tag kind="point" /> NullState Point — in-game only, not cashable</span>
         </div>
 
-        {/* The Loop — three cadences */}
-        <div className="grid gap-4 sm:grid-cols-3 mb-10">
+        {/* The Loop — four cadences.
+            DAILY was missing entirely, from a game whose entire retention is
+            daily: energy is what ends every session, the streak is what should
+            start the next one, and contracts are what a session is FOR. A help
+            screen that skips all three explains the game a player is not
+            actually playing. */}
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-10">
+          <LoopCard cadence="EVERY DAY" title="Show Up" accent="#ffd166">
+            <p>
+              <span className="text-null-white font-semibold">5 free runs a day.</span> One run = one bunker descent.
+              They refill at <span className="text-null-white">00:00 UTC</span>, and unused ones do not stack.
+            </p>
+            <p>
+              <span className="text-null-white font-semibold">Opening the game is enough</span> to move your streak —
+              you do not have to play. Seven days pay more each rung; day 7 pays{' '}
+              <span className="text-null-acid">8 Glitch Shards</span>, exactly one weapon evolution.
+            </p>
+            <p>
+              Three days in a row earns a <span className="text-null-white">Streak Shield</span>: miss one day and your
+              streak survives it. Miss two and it resets.
+            </p>
+            <p>
+              <span className="text-null-white font-semibold">3 Daily Contracts</span> reset with the day and pay{' '}
+              <Tag kind="point" /> and shards the moment you finish them — no claim button.
+            </p>
+          </LoopCard>
+
           <LoopCard cadence="EVERY RUN" title="Play &amp; Farm" accent="#00ff88">
             <p>Descend the bunkers, clear floors, and loot gear from containers and elites.</p>
             <p>
@@ -153,13 +178,27 @@ export default function HowToPlayScreen({ onBack }: HowToPlayScreenProps) {
             <p>
               Carry <span className="text-null-white">both</span> to the sealed Vault door, then read the 4-digit code
               off your Old Paper and enter it (3 tries that week) for a real <Tag kind="stablecoin" /> payout straight to
-              your wallet.
+              your wallet. No claim button — it is already sent.
+            </p>
+            <p>
+              <span className="text-null-white font-semibold">You are never left to luck.</span> Every lockable container
+              you open earns a <span className="text-null-white">Vault Fragment</span>:{' '}
+              <span className="text-null-acid">8</span> guarantees the Paper,{' '}
+              <span className="text-null-acid">18</span> guarantees the Key. A week of playing can never pay you nothing.
             </p>
           </LoopCard>
 
           <LoopCard cadence="EVERY SEASON" title="Rank &amp; Pass" accent="#ffaa00">
             <p>
-              Climb the seasonal <span className="text-null-white">Leaderboard</span> — the top 3 at season end split a real <Tag kind="stablecoin" /> prize pool (claiming needs that season&apos;s Pass).
+              The <span className="text-null-white">Leaderboard</span> ranks the{' '}
+              <span className="text-null-white">XP you earn this month</span> — everyone starts each season at zero, so a
+              player who joins today can win it.
+            </p>
+            <p>
+              The <span className="text-null-white">top 10</span> share <Tag kind="stablecoin" />{' '}
+              <span className="text-null-acid">35 USDT</span>: $20 / $5 / $3 for the podium, $1 each for ranks 4–10. The
+              top 3 claim theirs in Rewards (that season&apos;s Pass required); ranks 4–10 are sent straight to your
+              wallet.
             </p>
             <p>
               A <span className="text-null-white">Season Pass</span> (Soulbound NFT) grants the exclusive Warden outfit, daily perks
@@ -288,7 +327,8 @@ export default function HowToPlayScreen({ onBack }: HowToPlayScreenProps) {
               <p>• Invite friends from the <span className="text-null-white">Referral</span> menu — free weapon trials, a permanent skin at 3 friends, and a free Season Pass when an invitee makes their first purchase.</p>
               <p>• The Vault code resets weekly and the Leaderboard resets each season — fresh <Tag kind="stablecoin" /> to chase on a timer.</p>
               <p>• Beat all 5 bunkers up to <BunkerTag>The Last Light</BunkerTag> to unlock <span className="text-null-white">New Game+</span> — replay the campaign at a higher Cycle: enemies hit +35% harder per Cycle and shards drop +25% richer.</p>
-              <p>• …and <span className="text-null-white">THE NULL ABYSS</span> — an endless descent below <BunkerTag>The Last Light</BunkerTag>. Your deepest floor is your season rank (top 3 split the <Tag kind="stablecoin" /> bonus), the deep floors drop the best shards, and death ends the dive.</p>
+              <p>• …and <span className="text-null-white">THE NULL ABYSS</span> — an endless descent below <BunkerTag>The Last Light</BunkerTag>. Deep floors drop the best shards, death ends the dive, and your deepest floor is recorded as your Abyss record for the season. (That record is <span className="text-null-white">separate</span> from the Leaderboard, which ranks XP.)</p>
+              <p>• Every bunker you clear <span className="text-null-white">stays open</span> — tap it on the map and the button reads <span className="text-null-white">RAID</span>. Loot, shards and Vault Fragments all count, it costs 1 energy, and your campaign position is untouched. This is how you reach the Vault every week once the story is done.</p>
             </div>
           </div>
         </div>

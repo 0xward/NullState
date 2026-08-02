@@ -128,6 +128,44 @@ export default function DungeonGame({ playerProfile, setPlayerUsername, isNewRun
     const t = setInterval(() => setEnergyNow(Date.now()), 1000)
     return () => clearInterval(t)
   }, [energyModal])
+  // ── WHAT TOMORROW IS WORTH ────────────────────────────────────────────────
+  //
+  // Running out of energy is the ONE moment this game knows for certain that
+  // the player is about to stop. Until now the screen said "you are done" and
+  // offered a $1 refill — a closing, and a bill.
+  //
+  // /stats says 78 people played this week and 1 played today. Whatever else is
+  // true, nothing here was giving anyone a reason to come back, and this is the
+  // single highest-leverage placement in the game for one.
+  //
+  // A GET, never the POST the map uses. Opening this modal must not register a
+  // visit or hand out a day's reward — the streak is earned by opening the game
+  // tomorrow, and quietly claiming it here would take that away.
+  const [streakPeek, setStreakPeek] = useState<{
+    day: number; streak: number; claimedToday: boolean
+    ladder: { kind: string; amount: number; tier?: string }[]
+    tomorrow: { kind: string; amount: number; tier?: string } | null
+  } | null>(null)
+  useEffect(() => {
+    if (!energyModal) return
+    const addr = walletRef.current.address
+    if (!addr || streakPeek) return
+    let alive = true
+    fetch(`/api/streak?wallet=${encodeURIComponent(addr)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!alive || !d || d.error || !Array.isArray(d.ladder) || !d.ladder.length) return
+        setStreakPeek({
+          day: d.day ?? 1,
+          streak: d.streak ?? 0,
+          claimedToday: !!d.claimedToday,
+          ladder: d.ladder,
+          tomorrow: d.tomorrow ?? null,
+        })
+      })
+      .catch(() => { /* offline — the modal just keeps its original two lines */ })
+    return () => { alive = false }
+  }, [energyModal, streakPeek])
   // 1Hz tick while an elixir buff is active or its modal is open (for the
   // countdown), otherwise idle.
   const elixirActive = elixir.activeUntil > uiNow
@@ -1015,6 +1053,52 @@ export default function DungeonGame({ playerProfile, setPlayerUsername, isNewRun
                   })()}
                 </b>
               </p>
+              {/* TOMORROW. The reason to come back, placed at the exact moment
+                  the player is deciding whether to. Only drawn once there is a
+                  real streak to show — a ladder with nothing on it is furniture,
+                  and a player who has never logged a day is not being reminded
+                  of anything. */}
+              {streakPeek && streakPeek.ladder.length > 0 && streakPeek.streak > 0 && (
+                <div className="ns-exit-streak">
+                  <p className="ns-exit-streak-h">
+                    <span aria-hidden="true">🔥</span> {streakPeek.streak}-day streak · come back tomorrow
+                  </p>
+                  <ol className="ns-streak-ladder">
+                    {streakPeek.ladder.map((r, i) => {
+                      const dayNo = i + 1
+                      const banked = dayNo < streakPeek.day
+                        || (dayNo === streakPeek.day && streakPeek.claimedToday)
+                      // TOMORROW is the lit tile here, not today — today is spent,
+                      // and the whole point of this screen is the next one.
+                      const next = dayNo === (streakPeek.claimedToday ? streakPeek.day + 1 : streakPeek.day)
+                      const jackpot = dayNo === streakPeek.ladder.length
+                      return (
+                        <li
+                          key={dayNo}
+                          className={`ns-streak-day${banked ? ' is-done' : ''}${next ? ' is-today' : ''}${jackpot ? ' is-jackpot' : ''}`}
+                        >
+                          <span className="ns-streak-daynum">{jackpot ? '★7' : dayNo}</span>
+                          <span className={`ns-streak-ico is-${r.kind}`} aria-hidden="true">
+                            {r.kind === 'point' ? '◆' : r.kind === 'shard' ? '◈' : '⚡'}
+                          </span>
+                          <span className="ns-streak-amt">{r.kind === 'energy' ? `+${r.amount}` : r.amount}</span>
+                          {banked && <span className="ns-streak-tick" aria-hidden="true">✓</span>}
+                        </li>
+                      )
+                    })}
+                  </ol>
+                  {streakPeek.tomorrow && (
+                    <p className="ns-exit-streak-note">
+                      Tomorrow pays <b>
+                        +{streakPeek.tomorrow.amount}{' '}
+                        {streakPeek.tomorrow.kind === 'point' ? 'Point'
+                          : streakPeek.tomorrow.kind === 'shard' ? `Shard ${String(streakPeek.tomorrow.tier || '').toUpperCase()}`
+                          : 'energy'}
+                      </b> just for opening the game.
+                    </p>
+                  )}
+                </div>
+              )}
               {energyMsg && (
                 <p style={{ fontSize: 12, color: '#9df5cf', margin: '0 0 10px' }}>{energyMsg}</p>
               )}

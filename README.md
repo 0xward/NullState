@@ -39,8 +39,10 @@ The game runs on stablecoins + an in-game point — **no speculative token**. Th
 |---|---|---|
 | **Every run** | Play, loot, burn gear you don't need | **NullState Point** — in-game, faucet-only, *not* withdrawable; spend it to *Swap* for non-premium Marketplace gear |
 | **Every week** | Find the Golden Key + Code Paper, solve the Treasure Vault code | **USDT** |
-| **Every season** | Rank on the Leaderboard; hold a Season Pass | **USDT** — top-3 prize pool + Season Pass reward track |
+| **Every day** | Open the app; clear 3 Daily Contracts | **Glitch Shards + Point** — a 7-day login ladder (day 7 = one full weapon evolution) with a Streak Shield that forgives one missed day |
+| **Every season** | Rank on the Leaderboard; hold a Season Pass | **USDT** — 35/month across the **top 10** ($20/$5/$3, then $1 to 10th) + Season Pass reward track |
 
+- **Seasonal ranking is seasonal** — the Leaderboard ranks the XP you earn *within* the current month, not career XP, so every season starts level and a player who joins today can win it. Career XP has its own ALL-TIME board. See `docs/GAME-DESIGN.md` §9.2c.
 - **Progression** — 5 bunkers × 5 floors = 25 depths. Gear, weapon tiers, and Point carry across runs; deeper acts drop higher-tier crafting shards.
 - **Guest mode** — outside MiniPay you can play with no wallet; progress is kept in `localStorage` and migrated onto your wallet the first time you connect one. USDT reward claims require a wallet.
 - **Flexible stablecoin** — payments and gas default to whichever of USDM/USDC/USDT the wallet holds the most of (fee-abstraction), with a manual override.
