@@ -115,11 +115,37 @@
     return best;
   }
 
+  // rollFoodDrop(): an item drawn from the EDIBLE range only.
+  //
+  // Food is not a separate table — it is the slice of the same 1244-icon
+  // library that NS_MARKET.FOOD_RANGES marks edible (ids 321-515, about 16%).
+  // So a generic item roll already produces food one time in six; this exists
+  // for props that should reliably yield something to eat — a supply crate, a
+  // stocked shelf, a water pail — where "one in six" was indistinguishable
+  // from never.
+  //
+  // Deliberately no rarity re-roll. rollItemDrop biases toward better rarity
+  // for richer containers; food heals 3-5% of max HP by rarity, a spread too
+  // narrow to be worth the bias, and a legendary apple reads as a joke.
+  function rollFoodDrop(){
+    var ranges = (window.NS_MARKET && window.NS_MARKET.FOOD_RANGES) || [[321, 515]];
+    var span = 0, i;
+    for (i = 0; i < ranges.length; i++) span += (ranges[i][1] - ranges[i][0] + 1);
+    var pick = Math.floor(Math.random() * span);
+    for (i = 0; i < ranges.length; i++){
+      var len = ranges[i][1] - ranges[i][0] + 1;
+      if (pick < len) return getItem(ranges[i][0] + pick);
+      pick -= len;
+    }
+    return getItem(ranges[0][0]);
+  }
+
   window.NS_ITEMS = {
     ITEM_COUNT: ITEM_COUNT,
     RARITIES: RARITIES,
     RARITY_ORDER: RARITY_ORDER,
     getItem: getItem,
     rollItemDrop: rollItemDrop,
+    rollFoodDrop: rollFoodDrop,
   };
 })();

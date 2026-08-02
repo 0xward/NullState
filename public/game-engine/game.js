@@ -1583,6 +1583,45 @@ function applyLoot(kind,amt,x,y){
     log('A weathered paper, folded shut. Tap it in your inventory to read the code.', 'reward', 'scroll');
     spark(x, y-10, '#c9a86a', 26, 200);
   }
+  else if(kind==='item' || kind==='food'){
+    // ── THE DROP THAT NEVER ARRIVED ────────────────────────────────────────
+    //
+    // OWNER: *"Lootingan food ko skrg kaya gaada ya?? ini serius perlu di bahas
+    // kenapa di hilangkan."* Nothing was removed. This branch never existed.
+    //
+    // Nine breakable props roll an `item` outcome — crate, crystal, tablet,
+    // statue, oak_barrel, barrel_stack, hay_pile, plaque_sword, cot — and
+    // applyLoot() handled hp, xp, relic, goldkey, paper and gshard. An `item`
+    // roll fell through every branch, played the pickup sound, and logged
+    // "— loot!" because the roll was not 'none'. The player got nothing. His
+    // own screenshot says *"Straw Bedding shattered — loot!"* over an empty
+    // inventory, which is this line missing.
+    //
+    // Food was never removed either: food IS items (the edible slice of the
+    // same library, ~16% of ids), so a broken item path took food with it.
+    //
+    // `amt` carries the tier the loot table asked for — ['item',2,30] means a
+    // tier-2 roll — which is how a chest yields better icons than a barrel.
+    const I = window.NS_ITEMS;
+    const it = !I ? null : (kind==='food' ? I.rollFoodDrop() : I.rollItemDrop(amt||1));
+    if(it){
+      const got = addItemToStash(it, 1);
+      if(got.added > 0){
+        const edible = !!(window.NS_MARKET && NS_MARKET.isFood(it.id));
+        lootText(x, y, '+' + (it.shortName || it.name), it.color || '#eafff5');
+        // 'heart' and 'open' because those keys exist in NS_ICON_PATHS —
+        // nsIcon() returns an empty string for anything else, so an invented
+        // name would silently ship a message with no icon.
+        log((edible ? 'Found food: ' : 'Found ') + it.name + (edible ? ' — eat it from the Food tab.' : ''),
+          'reward', edible ? 'heart' : 'open');
+        spark(x, y-10, it.color || '#eafff5', 22, 190);
+      } else {
+        // Stack already at its cap. Say so rather than repeating the silent
+        // loss this whole branch exists to fix.
+        lootText(x, y, it.shortName + ' (stack full)', '#c9a86a');
+      }
+    }
+  }
   else if(kind==='gshard'){
     // Phase 2 (blueprint §2.2): Glitch Shard crafting material. Tier follows
     // the current act (early acts drop t1, mid t2, late t3) so materials
@@ -6168,6 +6207,14 @@ window.__NS = { get G(){ return G; },
   spawnElite(){ if(!G) return; const a=ARCHETYPES[0];
     G.enemies.push(new Enemy(a, G.player.x+120, G.player.y, G.depth, false, true)); },
   addDecor(t){ if(!G) return; G.decor.push(new Decor(t||'vase', G.player.x+40, G.player.y)); },
+  // Debug-only, alongside addDecor above and for the same reason: driving a
+  // real swing into a prop from a test is all timing and hitboxes, and none of
+  // that is what the loot path is being asked about. Smashes prop `i` through
+  // the SAME smashDecor() a weapon calls, so what the test exercises is the
+  // production path — see scripts/test-prop-loot.js, which exists because
+  // applyLoot() shipped with no `item` branch and nine props dropped nothing.
+  smashDecorAt(i){ if(!G || !G.decor[i]) return false;
+    const o = G.decor[i]; o.hp = 1; smashDecor(o); return !!o.broken; },
   onEnemyKilled, // debug-only: lets tests exercise act-completion without a full attack simulation
   get campaignActIndex(){ return campaignActIndex; },
   get campaignCycle(){ return campaignCycle; },      // Null Cycles — enemy scaling
