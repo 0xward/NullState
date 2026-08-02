@@ -55,6 +55,19 @@ const nextConfig = {
       '@react-native-async-storage/async-storage': false,
       // Stub pino-pretty (server-only logging helper)
       'pino-pretty': false,
+      // ── Privy's optional peers ──────────────────────────────────────────
+      // @privy-io/react-auth reaches for a fiat on-ramp (Stripe), a Farcaster
+      // mini-app bridge and Solana support. All three are OPTIONAL peers: the
+      // SDK guards them at runtime, but webpack resolves imports statically and
+      // fails the build on a module that is merely never called.
+      //
+      // Stubbed rather than installed, deliberately. Installing them would put
+      // three SDKs we never invoke into the tree — and one of them is Stripe,
+      // which has no business anywhere near a build for a game that takes no
+      // card payments. The gate only ever uses Google, email and an EVM wallet.
+      '@stripe/crypto': false,
+      '@stripe/stripe-js': false,
+      '@farcaster/mini-app-solana': false,
     }
     return config
   },

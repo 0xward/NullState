@@ -13,6 +13,7 @@ import { readHighestAct, recordHighestAct, stashCampaignResume, takeCampaignResu
 import MainMenu from './MainMenu'
 import WorldMapHub from './WorldMapHub'
 import { useWorldMapHubFlag } from '@/lib/worldMapHubFlag'
+import { usePrivyGateFlag } from '@/lib/privyGateFlag'
 import { markCampaignComplete } from '@/lib/campaignComplete'
 import NewGameConfirmModal from './NewGameConfirmModal'
 import WelcomeGiftModal from './WelcomeGiftModal'
@@ -39,6 +40,12 @@ const SignInScreen = dynamic(() => import('./SignInScreen'), {
   ssr: false,
   loading: () => <ScreenLoadingFallback label="LOADING SIGN IN" />,
 })
+// The Privy gate is TEMPORARY scaffolding for a talent.app judging period and
+// pulls a large SDK, so it is loaded only when the flag is on and the player is
+// outside MiniPay. `ssr: false` because Privy is browser-only. See
+// lib/privyGateFlag.ts for why this is off by default.
+const PrivyGate = dynamic(() => import('./PrivyGate'), { ssr: false })
+
 const Leaderboard = dynamic(() => import('./Leaderboard'), {
   ssr: false,
   loading: () => <ScreenLoadingFallback label="LOADING LEADERBOARD" />,
@@ -146,6 +153,7 @@ export default function GameFlowManager() {
   // on (see lib/worldMapHubFlag.ts — OFF by default). HowToPlayScreen reads the
   // same flag, so the help text always matches the screen the player gets.
   const useWorldMapHub = useWorldMapHubFlag()
+  const privyGateOn = usePrivyGateFlag()
 
   // Bunker cleared → surface back to the world map, so the run's progress lands
   // somewhere visible (the ✓ appears, the next bunker loses its fog) instead of
@@ -472,7 +480,19 @@ export default function GameFlowManager() {
    * unreachable and most guests never pass through New Game anyway.
    */
   const goPlaying = (next: GamePhase) => {
-    if (shouldOfferSignIn()) {
+    // OWNER: *"halaman login google email yg lama matikan aja, fungsi yg lama
+    // juga kan sebenernya sama aja kaya fungsi privy skrg."* He is right — both
+    // end in the same derived account address, so with the gate on this screen
+    // would be a SECOND way to make the same account, using a different
+    // mechanism, asked at a different moment.
+    //
+    // Stated as a condition rather than left to fall out of the skip flag. It
+    // already could not appear (the gate stores an identity or remembers the
+    // skip, and both make shouldOfferSignIn() false), but "cannot happen
+    // because of a side effect three functions away" is how a screen comes
+    // back. With the flag off this line does nothing and the old screen returns
+    // exactly as it was.
+    if (!privyGateOn && shouldOfferSignIn()) {
       pendingPhase.current = next
       setPhase('sign-in')
       return
@@ -500,6 +520,22 @@ export default function GameFlowManager() {
   // finding above and is not being undone here.
   const shouldOfferSignIn = () =>
     !isMiniPay && !realAddress && !getStoredAuthAddress() && !hasSkippedSignIn()
+
+  // ── THE PRIVY GATE ────────────────────────────────────────────────────────
+  //
+  // Owner: it must appear "setelah loading/splash pertama" — i.e. on arrival,
+  // not on the way into a run like the Firebase screen it stands in for. That
+  // is deliberate on his side: the talent.app judges need to see the wallet +
+  // Google option without having to press anything first.
+  //
+  // It reuses `shouldOfferSignIn()` verbatim rather than writing a second
+  // condition, so the four people who are never asked stay never asked — and
+  // the first of those four is MiniPay. This gate cannot reach them.
+  //
+  // Skippable, per the owner's choice: a player who declines plays as a guest
+  // exactly as before. Declining is remembered, so it asks once and not again.
+  const [gateDone, setGateDone] = useState(false)
+  const showPrivyGate = privyGateOn && !gateDone && shouldOfferSignIn()
 
   // The identity work itself lives in lib/useAccountActions — Settings needs
   // the same three actions, and the migrate-then-store ORDER is too easy to get
@@ -707,6 +743,28 @@ export default function GameFlowManager() {
 
   // PHASE: SIGN IN — offered once, before the name, and only to the players
   // who have nothing keeping their progress. See shouldOfferSignIn().
+  // Ahead of every other phase: this is the first thing after the splash.
+  if (showPrivyGate) {
+    return (
+      <PrivyGate
+        onAuthenticated={async (uid, label) => {
+          // Through the SAME adopt() the Firebase screen uses: derive an
+          // address from the id, carry the guest's progress onto it, store the
+          // identity. Nothing about Privy is special here — adopt() only ever
+          // wanted a stable id, and this is one. Without this the screen's own
+          // promise ("it follows you anywhere") would be false.
+          try {
+            await acct.adopt(uid, label)
+          } finally {
+            // Even a failed migration must not trap the player on this screen.
+            setGateDone(true)
+          }
+        }}
+        onSkip={() => { acct.rememberSkipped(); setGateDone(true) }}
+      />
+    )
+  }
+
   if (phase === 'sign-in') {
     return (
       <SignInScreen
