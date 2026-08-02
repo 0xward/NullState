@@ -37,7 +37,8 @@
     "test:migrate": "node scripts/test-guest-migrate.js",
     "test:vaultwin": "node scripts/test-vault-win.js",
     "test:campaign-end": "node scripts/test-campaign-end.js --serve",
-    "test:season-ui": "node scripts/test-season-rewards-ui.js --serve"
+    "test:season-ui": "node scripts/test-season-rewards-ui.js --serve",
+    "test:pass-cards": "node scripts/test-season-pass-cards.js --serve"
   },
   "dependencies": {
     "@celo/attribution-tags": "^0.3.0",

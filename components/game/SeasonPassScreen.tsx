@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { usePassSBT, SeasonInfo } from '@/hooks/usePassSBT'
 import { getUserFriendlyError } from '@/lib/errorUtils'
 import SeasonPassCard from './SeasonPassCard'
@@ -17,6 +17,22 @@ interface SeasonPassScreenProps {
 export default function SeasonPassScreen({ onBack, address }: SeasonPassScreenProps) {
   const passSBT = usePassSBT(address)
   const activeSeasonId = useMemo(() => currentSeasonId(), [])
+  const railRef = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    const rail = railRef.current
+    if (!rail) return
+    const idx = SEASON_IDS.findIndex((id) => id === activeSeasonId)
+    if (idx <= 0) return
+    const card = rail.children[idx] as HTMLElement | undefined
+    if (!card) return
+    // CENTRE it, do not left-align it. The cards carry `snap-center`, so the
+    // browser re-snaps whatever we ask for to a centred position anyway — a
+    // left-aligned scroll just gets silently corrected and lands somewhere
+    // neither we nor the snap intended. Clamped at 0 for season 1, where the
+    // centred target is negative.
+    const left = card.offsetLeft - rail.offsetLeft - Math.max(0, (rail.clientWidth - card.clientWidth) / 2)
+    rail.scrollTo({ left: Math.max(0, left), behavior: 'auto' })
+  }, [activeSeasonId])
   const [seasonInfos, setSeasonInfos] = useState<Record<string, SeasonInfo | null>>({})
   const [mintError, setMintError] = useState<string | null>(null)
   const [mintSuccess, setMintSuccess] = useState<string | null>(null)
@@ -196,13 +212,27 @@ export default function SeasonPassScreen({ onBack, address }: SeasonPassScreenPr
           </div>
         )}
 
+        {/* OPENS ON THE SEASON YOU CAN ACTUALLY MINT.
+            The carousel renders all six in order and used to start at the
+            left, so from August onward the first thing on screen was a month
+            that had already ended — and the only card with a working MINT
+            button was off-screen to the right. By December the player would
+            have had to swipe past five dead seasons to find it.
+            Scrolled with `behavior: 'auto'`: this is the starting position,
+            not a movement to watch, and animating it would read as the screen
+            sliding away from the player as they arrive. */}
         <div
+          ref={railRef}
           className="flex gap-3 overflow-x-auto pb-2"
           style={{ scrollSnapType: 'x mandatory' }}
         >
           {SEASON_IDS.map((seasonId, idx) => {
             const seasonNumber = idx + 1
             const isActive = seasonId === activeSeasonId
+            // Ended, not "coming". See the note in SeasonPassCard: this card
+            // used to have only two states, so a finished month read as one
+            // that had not started.
+            const isPast = seasonId < activeSeasonId
             const info = seasonInfos[seasonId.toString()] ?? null
             const phase =
               isActive && mintingSeasonId === seasonId.toString() ? passSBT.mintTxPhase : 'idle'
@@ -214,6 +244,7 @@ export default function SeasonPassScreen({ onBack, address }: SeasonPassScreenPr
                 seasonId={seasonId}
                 imageSrc={`/Season_${seasonNumber}.png`}
                 isActive={isActive}
+                isPast={isPast}
                 info={info}
                 hasPass={passSBT.hasPass}
                 isConnected={!!address}
