@@ -127,6 +127,18 @@ for (const [label, re] of [
 ]) ok(`${label} is offered as its own button`, re.test(gate))
 ok('and each button opens Privy narrowed to that one method',
   /login\(\{ loginMethods: \[method\] \}\)/.test(gate))
+
+// 4. GOOGLE IS ONE TAP, NOT TWO SCREENS. `login({loginMethods:['google']})`
+//    opens a Privy modal holding a single Google button — the same question
+//    this screen just asked — before Google's own chooser. initOAuth skips it.
+//    Owner: *"kalo aku klik google, ga muncul 2x pop up kan?"*
+ok('Google goes straight to Google, with no Privy screen in between',
+  /initOAuth\(\{ provider: 'google' \}\)/.test(gate) &&
+  /onClick=\{startGoogle\}/.test(gate))
+// The hook is @experimental upstream. An unrecoverable login is worse than an
+// extra screen, so a throw must land back on the modal.
+ok('and falls back to the modal if that experimental path throws',
+  /\} catch \{\s*\n\s*login\(\{ loginMethods: \['google'\] \}\)/.test(gate))
 ok('the wallet button still avoids the phrase MiniPay bans',
   !/connect\s+(a|an|the|your|my)?\s*wallet/i.test(gate))
 ok('Privy is a real dependency, not an aspiration',

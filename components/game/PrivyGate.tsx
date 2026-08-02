@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { PrivyProvider, usePrivy } from '@privy-io/react-auth'
+import { PrivyProvider, usePrivy, useLoginWithOAuth } from '@privy-io/react-auth'
 import { privyAppId } from '@/lib/privyGateFlag'
 import { GoogleMark, MailMark, WalletMark } from './SignInMarks'
 import '@/styles/signin.css'
@@ -58,6 +58,7 @@ interface PrivyGateProps {
 /** The inner half: everything that needs the Privy context. */
 function GateInner({ onAuthenticated, onSkip }: PrivyGateProps) {
   const { ready, authenticated, user, login } = usePrivy()
+  const { initOAuth } = useLoginWithOAuth()
   const [busy, setBusy] = useState<Method | null>(null)
   const adopted = useRef(false)
 
@@ -89,6 +90,34 @@ function GateInner({ onAuthenticated, onSkip }: PrivyGateProps) {
     setTimeout(() => setBusy(null), 1500)
   }, [login])
 
+  // ── GOOGLE SKIPS PRIVY'S SCREEN ENTIRELY ──────────────────────────────────
+  //
+  // OWNER: *"itu kalo aku klik google, ga muncul 2x pop up kan? layar privy
+  // juga maksudku."* It did. `login({loginMethods:['google']})` opens Privy's
+  // modal showing a single Google button — the same question this screen just
+  // asked, asked again — and only then hands off to Google.
+  //
+  // initOAuth goes straight to Google with no Privy UI at all, so the tap on
+  // "Continue with Google" is the last thing before Google's own account
+  // chooser. It is a full-page redirect rather than a popup, which is also the
+  // right shape on a phone: popups are what mobile browsers block.
+  //
+  // Privy marks the hook @experimental, so it cannot be the only path. If it
+  // throws, this falls back to the modal — one extra screen is a worse login,
+  // an unrecoverable one is no login at all.
+  const startGoogle = useCallback(async () => {
+    setBusy('google')
+    try {
+      await initOAuth({ provider: 'google' })
+    } catch {
+      login({ loginMethods: ['google'] })
+      setTimeout(() => setBusy(null), 1500)
+    }
+    // No success branch clears `busy` on purpose: the page is navigating to
+    // Google, and a button that flips back to "Continue with Google" while the
+    // redirect is in flight invites a second tap.
+  }, [initOAuth, login])
+
   const disabled = !ready || busy !== null
 
   return (
@@ -112,7 +141,7 @@ function GateInner({ onAuthenticated, onSkip }: PrivyGateProps) {
         <div className="ns-signin-stack">
           <button
             type="button"
-            onClick={() => start('google')}
+            onClick={startGoogle}
             disabled={disabled}
             className="ns-signin-btn is-google"
           >
