@@ -162,8 +162,25 @@ export async function recordRunKills(
     const normalizedAddr = walletAddress.toLowerCase()
     const ref = doc(db, 'leaderboard', normalizedAddr)
     await runTransaction(db, async (tx) => {
+      // ── BOTH READS FIRST. THIS ORDER IS NOT A STYLE CHOICE ─────────────────
+      //
+      // Firestore rejects a transaction that reads after it writes: "Firestore
+      // transactions require all reads to be executed before all writes." The
+      // season mirror was added below the career write, so every call threw,
+      // the catch swallowed it into a console line nobody was watching, and
+      // NOTHING was recorded — not the season kills it was added for, and not
+      // the career kills that had worked for months.
+      //
+      // Owner, from the live board: *"aku test login pakai email, tapi di
+      // leaderboard tidak tercatat jumlah kills nya?"* XP was fine on the same
+      // row, which is the tell — recordRunProgress does one read and two
+      // writes, so it was never affected.
+      const seasonId = seasonKey()
+      const seasonRef = seasonPlayerRef(seasonId, normalizedAddr)
       const snap = await tx.get(ref)
+      const seasonSnap = await tx.get(seasonRef)
       const data = (snap.exists() ? snap.data() : {}) as Partial<LeaderboardDoc>
+      const seasonPrev = (seasonSnap.exists() ? seasonSnap.data() : {}) as { kills?: number }
       const prevTotal = data.totalKills ?? data.kills ?? 0
       const lastRecorded = data.lastRecordedKills ?? 0
       const delta =
@@ -182,10 +199,6 @@ export async function recordRunKills(
       // Season kills ride the SAME delta — the hard part (not double-counting a
       // Revive that keeps p.kills climbing) is already solved above, and
       // solving it twice is how the two totals would drift apart.
-      const seasonId = seasonKey()
-      const seasonRef = seasonPlayerRef(seasonId, normalizedAddr)
-      const seasonSnap = await tx.get(seasonRef)
-      const seasonPrev = (seasonSnap.exists() ? seasonSnap.data() : {}) as { kills?: number }
       tx.set(
         seasonRef,
         {

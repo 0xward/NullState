@@ -41,7 +41,8 @@
     "test:pass-cards": "node scripts/test-season-pass-cards.js --serve",
     "test:seasonxp": "node scripts/test-season-xp.js",
     "test:exit-streak": "node scripts/test-exit-streak.js",
-    "test:privy": "node scripts/test-privy-gate.js --serve"
+    "test:privy": "node scripts/test-privy-gate.js --serve",
+    "test:kills": "node scripts/test-leaderboard-writes.js"
   },
   "overrides": {
     "permissionless": {
