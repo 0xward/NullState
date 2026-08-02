@@ -3,12 +3,22 @@
 import Image from 'next/image'
 import { GiPadlock } from 'react-icons/gi'
 import { SeasonInfo } from '@/hooks/usePassSBT'
+import { seasonLabel } from '@/lib/season'
 
 export interface SeasonPassCardProps {
   seasonNumber: number // 1-6
   seasonId: bigint // e.g. 202607n
   imageSrc: string // /Season_1.png etc.
   isActive: boolean // true only for the season matching the current month
+  /**
+   * True for a season that has already ENDED.
+   *
+   * Derived from the season id, not from `info.endDate`: a season whose
+   * on-chain window was never configured still reads `endDate === 0`, and the
+   * calendar knows perfectly well that July is behind us. Passing it in keeps
+   * the "which month is it" answer in one place (lib/season.ts).
+   */
+  isPast: boolean
   info: SeasonInfo | null // null while still loading
   hasPass: boolean // does the connected wallet already hold ANY active pass
   isConnected: boolean
@@ -41,6 +51,7 @@ export default function SeasonPassCard({
   seasonId,
   imageSrc,
   isActive,
+  isPast,
   info,
   hasPass,
   isConnected,
@@ -59,6 +70,69 @@ export default function SeasonPassCard({
   }
   const cardStyle: React.CSSProperties = {
     clipPath: 'polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px)',
+  }
+  // "July 2026" — a finished season is named by the month it was, which is more
+  // use than its number to anyone trying to remember whether they played it.
+  const monthLabel = seasonLabel(seasonId)
+
+  // ── FINISHED season ──────────────────────────────────────────────────────
+  //
+  // OWNER, on August 2nd, looking at July: *"ini mint pass ko gini tulisaannya
+  // not started, padahal sudah lewat."*
+  //
+  // He is right, and the cause is that this card only ever knew TWO states:
+  // "the current month" and "everything else". A season that had already run
+  // fell into the same branch as one that had not started, so July was blurred
+  // behind a padlock and captioned **"Not started yet — Coming Season 1"** the
+  // day after it paid out three players real USDT.
+  //
+  // It compounds: the program is six months long, so by December five of the
+  // six cards would have said "Coming" about months that were already over.
+  //
+  // A finished season is not locked, it is DONE — so it is not blurred and
+  // carries no padlock. The art stays legible because it is a record of a month
+  // that happened, and the caption says when.
+  if (isPast) {
+    return (
+      <div
+        className="shrink-0 w-[78%] sm:w-[300px] snap-center border border-[#7a4f24]/30 bg-[rgba(26,15,6,0.45)] rounded-md overflow-hidden"
+        style={cardStyle}
+      >
+        <div className="relative aspect-square w-full">
+          <Image
+            src={imageSrc}
+            alt={`Season ${seasonNumber}`}
+            fill
+            sizes="(max-width: 640px) 78vw, 300px"
+            className="object-cover"
+            style={{ filter: 'grayscale(0.65) brightness(0.55)' }}
+          />
+          <div className="absolute inset-0 flex items-start justify-end p-2">
+            <span
+              className="font-mono text-[9px] uppercase tracking-[2px] text-[#f0dcb8]/85 bg-black/70 px-2 py-1"
+              style={{ clipPath: 'polygon(4px 0, 100% 0, calc(100% - 4px) 100%, 0 100%)' }}
+            >
+              Ended
+            </span>
+          </div>
+        </div>
+        <div className="p-3 font-mono">
+          <div className="text-[#9c7a4f] text-[10px] uppercase tracking-[2px] mb-1">
+            Season {seasonNumber}
+          </div>
+          <div className="text-[#f0dcb8]/60 text-xs mb-3">
+            {monthLabel ? `Ended — ${monthLabel}` : 'Ended'}
+          </div>
+          <button
+            disabled
+            className="w-full font-mono text-[10px] tracking-[1px] uppercase text-[#9c7a4f]/70 border border-[#7a4f24]/35 py-2 cursor-not-allowed"
+            style={{ clipPath: 'polygon(4px 0, 100% 0, calc(100% - 4px) 100%, 0 100%)' }}
+          >
+            Season {seasonNumber} is over
+          </button>
+        </div>
+      </div>
+    )
   }
 
   // ── Locked / not-yet-active card ──────────────────────────────────────────
