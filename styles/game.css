@@ -981,3 +981,21 @@
   font-size:9.5px; line-height:1.5; color:#9fbdaf;
 }
 .ns-exit-streak-note b{ color:#ffe9a8 }
+
+/* ─── The gate veil ──────────────────────────────────────────────────────────
+   Set by the inline script in app/game/layout.tsx, before the first paint, and
+   only when the Privy gate is certain to appear. See the long note there for
+   why it is an attribute on <html> and not an overlay element: Next's
+   hydration reconciles the children of <body> and removed the overlay at 261ms,
+   which is 600ms before the gate could cover anything.
+
+   Hiding rather than not-rendering: the map is in the prerendered HTML and
+   cannot be un-rendered from the client. `visibility` keeps its layout and its
+   image request intact, so a player who skips the gate gets the map instantly
+   instead of paying for it twice.
+
+   Cleared by lib/privyGateFlag.ts's liftGateVeil() from two places — the gate
+   once it has painted, and the flow manager the moment it turns out the gate is
+   not coming — with the script's own 3s timer as the backstop. */
+html[data-ns-gate] { background: #000 }
+html[data-ns-gate] .ns-home-root { visibility: hidden }

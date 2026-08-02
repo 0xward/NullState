@@ -13,7 +13,7 @@ import { readHighestAct, recordHighestAct, stashCampaignResume, takeCampaignResu
 import MainMenu from './MainMenu'
 import WorldMapHub from './WorldMapHub'
 import { useWorldMapHubFlag } from '@/lib/worldMapHubFlag'
-import { usePrivyGateFlag } from '@/lib/privyGateFlag'
+import { usePrivyGateFlag, liftGateVeil } from '@/lib/privyGateFlag'
 import { markCampaignComplete } from '@/lib/campaignComplete'
 import NewGameConfirmModal from './NewGameConfirmModal'
 import WelcomeGiftModal from './WelcomeGiftModal'
@@ -565,6 +565,16 @@ export default function GameFlowManager() {
   // rule: shouldOfferSignIn()'s own `!isMiniPay` is the third guard, and it
   // arrives when wagmi does.
   const showPrivyGate = privyGateOn && !gateDone && shouldOfferSignIn()
+
+  // The one case the inline script cannot decide for itself: it can read
+  // localStorage and window.ethereum, but not whether an injected wallet is
+  // about to connect — that needs wagmi. So if the sheet went down and the gate
+  // turns out not to be coming, lift it as soon as the wallet situation is
+  // known. `walletReady` is that moment. (The script's own 3s timer is the
+  // backstop for a React that never arrives at all.)
+  useEffect(() => {
+    if (walletReady && !showPrivyGate) liftGateVeil()
+  }, [walletReady, showPrivyGate])
 
   // The identity work itself lives in lib/useAccountActions — Settings needs
   // the same three actions, and the migrate-then-store ORDER is too easy to get

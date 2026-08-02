@@ -319,7 +319,7 @@ export default function WorldMapHub({
   }
 
   return (
-    <div className="fixed inset-0 z-50 overflow-hidden ns-fade-in" style={{ background: '#060b09' }}>
+    <div className="ns-home-root fixed inset-0 z-50 overflow-hidden ns-fade-in" style={{ background: '#060b09' }}>
       {/* Map layer — keeps the art's own aspect ratio so node markers stay glued
           to the painted doors regardless of screen size (see .ns-hub-map). */}
       <div className="ns-hub-map">
