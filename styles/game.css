@@ -957,3 +957,27 @@
   .ns-daily-claim-burst{ animation:none; background:none }
   .ns-daily-bar-fill{ transition:none }
 }
+
+
+/* ── "OUT OF ENERGY" IS THE EXIT DOOR, SO IT SAYS WHAT IS THROUGH IT ─────────
+   The one moment the game knows for certain a player is about to stop. It used
+   to say "you are done" and show a $1 button — a closing and a bill. The streak
+   ladder goes here too, with TOMORROW lit rather than today, because today is
+   already spent. Reuses .ns-streak-* wholesale: two drawings of the same ladder
+   is how the two would end up disagreeing about which day you are on. */
+.ns-exit-streak{
+  margin:2px 0 12px; padding:9px 10px 8px;
+  background:rgba(255,209,102,.07);
+  box-shadow:inset 0 0 0 1px rgba(255,209,102,.34);
+  clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px);
+  text-align:left;
+}
+.ns-exit-streak-h{
+  margin:0 0 7px; font-family:var(--font-mono),monospace;
+  font-size:9.5px; font-weight:700; letter-spacing:1.4px; text-transform:uppercase; color:#ffd166;
+}
+.ns-exit-streak-note{
+  margin:7px 0 0; font-family:var(--font-mono),monospace;
+  font-size:9.5px; line-height:1.5; color:#9fbdaf;
+}
+.ns-exit-streak-note b{ color:#ffe9a8 }

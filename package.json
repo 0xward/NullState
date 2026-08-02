@@ -39,7 +39,8 @@
     "test:campaign-end": "node scripts/test-campaign-end.js --serve",
     "test:season-ui": "node scripts/test-season-rewards-ui.js --serve",
     "test:pass-cards": "node scripts/test-season-pass-cards.js --serve",
-    "test:seasonxp": "node scripts/test-season-xp.js"
+    "test:seasonxp": "node scripts/test-season-xp.js",
+    "test:exit-streak": "node scripts/test-exit-streak.js"
   },
   "dependencies": {
     "@celo/attribution-tags": "^0.3.0",
