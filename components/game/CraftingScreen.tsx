@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { GiAnvil, GiCheckedShield, GiSandsOfTime } from 'react-icons/gi'
 import { useWallet, CELO_CHAIN_ID } from '@/lib/WalletProvider'
+import WrongNetworkBar from './WrongNetworkBar'
 import { pickBestPaymentToken } from '@/lib/constants/tokens'
 import {
   ACCEPTED_TOKENS, getMarketplaceItem, resolveItemId, maxWeaponTier, tokenLabel, TOKEN_LOGOS,
@@ -491,6 +492,10 @@ export default function CraftingScreen({ onBack, onGoToRun, address }: CraftingS
             ◂ Back
           </button>
         </header>
+
+        {/* Connected but on the wrong chain — see WrongNetworkBar. Renders
+            nothing at all on Celo, and cannot appear inside MiniPay. */}
+        <WrongNetworkBar />
 
         {/* shard balance strip */}
         <div className="mb-4 grid grid-cols-3 gap-2">

@@ -43,7 +43,8 @@
     "test:exit-streak": "node scripts/test-exit-streak.js",
     "test:privy": "node scripts/test-privy-gate.js --serve",
     "test:kills": "node scripts/test-leaderboard-writes.js",
-    "test:proploot": "node scripts/test-prop-loot.js"
+    "test:proploot": "node scripts/test-prop-loot.js",
+    "test:network": "node scripts/test-wrong-network.js"
   },
   "overrides": {
     "permissionless": {

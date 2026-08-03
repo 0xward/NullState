@@ -41,6 +41,19 @@ export interface WalletBridgeValue {
   isConnected: boolean
   chainId: number | null
   isMiniPay: boolean
+  /**
+   * Connected, but the wallet is sitting on some other chain.
+   *
+   * NOT a cosmetic flag. wagmi's getConnectorClient throws
+   * ConnectorChainMismatchError when the connector's chain is not the one
+   * asked for, so useWalletClient({chainId: CELO}) resolves to undefined and
+   * every payment path fails its `!walletClient` guard — which used to report
+   * "Wallet not connected" to somebody whose wallet was perfectly connected.
+   * OKX and most browser wallets open on their own default chain, so this is
+   * the normal state for them until the switch lands. MiniPay is Celo-only and
+   * can never be in it.
+   */
+  wrongNetwork: boolean
   celoBalance: string
   error: string | null
   insufficientFunds: boolean
@@ -72,6 +85,7 @@ export const WALLET_BRIDGE_DEFAULT: WalletBridgeValue = {
   isConnected: false,
   chainId: null,
   isMiniPay: false,
+  wrongNetwork: false,
   celoBalance: '0.00',
   error: null,
   insufficientFunds: false,

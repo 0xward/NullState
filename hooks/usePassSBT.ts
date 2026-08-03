@@ -28,7 +28,7 @@ export function usePassSBT(walletAddress: string | undefined) {
   // stablecoin, to TREASURY_WALLET (see lib/WalletProvider.tsx). Reused
   // here for the v2.1 flexible-payment pass mint flow — see
   // mintPaidPassFlexible below.
-  const { payToTreasury, publicClient, walletClient } = useWallet()
+  const { payToTreasury, publicClient, walletClient, wrongNetwork } = useWallet()
 
   const [hasPass, setHasPass] = useState<boolean>(false)
   const [passSeasonId, setPassSeasonId] = useState<bigint>(BigInt(0))
@@ -145,6 +145,14 @@ export function usePassSBT(walletAddress: string | undefined) {
   // charged varies based on the wallet's balances.
   const mintPaidPassFlexible = useCallback(
     async (seasonId: bigint): Promise<{ success: boolean; mintTxHash: `0x${string}` }> => {
+      // The message the owner actually hit in the OKX browser. walletClient is
+      // undefined on any chain but Celo — wagmi's getConnectorClient throws
+      // ConnectorChainMismatchError, useWalletClient swallows it into
+      // `data: undefined` — so "not connected" was reported to someone whose
+      // wallet was connected and one tap from working. Name the real problem.
+      if (wrongNetwork) {
+        throw new Error('Wrong network — NullState runs on Celo. Switch your wallet to Celo and try again.')
+      }
       if (!walletClient || !publicClient || !walletClient.account) {
         throw new Error('Wallet not connected')
       }
@@ -198,7 +206,7 @@ export function usePassSBT(walletAddress: string | undefined) {
         setPayingToken(null)
       }
     },
-    [walletClient, publicClient, payToTreasury, fetchPassStatus],
+    [walletClient, publicClient, payToTreasury, fetchPassStatus, wrongNetwork],
   )
 
   useEffect(() => {

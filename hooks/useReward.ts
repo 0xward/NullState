@@ -32,7 +32,7 @@ export function useReward(walletAddress: string | undefined) {
   // WagmiProviderNotFoundError — which is exactly what it did: opening Rewards
   // in MiniPay died with "a client-side exception has occurred". Both are null
   // until wagmi has loaded, and every path below already guards on that.
-  const { publicClient, walletClient } = useWallet()
+  const { publicClient, walletClient, wrongNetwork } = useWallet()
 
   const [seasonLeaderboard, setSeasonLeaderboard] = useState<SeasonLeaderboard | null>(null)
   const [hasClaimedSeasonBonus, setHasClaimedSeasonBonus] = useState<boolean>(false)
@@ -98,6 +98,11 @@ export function useReward(walletAddress: string | undefined) {
       // `account` is narrower on viem's generic WalletClient than on the one
       // wagmi's useWalletClient() returned, so it is checked here rather than
       // asserted — a client with no account cannot sign anyway.
+      // Same wrong-chain trap as the pass mint: on any chain but Celo the
+      // wallet client is undefined and this used to blame the connection.
+      if (wrongNetwork) {
+        throw new Error('Wrong network — NullState runs on Celo. Switch your wallet to Celo and try again.')
+      }
       if (!walletClient?.account || !publicClient) throw new Error('Wallet not connected')
       const account = walletClient.account
 
@@ -128,7 +133,7 @@ export function useReward(walletAddress: string | undefined) {
         setIsLoading(false)
       }
     },
-    [walletClient, publicClient, currentSeason, checkSeasonBonusClaimed],
+    [walletClient, publicClient, currentSeason, checkSeasonBonusClaimed, wrongNetwork],
   )
 
   useEffect(() => {

@@ -22,7 +22,7 @@ import { celo, celoSepolia } from 'wagmi/chains'
 import { celoTransport } from '@/lib/celoRpc'
 import { injected } from 'wagmi/connectors'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { encodeFunctionData } from 'viem'
 import { USDM_ADDRESS, USDM_ABI } from './contract-abi'
 import { getUserFriendlyError, WalletFriendlyError, MINIPAY_ADD_CASH_URL } from './errorUtils'
@@ -86,7 +86,7 @@ export default function WagmiIsland() {
 export function WagmiWalletIsland() {
   const { address, isConnected, chain } = useAccount()
   const { disconnect } = useDisconnect()
-  const { switchChain } = useSwitchChain()
+  const { switchChain, switchChainAsync } = useSwitchChain()
   const publicClient  = usePublicClient({ chainId: CELO_CHAIN_ID })
   const { data: walletClient } = useWalletClient({ chainId: CELO_CHAIN_ID })
   const { data: balanceData }  = useBalance({ address, chainId: CELO_CHAIN_ID })
@@ -115,14 +115,60 @@ export function WagmiWalletIsland() {
     if (injectedConnector) connect({ connector: injectedConnector, chainId: CELO_CHAIN_ID })
   }, [isConnected, connect, connectors])
 
+  // ── AND ONTO CELO, IMMEDIATELY ───────────────────────────────────────────
+  //
+  // OWNER, testing in the OKX in-app browser: *"posisi auto connect tapi gabisa
+  // mint pass dan buy ada tulisan 'wallet not connected'."* The wallet was
+  // connected. It was on OKX's own default chain.
+  //
+  // That is fatal rather than cosmetic, because of one line inside wagmi
+  // (getConnectorClient.js):
+  //
+  //     if (assertChainId && connectorChainId !== chainId)
+  //       throw new ConnectorChainMismatchError(...)
+  //
+  // useWalletClient({chainId: CELO}) therefore resolves to undefined on any
+  // other chain, every payment hits its `!walletClient` guard, and the player
+  // is told their wallet is not connected. `switchToCelo` already existed for
+  // exactly this — plumbed through the bridge and never called from anywhere.
+  //
+  // Owner's decision, because MiniPay's reviewers may well test in a browser
+  // wallet: *"itu bener2 autoconnect dan autoswitch jaringan ke celo dr awal
+  // login dengan wallet."* So the switch is requested the moment a connection
+  // lands on the wrong chain, not deferred to the first purchase.
+  //
+  // Attempted ONCE per chain the wallet lands on. A player who declines is not
+  // asked again on every render — that is a popup loop, and it is worse than
+  // the bug. They get the banner and its button instead, and moving the wallet
+  // to another chain arms one fresh attempt.
+  const askedFor = useRef<number | null>(null)
+  const onWrongChain = isConnected && !!chain && chain.id !== CELO_CHAIN_ID
+  useEffect(() => {
+    if (!onWrongChain || !chain) return
+    if (askedFor.current === chain.id) return
+    askedFor.current = chain.id
+    try { switchChain({ chainId: CELO_CHAIN_ID }) } catch { /* declined or unsupported */ }
+  }, [onWrongChain, chain, switchChain])
+
   const celoBalance = balanceData
     ? (Number(balanceData.value) / 10 ** balanceData.decimals).toFixed(2)
     : '0.00'
 
   // ── Send transaction helper ───────────────────────────────────────────────
 
+  // "Wallet not connected" was a lie on every wrong-chain failure, and it sent
+  // the owner looking for a connection problem that did not exist. One helper,
+  // so all three payment paths tell the same truth.
+  const assertReady = useCallback(() => {
+    if (onWrongChain) {
+      throw new Error('Wrong network — NullState runs on Celo. Switch your wallet to Celo and try again.')
+    }
+    if (!walletClient || !address) throw new Error('Wallet not connected')
+  }, [onWrongChain, walletClient, address])
+
   const sendTx = useCallback(
     async (data: `0x${string}`, value?: bigint): Promise<string> => {
+      assertReady()
       if (!walletClient || !address) throw new Error('Wallet not connected')
       setError(null)
       setInsufficientFunds(false)
@@ -152,7 +198,7 @@ export function WagmiWalletIsland() {
         throw new WalletFriendlyError(friendlyError, e)
       }
     },
-    [walletClient, publicClient, address]
+    [walletClient, publicClient, address, assertReady]
   )
 
   // ── Contract write functions ──────────────────────────────────────────────
@@ -171,6 +217,7 @@ export function WagmiWalletIsland() {
   // directly to `toAddress` (the reward contract), NOT through NullState.sol.
   const payUsdmFee = useCallback(
     async (amountWei: bigint, toAddress: `0x${string}`): Promise<string> => {
+      assertReady()
       if (!walletClient || !address) throw new Error('Wallet not connected')
       if (typeof amountWei !== 'bigint' || amountWei <= BigInt(0)) {
         throw new Error('Invalid USDm fee amount')
@@ -204,7 +251,7 @@ export function WagmiWalletIsland() {
         throw new WalletFriendlyError(friendlyError, e)
       }
     },
-    [walletClient, publicClient, address]
+    [walletClient, publicClient, address, assertReady]
   )
 
   // ── Generic treasury payment ─────────────────────────────────────────────
@@ -218,6 +265,7 @@ export function WagmiWalletIsland() {
   // under both names below so each call site reads clearly.
   const payToTreasury = useCallback(
     async (priceUsd: number, token: MarketplaceTokenSymbol): Promise<string> => {
+      assertReady()
       if (!walletClient || !address) throw new Error('Wallet not connected')
       const cfg = MARKETPLACE_TOKENS[token]
       if (!cfg) throw new Error('Unsupported token')
@@ -249,7 +297,7 @@ export function WagmiWalletIsland() {
         throw new WalletFriendlyError(friendlyError, e)
       }
     },
-    [walletClient, address]
+    [walletClient, address, assertReady]
   )
 
   // NOTE (removed 2026-07-12): `attackRaid`, `readPlayer`, and `readRaid`
@@ -264,15 +312,27 @@ export function WagmiWalletIsland() {
     if (target) connect({ connector: target, chainId: CELO_CHAIN_ID })
   }, [connect, connectors])
 
+  // The async variant, because the button in WrongNetworkBar shows a pending
+  // state and the fire-and-forget `switchChain` resolves instantly whether the
+  // wallet agreed or not — a spinner that means nothing. A decline is not an
+  // app error: the bar simply stays up, which is already the honest report.
   const switchToCelo = useCallback(async () => {
-    try { switchChain({ chainId: CELO_CHAIN_ID }) } catch { /* user declined */ }
-  }, [switchChain])
+    try {
+      await switchChainAsync({ chainId: CELO_CHAIN_ID })
+      setError(null)
+    } catch {
+      // Wallets that cannot switch (some in-app browsers pin their chain) end
+      // up here. Saying so beats a button that silently does nothing.
+      setError('Could not switch automatically — please choose Celo in your wallet app.')
+    }
+  }, [switchChainAsync])
 
   const value: WalletBridgeValue = useMemo(() => ({
     ready: true,
     address: address ?? null,
     isConnected,
     chainId: chain?.id ?? null,
+    wrongNetwork: onWrongChain,
     isMiniPay,
     celoBalance,
     error,
@@ -285,7 +345,7 @@ export function WagmiWalletIsland() {
     switchToCelo,
     payUsdmFee,
     payToTreasury,
-  }), [address, isConnected, chain?.id, isMiniPay, celoBalance, error, insufficientFunds,
+  }), [address, isConnected, chain?.id, isMiniPay, onWrongChain, celoBalance, error, insufficientFunds,
        publicClient, walletClient, connectWallet, disconnect, switchToCelo, payUsdmFee, payToTreasury])
 
   const publish = useWalletPublish()
