@@ -5,6 +5,7 @@ import { usePassSBT, SeasonInfo } from '@/hooks/usePassSBT'
 import { getUserFriendlyError } from '@/lib/errorUtils'
 import SeasonPassCard from './SeasonPassCard'
 import { SEASON_IDS, currentSeasonId } from '@/lib/season'
+import WrongNetworkBar from './WrongNetworkBar'
 
 // SEASON_IDS / currentSeasonId moved to lib/season.ts — the world map shows
 // pass status too now, and two copies of "which season is it" would drift.
@@ -184,6 +185,8 @@ export default function SeasonPassScreen({ onBack, address }: SeasonPassScreenPr
         {/* Not "connect your wallet": inside MiniPay the address arrives with
             no interaction, so a connect prompt is only ever shown to someone it
             cannot help. Naming MiniPay is the actionable step. */}
+        <WrongNetworkBar />
+
         {!address && (
           <div className="mb-6 rounded border border-[#e8bd6f]/40 bg-[#e8bd6f]/10 p-3 text-sm text-[#f2cd82] font-mono">
             Open NullState in MiniPay to mint a pass.

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useWallet, CELO_CHAIN_ID } from '@/lib/WalletProvider'
+import WrongNetworkBar from './WrongNetworkBar'
 import { GiCrossedSwords, GiCheckedShield, GiMagnifyingGlass } from 'react-icons/gi'
 import { pickBestPaymentToken, readStablecoinBalances } from '@/lib/constants/tokens'
 import { MARKETPLACE_ITEMS, ACCEPTED_TOKENS, getMarketplaceItem, resolveItemId, tokenLabel, TOKEN_LOGOS, type MarketplaceItem, type MarketplaceTokenSymbol } from '@/lib/constants/marketplace'
@@ -363,6 +364,10 @@ export default function MarketplaceScreen({ onBack, address }: MarketplaceScreen
             ◂ Back
           </button>
         </header>
+
+        {/* Connected but on the wrong chain — see WrongNetworkBar. Renders
+            nothing at all on Celo, and cannot appear inside MiniPay. */}
+        <WrongNetworkBar />
 
         {/* ARMORY TRIAL picker — shows once: Act 1 cleared + never granted.
             Icon-first, two taps + one button, no paragraphs to read. */}

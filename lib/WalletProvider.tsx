@@ -146,6 +146,10 @@ export function useWallet() {
     isConnecting: !w.ready,
     walletReady:  w.ready,
     isMiniPay:    w.isMiniPay,
+    // Connected, wrong chain. Screens that can spend need this because it is
+    // the difference between "you have no wallet" and "your wallet is one tap
+    // away from working" — and until now both reported the former.
+    wrongNetwork: w.wrongNetwork,
     celoBalance:  w.celoBalance,
     error:        w.error,
     insufficientFunds: w.insufficientFunds,
