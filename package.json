@@ -44,7 +44,8 @@
     "test:privy": "node scripts/test-privy-gate.js --serve",
     "test:kills": "node scripts/test-leaderboard-writes.js",
     "test:proploot": "node scripts/test-prop-loot.js",
-    "test:network": "node scripts/test-wrong-network.js"
+    "test:network": "node scripts/test-wrong-network.js",
+    "test:privypay": "node scripts/test-privy-pay.js"
   },
   "overrides": {
     "permissionless": {

@@ -14,6 +14,7 @@ import type { MarketplaceTokenSymbol } from './constants/tokens'
 import { GUEST_STORAGE_KEY, generateAutoUsername } from './guestIdentity'
 import { writeCachedProfile } from './profileCache'
 import { getStoredAuthAddress } from './authIdentity'
+import { usePrivySigner } from './privySignerBridge'
 
 // ─── Contract config ─────────────────────────────────────────────────────────
 
@@ -128,7 +129,9 @@ export function useWallet() {
   // The guest id is only minted when the first two are absent — otherwise
   // signing in would leave a stray guest identity behind it, and the next
   // sign-out would land the player on a stranger's progress.
+  const privy = usePrivySigner()
   const realAddress = w.address ?? null
+  const pay = w.walletClient ? w.payToTreasury : (privy.payToTreasury ?? w.payToTreasury)
   const authAddress = realAddress ? null : getStoredAuthAddress()
   const guestAddress = realAddress || authAddress ? null : getGuestAddress()
   const isGuest = !realAddress && !!guestAddress
@@ -155,13 +158,29 @@ export function useWallet() {
     insufficientFunds: w.insufficientFunds,
     addCashUrl:   w.addCashUrl,
     publicClient: w.publicClient,
-    walletClient: w.walletClient,
+    // ── WHICH WALLET SIGNS ────────────────────────────────────────────────
+    //
+    // wagmi's, whenever there is one. A player who connected MiniPay or a
+    // browser wallet has told us which wallet they mean, and that answer
+    // outranks an embedded wallet they may not even know they have.
+    //
+    // Privy's only when wagmi has none. That is the Google/email player, whose
+    // embedded wallet is the only thing they can sign with.
+    //
+    // Note what does NOT change: `address` above. The save is keyed on the
+    // account address derived in lib/authIdentity.ts, and re-keying it onto the
+    // embedded wallet would orphan every document already stored under it. The
+    // embedded wallet is where money comes FROM; it is not who the player IS.
+    walletClient: w.walletClient ?? privy.walletClient,
     connect:      w.connect,
     disconnect:   w.disconnect,
     switchToCelo: w.switchToCelo,
     payUsdmFee:   w.payUsdmFee,
-    buyMarketplaceItem: w.payToTreasury, // kept for MarketplaceScreen.tsx, unchanged behavior
-    payToTreasury: w.payToTreasury,
+    // Same precedence, same reason. `pay` resolves to wagmi's payToTreasury
+    // unless there is no wagmi wallet and Privy has published one of its own —
+    // implemented in the lazy island so viem never reaches this module.
+    buyMarketplaceItem: pay, // kept for MarketplaceScreen.tsx, unchanged behavior
+    payToTreasury: pay,
   }
 }
 

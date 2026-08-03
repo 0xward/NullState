@@ -31,10 +31,28 @@ import { ReactNode, useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
 import WalletProvider from '@/lib/WalletProvider'
 import { WalletBridgeProvider } from '@/lib/walletBridge'
+import { PrivySignerBridgeProvider } from '@/lib/privySignerBridge'
+import { readPrivyGateFlag } from '@/lib/privyGateFlag'
 
 // ssr:false because a wallet cannot exist on the server; it is also what keeps
 // the wagmi chunk out of the server-rendered payload entirely.
 const WagmiIsland = dynamic(() => import('@/lib/WagmiIsland'), { ssr: false })
+
+// ─── The Privy signer island ────────────────────────────────────────────────
+//
+// Beside the app, never around it — the same rule WagmiIsland follows, and for
+// the same reason: mounting a provider around the tree later would remount
+// every child and lose their state.
+//
+// Loaded ONLY when readPrivyGateFlag() says yes, which is false inside MiniPay,
+// false with no app id, and false by default. So a MiniPay player downloads
+// none of this, which is the whole reason the app does not simply wrap itself
+// in PrivyProvider the way Chessify does.
+//
+// It renders no UI. Its only job is to keep a Privy signer alive for the rest
+// of the session, so a player who signed in with Google an hour ago can still
+// pay at the shop — the gate screen itself is short-lived and cannot hold it.
+const PrivySignerIsland = dynamic(() => import('@/components/game/PrivySignerIsland'), { ssr: false })
 
 const IDLE_CEILING_MS = 1500
 
@@ -60,11 +78,24 @@ function DeferredWagmi() {
   return mount ? <WagmiIsland /> : null
 }
 
+function DeferredPrivySigner() {
+  const [mount, setMount] = useState(false)
+  useEffect(() => {
+    // Read in an effect, not during render: the flag consults window.ethereum
+    // and the query string, and /game is prerendered.
+    if (readPrivyGateFlag()) setMount(true)
+  }, [])
+  return mount ? <PrivySignerIsland /> : null
+}
+
 export default function Web3Providers({ children }: { children: ReactNode }) {
   return (
     <WalletBridgeProvider>
-      <WalletProvider>{children}</WalletProvider>
-      <DeferredWagmi />
+      <PrivySignerBridgeProvider>
+        <WalletProvider>{children}</WalletProvider>
+        <DeferredWagmi />
+        <DeferredPrivySigner />
+      </PrivySignerBridgeProvider>
     </WalletBridgeProvider>
   )
 }
