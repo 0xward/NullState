@@ -75,7 +75,8 @@ comment of a script before changing it; it explains the failure it exists for.
 | `npm run build:icons` / `build:weapons` | generated art matching its masters |
 
 **Behaviour tests** — `test:season`, `test:seasonxp`, `test:kills`, `test:play`,
-`test:contracts`, `test:streak`, `test:migrate`, `test:vaultwin`, and ~20 more
+`test:contracts`, `test:streak`, `test:migrate`, `test:vaultwin`,
+`test:vaultpay`, and ~20 more
 (see `package.json` scripts). Some drive a real browser via `playwright-core`
 against engine files loaded directly; those taking `--serve` (`test:privy`,
 `test:season-ui`, `test:campaign-end`, `test:pass-cards`) spawn `next start`
@@ -108,9 +109,11 @@ app/
   page.tsx              landing
   game/  profile/       routes that wrap children in Web3Providers via a nested layout
   stats/ docs/ privacy/ terms/
-  api/                  44 route handlers, one directory per capability
+  api/                  45 route handlers, one directory per capability
     marketplace/verify  on-chain purchase verification (the reference route)
-    cron/season         Vercel cron, daily 01:00 UTC — season close/payout
+    vault/prepare       stores the week's vault code on chain BEFORE anyone wins
+    cron/season         Vercel cron, daily 01:00 UTC — season close/payout, and
+                        the sweep that retries unpaid vault rewards
 components/
   game/                 the shell's screens: GameFlowManager (router), WorldMapHub,
                         DungeonGame (engine host), MarketplaceScreen, RewardsScreen,
@@ -119,7 +122,8 @@ components/
 lib/
   constants/            game-config, marketplace, tokens, bunkers, seasonRewards
   server/               server-only logic: seasonClose, loginStreak, dailyContracts,
-                        energy, vault-fragments, referrals, guestMigrate…
+                        energy, vault-fragments, referrals, guestMigrate,
+                        vaultChain (all on-chain vault work), vaultSweep…
   WagmiIsland.tsx       wagmi/viem, mounted as a deferred SIBLING (see §5)
   WalletProvider.tsx    useWallet() — the identity surface
   celoRpc.ts            the ONLY place a Celo endpoint may be named
@@ -223,6 +227,23 @@ Two more that the tooling enforces:
 - Firestore transactions must **read before write**. A violation of this rule
   silently discarded every kill for a month; `test:kills` and `test:seasonxp`
   assert it for every transaction in their modules.
+- **Never put two on-chain writes in one player request.** A vault payout did —
+  store the week's code, then pay — and only for the *first* winner of each
+  week, so it looked random and survived weeks. Forno is load-balanced, so the
+  node answering the nonce read for the second write need not have seen the
+  first; the transaction was rejected at the RPC boundary before it was ever a
+  transaction, and the player was told the reward pool was empty. Do the
+  prerequisite write on its own schedule (`/api/vault/prepare`, plus the cron),
+  and if two writes genuinely must be sequential, read the nonce **once** and
+  increment locally. `lib/server/vaultChain.ts` carries the chain evidence.
+- **Money that fails must retry without the player.** The vault's only recovery
+  was re-opening the vault door, which means re-clearing Bunker 5 and killing
+  the final boss. Anything that can leave a reward unpaid needs a server-side
+  sweep — `lib/server/vaultSweep.ts`, run from the daily cron.
+- **Never name a cause you did not check.** Every failed vault payout printed
+  "the transfer completes as soon as the reward pool is topped up" and the
+  server had never read the pool; it cost hours of looking in the wrong place.
+  Read the balance before blaming the balance (`VAULT_FAILURE_MESSAGE`).
 - Vercel: API functions get `maxDuration: 30`; `/api/cron/season` runs daily at
   01:00 UTC (`vercel.json`).
 
