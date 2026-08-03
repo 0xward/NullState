@@ -14,7 +14,7 @@ import { LeaderboardEntry } from './contract'
 import { currentSeasonId } from './season'
 // The arithmetic that decides who gets paid lives in its own Firebase-free
 // module so it can be tested directly — see lib/seasonXp.ts.
-import { seasonBaseline } from './seasonXp'
+import { seasonXpGain } from './seasonXp'
 
 // ─── THE SEASON BOARD, AND WHY IT HAD TO EXIST ───────────────────────────────
 //
@@ -73,10 +73,16 @@ interface LeaderboardDoc {
   // reset between deaths within the same continuous play session (a
   // Revive keeps counting from where it left off) — see recordRunKills.
   lastRecordedKills?: number
-  /** Which season `seasonBaseXp` / `seasonBaseKills` were taken for. */
-  seasonId?: string
-  /** Career xp at the moment this season started, for this wallet. */
-  seasonBaseXp?: number
+  /**
+   * The engine's raw xp as last reported — NOT the career high-water mark
+   * above. Season XP is the increase between reports, so this is the only
+   * field that makes a returning player's season score move. See seasonXp.ts.
+   *
+   * Replaces `seasonId` + `seasonBaseXp`, which are no longer written: a
+   * baseline that nothing computes against is a value that can only mislead
+   * the next reader. Old docs may still carry them; nothing reads them.
+   */
+  lastRecordedXp?: number
   updatedAt: number
 }
 
@@ -108,20 +114,24 @@ export async function updateLeaderboardEntry(
       // reached", so a New Game (which legitimately restarts at 0 XP) can never
       // erase it — and can never drive season xp negative either.
       const careerXp = Math.max(data.xp ?? 0, xp)
-      const base = seasonBaseline(data, careerXp, seasonId)
+      // The season total ACCUMULATES — see seasonXpGain. Both writers use the
+      // same `lastRecordedXp`, so whichever runs first books the gain and the
+      // other adds nothing: re-reporting an unchanged figure is worth zero.
+      const gain = seasonXpGain(data, xp)
+      const seasonSnap = await tx.get(seasonPlayerRef(seasonId, normalizedAddr))
+      const seasonPrev = (seasonSnap.exists() ? seasonSnap.data() : {}) as { xp?: number }
       tx.set(ref, {
         walletAddress: normalizedAddr,
         username,
         xp: careerXp,
         level: Math.max(data.level ?? 1, level),
-        seasonId,
-        seasonBaseXp: base,
+        lastRecordedXp: xp,
         updatedAt: Date.now(),
       }, { merge: true })
       tx.set(seasonPlayerRef(seasonId, normalizedAddr), {
         walletAddress: normalizedAddr,
         username,
-        xp: Math.max(0, careerXp - base),
+        xp: (seasonPrev.xp ?? 0) + gain,
         level: Math.max(data.level ?? 1, level),
         updatedAt: Date.now(),
       }, { merge: true })
@@ -238,20 +248,28 @@ export async function recordRunProgress(
     const normalizedAddr = walletAddress.toLowerCase()
     const ref = doc(db, 'leaderboard', normalizedAddr)
     await runTransaction(db, async (tx) => {
+      // BOTH READS FIRST — Firestore rejects a read after a write, and that
+      // rule already cost this file every kill for a month. See
+      // scripts/test-leaderboard-writes.js.
+      const seasonId = seasonKey()
       const snap = await tx.get(ref)
+      const seasonSnap = await tx.get(seasonPlayerRef(seasonId, normalizedAddr))
       const data = (snap.exists() ? snap.data() : {}) as Partial<LeaderboardDoc>
+      const seasonPrev = (seasonSnap.exists() ? seasonSnap.data() : {}) as { xp?: number }
       const nextXp = Math.max(data.xp ?? 0, xp)
       const nextLevel = Math.max(data.level ?? 1, level)
-      const seasonId = seasonKey()
-      const base = seasonBaseline(data, nextXp, seasonId)
+      // Career xp stays a high-water mark, because that is what "career" means
+      // and a New Game must not erase it. The SEASON no longer derives from it:
+      // for a returning player the high-water mark never moves, which is
+      // exactly how a wallet with 30 kills ended up showing 0 season XP.
+      const gain = seasonXpGain(data, xp)
       tx.set(
         ref,
         {
           walletAddress: normalizedAddr,
           xp: nextXp,
           level: nextLevel,
-          seasonId,
-          seasonBaseXp: base,
+          lastRecordedXp: xp,
           updatedAt: Date.now(),
         },
         { merge: true }
@@ -263,7 +281,7 @@ export async function recordRunProgress(
         seasonPlayerRef(seasonId, normalizedAddr),
         {
           walletAddress: normalizedAddr,
-          xp: Math.max(0, nextXp - base),
+          xp: (seasonPrev.xp ?? 0) + gain,
           level: nextLevel,
           updatedAt: Date.now(),
         },

@@ -1,99 +1,112 @@
 #!/usr/bin/env node
 /**
- * test-season-xp.js — the arithmetic that decides who gets paid.
+ * test-season-xp.js — the number that decides who gets paid.
  *
- * OWNER: *"pertimbangan rank skrg sudah bagus belum? mengingat hanya dari xp?"*
+ * A season score has to be what the player earned THIS season. The first
+ * version took it as a difference against a baseline — career XP now, minus
+ * career XP when the season started — and it was wrong for precisely the
+ * players who had been here longest.
  *
- * It was not. XP is cumulative and never resets, so the season prize was being
- * paid off an all-time board: July's winner opened August already 5,926 XP
- * ahead of second place on work that was already finished, and a player joining
- * in September could never have won at all — they start at zero against months
- * of accumulation.
+ * OWNER, Season 2, from the live board: *"pake wallet lainnya kills terhitung
+ * tp xp tidak."* His row read 30 kills and 0 XP.
  *
- * A season score is a DELTA, and this covers the three ways that delta can be
- * got wrong, each of which silently pays the wrong person:
+ * Career XP is stored as a high-water mark, so a New Game (which legitimately
+ * restarts at 0) cannot erase it. Combine the two:
  *
- *   - re-deriving the baseline on every write (score resets to 0 constantly),
- *   - baselining on the INCOMING figure at rollover (the first session of the
- *     month vanishes),
- *   - letting it go negative (a player sorts to the bottom of a board they may
- *     be winning).
+ *     stored career xp .... 8581      baseline .... 8581
+ *     this run's xp ....... 585       score ....... max(8581,585) - 8581 = 0
+ *
+ * The player earns nothing until ONE RUN beats their all-time best. A new
+ * wallet is baselined at 0 and works perfectly, which is why some accounts
+ * looked right and others sat at zero — and why it survived a whole month.
+ *
+ * seasonXpGain is the same shape recordRunKills has used correctly all along:
+ * remember what was last reported, add the increase.
  *
  *   node scripts/test-season-xp.js
  */
 const { execFileSync } = require('child_process')
-const fs = require('fs'), path = require('path'), os = require('os')
+const path = require('path'), os = require('os')
 
 const out = path.join(os.tmpdir(), 'ns-sxp-' + process.pid + '.cjs')
 execFileSync('npx', ['esbuild', 'lib/seasonXp.ts', '--bundle', '--platform=node',
   '--format=cjs', '--log-level=error', '--alias:@=' + path.resolve('.'), '--outfile=' + out],
   { stdio: ['ignore', 'ignore', 'inherit'] })
-const S = require(out)
+const { seasonXpGain } = require(out)
 
 let fails = 0
 const ok = (l, c, d) => { console.log((c ? '  ✓ ' : '  ✗ FAIL: ') + l + (d !== undefined ? ' (' + d + ')' : '')); if (!c) fails++ }
+const eq = (l, got, want) => ok(l, got === want, `got ${got}, want ${want}`)
 
-const AUG = '202608', JUL = '202607'
+// ── THE BUG, AS THE OWNER SAW IT ────────────────────────────────────────────
+// A veteran with 8581 career XP plays a run and reaches 585. Under the old
+// baseline this was 0. It must be 585 — everything that run earned.
+eq('a returning player earns the whole run, not zero',
+  seasonXpGain({ xp: 8581, lastRecordedXp: 0 }, 585), 585)
 
-// ── a brand-new player ────────────────────────────────────────────────────
-ok('a wallet with no row starts the season at zero',
-  S.seasonXpFrom(null, 0, AUG) === 0)
-ok('and one with no row but existing career XP is baselined where it stands — '
-  + 'joining mid-season must not hand you the whole career as a season score',
-  S.seasonXpFrom(undefined, 5000, AUG) === 0)
+// ── first sight anchors, it does not award ──────────────────────────────────
+// Every existing doc lands here exactly once at rollout. Awarding the figure
+// would hand a veteran their entire career total as a season score.
+eq('a doc that has never reported is anchored, not paid', seasonXpGain({ xp: 8581 }, 8581), 0)
+eq('and so is a brand-new wallet', seasonXpGain(null, 0), 0)
+eq('even one that arrives mid-run', seasonXpGain(undefined, 1200), 0)
 
-// ── the rollover, which is the entire point ───────────────────────────────
-// Rondo's real July figure. On 1 August he must be on zero like everyone else.
-const julyVeteran = { xp: 8581, seasonId: JUL, seasonBaseXp: 0 }
-ok('July\'s winner starts August on ZERO, not on 8,581',
-  S.seasonXpFrom(julyVeteran, 8581, AUG) === 0, String(S.seasonXpFrom(julyVeteran, 8581, AUG)))
-ok('and after one August run, only that run counts',
-  S.seasonXpFrom(julyVeteran, 8581 + 2000, AUG) === 2000)
+// ── ordinary progress ───────────────────────────────────────────────────────
+eq('the increase between reports is the score', seasonXpGain({ lastRecordedXp: 100 }, 175), 75)
+eq('an unchanged report is worth nothing', seasonXpGain({ lastRecordedXp: 175 }, 175), 0)
+// Two writers (updateLeaderboardEntry and recordRunProgress) call this with the
+// same figure. The second must not pay twice.
+eq('so two writers with the same figure cannot double-count',
+  seasonXpGain({ lastRecordedXp: 175 }, 175), 0)
 
-// The migration case: every doc that exists today has NO seasonId at all.
-const legacy = { xp: 2655 }
-ok('a pre-existing doc with no seasonId is baselined at its career total',
-  S.seasonBaseline(legacy, 2655, AUG) === 2655)
-ok('so nobody carries a head start into the first season under the new rule',
-  S.seasonXpFrom(legacy, 2655, AUG) === 0)
+// ── New Game, which the baseline could never handle ─────────────────────────
+// p.xp only goes DOWN when a run restarts, so the lower figure is a fresh run
+// and every point of it is new.
+eq('a restart counts in full rather than reading as no progress',
+  seasonXpGain({ lastRecordedXp: 8581 }, 40), 40)
+eq('and keeps accumulating from there', seasonXpGain({ lastRecordedXp: 40 }, 260), 220)
 
-// ── the baseline must be STICKY within a season ───────────────────────────
-// Re-deriving it on each write is the obvious bug: every sync would reset the
-// player's season score to zero and the board would never move.
-const midSeason = { xp: 9000, seasonId: AUG, seasonBaseXp: 8581 }
-ok('a baseline already taken this season is kept, not re-derived',
-  S.seasonBaseline(midSeason, 9000, AUG) === 8581)
-ok('so the score keeps climbing across writes', S.seasonXpFrom(midSeason, 9000, AUG) === 419)
-ok('and a later write with more XP climbs further',
-  S.seasonXpFrom(midSeason, 12000, AUG) === 3419)
+// ── never negative, never nonsense ──────────────────────────────────────────
+ok('a gain is never negative', [
+  seasonXpGain({ lastRecordedXp: 500 }, 0),
+  seasonXpGain({ lastRecordedXp: 500 }, 499),
+  seasonXpGain({ lastRecordedXp: 0 }, 0),
+].every((n) => n >= 0))
+eq('a garbage report is worth nothing', seasonXpGain({ lastRecordedXp: 10 }, NaN), 0)
+eq('so is a negative one', seasonXpGain({ lastRecordedXp: 10 }, -5), 0)
+eq('and Infinity is not a score', seasonXpGain({ lastRecordedXp: 10 }, Infinity), 0)
 
-// ── the baseline is last season's END, not this write's value ─────────────
-// If a player's first sync of the month happens AFTER they have already played,
-// baselining on the incoming figure would throw that session away.
-const playedBeforeSync = { xp: 8581, seasonId: JUL, seasonBaseXp: 0 }
-ok('a first sync that arrives after some play still counts that play',
-  S.seasonXpFrom(playedBeforeSync, 8581 + 1500, AUG) === 1500,
-  String(S.seasonXpFrom(playedBeforeSync, 8581 + 1500, AUG)))
+// ── a season is a sum, and it adds up ───────────────────────────────────────
+// Walk a veteran through a month: anchored, two runs, a New Game, two more.
+{
+  const reports = [8581, 8700, 8950, 120, 400, 900]
+  let doc = { xp: 8581 }
+  let season = 0
+  for (const xp of reports) {
+    season += seasonXpGain(doc, xp)
+    doc = { xp: Math.max(doc.xp, xp), lastRecordedXp: xp }
+  }
+  // 0 + 119 + 250 + 120 + 280 + 500
+  eq('a full month of play sums to what was actually earned', season, 1269)
+  ok('and the career high-water mark is untouched by any of it', doc.xp === 8950, String(doc.xp))
+}
 
-// ── never negative ────────────────────────────────────────────────────────
-// "New Game" restarts a run at 0 XP. Career XP is kept as a high-water mark,
-// but a doc written before that rule could hold a baseline above the total.
-const stale = { xp: 9000, seasonId: AUG, seasonBaseXp: 9000 }
-ok('a career total below the baseline scores 0, never a negative',
-  S.seasonXpFrom(stale, 100, AUG) === 0, String(S.seasonXpFrom(stale, 100, AUG)))
-ok('which matters because a negative would sort a leader to the very bottom',
-  S.seasonXpFrom(stale, 0, AUG) >= 0)
-
-// ── a season id is a string, and must be compared as one ──────────────────
-ok('a numeric-looking seasonId from an old doc does not falsely match',
-  S.seasonBaseline({ xp: 500, seasonId: 202608, seasonBaseXp: 0 }, 700, AUG) === 500)
-
-// ── two seasons on, the baseline still rolls ──────────────────────────────
-const augVeteran = { xp: 20000, seasonId: AUG, seasonBaseXp: 8581 }
-ok('September rebaselines off August\'s final career total',
-  S.seasonBaseline(augVeteran, 20000, '202609') === 20000)
-ok('so each month genuinely starts level', S.seasonXpFrom(augVeteran, 20000, '202609') === 0)
+// ── the baseline is gone, not merely unused ─────────────────────────────────
+const read = (p) => require('fs').readFileSync(path.join(__dirname, '..', p), 'utf8')
+ok('seasonBaseline no longer exists to be called by mistake',
+  !/export function seasonBaseline/.test(read('lib/seasonXp.ts')))
+const svc = read('lib/leaderboardService.ts')
+ok('and nothing writes seasonBaseXp any more', !/seasonBaseXp: /.test(svc))
+ok('both writers accumulate instead', (svc.match(/seasonXpGain\(data, xp\)/g) || []).length === 2)
+// The rule that already cost this file every kill for a month.
+ok('and neither of them reads after it writes', (() => {
+  const bodies = svc.split('runTransaction(db, async (tx) => {').slice(1)
+  return bodies.every((b) => {
+    const body = b.slice(0, b.indexOf('\n    })'))
+    const firstSet = body.indexOf('tx.set'), lastGet = body.lastIndexOf('tx.get')
+    return firstSet < 0 || lastGet < firstSet
+  })
+})())
 
 console.log(fails ? `  ${fails} GAGAL` : '  semua lolos')
-try { fs.unlinkSync(out) } catch {}
 process.exit(fails ? 1 : 0)

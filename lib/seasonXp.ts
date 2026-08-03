@@ -14,60 +14,65 @@
 // opened August already 5,926 XP ahead of second place — earned in a month that
 // was over — and a player joining in September could never have won at all.
 //
-// A season score is therefore a DELTA: career XP now, minus career XP when the
-// season started for that wallet.
+// A season score is therefore a DELTA. The first version took that delta
+// against a BASELINE — career XP now, minus career XP when the season started —
+// and it was wrong for exactly the players who had been here longest.
+//
+// ── HOW THE BASELINE FAILED, AND WHY IT LOOKED FINE ─────────────────────────
+//
+// OWNER, Season 2, from the live board: *"pake wallet lainnya kills terhitung
+// tp xp tidak."* His row read 30 kills and 0 XP.
+//
+// Career XP is stored as a high-water mark — Math.max(stored, incoming) — so a
+// New Game, which legitimately restarts at 0, cannot erase it. Combine the two
+// and a returning player is frozen:
+//
+//     stored career xp (from Season 1) .... 8581
+//     baseline for Season 2 ............... 8581
+//     this run's xp ....................... 585
+//     max(8581, 585) - 8581 ...............    0
+//
+// They earn nothing for the season until ONE RUN beats their all-time best. A
+// brand-new wallet is baselined at 0 and works perfectly, which is why some
+// accounts looked right and others sat at zero.
+//
+// ── WHAT REPLACED IT ────────────────────────────────────────────────────────
+//
+// The same shape recordRunKills has used correctly all along: remember what was
+// last reported, add the increase. It accumulates what the player actually
+// earned, it survives a New Game (a lower figure is a fresh run and counts in
+// full), and it never consults a high-water mark.
 
 /** The fields the calculation reads off a stored leaderboard doc. */
-export interface SeasonBaselineDoc {
-  /** Career XP as of the last write. */
-  xp?: number
-  /** Which season `seasonBaseXp` was taken for. */
-  seasonId?: string
-  /** Career XP at the moment that season started, for this wallet. */
-  seasonBaseXp?: number
+export interface SeasonXpDoc {
+  /**
+   * The engine's raw xp figure as last reported, NOT the career high-water
+   * mark. The two differ the moment a player starts a New Game, and telling
+   * them apart is the whole fix.
+   */
+  lastRecordedXp?: number
 }
 
 /**
- * Where this wallet's season starts.
+ * How much XP to ADD to this season's total for a report of `xp`.
  *
- * Three cases, and the middle one is the whole point:
+ * Three cases, and the first two are the ones the baseline got wrong:
  *
- *   1. Baseline already taken for THIS season -> keep it. Re-deriving it on
- *      every write would reset the player's season score to zero each time.
- *   2. Baseline is from a PREVIOUS season (or absent) -> take `doc.xp`, the
- *      career total as of the last write, which by definition was last season.
- *      NOT the incoming figure: that would silently discard whatever the player
- *      earned before their first sync of the new month.
- *   3. No document at all -> the incoming career total. A wallet with no row is
- *      a new player, whose career total is near zero anyway.
+ *   1. Never reported before -> 0. There is nothing to compare against, so the
+ *      player is anchored here and starts earning from their next report. This
+ *      is also the migration: every existing doc lands here once, and the
+ *      season carries on from whatever it had rather than jumping.
+ *   2. Higher than last time -> the increase. What they earned since.
+ *   3. LOWER than last time -> the whole figure. p.xp only goes down when a run
+ *      restarts, so the new run's progress counts in full. The old code read
+ *      this as "no progress" forever.
  *
- * At rollout every existing doc lands in case 2 with no `seasonId`, so each
- * player is baselined at their current career total and the season starts level
- * for everybody. That is the desired migration, and it needs no backfill.
+ * Never negative, and never inflated by re-reporting the same number: two
+ * writers calling this with an unchanged `xp` add nothing the second time.
  */
-export function seasonBaseline(
-  doc: SeasonBaselineDoc | null | undefined,
-  careerXp: number,
-  seasonId: string,
-): number {
-  const d = doc || {}
-  if (d.seasonId === seasonId && typeof d.seasonBaseXp === 'number') return d.seasonBaseXp
-  return typeof d.xp === 'number' ? d.xp : careerXp
-}
-
-/**
- * XP earned this season. Never negative.
- *
- * The clamp is not defensive noise: "New Game" legitimately restarts a run at 0
- * XP, and while the stored career total is kept as a high-water mark, a doc
- * written before that rule existed could still hold a baseline above the
- * current total. A negative score would sort a player to the very bottom of a
- * board they might be winning.
- */
-export function seasonXpFrom(
-  doc: SeasonBaselineDoc | null | undefined,
-  careerXp: number,
-  seasonId: string,
-): number {
-  return Math.max(0, careerXp - seasonBaseline(doc, careerXp, seasonId))
+export function seasonXpGain(doc: SeasonXpDoc | null | undefined, xp: number): number {
+  if (!Number.isFinite(xp) || xp < 0) return 0
+  const last = doc?.lastRecordedXp
+  if (typeof last !== 'number') return 0
+  return xp >= last ? xp - last : xp
 }
