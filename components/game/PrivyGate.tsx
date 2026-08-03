@@ -2,6 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { PrivyProvider, usePrivy, useLoginWithOAuth } from '@privy-io/react-auth'
+// The chain object itself, from viem — Privy takes a viem Chain, and this is
+// the same `celo` lib/WagmiIsland.tsx configures wagmi with, so the two cannot
+// drift onto different ideas of which network the game runs on.
+import { celo } from 'viem/chains'
 import { privyAppId, liftGateVeil } from '@/lib/privyGateFlag'
 import { GoogleMark, MailMark, WalletMark } from './SignInMarks'
 import '@/styles/signin.css'
@@ -223,6 +227,20 @@ export default function PrivyGate(props: PrivyGateProps) {
         // Nested under `ethereum` — Privy v3 splits the setting per chain
         // family, and the flat form silently does nothing.
         embeddedWallets: { ethereum: { createOnLogin: 'users-without-wallets' } },
+        // ── CELO, OR THE WALLET IS BORN USELESS ───────────────────────────
+        //
+        // Unset, Privy defaults an embedded wallet to Ethereum mainnet — the
+        // same class of bug the owner just hit in the OKX browser, where a
+        // perfectly connected wallet could not pay because it was on the wrong
+        // chain. A wallet minted here has exactly one job: hold a prize and, in
+        // time, pay for things on Celo.
+        //
+        // `defaultChain` is what an embedded wallet is created on;
+        // `supportedChains` is the list an EXTERNAL wallet is asked to be in.
+        // Both, so neither kind of player arrives somewhere the game cannot
+        // transact.
+        defaultChain: celo,
+        supportedChains: [celo],
       }}
     >
       <GateInner {...props} />
