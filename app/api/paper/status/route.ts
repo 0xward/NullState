@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getAdminDb } from '@/firebase-config'
 import { walletAddressSchema } from '@/lib/validation'
 import { normalizeWalletAddress, getCurrentWeekIdString } from '@/lib/vault-utils'
+import { ensureWeeklyCodeInDb } from '@/lib/server/vaultCode'
 
 // Reads ?walletAddress, so it's always dynamic — declare it so the build
 // doesn't try to prerender it statically and log a DYNAMIC_SERVER_USAGE error.
@@ -35,25 +36,6 @@ export const dynamic = 'force-dynamic'
 // Response: { weekId, claimed: boolean, canClaim: boolean, code: string|null }
 // =============================================
 
-async function ensureWeeklyCode(db: NonNullable<ReturnType<typeof getAdminDb>>, weekId: string): Promise<string> {
-  const ref = db.ref(`vaultCodes/${weekId}`)
-  const snap = await ref.get()
-  const existing = snap.val()
-  if (existing && typeof existing.code === 'string' && /^\d{4}$/.test(existing.code)) {
-    return existing.code
-  }
-  // Not generated yet — atomic transaction so a race between two players'
-  // first-of-the-week requests can only ever commit one code.
-  const generated = String(Math.floor(1000 + Math.random() * 9000))
-  const txResult = await ref.transaction((current: unknown) => {
-    const cur = current as { code?: string } | null
-    if (cur && typeof cur.code === 'string' && /^\d{4}$/.test(cur.code)) return undefined // abort — already set
-    return { code: generated, generatedAt: Date.now() }
-  })
-  const finalVal = txResult.snapshot?.val() as { code?: string } | null
-  return finalVal?.code ?? generated
-}
-
 export async function GET(req: NextRequest) {
   try {
     const walletAddress = req.nextUrl.searchParams.get('walletAddress') ?? ''
@@ -81,7 +63,7 @@ export async function GET(req: NextRequest) {
 
     let code: string | null = null
     if (claimed) {
-      code = await ensureWeeklyCode(db, weekId)
+      code = await ensureWeeklyCodeInDb(db, weekId)
     }
 
     return NextResponse.json({ weekId, claimed, canClaim: !claimed, code }, { status: 200 })

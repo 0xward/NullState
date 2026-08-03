@@ -2070,6 +2070,32 @@ function openVaultWindow(decor){
   win.classList.remove('hidden');
   // NO input.focus() here on purpose — see the keypad note below.
   refreshVaultRequirements();
+  prepareVaultOnChain();
+}
+
+// Tell the server to put this week's vault code on chain, NOW, while the player
+// is still looking at the keypad.
+//
+// This is the client half of the main vault fix. /api/vault/submit used to
+// store the code and pay the winner in the SAME request, and only for the first
+// winner of each week — and the second of those two writes is the one Forno
+// kept dropping before it reached the mempool, which is how a solved vault paid
+// nothing. Storing the code when the DOOR opens instead of when someone WINS
+// means the payout is a single write by the time it matters.
+//
+// Fire-and-forget on purpose: the player must never wait for it, and it must
+// never surface an error. Solving the code is not blocked by this — the server
+// falls back to storing and paying together (with a shared nonce) if it has to.
+// The daily cron does the same errand, so a week nobody opens a door in is
+// still covered.
+let _vaultPrepared = null;
+function prepareVaultOnChain(){
+  const week = String(getVaultWeekId());
+  if(_vaultPrepared === week) return;   // once per week per session is plenty
+  _vaultPrepared = week;
+  try{
+    fetch('/api/vault/prepare', { method:'POST' }).catch(()=>{});
+  }catch(e){ /* offline — the cron still has it */ }
 }
 
 // ---- the 4-digit entry (in-game keypad, not the phone's) ----
@@ -2207,12 +2233,16 @@ async function submitVaultCode(){
     } else if(data && data.isCorrect){
       const _paid = data.rewardStatus==='paid';
       if(msg){
+        // Same rule as the popup note below: do not name a cause the server
+        // did not check. "Once the pool is funded" was printed for dropped
+        // transactions, an unconfigured signer and an empty pool alike.
         msg.textContent = _paid ? '✓ Correct! Reward sent to your wallet.'
-                                : '✓ Correct! Vault unlocked — your reward arrives once the pool is funded.';
+                                : '✓ Correct! Vault unlocked — the reward finishes sending itself.';
         msg.className='vault-msg ok';
       }
       A.levelup(); spark(G.player.x, G.player.y-30, '#b46bff', 40, 260);
-      log(_paid ? 'Vault unlocked — reward claimed.' : 'Vault unlocked — reward pending pool funding.', 'reward');
+      log(_paid ? 'Vault unlocked — reward claimed.'
+                : 'Vault unlocked — reward pending' + (data.reason ? ' ('+data.reason+')' : '') + '.', 'reward');
       if(submitBtn){ submitBtn.textContent='DONE'; }
       // THE WIN SCREEN. This used to be the line above and a 1.4s timer, which
       // meant the one moment real money moves went by without naming the
@@ -2267,9 +2297,24 @@ function openVaultWinPopup(data){
       : 'Reward pending';
   }
   if(noteEl){
+    // A PENDING REWARD NOW SAYS WHY IT IS PENDING.
+    //
+    // This line used to read "the transfer completes as soon as the reward pool
+    // is topped up" for EVERY failure, and the server had never once looked at
+    // the pool. The week the owner hit it, the pool held 0.85 USDT against a
+    // 0.05 reward — seventeen payouts' worth — and the real fault was a
+    // transaction Forno dropped before it reached the mempool. That sentence
+    // sent him, and then an agent, to the treasury for an hour.
+    //
+    // The server now checks each cause before naming it (see
+    // VAULT_FAILURE_MESSAGE in lib/server/vaultChain.ts) and sends the sentence
+    // down with the response. The fallback below claims nothing it has not been
+    // told — it says the win is safe and the payout retries, which is true of
+    // every pending case.
+    const why = (data && typeof data.message === 'string' && data.message) ? data.message : null;
     noteEl.innerHTML = paid
       ? 'Sent straight to your wallet — <b>no claim needed</b>.<br>It may take a few seconds to show in MiniPay.'
-      : 'Your code was correct and the win is recorded. The transfer completes as soon as the reward pool is topped up — reopen the vault later and it finishes by itself.';
+      : (why || 'Your code was correct and the win is recorded. The payout retries by itself — nothing is lost.');
   }
   if(txEl){
     const hash = data && typeof data.txHash === 'string' && data.txHash;

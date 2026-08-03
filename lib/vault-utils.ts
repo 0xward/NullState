@@ -11,6 +11,22 @@ export function getCurrentWeekIdString(): string {
   return String(getISOWeekId())
 }
 
+// The weeks the pending-payout sweep has to look at (newest first).
+//
+// Not just the current one: a reward that goes pending late on a Sunday would
+// otherwise be stranded by the ISO week rolling over at Monday 00:00 UTC before
+// the cron next runs — the exact window in which a player is least able to go
+// back and re-open the vault themselves. Derived by stepping back seven real
+// days rather than subtracting 1 from the id, because week 1 of a year does not
+// follow week 0 of the same year.
+export function recentWeekIdStrings(now: number = Date.now(), count = 2): string[] {
+  const out: string[] = []
+  for (let i = 0; i < count; i++) {
+    out.push(String(getISOWeekId(new Date(now - i * 7 * 86400000))))
+  }
+  return out
+}
+
 export function normalizeWalletAddress(address: string): string {
   return address.trim().toLowerCase()
 }

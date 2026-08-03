@@ -45,7 +45,8 @@
     "test:kills": "node scripts/test-leaderboard-writes.js",
     "test:proploot": "node scripts/test-prop-loot.js",
     "test:network": "node scripts/test-wrong-network.js",
-    "test:privypay": "node scripts/test-privy-pay.js"
+    "test:privypay": "node scripts/test-privy-pay.js",
+    "test:vaultpay": "node scripts/test-vault-payout.js"
   },
   "overrides": {
     "permissionless": {

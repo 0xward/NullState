@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getAdminDb, getAdminFirestore } from '@/firebase-config'
 import { prepareSeason, previousSeasonId, payoutCommands, prune } from '@/lib/server/seasonClose'
 import { getCurrentSeasonId } from '@/lib/web3-client'
+import { sweepPendingVaultPayouts } from '@/lib/server/vaultSweep'
+import { recentWeekIdStrings } from '@/lib/vault-utils'
 
 export const dynamic = 'force-dynamic'
 
@@ -79,11 +81,40 @@ export async function GET(req: NextRequest) {
       console.error('[cron/season] prune failed (season still frozen):', err)
     }
 
+    // ── Unpaid vault rewards ────────────────────────────────────────────────
+    // Rides the same daily wake-up, for the same reasons as the prune above,
+    // and for one more: it is the ONLY route to a stuck reward that does not
+    // ask the player to re-clear Bunker 5 and kill the final boss to reach the
+    // vault door again. The owner had to read the contract on celoscan to
+    // recover his; a player cannot. See lib/server/vaultSweep.ts.
+    //
+    // Caught, never thrown: a payout that cannot be retried must not stop a
+    // season being frozen.
+    let vault = { checked: 0, paid: 0, stillPending: 0 }
+    try {
+      const swept = await sweepPendingVaultPayouts(db, { weekIds: recentWeekIdStrings() })
+      vault = { checked: swept.checked, paid: swept.paid, stillPending: swept.stillPending }
+      if (swept.checked) {
+        console.log(
+          `[cron/season] vault sweep: ${swept.paid}/${swept.checked} paid`
+          + (swept.stillPending
+            ? ' · still pending: ' + swept.outcomes
+                .filter((o) => o.status === 'pending')
+                .map((o) => `${o.wallet}@${o.weekId} (${o.reason})`)
+                .join(' · ')
+            : ''),
+        )
+      }
+    } catch (err) {
+      console.error('[cron/season] vault sweep failed (season still frozen):', err)
+    }
+
     return NextResponse.json({
       seasonId,
       created,
       snapshot,
       pruned: pruned.length,
+      vault,
       commands: payoutCommands(snapshot),
       note: created
         ? 'Season frozen. Run the commands above, then POST /api/season/status to mark it paid.'

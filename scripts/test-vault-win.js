@@ -127,9 +127,33 @@ async function openWith(page, payload) {
   // ── a pending payout must not invent a figure ─────────────────────────
   const pending = await openWith(page, { isCorrect: true, rewardStatus: 'pending', txHash: null })
   ok('a pending reward says pending, not a number', /pending/i.test(pending.amount), pending.amount)
-  ok('and explains it completes by itself', /tops? up|topped up|finishes by itself/i.test(pending.note),
-    pending.note.slice(0, 80))
+  // It must say the win is SAFE and the payout retries — but it must NOT name a
+  // cause the server never checked. This assertion used to require the words
+  // "topped up", which is how the popup came to tell every failed payout that
+  // the reward pool was empty. On the week the owner hit it the pool held 0.85
+  // USDT against a 0.05 reward and the real fault was a dropped transaction;
+  // that sentence cost him, and then an agent, an hour in the treasury.
+  ok('and explains the win is kept and the payout retries',
+    /retries|recorded|by itself/i.test(pending.note), pending.note.slice(0, 80))
+  ok('and does NOT blame the reward pool when nothing checked it',
+    !/pool/i.test(pending.note), pending.note.slice(0, 80))
   ok('with no transaction link to a transaction that does not exist', !pending.txShown)
+
+  // The server sends the real reason down with the response (see
+  // VAULT_FAILURE_MESSAGE in lib/server/vaultChain.ts). The popup must print
+  // THAT, not a guess of its own.
+  const poolPending = await openWith(page, {
+    isCorrect: true, rewardStatus: 'pending', txHash: null, reason: 'pool_empty',
+    message: 'Your win is recorded. The reward pool needs topping up — the transfer completes by itself as soon as it is funded.',
+  })
+  ok('a pool problem the server DID check is named as one', /pool/i.test(poolPending.note),
+    poolPending.note.slice(0, 80))
+  const rpcPending = await openWith(page, {
+    isCorrect: true, rewardStatus: 'pending', txHash: null, reason: 'rpc',
+    message: 'Your win is recorded. The network dropped the payout transaction — it retries automatically and completes within a day.',
+  })
+  ok('a dropped transaction is named as one, and never as a pool problem',
+    /network dropped/i.test(rpcPending.note) && !/pool/i.test(rpcPending.note), rpcPending.note.slice(0, 80))
 
   // ── the amount read failed server-side: say "sent", never guess ───────
   const noAmount = await openWith(page, { isCorrect: true, rewardStatus: 'paid', txHash: '0xdef456' })
