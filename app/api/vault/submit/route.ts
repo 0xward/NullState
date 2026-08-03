@@ -1,19 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createPublicClient, createWalletClient } from 'viem'
-import { privateKeyToAccount } from 'viem/accounts'
-import { celo } from 'viem/chains'
-import { celoTransport } from '@/lib/celoRpc'
-import { formatUnits } from 'viem'
-import { TREASURE_VAULT_ABI, TREASURE_VAULT_ADDRESS } from '@/lib/contract-abi'
-import { MARKETPLACE_TOKENS } from '@/lib/constants/tokens'
-
-// Minimal read ABI matching the DEPLOYED TreasureVault (public `vaultReward`
-// getter is lowercase; TREASURE_VAULT_ABI still carries the old `VAULT_REWARD`
-// constant name the live contract no longer exposes).
-const VAULT_READ_ABI = [
-  { name: 'vaultReward', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
-  { name: 'currentRewardToken', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'address' }] },
-] as const
 import { getAdminDb } from '@/firebase-config'
 import { vaultSubmitBodySchema } from '@/lib/validation'
 import {
@@ -21,16 +6,17 @@ import {
   parseWeekId,
   normalizeWalletAddress,
 } from '@/lib/vault-utils'
-import { getServerAttributionSuffix } from '@/lib/attribution-tag'
+import {
+  storeThenPay,
+  VAULT_FAILURE_MESSAGE,
+  type VaultPayoutFailure,
+} from '@/lib/server/vaultChain'
 
-// The on-chain payout can involve up to TWO sequential transactions the first
-// time anyone wins in a given week (store the week's code on-chain, then pay),
-// each of which waits for a Celo receipt. On Vercel the default function
-// timeout (10s) is not enough for that and the request was being killed AFTER
-// the code was stored but BEFORE submitVaultCode was ever broadcast — the
-// player's win was recorded off-chain but no USDT ever moved (confirmed
-// on-chain: code stored, pool claimed still 0, no submitVaultCode tx at all).
-// Give the route real headroom so both txs can confirm in one request.
+// Headroom for the on-chain payout to confirm inside the request. It is now
+// normally ONE write (lib/server/vaultChain.ts explains why), but a payout that
+// waits for a Celo receipt still needs more than Vercel's 10s default — that
+// default is what killed the request after the code was stored and before
+// submitVaultCode was ever broadcast.
 export const maxDuration = 60
 
 // `amount`/`token` are what was ACTUALLY paid, read back off the vault contract
@@ -44,13 +30,23 @@ type PayoutResult = {
   txHash: string | null
   amount?: number
   token?: string
+  // WHY a pending result now carries a reason. The popup used to print one
+  // sentence for every failure alike — "the transfer completes as soon as the
+  // reward pool is topped up" — and the server had never looked at the pool.
+  // On the week this was measured the pool held 0.85 USDT against a 0.05
+  // reward and the real fault was a dropped RPC broadcast; that sentence cost
+  // the owner, and then an agent, an hour of looking at treasury balances. See
+  // VAULT_FAILURE_MESSAGE in lib/server/vaultChain.ts.
+  reason?: VaultPayoutFailure
+  message?: string
 }
 
-// Best-effort on-chain finalize: make sure this week's code is stored on-chain
-// (backend signer is authorized), then pay the winner. NEVER throws — a failure
-// here leaves the reward `pending`, it never turns a correct code into an error.
-// Both the first-win path and the self-heal path (re-open a vault whose reward
-// is still pending) funnel through here so the logic lives in one place.
+// Best-effort on-chain finalize. NEVER throws — a failure here leaves the
+// reward `pending`, it never turns a correct code into an error.
+//
+// All the on-chain reasoning moved to lib/server/vaultChain.ts. What is left
+// here is the Firebase side: stamp what was paid, or record WHY it was not so
+// the daily sweep and the player see the same, true reason.
 async function finalizeVaultPayout(params: {
   weekId: number
   walletAddress: string
@@ -60,86 +56,51 @@ async function finalizeVaultPayout(params: {
 }): Promise<PayoutResult> {
   const { weekId, walletAddress, normalizedWallet, expectedCode, db } = params
 
-  const backendPrivateKey = process.env.BACKEND_PRIVATE_KEY as `0x${string}` | undefined
-  if (!backendPrivateKey || !TREASURE_VAULT_ADDRESS || TREASURE_VAULT_ADDRESS === '0x') {
-    return { rewardStatus: 'pending', txHash: null }
+  const result = await storeThenPay({ weekId, walletAddress, expectedCode })
+
+  if (result.ok) {
+    await db.ref(`vaultCompleted/${weekId}/${normalizedWallet}`).update({
+      txHash: result.txHash,
+      ...(result.amount !== undefined ? { amount: result.amount, token: result.token } : {}),
+      // Clear any reason left by an earlier failed attempt — a paid reward that
+      // still carries "pool_empty" is how a fixed problem keeps being reported.
+      pendingReason: null,
+      pendingDetail: null,
+    })
+    return { rewardStatus: 'paid', txHash: result.txHash, amount: result.amount, token: result.token }
   }
 
-  try {
-    const account = privateKeyToAccount(backendPrivateKey)
-    const transport = celoTransport()
-    const publicClient = createPublicClient({ chain: celo, transport })
-    const walletClient = createWalletClient({ chain: celo, transport, account })
-    const weekBig = BigInt(weekId)
-
-    // AUTO on-chain code sync — submitVaultCode() reverts unless this week's
-    // code is already stored on-chain. Guarded by isCodeSetForWeek so it runs
-    // at most once per week; a race that reverts with "already set" is caught
-    // and we proceed to pay.
-    const alreadySet = await publicClient
-      .readContract({ address: TREASURE_VAULT_ADDRESS, abi: TREASURE_VAULT_ABI, functionName: 'isCodeSetForWeek', args: [weekBig] })
-      .catch(() => false)
-    if (!alreadySet) {
-      try {
-        const storeHash = await walletClient.writeContract({
-          address: TREASURE_VAULT_ADDRESS,
-          abi: TREASURE_VAULT_ABI,
-          functionName: 'storeWeeklyVaultCode',
-          args: [weekBig, expectedCode], // the Firebase code the Paper shows
-          account,
-          dataSuffix: getServerAttributionSuffix(),
-        })
-        await publicClient.waitForTransactionReceipt({ hash: storeHash })
-      } catch (storeErr) {
-        const nowSet = await publicClient
-          .readContract({ address: TREASURE_VAULT_ADDRESS, abi: TREASURE_VAULT_ABI, functionName: 'isCodeSetForWeek', args: [weekBig] })
-          .catch(() => false)
-        if (!nowSet) throw storeErr
-      }
-    }
-
-    // Pay the winner. We submit the EXPECTED (canonical) code rather than the
-    // raw user input: correctness was already authenticated off-chain against
-    // Firebase, so this guarantees the on-chain string comparison matches and
-    // the reward is released (a self-heal re-open must pay even if the player
-    // fat-fingers a digit the second time).
-    const hash = await walletClient.writeContract({
-      address: TREASURE_VAULT_ADDRESS,
-      abi: TREASURE_VAULT_ABI,
-      functionName: 'submitVaultCode',
-      args: [walletAddress as `0x${string}`, weekBig, expectedCode],
-      account,
-      dataSuffix: getServerAttributionSuffix(),
-    })
-    await publicClient.waitForTransactionReceipt({ hash })
-
-    // Stamp what was actually paid (amount + token symbol) so the Rewards
-    // history can show "+0.05 USDT" without a later RPC read. Best-effort —
-    // the payout already succeeded, so a failed read here must not undo it.
-    let paidAmount: number | undefined
-    let paidToken: string | undefined
-    try {
-      const [reward, tokenAddr] = await Promise.all([
-        publicClient.readContract({ address: TREASURE_VAULT_ADDRESS, abi: VAULT_READ_ABI, functionName: 'vaultReward' }) as Promise<bigint>,
-        publicClient.readContract({ address: TREASURE_VAULT_ADDRESS, abi: VAULT_READ_ABI, functionName: 'currentRewardToken' }) as Promise<`0x${string}`>,
-      ])
-      const match = Object.values(MARKETPLACE_TOKENS).find((t) => t.address.toLowerCase() === String(tokenAddr).toLowerCase())
-      const decimals = match?.decimals ?? 18
-      paidAmount = Number(formatUnits(reward, decimals))
-      paidToken = match?.symbol ?? 'USD'
-    } catch { /* leave amount/token unset; history falls back to a live read */ }
-
+  // `already_claimed` means the contract has ALREADY paid this wallet for this
+  // week — a payout that landed while we were failing to hear about it. That is
+  // a success with a missing receipt, not a failure, and it must not be
+  // reported as pending or the sweep will keep retrying a settled reward.
+  //
+  // Recorded as `paidOnChain` rather than by inventing a txHash: the popup
+  // turns txHash into a celoscan link, and a link to a hash that does not exist
+  // is worse than no link. The settled-check below reads both.
+  if (result.reason === 'already_claimed') {
     await db.ref(`vaultCompleted/${weekId}/${normalizedWallet}`).update({
-      txHash: hash,
-      ...(paidAmount !== undefined ? { amount: paidAmount, token: paidToken } : {}),
+      paidOnChain: true,
+      pendingReason: null,
+      pendingDetail: null,
     })
-    return { rewardStatus: 'paid', txHash: hash, amount: paidAmount, token: paidToken }
-  } catch (payErr) {
-    // Correct code, but the on-chain payout couldn't complete (RPC hiccup,
-    // gas, timeout). The player keeps their CORRECT result; the reward stays
-    // pending and self-heals the next time they open the vault.
-    console.error('[vault/submit] payout failed (kept pending):', payErr instanceof Error ? payErr.message : payErr)
-    return { rewardStatus: 'pending', txHash: null }
+    return { rewardStatus: 'paid', txHash: null }
+  }
+
+  console.error(
+    `[vault/submit] payout pending (${result.reason}) for ${normalizedWallet} week ${weekId}:`,
+    result.detail ?? '',
+  )
+  await db.ref(`vaultCompleted/${weekId}/${normalizedWallet}`).update({
+    pendingReason: result.reason,
+    pendingDetail: result.detail ?? null,
+    pendingAt: Date.now(),
+  })
+  return {
+    rewardStatus: 'pending',
+    txHash: null,
+    reason: result.reason,
+    message: VAULT_FAILURE_MESSAGE[result.reason],
   }
 }
 
@@ -205,8 +166,12 @@ export async function POST(req: NextRequest) {
     // fast tx). This self-heals a stuck reward the instant the player re-opens
     // the vault, without spending an attempt or re-validating the code.
     if (solvedSnap.exists()) {
-      const solved = solvedSnap.val() as { txHash?: string | null; amount?: number; token?: string } | null
-      const alreadyPaid = !!(solved && typeof solved.txHash === 'string' && solved.txHash.length > 0)
+      const solved = solvedSnap.val() as {
+        txHash?: string | null; amount?: number; token?: string; paidOnChain?: boolean
+      } | null
+      const alreadyPaid = !!(
+        solved && ((typeof solved.txHash === 'string' && solved.txHash.length > 0) || solved.paidOnChain === true)
+      )
       if (alreadyPaid) {
         return NextResponse.json(
           {
@@ -230,7 +195,8 @@ export async function POST(req: NextRequest) {
           attemptsRemaining: 0,
           message: finalize.rewardStatus === 'paid'
             ? 'Correct code! Reward sent.'
-            : 'Correct code! Your reward is being finalized — reopen the vault in a moment to claim it.',
+            : finalize.message ?? 'Your win is recorded and the reward retries automatically.',
+          reason: finalize.reason,
           txHash: finalize.txHash,
           amount: finalize.amount, token: finalize.token,
         },
@@ -259,6 +225,8 @@ export async function POST(req: NextRequest) {
     let rewardStatus: 'paid' | 'pending' | 'none' = isCorrect ? 'pending' : 'none'
     let paidAmount: number | undefined
     let paidToken: string | undefined
+    let pendingReason: VaultPayoutFailure | undefined
+    let pendingMessage: string | undefined
 
     if (isCorrect) {
       // Record the win immediately — independent of the payout.
@@ -273,6 +241,8 @@ export async function POST(req: NextRequest) {
       rewardStatus = finalize.rewardStatus
       paidAmount = finalize.amount
       paidToken = finalize.token
+      pendingReason = finalize.reason
+      pendingMessage = finalize.message
     }
 
     return NextResponse.json(
@@ -285,8 +255,9 @@ export async function POST(req: NextRequest) {
         message: isCorrect
           ? (rewardStatus === 'paid'
               ? 'Correct code! Reward sent.'
-              : 'Correct code! Your reward is being finalized — reopen the vault in a moment to claim it.')
+              : pendingMessage ?? 'Your win is recorded and the reward retries automatically.')
           : 'Wrong code. Try again.',
+        reason: pendingReason,
         txHash,
         amount: paidAmount,
         token: paidToken,
